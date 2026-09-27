@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Reticulum test page</title>
 <style>
-  :root { color-scheme: light dark; --bg: #f6f7f9; --panel: #fff; --ink: #1d2230; --muted: #6a7285; --line: #d9dde5; --accent: #2f7fd1; --bad: #c0392b; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #15181e; --panel: #1e222a; --ink: #e4e7ee; --muted: #9098aa; --line: #2e3440; --accent: #5aa2ec; --bad: #e0685b; } }
+  :root { color-scheme: light dark; --bg: #f6f7f9; --panel: #fff; --ink: #1d2230; --muted: #6a7285; --line: #d9dde5; --accent: #2f7fd1; --bad: #c0392b; --field: #fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #15181e; --panel: #1e222a; --ink: #e4e7ee; --muted: #9098aa; --line: #2e3440; --accent: #5aa2ec; --bad: #e0685b; --field: #262b35; } }
   body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--ink); }
   header { display: flex; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
   header h1 { font-size: 16px; margin: 0; }
@@ -20,7 +20,10 @@
   td, th { text-align: left; padding: 4px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
   th { color: var(--muted); font-weight: 500; }
   img.icon { width: 24px; height: 24px; image-rendering: pixelated; vertical-align: middle; }
-  input, select, button { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+  input, select, button { font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+  select option { background: var(--panel); color: var(--ink); }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button:hover { border-color: var(--accent); }
   button { cursor: pointer; }
   .muted { color: var(--muted); }
   .bad { color: var(--bad); }
