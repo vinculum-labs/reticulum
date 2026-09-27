@@ -87,6 +87,10 @@ public class ControllerScreen extends Screen {
             setFocused(null);
             return true;
         }
+        if (ScreenKeys.isInventoryKey(this, keyCode, scanCode)) {
+            onClose();
+            return true;
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 

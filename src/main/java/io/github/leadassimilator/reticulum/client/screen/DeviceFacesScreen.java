@@ -84,6 +84,13 @@ public class DeviceFacesScreen extends Screen {
             setFocused(null);
             return true;
         }
+        if (ScreenKeys.isInventoryKey(this, keyCode, scanCode)) {
+            // Close everything, not just back to the connector screen.
+            sendRenames();
+            parent.sendRenames();
+            minecraft.setScreen(null);
+            return true;
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
