@@ -157,6 +157,8 @@ public final class WebApi {
                     }
                 }
                 NetworkManager.changed(server, network);
+                // Push right away rather than on the next tick: a paused singleplayer server doesn't tick.
+                pushSnapshots(server, network);
                 out.add("results", created);
                 yield out;
             }
@@ -390,6 +392,22 @@ public final class WebApi {
                     send(player, metrics(network));
                 }
             }
+        }
+    }
+
+    /** Sends a fresh snapshot of the network to every subscriber now. */
+    private static void pushSnapshots(MinecraftServer server, Network network) {
+        for (Map.Entry<UUID, Map<UUID, Integer>> entry : SUBSCRIPTIONS.entrySet()) {
+            Map<UUID, Integer> subs = entry.getValue();
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            if (player == null || !subs.containsKey(network.id()) || !Security.canView(network, player)) {
+                continue;
+            }
+            subs.put(network.id(), network.revision());
+            JsonObject push = new JsonObject();
+            push.addProperty("type", "snapshot");
+            push.add("network", Snapshots.full(server, network, Security.role(network, player)));
+            send(player, push);
         }
     }
 

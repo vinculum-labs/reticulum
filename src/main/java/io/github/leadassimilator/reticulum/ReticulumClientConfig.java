@@ -19,6 +19,11 @@ public final class ReticulumClientConfig {
                     "(the one-time link from the game is still needed once per game session).")
             .defineInRange("webPort", 0, 0, 65535);
 
+    public static final ModConfigSpec.BooleanValue KEEP_RUNNING_WHILE_EDITING = BUILDER
+            .comment("While the web editor is open in a browser, don't pause the game when its window loses focus, so",
+                    "singleplayer worlds keep running and the editor shows live throughput. Pressing Esc still pauses.")
+            .define("keepRunningWhileEditing", true);
+
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private ReticulumClientConfig() {

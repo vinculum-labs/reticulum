@@ -22,5 +22,6 @@ public class ReticulumClient {
         NeoForge.EVENT_BUS.addListener(LookHud::onClientTick);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingIn event) -> WebBridge.onLoggedIn());
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> WebBridge.onLoggedOut());
+        NeoForge.EVENT_BUS.addListener(WebBridge::onScreenOpening);
     }
 }

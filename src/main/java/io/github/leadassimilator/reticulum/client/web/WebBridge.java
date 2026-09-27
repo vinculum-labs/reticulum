@@ -268,6 +268,18 @@ public final class WebBridge {
         }
     }
 
+    /**
+     * Minecraft pauses by opening the pause screen when its window loses focus; in singleplayer that stops the
+     * server. While an editor page is connected, that automatic pause is skipped (Esc still pauses).
+     */
+    public static void onScreenOpening(net.neoforged.neoforge.client.event.ScreenEvent.Opening event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (event.getNewScreen() instanceof net.minecraft.client.gui.screens.PauseScreen && !mc.isWindowActive()
+                && !SOCKETS.isEmpty() && mc.screen == null && ReticulumClientConfig.KEEP_RUNNING_WHILE_EDITING.getAsBoolean()) {
+            event.setCanceled(true);
+        }
+    }
+
     public static void onLoggedIn() {
         broadcast("{\"type\":\"connected\"}");
     }

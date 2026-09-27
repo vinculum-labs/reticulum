@@ -40,6 +40,7 @@
   "message.reticulum.two_controllers": "Can't connect: both sides have a controller",
   "reticulum.configuration.energyPerTick": "Energy per route per tick",
   "reticulum.configuration.fluidPerTick": "Fluid per route per tick",
+  "reticulum.configuration.keepRunningWhileEditing": "Keep running while the editor is open",
   "reticulum.configuration.maxInteractDistance": "Max screen interaction distance",
   "reticulum.configuration.operatorBypass": "Operators bypass security",
   "reticulum.configuration.overflowFluidBuckets": "Overflow buffer buckets per fluid",
