@@ -83,7 +83,7 @@ final class ContinuousMover {
             }
             long moved = moveEnergy(from, sinks.get(i), share[i]);
             if (moved > 0) {
-                ctx.runtime().consume(routes.get(i).rateLimits(), moved);
+                ctx.runtime().delivered(routes.get(i), moved);
                 ctx.runtime().advance(routes.get(i));
             }
         }
@@ -197,7 +197,7 @@ final class ContinuousMover {
             }
             long moved = moveFluid(ctx, from, sinks.get(i), kind, share[i]);
             if (moved > 0) {
-                ctx.runtime().consume(routes.get(i).rateLimits(), moved);
+                ctx.runtime().delivered(routes.get(i), moved);
                 ctx.runtime().advance(routes.get(i));
             }
         }

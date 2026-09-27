@@ -11,12 +11,11 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import net.minecraft.core.GlobalPos;
-import net.minecraft.core.UUIDUtil;
 
 /** A connector that belongs to a network, and the devices it currently reaches. */
 public final class ConnectorRecord {
     public static final Codec<ConnectorRecord> CODEC = RecordCodecBuilder.create(i -> i.group(
-            UUIDUtil.CODEC.fieldOf("id").forGetter(r -> r.id),
+            Ids.UUID_CODEC.fieldOf("id").forGetter(r -> r.id),
             GlobalPos.CODEC.fieldOf("pos").forGetter(r -> r.pos),
             Codec.STRING.optionalFieldOf("name").forGetter(r -> Optional.ofNullable(r.name)),
             GlobalPos.CODEC.listOf().optionalFieldOf("devices", List.of()).forGetter(r -> r.devices)

@@ -32,8 +32,9 @@ public final class CompiledSheet {
     public record Gate(Filters.ItemFilter items, Filters.FluidFilter fluids, boolean reject) {
     }
 
+    /** {@code path} lists every node from source to sink and {@code wires} every wire between them, for metrics. */
     public record Route(Node source, Node sink, List<Gate> gates, List<Node> rateLimits, List<Branch> branches,
-            @Nullable Node kit, List<Gate> gatesBeforeKit) {
+            @Nullable Node kit, List<Gate> gatesBeforeKit, List<UUID> path, List<UUID> wires) {
         public NodeSettings.SourceSettings sourceSettings() {
             return (NodeSettings.SourceSettings) source.settings();
         }
@@ -135,6 +136,8 @@ public final class CompiledSheet {
         final List<Node> rateLimits = new ArrayList<>();
         final List<Branch> branches = new ArrayList<>();
         final Set<UUID> onPath = new HashSet<>();
+        final List<UUID> path = new ArrayList<>();
+        final List<UUID> wires = new ArrayList<>();
         Node kit;
         List<Gate> gatesBeforeKit = List.of();
 
@@ -144,6 +147,8 @@ public final class CompiledSheet {
             w.rateLimits.addAll(rateLimits);
             w.branches.addAll(branches);
             w.onPath.addAll(onPath);
+            w.path.addAll(path);
+            w.wires.addAll(wires);
             w.kit = kit;
             w.gatesBeforeKit = gatesBeforeKit;
             return w;
@@ -156,6 +161,7 @@ public final class CompiledSheet {
             errors.add("Wires loop back to " + describe(node) + "; resource wires must not form a cycle");
             return;
         }
+        walk.path.add(node.id());
         switch (node.settings()) {
             case NodeSettings.SinkSettings sink -> {
                 if (sink.port().resource() != resource) {
@@ -163,7 +169,7 @@ public final class CompiledSheet {
                             + " but is wired to a " + resource.getSerializedName() + " source");
                 } else {
                     routes.add(new Route(source, node, List.copyOf(walk.gates), List.copyOf(walk.rateLimits),
-                            List.copyOf(walk.branches), walk.kit, walk.gatesBeforeKit));
+                            List.copyOf(walk.branches), walk.kit, walk.gatesBeforeKit, List.copyOf(walk.path), List.copyOf(walk.wires)));
                 }
                 return;
             }
@@ -208,6 +214,7 @@ public final class CompiledSheet {
             if (wires.size() > 1) {
                 next.branches.add(new Branch(from.id(), i, wires.size(), mode));
             }
+            next.wires.add(wires.get(i).id());
             walk(source, nodes.get(wires.get(i).to()), resource, nodes, outgoing, gates, next, routes);
         }
     }

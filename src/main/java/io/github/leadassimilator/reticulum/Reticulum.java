@@ -9,6 +9,7 @@ import io.github.leadassimilator.reticulum.datagen.DataGenerators;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.integration.top.TopIntegration;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
+import io.github.leadassimilator.reticulum.protocol.web.WebApi;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import io.github.leadassimilator.reticulum.registry.ModCreativeTabs;
@@ -48,6 +49,9 @@ public class Reticulum {
         NeoForge.EVENT_BUS.addListener(BreakProtection::onBreak);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerTick);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerStopped);
+        NeoForge.EVENT_BUS.addListener(WebApi::onServerTick);
+        NeoForge.EVENT_BUS.addListener(WebApi::onLogout);
+        NeoForge.EVENT_BUS.addListener(WebApi::onServerStopped);
 
         modContainer.registerConfig(ModConfig.Type.SERVER, ReticulumConfig.SPEC);
     }

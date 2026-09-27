@@ -34,7 +34,7 @@ final class Overflow {
         if (!left.isEmpty()) {
             items.add(left);
         }
-        NetworkManager.data(ctx.server()).setDirty();
+        NetworkManager.changed(ctx.server(), ctx.network());
     }
 
     static void add(NetworkRuntime.Context ctx, FluidStack stack) {
@@ -42,12 +42,12 @@ final class Overflow {
         for (FluidStack held : fluids) {
             if (FluidStack.isSameFluidSameComponents(held, stack)) {
                 held.grow(stack.getAmount());
-                NetworkManager.data(ctx.server()).setDirty();
+                NetworkManager.changed(ctx.server(), ctx.network());
                 return;
             }
         }
         fluids.add(stack.copy());
-        NetworkManager.data(ctx.server()).setDirty();
+        NetworkManager.changed(ctx.server(), ctx.network());
     }
 
     static boolean itemsFull(Network network) {
@@ -90,7 +90,7 @@ final class Overflow {
             }
         }
         if (changed) {
-            NetworkManager.data(ctx.server()).setDirty();
+            NetworkManager.changed(ctx.server(), ctx.network());
         }
     }
 

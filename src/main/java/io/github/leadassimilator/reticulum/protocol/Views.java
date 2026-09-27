@@ -87,11 +87,12 @@ public final class Views {
         }
     }
 
-    public record ControllerView(BlockPos pos, String networkName, String ownerName, AccessMode mode, boolean hasPassword,
+    public record ControllerView(BlockPos pos, java.util.UUID networkId, String networkName, String ownerName, AccessMode mode, boolean hasPassword,
             int connectors, int devices, int orphans, boolean canEdit, boolean canAdmin) {
         public static final StreamCodec<RegistryFriendlyByteBuf, ControllerView> STREAM_CODEC = StreamCodec.of(
                 (buf, v) -> {
                     buf.writeBlockPos(v.pos);
+                    buf.writeUUID(v.networkId);
                     buf.writeUtf(v.networkName);
                     buf.writeUtf(v.ownerName);
                     AccessMode.STREAM_CODEC.encode(buf, v.mode);
@@ -102,7 +103,7 @@ public final class Views {
                     buf.writeBoolean(v.canEdit);
                     buf.writeBoolean(v.canAdmin);
                 },
-                buf -> new ControllerView(buf.readBlockPos(), buf.readUtf(), buf.readUtf(), AccessMode.STREAM_CODEC.decode(buf),
+                buf -> new ControllerView(buf.readBlockPos(), buf.readUUID(), buf.readUtf(), buf.readUtf(), AccessMode.STREAM_CODEC.decode(buf),
                         buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
                         ByteBufCodecs.VAR_INT.decode(buf), buf.readBoolean(), buf.readBoolean()));
     }

@@ -106,7 +106,7 @@ final class ItemMover {
                     if (moved > 0) {
                         available -= moved;
                         budget -= moved;
-                        ctx.runtime().consume(route.rateLimits(), moved);
+                        ctx.runtime().delivered(route, moved);
                         ctx.runtime().advance(route);
                         stack = handler.getStackInSlot(slot);
                         if (stack.isEmpty()) {

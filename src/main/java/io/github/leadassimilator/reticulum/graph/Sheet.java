@@ -9,7 +9,7 @@ import javax.annotation.Nullable;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import net.minecraft.core.UUIDUtil;
+import io.github.leadassimilator.reticulum.network.Ids;
 
 /**
  * A subnetwork: a canvas of nodes and wires. Every edit must go through a method here (or call {@link #touch()})
@@ -19,7 +19,7 @@ public final class Sheet {
     public static final int DEFAULT_INTERVAL = 10;
 
     public static final Codec<Sheet> CODEC = RecordCodecBuilder.create(i -> i.group(
-            UUIDUtil.CODEC.fieldOf("id").forGetter(s -> s.id),
+            Ids.UUID_CODEC.fieldOf("id").forGetter(s -> s.id),
             Codec.STRING.fieldOf("name").forGetter(s -> s.name),
             Codec.STRING.optionalFieldOf("folder", "").forGetter(s -> s.folder),
             Codec.BOOL.optionalFieldOf("enabled", true).forGetter(s -> s.enabled),

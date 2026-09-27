@@ -6,14 +6,14 @@ import java.util.UUID;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import net.minecraft.core.UUIDUtil;
+import io.github.leadassimilator.reticulum.network.Ids;
 
 /**
  * A node on a sheet. {@code x}/{@code y} are its position in the editor and have no effect on the engine.
  */
 public record Node(UUID id, NodeSettings settings, Optional<String> label, boolean enabled, float x, float y) {
     public static final Codec<Node> CODEC = RecordCodecBuilder.create(i -> i.group(
-            UUIDUtil.CODEC.fieldOf("id").forGetter(Node::id),
+            Ids.UUID_CODEC.fieldOf("id").forGetter(Node::id),
             NodeSettings.CODEC.fieldOf("settings").forGetter(Node::settings),
             Codec.STRING.optionalFieldOf("label").forGetter(Node::label),
             Codec.BOOL.optionalFieldOf("enabled", true).forGetter(Node::enabled),

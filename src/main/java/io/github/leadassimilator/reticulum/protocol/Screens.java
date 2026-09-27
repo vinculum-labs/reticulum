@@ -57,7 +57,7 @@ public final class Screens {
     }
 
     private static Views.ControllerView controllerView(ServerPlayer player, BlockPos pos, Network network) {
-        return new Views.ControllerView(pos, network.name(), network.ownerName(), network.accessMode(), network.passwordHash() != null,
+        return new Views.ControllerView(pos, network.id(), network.name(), network.ownerName(), network.accessMode(), network.passwordHash() != null,
                 network.connectors().size(), network.devices().size(), NetworkManager.orphanCount(network),
                 Security.canEdit(network, player), Security.canAdmin(network, player));
     }
@@ -147,7 +147,7 @@ public final class Screens {
         ConnectorRecord record = network.connector(connector.connectorId());
         if (record != null) {
             record.setName(clip(payload.name()));
-            NetworkManager.data(player.server).setDirty();
+            NetworkManager.changed(player.server, network);
         }
         open(player, payload.pos());
     }
@@ -171,7 +171,7 @@ public final class Screens {
         } else {
             record.setName(clip(payload.name()));
         }
-        NetworkManager.data(player.server).setDirty();
+        NetworkManager.changed(player.server, network);
         open(player, payload.pos());
     }
 
@@ -196,7 +196,7 @@ public final class Screens {
                 network.setAccessMode(payload.mode());
             }
         }
-        NetworkManager.data(player.server).setDirty();
+        NetworkManager.changed(player.server, network);
         open(player, payload.pos());
     }
 

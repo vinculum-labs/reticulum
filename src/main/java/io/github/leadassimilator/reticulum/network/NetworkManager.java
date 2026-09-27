@@ -27,6 +27,12 @@ public final class NetworkManager {
         return data(server).network(id);
     }
 
+    /** Marks a network as changed: it will be saved, and web UI subscribers get a fresh snapshot. */
+    public static void changed(MinecraftServer server, Network network) {
+        network.bump();
+        data(server).setDirty();
+    }
+
     public static Network create(MinecraftServer server, @Nullable Player owner) {
         ReticulumSavedData data = data(server);
         String name = owner != null
@@ -66,7 +72,7 @@ public final class NetworkManager {
                 releaseDevice(level.getServer(), network, device);
             }
         }
-        data(level.getServer()).setDirty();
+        changed(level.getServer(), network);
     }
 
     /** Removes a connector from its network; devices nothing else reaches follow the record lifecycle. */
@@ -76,7 +82,7 @@ public final class NetworkManager {
             for (GlobalPos device : record.devices()) {
                 releaseDevice(server, network, device);
             }
-            data(server).setDirty();
+            changed(server, network);
         }
     }
 
@@ -122,7 +128,7 @@ public final class NetworkManager {
             return false;
         }
         network.deviceMap().remove(pos);
-        data(server).setDirty();
+        changed(server, network);
         return true;
     }
 

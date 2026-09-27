@@ -102,6 +102,15 @@ configurations {
 }
 
 dependencies {
+    // The client-hosted web UI server. Minecraft ships Netty but not its HTTP module; bundled with jar-in-jar,
+    // pinned to Minecraft's Netty version.
+    jarJar(implementation("io.netty:netty-codec-http")) {
+        version {
+            strictly '[4.1.97.Final, 4.2)'
+            prefer '4.1.97.Final'
+        }
+    }
+
     // Look-at integrations: compiled against, never required at runtime.
     compileOnly "maven.modrinth:jade:${jade_version}"
     compileOnly("mcjty.theoneprobe:theoneprobe:${top_version}") { transitive = false }

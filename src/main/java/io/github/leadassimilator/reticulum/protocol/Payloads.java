@@ -144,6 +144,13 @@ public final class Payloads {
         registrar.playToClient(LookResponse.TYPE, LookResponse.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.LookHud.accept(payload.pos(), payload.lines()));
 
+        registrar.playToClient(io.github.leadassimilator.reticulum.protocol.web.WebPayloads.Chunk.TYPE,
+                io.github.leadassimilator.reticulum.protocol.web.WebPayloads.Chunk.STREAM_CODEC,
+                (payload, context) -> io.github.leadassimilator.reticulum.client.web.WebBridge.onChunk(payload));
+        registrar.playToServer(io.github.leadassimilator.reticulum.protocol.web.WebPayloads.Request.TYPE,
+                io.github.leadassimilator.reticulum.protocol.web.WebPayloads.Request.STREAM_CODEC,
+                (payload, context) -> server(context, player -> io.github.leadassimilator.reticulum.protocol.web.WebApi.onRequest(player, payload.json())));
+
         registrar.playToServer(LookRequest.TYPE, LookRequest.STREAM_CODEC,
                 (payload, context) -> server(context, player -> Screens.lookAt(player, payload)));
         registrar.playToServer(ToggleSide.TYPE, ToggleSide.STREAM_CODEC,

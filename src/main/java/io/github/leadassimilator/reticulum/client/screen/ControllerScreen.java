@@ -6,7 +6,6 @@ import io.github.leadassimilator.reticulum.security.AccessMode;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -66,11 +65,10 @@ public class ControllerScreen extends Screen {
         password.setEditable(view.canAdmin());
         addRenderableWidget(password);
 
-        Button editor = Button.builder(Component.translatable("screen.reticulum.open_editor"), b -> {
-        }).bounds(left, top + 160, 120, 20).build();
-        editor.active = false;
-        editor.setTooltip(Tooltip.create(Component.translatable("screen.reticulum.open_editor_unavailable")));
-        addRenderableWidget(editor);
+        addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.open_editor"), b -> {
+            onClose();
+            io.github.leadassimilator.reticulum.client.web.WebBridge.openEditor(view.networkId());
+        }).bounds(left, top + 160, 120, 20).build());
 
         Button save = Button.builder(Component.translatable("screen.reticulum.save"), b -> save())
                 .bounds(left + WIDTH - 80, top + 160, 80, 20).build();

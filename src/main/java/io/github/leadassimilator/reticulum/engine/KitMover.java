@@ -306,7 +306,7 @@ final class KitMover {
             perRoute.merge(take.route, (long) take.stack.getCount(), Long::sum);
         }
         perRoute.forEach((route, count) -> {
-            ctx.runtime().consume(route.rateLimits(), count);
+            ctx.runtime().delivered(route, count);
             ctx.runtime().advance(route);
         });
         return true;

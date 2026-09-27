@@ -94,7 +94,7 @@ public final class ReticulumCommand {
             throw NO_ACCESS.create();
         }
         network.members().put(player.getUUID(), new Member(player.getUUID(), player.getGameProfile().getName(), Role.USER));
-        NetworkManager.data(ctx.getSource().getServer()).setDirty();
+        NetworkManager.changed(ctx.getSource().getServer(), network);
         ctx.getSource().sendSuccess(() -> Component.translatable("command.reticulum.joined", network.name()), false);
         return 1;
     }
@@ -115,7 +115,7 @@ public final class ReticulumCommand {
             network.members().put(profile.getId(), new Member(profile.getId(), profile.getName(), role));
             count++;
         }
-        NetworkManager.data(ctx.getSource().getServer()).setDirty();
+        NetworkManager.changed(ctx.getSource().getServer(), network);
         int added = count;
         ctx.getSource().sendSuccess(() -> Component.translatable("command.reticulum.member_added", added, network.name()), true);
         return count;
@@ -129,7 +129,7 @@ public final class ReticulumCommand {
                 count++;
             }
         }
-        NetworkManager.data(ctx.getSource().getServer()).setDirty();
+        NetworkManager.changed(ctx.getSource().getServer(), network);
         int removed = count;
         ctx.getSource().sendSuccess(() -> Component.translatable("command.reticulum.member_removed", removed, network.name()), true);
         return count;

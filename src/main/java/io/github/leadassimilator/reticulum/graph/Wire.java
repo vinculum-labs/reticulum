@@ -5,7 +5,7 @@ import java.util.UUID;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import net.minecraft.core.UUIDUtil;
+import io.github.leadassimilator.reticulum.network.Ids;
 
 /**
  * A wire from one node's output to another node's input. {@code output} picks the output on nodes with several
@@ -16,10 +16,10 @@ public record Wire(UUID id, UUID from, int output, UUID to, int order) {
     public static final int REJECT = 1;
 
     public static final Codec<Wire> CODEC = RecordCodecBuilder.create(i -> i.group(
-            UUIDUtil.CODEC.fieldOf("id").forGetter(Wire::id),
-            UUIDUtil.CODEC.fieldOf("from").forGetter(Wire::from),
+            Ids.UUID_CODEC.fieldOf("id").forGetter(Wire::id),
+            Ids.UUID_CODEC.fieldOf("from").forGetter(Wire::from),
             Codec.INT.optionalFieldOf("output", 0).forGetter(Wire::output),
-            UUIDUtil.CODEC.fieldOf("to").forGetter(Wire::to),
+            Ids.UUID_CODEC.fieldOf("to").forGetter(Wire::to),
             Codec.INT.optionalFieldOf("order", 0).forGetter(Wire::order)
     ).apply(i, Wire::new));
 

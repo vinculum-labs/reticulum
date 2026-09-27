@@ -69,7 +69,9 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.counts", "Connectors: %s   Devices: %s");
         add("screen.reticulum.orphans", "Orphaned devices: %s");
         add("screen.reticulum.open_editor", "Open editor");
-        add("screen.reticulum.open_editor_unavailable", "The web editor is not available yet");
+        add("message.reticulum.editor_opened", "Opened the Reticulum editor in your browser: %s");
+        add("message.reticulum.editor_focused", "Switched the open Reticulum editor to this network");
+        add("message.reticulum.editor_link_hover", "Click to open the editor in your browser");
         add("screen.reticulum.save", "Save");
 
         add("command.reticulum.unknown_network", "No network with that name or id");

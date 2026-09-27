@@ -42,6 +42,7 @@ public final class NetworkRuntime {
     private final Map<UUID, Integer> roundRobin = new HashMap<>();
     private final Map<UUID, Integer> backoff = new HashMap<>();
     private final Set<String> reportedErrors = new LinkedHashSet<>();
+    private final Metrics metrics = new Metrics();
     private long ticks;
 
     private record CacheKey(GlobalPos device, FaceKey face, ResourceKind resource) {
@@ -53,6 +54,16 @@ public final class NetworkRuntime {
 
     public long ticks() {
         return ticks;
+    }
+
+    public Metrics metrics() {
+        return metrics;
+    }
+
+    /** The compiled form of a sheet, if the engine has compiled it (sheets are compiled while the network runs). */
+    @Nullable
+    public CompiledSheet compiledIfPresent(UUID sheetId) {
+        return compiled.get(sheetId);
     }
 
     // ---------------------------------------------------------------- ticking
@@ -78,6 +89,7 @@ public final class NetworkRuntime {
         if (ticks % 20 == 0) {
             Overflow.retry(context, sheets);
         }
+        metrics.tick(ticks);
     }
 
     public CompiledSheet compiled(Sheet sheet, Network network) {
@@ -120,6 +132,12 @@ public final class NetworkRuntime {
             allowed = Math.min(allowed, (long) Math.floor(tokens.getOrDefault(node.id(), 0.0)));
         }
         return allowed;
+    }
+
+    /** Records a delivery for metrics and charges the route's rate limits. */
+    public void delivered(CompiledSheet.Route route, long amount) {
+        consume(route.rateLimits(), amount);
+        metrics.record(route, amount);
     }
 
     public void consume(List<Node> rateLimits, long amount) {

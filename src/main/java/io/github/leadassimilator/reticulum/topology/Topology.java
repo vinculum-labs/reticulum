@@ -273,7 +273,7 @@ public final class Topology {
         }
         network.setController(here);
         controller.setNetworkId(network.id());
-        NetworkManager.data(level.getServer()).setDirty();
+        NetworkManager.changed(level.getServer(), network);
         return network.id();
     }
 
@@ -313,7 +313,7 @@ public final class Topology {
             }
             if (removed.controller() && Devices.global(level, pos).equals(network.controller())) {
                 network.setController(null);
-                NetworkManager.data(level.getServer()).setDirty();
+                NetworkManager.changed(level.getServer(), network);
             }
         }
         // Automatic disconnects only existed because of the removed block; a new block there starts fresh.

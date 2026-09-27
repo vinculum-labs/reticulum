@@ -17,19 +17,18 @@ import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.security.Member;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.core.UUIDUtil;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 /**
  * One network: its identity, security settings, connectors and named devices.
- * Mutations must be followed by {@link ReticulumSavedData#setDirty()}; {@link NetworkManager} does this.
+ * Mutations must be followed by {@link NetworkManager#changed}, which saves and notifies web UI subscribers.
  */
 public final class Network {
     public static final Codec<Network> CODEC = RecordCodecBuilder.create(i -> i.group(
-            UUIDUtil.CODEC.fieldOf("id").forGetter(n -> n.id),
+            Ids.UUID_CODEC.fieldOf("id").forGetter(n -> n.id),
             Codec.STRING.fieldOf("name").forGetter(n -> n.name),
-            UUIDUtil.CODEC.optionalFieldOf("owner").forGetter(n -> Optional.ofNullable(n.owner)),
+            Ids.UUID_CODEC.optionalFieldOf("owner").forGetter(n -> Optional.ofNullable(n.owner)),
             Codec.STRING.optionalFieldOf("owner_name", "").forGetter(n -> n.ownerName),
             AccessMode.CODEC.optionalFieldOf("access", AccessMode.PRIVATE).forGetter(n -> n.accessMode),
             Codec.STRING.optionalFieldOf("password").forGetter(n -> Optional.ofNullable(n.passwordHash)),
@@ -64,6 +63,8 @@ public final class Network {
     /** Resources that could be neither delivered nor returned; retried first on later operations. */
     private final List<ItemStack> overflowItems = new ArrayList<>();
     private final List<FluidStack> overflowFluids = new ArrayList<>();
+    /** Bumped on every change; not saved. The web protocol sends a new snapshot when it moves. */
+    private int revision;
 
     public Network(UUID id, String name, @Nullable UUID owner, String ownerName, AccessMode accessMode) {
         this.id = id;
@@ -111,6 +112,12 @@ public final class Network {
 
     public String ownerName() {
         return ownerName;
+    }
+
+    /** Transfers ownership. A network without an owner is open to everyone whatever its access mode. */
+    public void setOwner(@Nullable UUID owner, String ownerName) {
+        this.owner = owner;
+        this.ownerName = ownerName;
     }
 
     public AccessMode accessMode() {
@@ -220,5 +227,13 @@ public final class Network {
 
     public List<FluidStack> overflowFluids() {
         return overflowFluids;
+    }
+
+    public int revision() {
+        return revision;
+    }
+
+    public void bump() {
+        revision++;
     }
 }
