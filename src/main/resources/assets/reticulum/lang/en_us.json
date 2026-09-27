@@ -1,0 +1,13 @@
+{
+  "itemGroup.reticulum": "Example Mod Tab",
+  "block.reticulum.example_block": "Example Block",
+  "item.reticulum.example_item": "Example Item",
+
+  "reticulum.configuration.title": "Reticulum Configs",
+  "reticulum.configuration.section.reticulum.common.toml": "Reticulum Configs",
+  "reticulum.configuration.section.reticulum.common.toml.title": "Reticulum Configs",
+  "reticulum.configuration.items": "Item List",
+  "reticulum.configuration.logDirtBlock": "Log Dirt Block",
+  "reticulum.configuration.magicNumberIntroduction": "Magic Number Text",
+  "reticulum.configuration.magicNumber": "Magic Number"
+}
