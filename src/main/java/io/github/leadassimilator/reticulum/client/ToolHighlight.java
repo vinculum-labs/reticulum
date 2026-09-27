@@ -15,8 +15,8 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderHighlightEvent;
 
 /**
- * While the network tool is held, the outline of a cable or connector narrows to the joint the next click will
- * toggle, since the full-block hitbox alone doesn't show which arm is targeted.
+ * While the network tool or a block is held, the outline of a cable or connector narrows to the side the next click
+ * acts on (the joint to toggle, or where the block will be placed), since the full-block hitbox alone doesn't show it.
  */
 public final class ToolHighlight {
     private ToolHighlight() {
@@ -24,7 +24,11 @@ public final class ToolHighlight {
 
     public static void onRenderHighlight(RenderHighlightEvent.Block event) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null || !(mc.player.getMainHandItem().getItem() instanceof NetworkToolItem)) {
+        if (mc.player == null || mc.level == null) {
+            return;
+        }
+        var held = mc.player.getMainHandItem().getItem();
+        if (!(held instanceof NetworkToolItem) && !(held instanceof net.minecraft.world.item.BlockItem)) {
             return;
         }
         BlockPos pos = event.getTarget().getBlockPos();

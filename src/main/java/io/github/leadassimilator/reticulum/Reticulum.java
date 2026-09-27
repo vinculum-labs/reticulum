@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
+import io.github.leadassimilator.reticulum.block.PlacementRedirect;
 import io.github.leadassimilator.reticulum.command.ReticulumCommand;
 import io.github.leadassimilator.reticulum.datagen.DataGenerators;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
@@ -47,6 +48,7 @@ public class Reticulum {
 
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> ReticulumCommand.register(event.getDispatcher()));
         NeoForge.EVENT_BUS.addListener(BreakProtection::onBreak);
+        NeoForge.EVENT_BUS.addListener(PlacementRedirect::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerTick);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerStopped);
         NeoForge.EVENT_BUS.addListener(WebApi::onServerTick);
