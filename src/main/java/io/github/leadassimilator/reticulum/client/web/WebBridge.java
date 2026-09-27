@@ -80,12 +80,15 @@ public final class WebBridge {
                             ch.pipeline().addLast(new HttpServerCodec(), new HttpObjectAggregator(64 * 1024), new HttpHandler());
                         }
                     })
-                    .bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
+                    // Explicitly IPv4: Minecraft launches with preferIPv6Addresses=system, where "the loopback address"
+                    // is ::1, which the http://127.0.0.1 link can't reach.
+                    .bind(new InetSocketAddress(InetAddress.getByAddress(new byte[] {127, 0, 0, 1}), 0))
                     .syncUninterruptibly()
                     .channel();
-            port = ((InetSocketAddress) server.localAddress()).getPort();
-            Reticulum.LOGGER.info("Reticulum web editor listening on 127.0.0.1:{}", port);
-        } catch (RuntimeException e) {
+            InetSocketAddress bound = (InetSocketAddress) server.localAddress();
+            port = bound.getPort();
+            Reticulum.LOGGER.info("Reticulum web editor listening on {}", bound);
+        } catch (java.net.UnknownHostException | RuntimeException e) {
             Reticulum.LOGGER.error("Could not start the Reticulum web editor", e);
             stop();
         }
