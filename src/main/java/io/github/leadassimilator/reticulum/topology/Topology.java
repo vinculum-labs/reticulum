@@ -39,10 +39,10 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Cable topology. Rules (see the design spec, "Keeping cable lines apart"):
  * <ul>
- * <li>Two network blocks are joined when neither side is cut and their networks are compatible
+ * <li>Two network blocks are connected when neither side is disconnected and their networks are compatible
  * (equal, or at least one has none).</li>
  * <li>A new block takes the network of the block it was placed against; neighbors of any other network,
- * or that the player may not use, are cut automatically.</li>
+ * or that the player may not use, are disconnected automatically.</li>
  * <li>Network ids are sticky: losing the controller or unloading part of a network never reassigns them.</li>
  * </ul>
  */
@@ -98,10 +98,10 @@ public final class Topology {
     }
 
     public enum JointState {
-        JOINED,
-        CUT,
-        /** Not cut, but the two sides belong to different networks. */
-        BLOCKED
+        CONNECTED,
+        DISCONNECTED,
+        /** Not disconnected by hand, but the two sides belong to different networks. */
+        CONFLICT
     }
 
     @Nullable
@@ -112,17 +112,17 @@ public final class Topology {
             return null;
         }
         boolean differentNetworks = !compatible(networkOf(level, a), networkOf(level, b));
-        if (a.isCut(side) || b.isCut(side.getOpposite())) {
-            return differentNetworks ? JointState.BLOCKED : JointState.CUT;
+        if (a.isDisconnected(side) || b.isDisconnected(side.getOpposite())) {
+            return differentNetworks ? JointState.CONFLICT : JointState.DISCONNECTED;
         }
-        return differentNetworks ? JointState.BLOCKED : JointState.JOINED;
+        return differentNetworks ? JointState.CONFLICT : JointState.CONNECTED;
     }
 
-    public static boolean joined(ServerLevel level, BlockPos pos, Direction side) {
-        return jointState(level, pos, side) == JointState.JOINED;
+    public static boolean connected(ServerLevel level, BlockPos pos, Direction side) {
+        return jointState(level, pos, side) == JointState.CONNECTED;
     }
 
-    /** Flood fill over joined sides. {@code exclude} is treated as already visited. */
+    /** Flood fill over connected sides. {@code exclude} is treated as already visited. */
     public static Section component(ServerLevel level, BlockPos start, @Nullable BlockPos exclude) {
         Set<BlockPos> visited = new LinkedHashSet<>();
         Set<UUID> networks = new HashSet<>();
@@ -152,7 +152,7 @@ public final class Topology {
             }
             for (Direction dir : Direction.values()) {
                 BlockPos next = pos.relative(dir);
-                if (!visited.contains(next) && joined(level, pos, dir)) {
+                if (!visited.contains(next) && connected(level, pos, dir)) {
                     visited.add(next);
                     queue.add(next);
                 }
@@ -180,7 +180,7 @@ public final class Topology {
         for (Direction dir : Direction.values()) {
             BlockPos next = pos.relative(dir);
             NetworkBlockEntity neighbor = blockEntity(level, next);
-            if (neighbor == null || be.isCut(dir) || neighbor.isCut(dir.getOpposite())) {
+            if (neighbor == null || be.isDisconnected(dir) || neighbor.isDisconnected(dir.getOpposite())) {
                 continue;
             }
             Section comp = component(level, next, pos);
@@ -188,7 +188,7 @@ public final class Topology {
             if (net != null && player != null) {
                 Network network = NetworkManager.network(level.getServer(), net);
                 if (network != null && !Security.canUse(network, player)) {
-                    cutAutomatically(be, neighbor, dir);
+                    disconnectAutomatically(be, neighbor, dir);
                     player.displayClientMessage(Component.translatable("message.reticulum.no_access", network.name()), true);
                     continue;
                 }
@@ -216,14 +216,14 @@ public final class Topology {
         for (Map.Entry<Direction, Section> side : sides.entrySet()) {
             Section comp = side.getValue();
             UUID net = comp.network();
-            boolean join = primary != null ? net == null || net.equals(primary) : net == null;
+            boolean connect = primary != null ? net == null || net.equals(primary) : net == null;
             if (own != null && !comp.controllers().isEmpty()) {
-                join = false;
+                connect = false;
             }
-            if (!join) {
+            if (!connect) {
                 NetworkBlockEntity neighbor = blockEntity(level, pos.relative(side.getKey()));
                 if (neighbor != null) {
-                    cutAutomatically(be, neighbor, side.getKey());
+                    disconnectAutomatically(be, neighbor, side.getKey());
                 }
             }
         }
@@ -240,9 +240,9 @@ public final class Topology {
         refreshAround(level, Set.of(pos));
     }
 
-    private static void cutAutomatically(NetworkBlockEntity be, NetworkBlockEntity neighbor, Direction dir) {
-        be.setAutoCut(dir, true);
-        neighbor.setAutoCut(dir.getOpposite(), true);
+    private static void disconnectAutomatically(NetworkBlockEntity be, NetworkBlockEntity neighbor, Direction dir) {
+        be.setAutoDisconnected(dir, true);
+        neighbor.setAutoDisconnected(dir.getOpposite(), true);
     }
 
     /** Finds or creates the controller's network. Returns its id. */
@@ -314,11 +314,11 @@ public final class Topology {
                 NetworkManager.data(level.getServer()).setDirty();
             }
         }
-        // Automatic cuts only existed because of the removed block; a new block there starts fresh.
+        // Automatic disconnects only existed because of the removed block; a new block there starts fresh.
         for (Direction dir : Direction.values()) {
             NetworkBlockEntity neighbor = blockEntity(level, pos.relative(dir));
-            if (neighbor != null && !neighbor.isManualCut(dir.getOpposite())) {
-                neighbor.setAutoCut(dir.getOpposite(), false);
+            if (neighbor != null && !neighbor.isManuallyDisconnected(dir.getOpposite())) {
+                neighbor.setAutoDisconnected(dir.getOpposite(), false);
             }
         }
     }
@@ -378,7 +378,7 @@ public final class Topology {
     // ---------------------------------------------------------------- player actions
 
     /**
-     * Cuts a joined joint, or joins a cut or blocked one. A connector side facing a device is switched on or off
+     * Disconnects a connected joint, or connects a disconnected or conflicting one. A connector side facing a device is attached or detached
      * instead. Returns the message to show the player.
      */
     public static Component toggle(ServerLevel level, BlockPos pos, Direction side, @Nullable ServerPlayer player) {
@@ -392,7 +392,7 @@ public final class Topology {
             if (a instanceof ConnectorBlockEntity connector && Devices.isDevice(level, otherPos)) {
                 return toggleDevice(level, pos, connector, side, player);
             }
-            return Component.translatable("message.reticulum.nothing_to_join");
+            return Component.translatable("message.reticulum.nothing_to_connect");
         }
         Network netA = NetworkManager.network(level.getServer(), networkOf(level, a));
         Network netB = NetworkManager.network(level.getServer(), networkOf(level, b));
@@ -400,11 +400,11 @@ public final class Topology {
             return Component.translatable("message.reticulum.no_edit_access");
         }
 
-        if (joined(level, pos, side)) {
-            a.setManualCut(side, true);
-            b.setManualCut(side.getOpposite(), true);
+        if (connected(level, pos, side)) {
+            a.setManuallyDisconnected(side, true);
+            b.setManuallyDisconnected(side.getOpposite(), true);
             refreshAround(level, Set.of(pos, otherPos));
-            return Component.translatable("message.reticulum.cut");
+            return Component.translatable("message.reticulum.disconnected");
         }
 
         Section compA = component(level, pos, null);
@@ -430,14 +430,14 @@ public final class Topology {
                 return Component.translatable("message.reticulum.two_controllers");
             }
         }
-        a.clearCuts(side);
-        b.clearCuts(side.getOpposite());
+        a.clearDisconnects(side);
+        b.clearDisconnects(side.getOpposite());
         assign(level, compA, target);
         assign(level, compB, target);
         Set<BlockPos> changed = new HashSet<>(compA.blocks());
         changed.addAll(compB.blocks());
         refreshAround(level, changed);
-        return Component.translatable("message.reticulum.joined");
+        return Component.translatable("message.reticulum.connected");
     }
 
     private static Component toggleDevice(ServerLevel level, BlockPos pos, ConnectorBlockEntity connector, Direction side, @Nullable ServerPlayer player) {
@@ -449,7 +449,7 @@ public final class Topology {
         connector.setDeviceEnabled(side, enable);
         rescanConnector(level, pos);
         refreshState(level, pos);
-        return Component.translatable(enable ? "message.reticulum.device_on" : "message.reticulum.device_off");
+        return Component.translatable(enable ? "message.reticulum.device_attached" : "message.reticulum.device_detached");
     }
 
     /**
@@ -493,8 +493,8 @@ public final class Topology {
     private static Link link(ServerLevel level, BlockPos pos, NetworkBlockEntity be, Direction side, EnumProperty<Link> property) {
         BlockPos next = pos.relative(side);
         if (blockEntity(level, next) != null) {
-            // A cut or blocked joint renders as if nothing were there.
-            return joined(level, pos, side) ? Link.CABLE : Link.NONE;
+            // A disconnected or conflicting joint renders as if nothing were there.
+            return connected(level, pos, side) ? Link.CABLE : Link.NONE;
         }
         if (be instanceof ConnectorBlockEntity connector && property.getPossibleValues().contains(Link.DEVICE)
                 && connector.isDeviceEnabled(side) && Devices.isDevice(level, next)) {

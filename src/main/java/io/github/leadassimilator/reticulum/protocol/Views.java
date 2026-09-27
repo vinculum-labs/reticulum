@@ -25,9 +25,10 @@ public final class Views {
     }
 
     public enum JointView {
-        JOINED,
-        CUT,
-        BLOCKED
+        CONNECTED,
+        DISCONNECTED,
+        /** The two sides belong to different networks. */
+        CONFLICT
     }
 
     /**

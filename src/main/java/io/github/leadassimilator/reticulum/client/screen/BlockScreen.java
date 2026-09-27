@@ -17,7 +17,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * Quick screen for a connector or a cable: one row per side. Connector rows for devices carry an editable name,
- * an on/off switch and a button to name the device's faces; rows for neighboring network blocks cut or join the joint.
+ * an attach/detach switch and a button to name the device's faces; rows for neighboring network blocks connect or disconnect the joint.
  */
 public class BlockScreen extends Screen {
     private static final int WIDTH = 340;
@@ -84,18 +84,18 @@ public class BlockScreen extends Screen {
                     deviceNames.put(side.side(), name);
                 }
                 addRenderableWidget(name);
-                Button toggle = Button.builder(Component.translatable(side.enabled() ? "screen.reticulum.on" : "screen.reticulum.off"),
-                        b -> toggle(side.side())).bounds(x + 154, y - 1, 40, 20).build();
+                Button toggle = Button.builder(Component.translatable(side.enabled() ? "screen.reticulum.attached" : "screen.reticulum.detached"),
+                        b -> toggle(side.side())).bounds(x + 154, y - 1, 58, 20).build();
                 toggle.active = view.canEdit();
                 addRenderableWidget(toggle);
                 Button faces = Button.builder(Component.translatable("screen.reticulum.faces"), b -> openFaces(side.side()))
-                        .bounds(x + 198, y - 1, WIDTH - 80 - 198, 20).build();
+                        .bounds(x + 216, y - 1, WIDTH - 80 - 216, 20).build();
                 faces.active = side.enabled() && !view.networkName().isEmpty();
                 addRenderableWidget(faces);
             }
             case JOINT -> {
                 Button toggle = Button.builder(Component.translatable("screen.reticulum.joint." + side.joint().name().toLowerCase(java.util.Locale.ROOT)),
-                        b -> toggle(side.side())).bounds(left + WIDTH - 80, y - 1, 80, 20).build();
+                        b -> toggle(side.side())).bounds(left + WIDTH - 96, y - 1, 96, 20).build();
                 toggle.active = view.canEdit();
                 addRenderableWidget(toggle);
             }

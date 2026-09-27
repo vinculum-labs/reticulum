@@ -86,34 +86,34 @@ public final class TopologyTests {
         place(helper, new BlockPos(1, 1, 2), ModBlocks.CABLE.get(), Direction.NORTH);
         place(helper, new BlockPos(1, 1, 5), ModBlocks.CONTROLLER.get(), null);
         place(helper, new BlockPos(1, 1, 4), ModBlocks.CABLE.get(), Direction.SOUTH);
-        // The middle cable touches both networks; it joins the one it was placed against.
+        // The middle cable touches both networks; it connects to the one it was placed against.
         place(helper, new BlockPos(1, 1, 3), ModBlocks.CABLE.get(), Direction.NORTH);
 
         UUID a = net(helper, new BlockPos(1, 1, 1));
         UUID b = net(helper, new BlockPos(1, 1, 5));
         check(helper, !a.equals(b), "controllers share a network");
-        check(helper, a.equals(net(helper, new BlockPos(1, 1, 3))), "middle cable did not join the network it was placed against");
+        check(helper, a.equals(net(helper, new BlockPos(1, 1, 3))), "middle cable did not connect to the network it was placed against");
         check(helper, b.equals(net(helper, new BlockPos(1, 1, 4))), "network B's cable changed network");
-        check(helper, !Topology.joined(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 3)), Direction.SOUTH),
-                "cable joined across two networks");
+        check(helper, !Topology.connected(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 3)), Direction.SOUTH),
+                "cable connected across two networks");
         helper.succeed();
     }
 
     @GameTest(template = "empty")
-    public static void cutAndJoinAgain(GameTestHelper helper) {
+    public static void disconnectAndReconnect(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         place(helper, new BlockPos(3, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         BlockPos middle = helper.absolutePos(new BlockPos(2, 1, 1));
 
         Topology.toggle(helper.getLevel(), middle, Direction.EAST, null);
-        check(helper, Topology.jointState(helper.getLevel(), middle, Direction.EAST) == Topology.JointState.CUT, "joint not cut");
-        check(helper, !Topology.component(helper.getLevel(), middle, null).blocks().contains(middle.east()), "cut section still connected");
-        // Network ids are sticky: the cut-off cable keeps its network.
-        check(helper, net(helper, new BlockPos(1, 1, 1)).equals(net(helper, new BlockPos(3, 1, 1))), "cut-off cable lost its network");
+        check(helper, Topology.jointState(helper.getLevel(), middle, Direction.EAST) == Topology.JointState.DISCONNECTED, "joint not disconnected");
+        check(helper, !Topology.component(helper.getLevel(), middle, null).blocks().contains(middle.east()), "disconnected section still connected");
+        // Network ids are sticky: the disconnected cable keeps its network.
+        check(helper, net(helper, new BlockPos(1, 1, 1)).equals(net(helper, new BlockPos(3, 1, 1))), "disconnected cable lost its network");
 
         Topology.toggle(helper.getLevel(), middle, Direction.EAST, null);
-        check(helper, Topology.joined(helper.getLevel(), middle, Direction.EAST), "joint not joined again");
+        check(helper, Topology.connected(helper.getLevel(), middle, Direction.EAST), "joint not connected again");
         helper.succeed();
     }
 

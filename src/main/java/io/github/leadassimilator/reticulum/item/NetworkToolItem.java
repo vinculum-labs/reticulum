@@ -10,8 +10,8 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.phys.BlockHitResult;
 
 /**
- * The network tool. Phase 1 has only Configure mode: right-click a joint of a cable or connector to cut or join it,
- * or a connector's device side to switch that device on or off. Link and Identify modes come later.
+ * The network tool. Phase 1 has only Configure mode: right-click a joint of a cable or connector to connect or disconnect it,
+ * or a connector's device side to attach or detach that device. Link and Identify modes come later.
  */
 public class NetworkToolItem extends Item {
     public NetworkToolItem(Properties properties) {

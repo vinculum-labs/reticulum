@@ -85,9 +85,9 @@ public final class Screens {
         Topology.JointState joint = Topology.jointState(level, pos, dir);
         if (joint != null) {
             Views.JointView view = switch (joint) {
-                case JOINED -> Views.JointView.JOINED;
-                case CUT -> Views.JointView.CUT;
-                case BLOCKED -> Views.JointView.BLOCKED;
+                case CONNECTED -> Views.JointView.CONNECTED;
+                case DISCONNECTED -> Views.JointView.DISCONNECTED;
+                case CONFLICT -> Views.JointView.CONFLICT;
             };
             return new Views.SideView(dir, Views.SideKind.JOINT, view, true, Devices.icon(level, next),
                     level.getBlockState(next).getBlock().getName().getString(), "", List.of());
@@ -99,11 +99,11 @@ public final class Screens {
                 String name = record == null ? null : record.faceName(face);
                 faces.add(name == null ? "" : name);
             }
-            return new Views.SideView(dir, Views.SideKind.DEVICE, Views.JointView.CUT, connector.isDeviceEnabled(dir),
+            return new Views.SideView(dir, Views.SideKind.DEVICE, Views.JointView.DISCONNECTED, connector.isDeviceEnabled(dir),
                     Devices.icon(level, next), Devices.defaultName(level, next),
                     record == null || record.name() == null ? "" : record.name(), faces);
         }
-        return new Views.SideView(dir, Views.SideKind.NONE, Views.JointView.CUT, false, ItemStack.EMPTY, "", "", List.of());
+        return new Views.SideView(dir, Views.SideKind.NONE, Views.JointView.DISCONNECTED, false, ItemStack.EMPTY, "", "", List.of());
     }
 
     /** Answers the built-in HUD. Limited to blocks the player could plausibly be looking at. */
