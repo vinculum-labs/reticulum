@@ -176,7 +176,8 @@ function renderSheet(sheet) {
     <table class="nodes"><tr><th>Node</th><th>Detail</th><th>Per second</th><th></th></tr></table>
     <div class="row">Quick flow:
       <select class="res"><option>item</option><option>fluid</option><option>energy</option></select>
-      from <select class="src"></select> to <select class="dst"></select>
+      from <select class="src"></select> <select class="srcFace" title="Source face"></select>
+      to <select class="dst"></select> <select class="dstFace" title="Sink face"></select>
       <input class="filter" placeholder="filter (optional)" size="18">
       <span class="itemAmount">move <select class="amount"><option value="1">single</option><option value="0" selected>stack</option><option value="custom">custom</option></select>
         <input class="custom" type="number" min="1" value="16" style="width:5em; display:none"> per operation</span>
@@ -189,7 +190,8 @@ function renderSheet(sheet) {
   for (const node of sheet.nodes || []) {
     const st = node.settings;
     const amountText = st.kind === "source" && st.resource === "item" ? `, ${!st.per_operation ? "a stack" : st.per_operation === 1 ? "single" : st.per_operation} per op` : "";
-    const detail = st.device ? `${st.resource} ${st.kind === "source" ? "from" : "to"} ${esc(deviceLabel(st.device))}${amountText}`
+    const faceText = st.device ? ` (${st.faces?.length ? esc(st.faces.join(", ")) : "auto"})` : "";
+    const detail = st.device ? `${st.resource} ${st.kind === "source" ? "from" : "to"} ${esc(deviceLabel(st.device))}${faceText}${amountText}`
       : st.expression !== undefined ? `<code>${esc(st.expression)}</code>`
       : st.per_second !== undefined ? `${st.per_second}/s`
       : st.lines ? st.lines.map(l => `${l.count}× ${esc(l.filter)}`).join(" + ") : esc(st.mode || "");
@@ -198,12 +200,25 @@ function renderSheet(sheet) {
     box.querySelector(".nodes").append(row);
   }
   const res = box.querySelector(".res"), src = box.querySelector(".src"), dst = box.querySelector(".dst");
+  const srcFace = box.querySelector(".srcFace"), dstFace = box.querySelector(".dstFace");
+  // Faces offering the chosen resource on the chosen device; "auto" uses the whole block.
+  const faces = (select, faceSelect) => {
+    const d = src.devices?.[+select.value];
+    const offered = d?.resources?.[res.value] || [];
+    faceSelect.innerHTML = `<option value="">auto</option>` + offered.map(f => {
+      const custom = d.faceNames?.[f];
+      return `<option value="${f}">${esc(custom ? `${custom} (${f})` : f)}</option>`;
+    }).join("");
+  };
   const fill = () => {
     const offering = snapshot.devices.filter(d => d.resources && d.resources[res.value]?.length);
     const opts = offering.map((d, i) => `<option value="${i}">${esc(d.name || d.defaultName)}</option>`).join("");
     src.innerHTML = opts; dst.innerHTML = opts;
     src.devices = offering; if (offering.length > 1) dst.value = "1";
+    faces(src, srcFace); faces(dst, dstFace);
   };
+  src.onchange = () => faces(src, srcFace);
+  dst.onchange = () => faces(dst, dstFace);
   const amount = box.querySelector(".amount"), custom = box.querySelector(".custom");
   amount.onchange = () => { custom.style.display = amount.value === "custom" ? "" : "none"; };
   const modes = () => {
@@ -216,10 +231,10 @@ function renderSheet(sheet) {
   box.querySelector(".add").onclick = () => {
     const from = src.devices[+src.value], to = src.devices[+dst.value];
     if (!from || !to) return;
-    const port = (d) => ({ resource: res.value, device: d.pos, faces: [] });
+    const port = (d, face) => ({ resource: res.value, device: d.pos, faces: face ? [face] : [] });
     const perOperation = amount.value === "custom" ? Math.max(1, +custom.value || 1) : +amount.value;
-    const source = { id: crypto.randomUUID(), settings: { kind: "source", ...port(from), ...(res.value === "item" ? { per_operation: perOperation } : {}) } };
-    const sink = { id: crypto.randomUUID(), settings: { kind: "sink", ...port(to) } };
+    const source = { id: crypto.randomUUID(), settings: { kind: "source", ...port(from, srcFace.value), ...(res.value === "item" ? { per_operation: perOperation } : {}) } };
+    const sink = { id: crypto.randomUUID(), settings: { kind: "sink", ...port(to, dstFace.value) } };
     const edits = [{ type: "addNode", sheet: sheet.id, node: source }, { type: "addNode", sheet: sheet.id, node: sink }];
     const expr = box.querySelector(".filter").value.trim();
     const wire = (a, b) => ({ type: "connect", sheet: sheet.id, wire: { id: crypto.randomUUID(), from: a.id, to: b.id } });
