@@ -127,4 +127,16 @@ public final class WebApiTests {
             }
         });
     }
+
+    /** The web server needs Netty's HTTP module, which Minecraft doesn't ship; it must load from mod code. */
+    @GameTest(template = "empty")
+    public static void nettyHttpIsAvailable(GameTestHelper helper) {
+        try {
+            Class.forName("io.netty.handler.codec.http.HttpServerCodec", false, WebApiTests.class.getClassLoader());
+            Class.forName("io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory", false, WebApiTests.class.getClassLoader());
+        } catch (ClassNotFoundException e) {
+            helper.fail("netty-codec-http is not visible to the mod: " + e.getMessage());
+        }
+        helper.succeed();
+    }
 }

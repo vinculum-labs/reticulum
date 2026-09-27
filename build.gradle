@@ -110,6 +110,8 @@ dependencies {
             prefer '4.1.97.Final'
         }
     }
+    // Dev runs load non-mod libraries only from this configuration (the built jar gets it via jar-in-jar).
+    additionalRuntimeClasspath "io.netty:netty-codec-http:4.1.97.Final"
 
     // Look-at integrations: compiled against, never required at runtime.
     compileOnly "maven.modrinth:jade:${jade_version}"
