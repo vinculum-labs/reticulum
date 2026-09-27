@@ -48,7 +48,11 @@ public final class Screens {
             return;
         }
         if (be instanceof ControllerBlockEntity) {
-            if (network != null) {
+            if (network == null) {
+                // Its network was deleted: give it one again (an orphaned neighbor's, or a new one).
+                network = NetworkManager.network(level.getServer(), Topology.reclaimController(level, pos, player));
+            }
+            if (network != null && Security.canView(network, player)) {
                 PacketDistributor.sendToPlayer(player, new Payloads.OpenControllerScreen(controllerView(player, pos, network)));
             }
         } else {

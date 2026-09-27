@@ -24,6 +24,11 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.no_edit_access", "You don't have edit access to this network");
         add("message.reticulum.ambiguous_placement", "Touches several networks; not connected to any. Use the network tool or the cable screen to connect one.");
         add("message.reticulum.controller_exists", "%s already has a controller; this one starts a new network");
+        add("message.reticulum.controller_reconnected", "Took over %s, which had lost its controller");
+        add("command.reticulum.deleted", "Deleted network %s");
+        add("command.reticulum.merged", "Merged %s into %s");
+        add("command.reticulum.merge_same", "Those are the same network");
+        add("command.reticulum.merge_has_controller", "%s still has a working controller; break it first");
         add("message.reticulum.network_gone", "The remembered network no longer exists; starting a new one");
         add("message.reticulum.nothing_to_connect", "Nothing to connect on that side");
         add("message.reticulum.disconnected", "Disconnected");

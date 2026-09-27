@@ -132,6 +132,63 @@ public final class NetworkManager {
         return true;
     }
 
+    /** True when the network holds nothing a player made: no sheets, devices, connectors, filters or overflow. */
+    public static boolean isEmpty(Network network) {
+        return network.sheets().isEmpty() && network.devices().isEmpty() && network.connectors().isEmpty()
+                && network.filters().isEmpty() && network.overflowItems().isEmpty() && network.overflowFluids().isEmpty();
+    }
+
+    /**
+     * Deletes a network. Blocks still carrying its id behave as if they had no network; a controller of a deleted
+     * network gets a new one the next time it is opened.
+     */
+    public static void delete(MinecraftServer server, Network network) {
+        network.bump();
+        data(server).remove(network.id());
+        io.github.leadassimilator.reticulum.engine.NetworkTicker.forget(network.id());
+    }
+
+    /**
+     * Merges {@code from} into {@code into}: sheets, filters, members, connectors, overflow, and device and face
+     * names (where {@code into} has none). {@code from} is removed, and blocks still carrying its id follow it.
+     */
+    public static void absorb(MinecraftServer server, Network into, Network from) {
+        if (into == from) {
+            return;
+        }
+        into.sheets().addAll(from.sheets());
+        from.filters().forEach(into.filters()::putIfAbsent);
+        from.members().forEach(into.members()::putIfAbsent);
+        for (ConnectorRecord connector : from.connectors()) {
+            into.connectorMap().putIfAbsent(connector.id(), connector);
+        }
+        for (DeviceRecord device : from.devices()) {
+            DeviceRecord existing = into.device(device.pos());
+            if (existing == null) {
+                into.deviceMap().put(device.pos(), device);
+                continue;
+            }
+            if (existing.name() == null && device.name() != null) {
+                existing.setName(device.name());
+            }
+            device.faceNames().forEach((face, name) -> {
+                if (existing.faceName(face) == null) {
+                    existing.setFaceName(face, name);
+                }
+            });
+        }
+        for (DeviceRecord device : into.devices()) {
+            if (into.isReached(device.pos())) {
+                device.setState(DeviceRecord.State.ACTIVE);
+            }
+        }
+        into.overflowItems().addAll(from.overflowItems());
+        into.overflowFluids().addAll(from.overflowFluids());
+        delete(server, from);
+        data(server).alias(from.id(), into.id());
+        changed(server, into);
+    }
+
     public static int orphanCount(Network network) {
         int n = 0;
         for (DeviceRecord record : network.devices()) {

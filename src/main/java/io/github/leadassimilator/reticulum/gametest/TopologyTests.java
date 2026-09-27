@@ -173,6 +173,8 @@ public final class TopologyTests {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         UUID id = net(helper, new BlockPos(1, 1, 1));
+        // Something worth keeping; an empty network is deleted along with its controller.
+        network(helper, new BlockPos(1, 1, 1)).sheets().add(new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "work"));
 
         helper.setBlock(new BlockPos(1, 1, 1), Blocks.AIR);
         check(helper, NetworkManager.network(helper.getLevel().getServer(), id).controller() == null, "controller position not cleared");
@@ -226,6 +228,62 @@ public final class TopologyTests {
         net.minecraft.world.phys.Vec3 through = new net.minecraft.world.phys.Vec3(0.95, 0.35, 0.5);
         Direction steep = Topology.targetSide(pos, true, eye, eye.add(through.subtract(eye).scale(3)), Direction.UP);
         check(helper, steep == Direction.EAST, "steep look past the east arm should target east, got " + steep);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void newControllerTakesOverOrphanedNetwork(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        Network network = network(helper, new BlockPos(1, 1, 1));
+        network.sheets().add(new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "keep me"));
+        // Broken in creative: no item, so the new controller has no remembered network.
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.AIR);
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), Direction.EAST);
+        check(helper, network.id().equals(net(helper, new BlockPos(1, 1, 1))), "new controller started a new network instead of taking over");
+        check(helper, network.controller() != null, "controller position not set");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void emptyNetworkGoesWithItsController(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        UUID id = net(helper, new BlockPos(1, 1, 1));
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.AIR);
+        check(helper, NetworkManager.network(helper.getLevel().getServer(), id) == null, "empty network left behind");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void connectingOrphanedNetworkMergesIt(GameTestHelper helper) {
+        // Network A with a named device, then its controller is lost.
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        helper.setBlock(new BlockPos(3, 1, 2), Blocks.BARREL);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
+        Network a = network(helper, new BlockPos(1, 1, 1));
+        a.sheets().add(new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "from A"));
+        var barrel = Devices.global(helper.getLevel(), helper.absolutePos(new BlockPos(3, 1, 2)));
+        a.device(barrel).setName("Logs");
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.AIR);
+
+        // Network B, built separately, then its cable is run up to A's cable.
+        place(helper, new BlockPos(1, 1, 5), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 5), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(2, 1, 4), ModBlocks.CABLE.get(), Direction.SOUTH);
+        place(helper, new BlockPos(2, 1, 3), ModBlocks.CABLE.get(), Direction.SOUTH);
+        place(helper, new BlockPos(2, 1, 2), ModBlocks.CABLE.get(), Direction.SOUTH);
+        Network b = network(helper, new BlockPos(1, 1, 5));
+        check(helper, !a.id().equals(b.id()), "setup: networks should differ");
+        BlockPos joint = helper.absolutePos(new BlockPos(2, 1, 2));
+        check(helper, !Topology.connected(helper.getLevel(), joint, Direction.NORTH), "setup: A and B should not connect by themselves");
+
+        Topology.toggle(helper.getLevel(), joint, Direction.NORTH, null);
+        check(helper, NetworkManager.network(helper.getLevel().getServer(), a.id()) == b, "A was not merged into B");
+        check(helper, b.id().equals(net(helper, new BlockPos(3, 1, 1))), "A's connector not on B");
+        check(helper, b.device(barrel) != null && "Logs".equals(b.device(barrel).name()), "device name lost in the merge");
+        check(helper, b.device(barrel).state() == io.github.leadassimilator.reticulum.network.DeviceRecord.State.ACTIVE, "merged device not active");
+        check(helper, b.sheets().stream().anyMatch(sh -> sh.name().equals("from A")), "A's sheet lost in the merge");
         helper.succeed();
     }
 }

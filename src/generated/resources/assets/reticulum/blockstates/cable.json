@@ -16,20 +16,10 @@
     },
     {
       "apply": {
-        "model": "reticulum:block/cable_arm",
-        "y": 90
+        "model": "reticulum:block/cable_arm"
       },
       "when": {
-        "east": "cable"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/cable_arm",
-        "x": 270
-      },
-      "when": {
-        "up": "cable"
+        "north": "cable"
       }
     },
     {
@@ -52,10 +42,20 @@
     },
     {
       "apply": {
-        "model": "reticulum:block/cable_arm"
+        "model": "reticulum:block/cable_arm",
+        "y": 90
       },
       "when": {
-        "north": "cable"
+        "east": "cable"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/cable_arm",
+        "x": 270
+      },
+      "when": {
+        "up": "cable"
       }
     }
   ]

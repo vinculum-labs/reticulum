@@ -51,6 +51,13 @@ public final class ReticulumCommand {
                         .then(Commands.argument("network", StringArgumentType.string()).suggests(NETWORKS)
                                 .then(Commands.argument("password", StringArgumentType.greedyString())
                                         .executes(ReticulumCommand::join))))
+                .then(Commands.literal("delete")
+                        .then(Commands.argument("network", StringArgumentType.string()).suggests(NETWORKS)
+                                .executes(ReticulumCommand::delete)))
+                .then(Commands.literal("merge")
+                        .then(Commands.argument("from", StringArgumentType.string()).suggests(NETWORKS)
+                                .then(Commands.argument("into", StringArgumentType.string()).suggests(NETWORKS)
+                                        .executes(ReticulumCommand::merge))))
                 .then(Commands.literal("member")
                         .then(Commands.argument("network", StringArgumentType.string()).suggests(NETWORKS)
                                 .then(Commands.literal("add")
@@ -96,6 +103,38 @@ public final class ReticulumCommand {
         network.members().put(player.getUUID(), new Member(player.getUUID(), player.getGameProfile().getName(), Role.USER));
         NetworkManager.changed(ctx.getSource().getServer(), network);
         ctx.getSource().sendSuccess(() -> Component.translatable("command.reticulum.joined", network.name()), false);
+        return 1;
+    }
+
+    private static int delete(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        Network network = network(ctx);
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player != null && !Security.has(network, player, Role.OWNER)) {
+            throw NO_ACCESS.create();
+        }
+        NetworkManager.delete(ctx.getSource().getServer(), network);
+        ctx.getSource().sendSuccess(() -> Component.translatable("command.reticulum.deleted", network.name()), true);
+        return 1;
+    }
+
+    private static int merge(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        Network from = find(ctx.getSource(), StringArgumentType.getString(ctx, "from"));
+        Network into = find(ctx.getSource(), StringArgumentType.getString(ctx, "into"));
+        if (from == null || into == null) {
+            throw UNKNOWN_NETWORK.create();
+        }
+        if (from == into) {
+            throw new SimpleCommandExceptionType(Component.translatable("command.reticulum.merge_same")).create();
+        }
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player != null && (!Security.canAdmin(from, player) || !Security.canAdmin(into, player))) {
+            throw NO_ACCESS.create();
+        }
+        if (from.controller() != null && io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(ctx.getSource().getServer(), from)) {
+            throw new SimpleCommandExceptionType(Component.translatable("command.reticulum.merge_has_controller", from.name())).create();
+        }
+        NetworkManager.absorb(ctx.getSource().getServer(), into, from);
+        ctx.getSource().sendSuccess(() -> Component.translatable("command.reticulum.merged", from.name(), into.name()), true);
         return 1;
     }
 

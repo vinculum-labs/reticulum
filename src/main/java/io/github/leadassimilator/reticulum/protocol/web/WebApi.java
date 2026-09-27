@@ -162,6 +162,14 @@ public final class WebApi {
                 out.add("results", created);
                 yield out;
             }
+            case "deleteNetwork" -> {
+                Network network = viewable(player, request);
+                if (!Security.has(network, player, io.github.leadassimilator.reticulum.security.Role.OWNER)) {
+                    throw new RequestException("Only the owner can delete " + network.name());
+                }
+                NetworkManager.delete(server, network);
+                yield ok(id);
+            }
             case "history" -> {
                 Network network = viewable(player, request);
                 boolean perMinute = request.has("window") && "minute".equals(request.get("window").getAsString());

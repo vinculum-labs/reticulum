@@ -40,6 +40,10 @@ public final class NetworkTicker {
         RUNTIMES.clear();
     }
 
+    public static void forget(UUID networkId) {
+        RUNTIMES.remove(networkId);
+    }
+
     public static NetworkRuntime runtime(UUID networkId) {
         return RUNTIMES.computeIfAbsent(networkId, NetworkRuntime::new);
     }

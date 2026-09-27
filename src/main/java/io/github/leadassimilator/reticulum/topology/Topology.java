@@ -86,7 +86,15 @@ public final class Topology {
     @Nullable
     public static UUID networkOf(ServerLevel level, NetworkBlockEntity be) {
         UUID id = be.networkId();
-        return id != null && NetworkManager.network(level.getServer(), id) != null ? id : null;
+        Network network = NetworkManager.network(level.getServer(), id);
+        if (network == null) {
+            return null;
+        }
+        if (!network.id().equals(id)) {
+            // The block's network was merged into another; follow it.
+            be.setNetworkId(network.id());
+        }
+        return network.id();
     }
 
     @Nullable
@@ -269,12 +277,56 @@ public final class Topology {
             message(player, Component.translatable("message.reticulum.network_gone"));
         }
         if (network == null) {
+            network = orphanedNeighbor(level, pos, player);
+            if (network != null) {
+                message(player, Component.translatable("message.reticulum.controller_reconnected", network.name()));
+            }
+        }
+        if (network == null) {
             network = NetworkManager.create(level.getServer(), player);
         }
         network.setController(here);
         controller.setNetworkId(network.id());
         NetworkManager.changed(level.getServer(), network);
         return network.id();
+    }
+
+    /**
+     * A network next to this spot that has lost its controller (e.g. broken in creative, which drops no item) and
+     * that the player may administer. A new controller takes it over rather than starting a fresh network.
+     */
+    @Nullable
+    private static Network orphanedNeighbor(ServerLevel level, BlockPos pos, @Nullable ServerPlayer player) {
+        Set<Network> found = new LinkedHashSet<>();
+        for (Direction dir : Direction.values()) {
+            BlockPos next = pos.relative(dir);
+            NetworkBlockEntity neighbor = blockEntity(level, next);
+            if (neighbor == null || neighbor.isDisconnected(dir.getOpposite())) {
+                continue;
+            }
+            Network network = NetworkManager.network(level.getServer(), component(level, next, pos).network());
+            if (network == null || player != null && !Security.canAdmin(network, player)) {
+                continue;
+            }
+            GlobalPos controller = network.controller();
+            if (controller == null || !controllerStillThere(level, controller, network.id())) {
+                found.add(network);
+            }
+        }
+        return found.size() == 1 ? found.iterator().next() : null;
+    }
+
+    /**
+     * Gives a controller whose network was deleted a network again: an orphaned neighbor's, or a new one.
+     * Returns the network id.
+     */
+    public static UUID reclaimController(ServerLevel level, BlockPos pos, @Nullable ServerPlayer player) {
+        ControllerBlockEntity controller = (ControllerBlockEntity) blockEntity(level, pos);
+        UUID id = claimControllerNetwork(level, pos, controller, player);
+        Section comp = component(level, pos, null);
+        assign(level, comp, id);
+        refreshAround(level, comp.blocks());
+        return id;
     }
 
     private static boolean controllerStillThere(ServerLevel level, GlobalPos pos, UUID networkId) {
@@ -313,7 +365,12 @@ public final class Topology {
             }
             if (removed.controller() && Devices.global(level, pos).equals(network.controller())) {
                 network.setController(null);
-                NetworkManager.changed(level.getServer(), network);
+                if (NetworkManager.isEmpty(network)) {
+                    // Nothing to keep: don't leave an unused network behind (e.g. a controller placed by mistake).
+                    NetworkManager.delete(level.getServer(), network);
+                } else {
+                    NetworkManager.changed(level.getServer(), network);
+                }
             }
         }
         // Automatic disconnects only existed because of the removed block; a new block there starts fresh.
@@ -432,10 +489,18 @@ public final class Topology {
                 return Component.translatable("message.reticulum.two_controllers");
             }
         }
+        UUID absorbed = compA.network() != null && !compA.network().equals(target) ? compA.network()
+                : compB.network() != null && !compB.network().equals(target) ? compB.network() : null;
         a.clearDisconnects(side);
         b.clearDisconnects(side.getOpposite());
         assign(level, compA, target);
         assign(level, compB, target);
+        // A network without a controller joining one with a controller is merged into it, names and sheets included.
+        Network into = NetworkManager.network(level.getServer(), target);
+        Network from = NetworkManager.network(level.getServer(), absorbed);
+        if (into != null && from != null && into != from) {
+            NetworkManager.absorb(level.getServer(), into, from);
+        }
         Set<BlockPos> changed = new HashSet<>(compA.blocks());
         changed.addAll(compB.blocks());
         refreshAround(level, changed);

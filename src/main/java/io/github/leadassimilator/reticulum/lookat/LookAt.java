@@ -72,9 +72,17 @@ public final class LookAt {
 
     private static void describeDevice(ServerLevel level, BlockPos pos, @Nullable Direction face, Player player, List<Component> lines) {
         GlobalPos global = Devices.global(level, pos);
+        boolean activeSomewhere = false;
         for (Network network : NetworkManager.data(level.getServer()).networks()) {
             DeviceRecord record = network.device(global);
-            if (record == null || !Security.canView(network, player)) {
+            if (record != null && record.state() == DeviceRecord.State.ACTIVE && Security.canView(network, player)) {
+                activeSomewhere = true;
+            }
+        }
+        for (Network network : NetworkManager.data(level.getServer()).networks()) {
+            DeviceRecord record = network.device(global);
+            if (record == null || !Security.canView(network, player)
+                    || activeSomewhere && record.state() != DeviceRecord.State.ACTIVE) {
                 continue;
             }
             lines.add(Component.literal(Devices.displayName(record, level, pos)).withStyle(ChatFormatting.WHITE));
