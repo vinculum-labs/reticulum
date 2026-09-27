@@ -315,4 +315,20 @@ public final class EngineTests {
             helper.succeed();
         });
     }
+
+    /** A source on one face follows that face's rules: a furnace's bottom gives up only its output, not its ore. */
+    @GameTest(template = "empty")
+    public static void faceSourceRespectsSideRules(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.FURNACE, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.IRON_ORE, 8));
+        rig.container(0).setItem(2, new ItemStack(Items.IRON_INGOT, 5));
+        NodeSettings.Port bottom = new NodeSettings.Port(ResourceKind.ITEM, rig.port(0, ResourceKind.ITEM).device(),
+                List.of(io.github.leadassimilator.reticulum.network.FaceKey.DOWN), Optional.empty());
+        rig.wire(rig.node(new NodeSettings.SourceSettings(bottom, List.of(), 64, 1, 0)), rig.sink(1, ResourceKind.ITEM, List.of()));
+        helper.runAfterDelay(20, () -> {
+            check(helper, rig.count(1, Items.IRON_INGOT) == 5, "furnace output not taken");
+            check(helper, rig.count(1, Items.IRON_ORE) == 0, "furnace input was taken through the bottom face");
+            helper.succeed();
+        });
+    }
 }

@@ -48,6 +48,8 @@ public final class NetworkRuntime {
     private record CacheKey(GlobalPos device, FaceKey face, ResourceKind resource) {
     }
 
+    private static final List<FaceKey> SIDES = List.of(FaceKey.DOWN, FaceKey.UP, FaceKey.NORTH, FaceKey.SOUTH, FaceKey.WEST, FaceKey.EAST);
+
     public NetworkRuntime(UUID networkId) {
         this.networkId = networkId;
     }
@@ -199,6 +201,11 @@ public final class NetworkRuntime {
         return handlers(server, network, port, Capabilities.ItemHandler.BLOCK, ResourceKind.ITEM);
     }
 
+    /** An item port: handlers to move items through, and the view to count them with. */
+    ItemPort itemPort(MinecraftServer server, Network network, NodeSettings.Port port) {
+        return new ItemPort(items(server, network, port), view(server, network, port, Capabilities.ItemHandler.BLOCK, ResourceKind.ITEM), port.slots());
+    }
+
     public List<IFluidHandler> fluids(MinecraftServer server, Network network, NodeSettings.Port port) {
         return handlers(server, network, port, Capabilities.FluidHandler.BLOCK, ResourceKind.FLUID);
     }
@@ -208,29 +215,46 @@ public final class NetworkRuntime {
     }
 
     /**
-     * Resolves a port. With no faces chosen, the unsided handler is used when the block has one (it sees the whole
-     * inventory once); otherwise every face that answers. Equal handlers are listed once.
+     * Resolves a port for moving resources. With no faces chosen ("auto"), every face that answers is used, so the
+     * block's own side configuration decides what can go in and out (a Mekanism machine's unsided handler, for
+     * example, is read-only). The unsided handler is used only when no face answers. Equal handlers are listed once.
      */
     private <T> List<T> handlers(MinecraftServer server, Network network, NodeSettings.Port port, BlockCapability<T, Direction> capability,
             ResourceKind resource) {
+        return resolve(server, network, port, capability, resource, false);
+    }
+
+    /**
+     * Resolves a port for counting (keep rules and caps). With no faces chosen, the unsided handler is preferred:
+     * it sees the whole inventory exactly once, where several faces may share slots.
+     */
+    private <T> List<T> view(MinecraftServer server, Network network, NodeSettings.Port port, BlockCapability<T, Direction> capability,
+            ResourceKind resource) {
+        return resolve(server, network, port, capability, resource, true);
+    }
+
+    private <T> List<T> resolve(MinecraftServer server, Network network, NodeSettings.Port port, BlockCapability<T, Direction> capability,
+            ResourceKind resource, boolean preferUnsided) {
         GlobalPos device = port.device();
         DeviceRecord record = network.device(device);
         ServerLevel level = server.getLevel(device.dimension());
         if (record == null || record.state() != DeviceRecord.State.ACTIVE || level == null || !level.isLoaded(device.pos())) {
             return List.of();
         }
-        if (port.faces().isEmpty()) {
-            T unsided = capability(level, device, FaceKey.UNSIDED, capability, resource);
-            if (unsided != null) {
-                return List.of(unsided);
-            }
+        boolean auto = port.faces().isEmpty();
+        T unsided = auto ? capability(level, device, FaceKey.UNSIDED, capability, resource) : null;
+        if (auto && preferUnsided && unsided != null) {
+            return List.of(unsided);
         }
         Set<T> found = new LinkedHashSet<>();
-        for (FaceKey face : port.faces().isEmpty() ? List.of(FaceKey.values()) : port.faces()) {
+        for (FaceKey face : auto ? SIDES : port.faces()) {
             T handler = capability(level, device, face, capability, resource);
             if (handler != null) {
                 found.add(handler);
             }
+        }
+        if (found.isEmpty() && unsided != null) {
+            return List.of(unsided);
         }
         return List.copyOf(found);
     }

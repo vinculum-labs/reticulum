@@ -87,7 +87,7 @@ final class KitMover {
             List<Filters.ItemFilter> lineFilters, List<CompiledSheet.Route> routes) {
         CompiledSheet.Route first = routes.getFirst();
         ServerLevel level = ctx.server().getLevel(first.sinkSettings().port().device().dimension());
-        ItemPort to = new ItemPort(ctx.runtime().items(ctx.server(), ctx.network(), first.sinkSettings().port()), first.sinkSettings().port().slots());
+        ItemPort to = ctx.runtime().itemPort(ctx.server(), ctx.network(), first.sinkSettings().port());
         if (to.isEmpty() || level == null) {
             return false;
         }
@@ -119,7 +119,7 @@ final class KitMover {
                     break;
                 }
                 NodeSettings.SourceSettings source = route.sourceSettings();
-                ItemPort from = new ItemPort(ctx.runtime().items(ctx.server(), ctx.network(), source.port()), source.port().slots());
+                ItemPort from = ctx.runtime().itemPort(ctx.server(), ctx.network(), source.port());
                 for (IItemHandler handler : from.handlers) {
                     for (int slot = 0; slot < handler.getSlots() && needed > 0; slot++) {
                         if (!from.inRange(slot)) {

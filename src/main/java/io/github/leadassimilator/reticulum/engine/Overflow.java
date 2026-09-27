@@ -95,7 +95,7 @@ final class Overflow {
     }
 
     private static boolean retryItems(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Route route, ServerLevel level) {
-        ItemPort to = new ItemPort(ctx.runtime().items(ctx.server(), ctx.network(), route.sinkSettings().port()), route.sinkSettings().port().slots());
+        ItemPort to = ctx.runtime().itemPort(ctx.server(), ctx.network(), route.sinkSettings().port());
         if (to.isEmpty()) {
             return false;
         }

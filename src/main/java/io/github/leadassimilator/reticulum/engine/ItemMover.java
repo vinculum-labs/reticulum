@@ -62,7 +62,7 @@ final class ItemMover {
 
     /** Returns how many items moved. */
     private static long operate(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, List<CompiledSheet.Route> routes) {
-        ItemPort from = new ItemPort(ctx.runtime().items(ctx.server(), ctx.network(), source.settings().port()), source.settings().port().slots());
+        ItemPort from = ctx.runtime().itemPort(ctx.server(), ctx.network(), source.settings().port());
         if (from.isEmpty()) {
             return 0;
         }
@@ -91,8 +91,7 @@ final class ItemMover {
                         break;
                     }
                     ItemPort to = sinks.computeIfAbsent(route.sink().id(),
-                            id -> new ItemPort(ctx.runtime().items(ctx.server(), ctx.network(), route.sinkSettings().port()),
-                                    route.sinkSettings().port().slots()));
+                            id -> ctx.runtime().itemPort(ctx.server(), ctx.network(), route.sinkSettings().port()));
                     if (to.isEmpty()) {
                         continue;
                     }

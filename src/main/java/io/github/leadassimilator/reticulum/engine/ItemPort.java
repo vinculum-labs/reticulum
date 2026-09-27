@@ -9,13 +9,18 @@ import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
 
-/** The resolved item handlers of a source or sink, limited to its slot range. */
+/**
+ * The resolved item handlers of a source or sink, limited to its slot range. Items move through {@code handlers};
+ * counts (keep rules, caps, in:sink) read {@code view}, which may be the block's unsided handler.
+ */
 final class ItemPort {
     final List<IItemHandler> handlers;
+    private final List<IItemHandler> view;
     private final Optional<NodeSettings.SlotRange> range;
 
-    ItemPort(List<IItemHandler> handlers, Optional<NodeSettings.SlotRange> range) {
+    ItemPort(List<IItemHandler> handlers, List<IItemHandler> view, Optional<NodeSettings.SlotRange> range) {
         this.handlers = handlers;
+        this.view = view.isEmpty() ? handlers : view;
         this.range = range;
     }
 
@@ -29,7 +34,7 @@ final class ItemPort {
 
     long count(Predicate<ItemStack> which) {
         long total = 0;
-        for (IItemHandler handler : handlers) {
+        for (IItemHandler handler : view) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 if (!inRange(slot)) {
                     continue;
