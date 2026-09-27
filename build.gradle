@@ -36,6 +36,11 @@ repositories {
         content { includeGroup 'org.appliedenergistics' }
     }
     maven {
+        name = 'K-4u (The One Probe)'
+        url = 'https://maven.k-4u.nl'
+        content { includeGroup 'mcjty.theoneprobe' }
+    }
+    maven {
         name = 'Modrinth (Jade)'
         url = 'https://api.modrinth.com/maven'
         content { includeGroup 'maven.modrinth' }
@@ -97,6 +102,10 @@ configurations {
 }
 
 dependencies {
+    // Look-at integrations: compiled against, never required at runtime.
+    compileOnly "maven.modrinth:jade:${jade_version}"
+    compileOnly("mcjty.theoneprobe:theoneprobe:${top_version}") { transitive = false }
+
     // Only on the dev run classpath, to make testing easier. The mod does not depend on any of these.
     localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     localRuntime "mekanism:Mekanism:${minecraft_version}-${mekanism_version}"

@@ -186,4 +186,24 @@ public final class TopologyTests {
         check(helper, NetworkManager.network(helper.getLevel().getServer(), id).controller() != null, "controller position not set");
         helper.succeed();
     }
+
+    @GameTest(template = "empty")
+    public static void lookAtDescribesNamedDevice(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        helper.setBlock(new BlockPos(3, 1, 1), Blocks.CHEST);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
+        Network network = network(helper, new BlockPos(1, 1, 1));
+        BlockPos chest = helper.absolutePos(new BlockPos(3, 1, 1));
+        DeviceRecord record = network.device(Devices.global(helper.getLevel(), chest));
+        record.setName("Ore chest");
+        record.setFaceName(io.github.leadassimilator.reticulum.network.FaceKey.UP, "Input");
+
+        var lines = io.github.leadassimilator.reticulum.lookat.LookAt.describe(helper.getLevel(), chest, Direction.UP,
+                helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL));
+        String text = lines.stream().map(net.minecraft.network.chat.Component::getString).reduce("", (a, b) -> a + "|" + b);
+        check(helper, text.contains("Ore chest"), "device name missing: " + text);
+        check(helper, text.contains("Input"), "face name missing: " + text);
+        check(helper, text.contains(network.name()), "network name missing: " + text);
+        helper.succeed();
+    }
 }

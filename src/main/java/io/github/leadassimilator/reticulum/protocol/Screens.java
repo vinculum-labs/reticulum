@@ -106,6 +106,15 @@ public final class Screens {
         return new Views.SideView(dir, Views.SideKind.NONE, Views.JointView.CUT, false, ItemStack.EMPTY, "", "", List.of());
     }
 
+    /** Answers the built-in HUD. Limited to blocks the player could plausibly be looking at. */
+    static void lookAt(ServerPlayer player, Payloads.LookRequest payload) {
+        if (player.distanceToSqr(Vec3.atCenterOf(payload.pos())) > 32 * 32 || !player.serverLevel().isLoaded(payload.pos())) {
+            return;
+        }
+        var lines = io.github.leadassimilator.reticulum.lookat.LookAt.describe(player.serverLevel(), payload.pos(), payload.face(), player);
+        PacketDistributor.sendToPlayer(player, new Payloads.LookResponse(payload.pos(), lines.size() > 16 ? lines.subList(0, 16) : lines));
+    }
+
     // ---------------------------------------------------------------- edits
 
     /** Checks the player can reach the block; every edit starts here. */

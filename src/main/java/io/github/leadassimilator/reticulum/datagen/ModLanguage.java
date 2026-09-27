@@ -82,6 +82,15 @@ public class ModLanguage extends LanguageProvider {
         add("command.reticulum.member_added", "Added %s member(s) to %s");
         add("command.reticulum.member_removed", "Removed %s member(s) from %s");
 
+        add("lookat.reticulum.no_network", "No network");
+        add("lookat.reticulum.private", "Private network");
+        add("lookat.reticulum.network", "Network: %s");
+        add("lookat.reticulum.devices", "Devices: %s");
+        add("lookat.reticulum.face", "Face: %s");
+        add("lookat.reticulum.state.orphaned", "Orphaned: no connector reaches it");
+        add("lookat.reticulum.state.missing", "Missing");
+        add("config.jade.plugin_reticulum.network_info", "Reticulum network info");
+
         add("reticulum.configuration.title", "Reticulum");
         add("reticulum.configuration.section.reticulum.server.toml", "Reticulum");
         add("reticulum.configuration.section.reticulum.server.toml.title", "Reticulum");

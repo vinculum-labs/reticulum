@@ -50,7 +50,32 @@ public final class Payloads {
         }
     }
 
+    /** Look-at lines for the built-in HUD, used when neither Jade nor The One Probe is installed. */
+    public record LookResponse(BlockPos pos, java.util.List<net.minecraft.network.chat.Component> lines) implements CustomPacketPayload {
+        public static final Type<LookResponse> TYPE = payloadType("look_response");
+        public static final StreamCodec<RegistryFriendlyByteBuf, LookResponse> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, LookResponse::pos,
+                net.minecraft.network.chat.ComponentSerialization.STREAM_CODEC.apply(ByteBufCodecs.list(16)), LookResponse::lines,
+                LookResponse::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     // ---------------------------------------------------------------- client to server
+
+    public record LookRequest(BlockPos pos, Direction face) implements CustomPacketPayload {
+        public static final Type<LookRequest> TYPE = payloadType("look_request");
+        public static final StreamCodec<RegistryFriendlyByteBuf, LookRequest> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, LookRequest::pos, Direction.STREAM_CODEC, LookRequest::face, LookRequest::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
 
     public record ToggleSide(BlockPos pos, Direction side) implements CustomPacketPayload {
         public static final Type<ToggleSide> TYPE = payloadType("toggle_side");
@@ -116,7 +141,11 @@ public final class Payloads {
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openBlockScreen(payload.view()));
         registrar.playToClient(OpenControllerScreen.TYPE, OpenControllerScreen.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openControllerScreen(payload.view()));
+        registrar.playToClient(LookResponse.TYPE, LookResponse.STREAM_CODEC,
+                (payload, context) -> io.github.leadassimilator.reticulum.client.LookHud.accept(payload.pos(), payload.lines()));
 
+        registrar.playToServer(LookRequest.TYPE, LookRequest.STREAM_CODEC,
+                (payload, context) -> server(context, player -> Screens.lookAt(player, payload)));
         registrar.playToServer(ToggleSide.TYPE, ToggleSide.STREAM_CODEC,
                 (payload, context) -> server(context, player -> Screens.toggleSide(player, payload)));
         registrar.playToServer(RenameConnector.TYPE, RenameConnector.STREAM_CODEC,
