@@ -16,6 +16,7 @@ import net.neoforged.neoforge.common.NeoForge;
 public class ReticulumClient {
     public ReticulumClient(IEventBus modEventBus, ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT, ReticulumClientConfig.SPEC);
         modEventBus.addListener(LookHud::registerLayer);
         NeoForge.EVENT_BUS.addListener(ToolHighlight::onRenderHighlight);
         NeoForge.EVENT_BUS.addListener(LookHud::onClientTick);

@@ -7,36 +7,11 @@
     },
     {
       "apply": {
-        "model": "reticulum:block/connector_arm"
-      },
-      "when": {
-        "north": "cable"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_plug"
-      },
-      "when": {
-        "north": "device"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_arm",
-        "y": 180
-      },
-      "when": {
-        "south": "cable"
-      }
-    },
-    {
-      "apply": {
         "model": "reticulum:block/connector_plug",
-        "y": 180
+        "y": 90
       },
       "when": {
-        "south": "device"
+        "east": "device"
       }
     },
     {
@@ -51,10 +26,10 @@
     {
       "apply": {
         "model": "reticulum:block/connector_plug",
-        "y": 90
+        "x": 90
       },
       "when": {
-        "east": "device"
+        "down": "device"
       }
     },
     {
@@ -68,29 +43,27 @@
     },
     {
       "apply": {
-        "model": "reticulum:block/connector_plug",
-        "x": 90
+        "model": "reticulum:block/connector_plug"
       },
       "when": {
-        "down": "device"
+        "north": "device"
       }
     },
     {
       "apply": {
-        "model": "reticulum:block/connector_arm",
-        "x": 270
+        "model": "reticulum:block/connector_arm"
       },
       "when": {
-        "up": "cable"
+        "north": "cable"
       }
     },
     {
       "apply": {
         "model": "reticulum:block/connector_plug",
-        "x": 270
+        "y": 270
       },
       "when": {
-        "up": "device"
+        "west": "device"
       }
     },
     {
@@ -105,10 +78,37 @@
     {
       "apply": {
         "model": "reticulum:block/connector_plug",
-        "y": 270
+        "y": 180
       },
       "when": {
-        "west": "device"
+        "south": "device"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_arm",
+        "y": 180
+      },
+      "when": {
+        "south": "cable"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_plug",
+        "x": 270
+      },
+      "when": {
+        "up": "device"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_arm",
+        "x": 270
+      },
+      "when": {
+        "up": "cable"
       }
     }
   ]

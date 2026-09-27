@@ -98,5 +98,13 @@ public class ModLanguage extends LanguageProvider {
         add("reticulum.configuration.protectPrivateBlocks", "Protect private network blocks");
         add("reticulum.configuration.operatorBypass", "Operators bypass security");
         add("reticulum.configuration.maxInteractDistance", "Max screen interaction distance");
+        add("reticulum.configuration.section.reticulum.client.toml", "Reticulum (client)");
+        add("reticulum.configuration.section.reticulum.client.toml.title", "Reticulum (client)");
+        add("reticulum.configuration.webAddress", "Web editor address");
+        add("reticulum.configuration.webPort", "Web editor port");
+        add("reticulum.configuration.energyPerTick", "Energy per route per tick");
+        add("reticulum.configuration.fluidPerTick", "Fluid per route per tick");
+        add("reticulum.configuration.overflowItemStacks", "Overflow buffer item stacks");
+        add("reticulum.configuration.overflowFluidBuckets", "Overflow buffer buckets per fluid");
     }
 }

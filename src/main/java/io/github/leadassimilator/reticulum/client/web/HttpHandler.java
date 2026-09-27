@@ -5,8 +5,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -85,13 +85,14 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     // ---------------------------------------------------------------- security
 
     private static boolean hostAllowed(@Nullable String host) {
-        int port = WebBridge.port();
-        return host != null && Set.of("127.0.0.1:" + port, "localhost:" + port).contains(host.toLowerCase(java.util.Locale.ROOT));
+        return host != null && WebBridge.authorities().contains(host.toLowerCase(Locale.ROOT));
     }
 
     private static boolean originAllowed(@Nullable String origin) {
-        int port = WebBridge.port();
-        return origin != null && Set.of("http://127.0.0.1:" + port, "http://localhost:" + port).contains(origin.toLowerCase(java.util.Locale.ROOT));
+        if (origin == null || !origin.toLowerCase(Locale.ROOT).startsWith("http://")) {
+            return false;
+        }
+        return WebBridge.authorities().contains(origin.substring("http://".length()).toLowerCase(Locale.ROOT));
     }
 
     private static boolean tokenMatches(String candidate) {
@@ -137,7 +138,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             return;
         }
         WebSocketServerHandshakerFactory factory = new WebSocketServerHandshakerFactory(
-                "ws://127.0.0.1:" + WebBridge.port() + "/ws", null, false, 64 * 1024);
+                WebBridge.baseUrl().replaceFirst("^http", "ws") + "/ws", null, false, 64 * 1024);
         WebSocketServerHandshaker handshaker = factory.newHandshaker(request);
         if (handshaker == null) {
             WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel());
