@@ -16,7 +16,6 @@
   "itemGroup.reticulum": "Reticulum",
   "lookat.reticulum.devices": "Devices: %s",
   "lookat.reticulum.face": "Face: %s",
-  "lookat.reticulum.network": "Network: %s",
   "lookat.reticulum.no_network": "No network",
   "lookat.reticulum.private": "Private network",
   "lookat.reticulum.state.missing": "Missing",

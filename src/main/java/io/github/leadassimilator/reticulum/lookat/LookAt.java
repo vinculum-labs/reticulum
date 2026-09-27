@@ -90,7 +90,8 @@ public final class LookAt {
     }
 
     private static Component networkLine(Network network) {
-        return Component.translatable("lookat.reticulum.network", network.name()).withStyle(ChatFormatting.AQUA);
+        // Color alone marks the network line; device names are white, the network is aqua.
+        return Component.literal(network.name()).withStyle(ChatFormatting.AQUA);
     }
 
     private static FaceKey faceKey(Direction face) {

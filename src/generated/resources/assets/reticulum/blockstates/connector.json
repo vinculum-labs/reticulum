@@ -7,116 +7,11 @@
     },
     {
       "apply": {
-        "model": "reticulum:block/connector_cap",
-        "y": 90
-      },
-      "when": {
-        "east": "cap"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_plug",
-        "y": 90
-      },
-      "when": {
-        "east": "device"
-      }
-    },
-    {
-      "apply": {
         "model": "reticulum:block/connector_arm",
-        "y": 90
-      },
-      "when": {
-        "east": "cable"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_cap"
-      },
-      "when": {
-        "north": "cap"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_plug"
-      },
-      "when": {
-        "north": "device"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_arm"
-      },
-      "when": {
-        "north": "cable"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_cap",
-        "x": 270
-      },
-      "when": {
-        "up": "cap"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_plug",
-        "x": 270
-      },
-      "when": {
-        "up": "device"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_arm",
-        "x": 270
-      },
-      "when": {
-        "up": "cable"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_cap",
-        "y": 270
-      },
-      "when": {
-        "west": "cap"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_plug",
-        "y": 270
-      },
-      "when": {
-        "west": "device"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_arm",
-        "y": 270
-      },
-      "when": {
-        "west": "cable"
-      }
-    },
-    {
-      "apply": {
-        "model": "reticulum:block/connector_cap",
         "x": 90
       },
       "when": {
-        "down": "cap"
+        "down": "cable"
       }
     },
     {
@@ -130,20 +25,47 @@
     },
     {
       "apply": {
-        "model": "reticulum:block/connector_arm",
+        "model": "reticulum:block/connector_cap",
         "x": 90
       },
       "when": {
-        "down": "cable"
+        "down": "cap"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_arm",
+        "x": 270
+      },
+      "when": {
+        "up": "cable"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_plug",
+        "x": 270
+      },
+      "when": {
+        "up": "device"
       }
     },
     {
       "apply": {
         "model": "reticulum:block/connector_cap",
+        "x": 270
+      },
+      "when": {
+        "up": "cap"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_arm",
         "y": 180
       },
       "when": {
-        "south": "cap"
+        "south": "cable"
       }
     },
     {
@@ -157,11 +79,89 @@
     },
     {
       "apply": {
-        "model": "reticulum:block/connector_arm",
+        "model": "reticulum:block/connector_cap",
         "y": 180
       },
       "when": {
-        "south": "cable"
+        "south": "cap"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_arm",
+        "y": 90
+      },
+      "when": {
+        "east": "cable"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_plug",
+        "y": 90
+      },
+      "when": {
+        "east": "device"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_cap",
+        "y": 90
+      },
+      "when": {
+        "east": "cap"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_arm",
+        "y": 270
+      },
+      "when": {
+        "west": "cable"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_plug",
+        "y": 270
+      },
+      "when": {
+        "west": "device"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_cap",
+        "y": 270
+      },
+      "when": {
+        "west": "cap"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_arm"
+      },
+      "when": {
+        "north": "cable"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_plug"
+      },
+      "when": {
+        "north": "device"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/connector_cap"
+      },
+      "when": {
+        "north": "cap"
       }
     }
   ]

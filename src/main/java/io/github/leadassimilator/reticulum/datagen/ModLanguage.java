@@ -84,7 +84,6 @@ public class ModLanguage extends LanguageProvider {
 
         add("lookat.reticulum.no_network", "No network");
         add("lookat.reticulum.private", "Private network");
-        add("lookat.reticulum.network", "Network: %s");
         add("lookat.reticulum.devices", "Devices: %s");
         add("lookat.reticulum.face", "Face: %s");
         add("lookat.reticulum.state.orphaned", "Orphaned: no connector reaches it");
