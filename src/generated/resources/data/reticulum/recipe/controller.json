@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "C": {
+      "item": "reticulum:cable"
+    },
+    "D": {
+      "tag": "c:gems/diamond"
+    },
+    "I": {
+      "tag": "c:ingots/iron"
+    },
+    "R": {
+      "tag": "c:storage_blocks/redstone"
+    }
+  },
+  "pattern": [
+    "IRI",
+    "CDC",
+    "IRI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "reticulum:controller"
+  }
+}

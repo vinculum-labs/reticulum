@@ -1,0 +1,21 @@
+package io.github.leadassimilator.reticulum.block;
+
+import java.util.Locale;
+
+import net.minecraft.util.StringRepresentable;
+
+/** What a cable or connector renders toward one side. */
+public enum Link implements StringRepresentable {
+    NONE,
+    /** Joined to a neighboring network block. */
+    CABLE,
+    /** A neighboring network block that is cut or belongs to another network; renders an end cap. */
+    CAP,
+    /** Connector only: a device on this side is connected. */
+    DEVICE;
+
+    @Override
+    public String getSerializedName() {
+        return name().toLowerCase(Locale.ROOT);
+    }
+}

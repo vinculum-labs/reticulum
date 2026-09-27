@@ -1,0 +1,43 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "connector": "reticulum:block/connector",
+    "plug": "reticulum:block/connector_plug",
+    "cable": "reticulum:block/cable",
+    "particle": "#connector"
+  },
+  "elements": [
+    {
+      "from": [
+        4,
+        4,
+        4
+      ],
+      "to": [
+        12,
+        12,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#connector"
+        },
+        "south": {
+          "texture": "#connector"
+        },
+        "east": {
+          "texture": "#connector"
+        },
+        "west": {
+          "texture": "#connector"
+        },
+        "up": {
+          "texture": "#connector"
+        },
+        "down": {
+          "texture": "#connector"
+        }
+      }
+    }
+  ]
+}

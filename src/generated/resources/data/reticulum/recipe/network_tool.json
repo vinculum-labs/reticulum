@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "C": {
+      "item": "reticulum:cable"
+    },
+    "I": {
+      "tag": "c:ingots/iron"
+    },
+    "S": {
+      "tag": "minecraft:planks"
+    }
+  },
+  "pattern": [
+    " IC",
+    " SI",
+    "S  "
+  ],
+  "result": {
+    "count": 1,
+    "id": "reticulum:network_tool"
+  }
+}

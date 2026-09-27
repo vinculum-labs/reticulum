@@ -20,6 +20,26 @@ sourceSets.main.resources {
 }
 
 repositories {
+    maven {
+        name = 'BlameJared (JEI)'
+        url = 'https://maven.blamejared.com'
+        content { includeGroup 'mezz.jei'; includeGroup 'net.mezzdev.config' }
+    }
+    maven {
+        name = 'ModMaven (Mekanism)'
+        url = 'https://modmaven.dev'
+        content { includeGroup 'mekanism' }
+    }
+    maven {
+        name = 'NeoForged (AE2)'
+        url = 'https://maven.neoforged.net/releases'
+        content { includeGroup 'org.appliedenergistics' }
+    }
+    maven {
+        name = 'Modrinth (Jade)'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
 }
 
 base {
@@ -77,6 +97,12 @@ configurations {
 }
 
 dependencies {
+    // Only on the dev run classpath, to make testing easier. The mod does not depend on any of these.
+    localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    localRuntime "mekanism:Mekanism:${minecraft_version}-${mekanism_version}"
+    localRuntime "mekanism:Mekanism:${minecraft_version}-${mekanism_version}:generators"
+    localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+    localRuntime "maven.modrinth:jade:${jade_version}"
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

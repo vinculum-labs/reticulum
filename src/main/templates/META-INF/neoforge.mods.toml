@@ -23,10 +23,10 @@ displayName="${mod_name}" #mandatory
 
 #credits="" #optional
 
-#authors=""
+authors="LeadAssimilator"
 
 description='''
-Example mod description.
+Wired and wireless networks that move items, fluids, energy, redstone, Mekanism chemicals and AE2 channels, designed in a node-graph editor.
 '''
 
 [[mixins]]
