@@ -31,19 +31,19 @@ public class NetworkToolItem extends Item {
         }
         if (context.getLevel() instanceof ServerLevel level && context.getPlayer() instanceof ServerPlayer player) {
             Direction side = targetSide(player, level.getBlockState(context.getClickedPos()), context.getClickedPos(),
-                    context.getClickedFace(), context.getClickLocation(), 1.0f);
+                    context.getClickedFace(), 1.0f);
             player.displayClientMessage(Topology.toggle(level, context.getClickedPos(), side, player), true);
         }
         return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
     }
 
     /** The side of a network block the player is aiming at. Used for both the click and the client outline. */
-    public static Direction targetSide(Player player, BlockState state, BlockPos pos, Direction face, Vec3 hitLocation, float partialTick) {
+    public static Direction targetSide(Player player, BlockState state, BlockPos pos, Direction face, float partialTick) {
         if (!(state.getBlock() instanceof LinkedBlock)) {
             return face;
         }
         Vec3 from = player.getEyePosition(partialTick);
         Vec3 to = from.add(player.getViewVector(partialTick).scale(player.blockInteractionRange() + 1));
-        return Topology.targetSide(pos, state.getBlock() instanceof ConnectorBlock, from, to, face, hitLocation);
+        return Topology.targetSide(pos, state.getBlock() instanceof ConnectorBlock, from, to, face);
     }
 }

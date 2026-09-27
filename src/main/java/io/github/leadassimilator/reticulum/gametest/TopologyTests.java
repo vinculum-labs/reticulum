@@ -214,13 +214,18 @@ public final class TopologyTests {
         java.util.function.BiFunction<Double, Double, Direction> aim = (x, y) -> {
             net.minecraft.world.phys.Vec3 from = new net.minecraft.world.phys.Vec3(x, y, -2);
             net.minecraft.world.phys.Vec3 to = new net.minecraft.world.phys.Vec3(x, y, 3);
-            return Topology.targetSide(pos, false, from, to, Direction.NORTH, new net.minecraft.world.phys.Vec3(x, y, 0));
+            return Topology.targetSide(pos, false, from, to, Direction.NORTH);
         };
         check(helper, aim.apply(0.5, 0.5) == Direction.NORTH, "center should target the north arm");
         check(helper, aim.apply(0.7, 0.5) == Direction.EAST, "just right of the core should target the east arm, got " + aim.apply(0.7, 0.5));
         check(helper, aim.apply(0.3, 0.5) == Direction.WEST, "just left of the core should target the west arm");
         check(helper, aim.apply(0.5, 0.7) == Direction.UP, "just above the core should target the up arm");
         check(helper, aim.apply(0.9, 0.9) == Direction.EAST || aim.apply(0.9, 0.9) == Direction.UP, "corner should pick a nearby arm");
+        // Looking down steeply from above and to the side, past the east arm: must not fall back to the top.
+        net.minecraft.world.phys.Vec3 eye = new net.minecraft.world.phys.Vec3(1.6, 1.6, -1.0);
+        net.minecraft.world.phys.Vec3 through = new net.minecraft.world.phys.Vec3(0.95, 0.35, 0.5);
+        Direction steep = Topology.targetSide(pos, true, eye, eye.add(through.subtract(eye).scale(3)), Direction.UP);
+        check(helper, steep == Direction.EAST, "steep look past the east arm should target east, got " + steep);
         helper.succeed();
     }
 }

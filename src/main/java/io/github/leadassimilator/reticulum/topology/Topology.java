@@ -486,10 +486,46 @@ public final class Topology {
     /**
      * The side the player is aiming at on a cable or connector. The hitbox is a full block, so this traces the
      * look ray against the rendered shape instead: the arms (whether present or not) and the core. Hitting an arm
-     * means that arm's side; hitting the core means the core face hit. A ray through empty space falls back to
-     * where it entered the block: outside the core's outline means the arm running that way.
+     * means that arm's side; hitting the core means the core face hit. When the ray only passes through empty space
+     * beside the shape, the arm or core face closest to the ray wins.
      */
-    public static Direction targetSide(BlockPos pos, boolean connector, Vec3 from, Vec3 to, Direction enteredFace, Vec3 enteredAt) {
+    public static Direction targetSide(BlockPos pos, boolean connector, Vec3 from, Vec3 to, Direction fallback) {
+        Direction exact = firstHit(pos, connector, from, to);
+        if (exact != null) {
+            return exact;
+        }
+        Optional<Vec3> enter = new AABB(pos).clip(from, to);
+        Optional<Vec3> exit = new AABB(pos).clip(to, from);
+        if (enter.isEmpty() || exit.isEmpty()) {
+            return fallback;
+        }
+        Vec3 origin = Vec3.atLowerCornerOf(pos);
+        Vec3 a = enter.get().subtract(origin);
+        Vec3 b = exit.get().subtract(origin);
+        Direction best = fallback;
+        double bestDistance = Double.MAX_VALUE;
+        final int samples = 48;
+        for (int i = 0; i <= samples; i++) {
+            Vec3 p = a.lerp(b, i / (double) samples);
+            for (Direction dir : Direction.values()) {
+                double d = distanceSqr(jointBox(dir, connector), p);
+                if (d < bestDistance) {
+                    bestDistance = d;
+                    best = dir;
+                }
+            }
+            double d = distanceSqr(coreBox(connector), p);
+            if (d < bestDistance) {
+                bestDistance = d;
+                best = Direction.getNearest(p.x - 0.5, p.y - 0.5, p.z - 0.5);
+            }
+        }
+        return best;
+    }
+
+    /** The first arm or core face the ray actually hits, nearest the eye. */
+    @Nullable
+    private static Direction firstHit(BlockPos pos, boolean connector, Vec3 from, Vec3 to) {
         Direction best = null;
         double bestDistance = Double.MAX_VALUE;
         for (Direction dir : Direction.values()) {
@@ -503,23 +539,14 @@ public final class Topology {
         if (core != null && from.distanceToSqr(core.getLocation()) < bestDistance) {
             best = core.getDirection();
         }
-        if (best != null) {
-            return best;
-        }
-        Vec3 local = enteredAt.subtract(Vec3.atCenterOf(pos));
-        double threshold = 0.5 - coreInset(connector);
-        best = enteredFace;
-        for (Direction dir : Direction.values()) {
-            if (dir.getAxis() == enteredFace.getAxis()) {
-                continue;
-            }
-            double value = local.x * dir.getStepX() + local.y * dir.getStepY() + local.z * dir.getStepZ();
-            if (value > threshold) {
-                threshold = value;
-                best = dir;
-            }
-        }
         return best;
+    }
+
+    private static double distanceSqr(AABB box, Vec3 p) {
+        double dx = Math.max(Math.max(box.minX - p.x, 0), p.x - box.maxX);
+        double dy = Math.max(Math.max(box.minY - p.y, 0), p.y - box.maxY);
+        double dz = Math.max(Math.max(box.minZ - p.z, 0), p.z - box.maxZ);
+        return dx * dx + dy * dy + dz * dz;
     }
 
     // ---------------------------------------------------------------- block states

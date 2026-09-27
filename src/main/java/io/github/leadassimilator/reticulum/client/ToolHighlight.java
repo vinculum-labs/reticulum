@@ -33,8 +33,7 @@ public final class ToolHighlight {
             return;
         }
         float partialTick = event.getDeltaTracker().getGameTimeDeltaPartialTick(true);
-        Direction side = NetworkToolItem.targetSide(mc.player, state, pos, event.getTarget().getDirection(),
-                event.getTarget().getLocation(), partialTick);
+        Direction side = NetworkToolItem.targetSide(mc.player, state, pos, event.getTarget().getDirection(), partialTick);
         AABB arm = Topology.jointBox(side, state.getBlock() instanceof ConnectorBlock).move(pos);
         Vec3 camera = event.getCamera().getPosition();
         LevelRenderer.renderLineBox(event.getPoseStack(), event.getMultiBufferSource().getBuffer(RenderType.lines()),
