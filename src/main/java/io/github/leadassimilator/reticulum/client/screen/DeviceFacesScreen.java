@@ -63,7 +63,7 @@ public class DeviceFacesScreen extends Screen {
             y += ROW;
         }
         addRenderableWidget(Button.builder(Component.translatable("gui.back"), b -> onClose())
-                .bounds(left + WIDTH - 80, y + 6, 80, 20).build());
+                .bounds(width / 2 - 75, y + 6, 150, 20).build());
     }
 
     private void sendRenames() {

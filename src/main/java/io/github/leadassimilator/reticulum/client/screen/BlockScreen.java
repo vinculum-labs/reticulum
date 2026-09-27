@@ -67,7 +67,7 @@ public class BlockScreen extends Screen {
             y += ROW;
         }
         addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
-                .bounds(left + WIDTH - 80, y + 8, 80, 20).build());
+                .bounds(width / 2 - 75, y + 8, 150, 20).build());
     }
 
     private void addRow(Views.SideView side, int y) {
