@@ -80,6 +80,16 @@ public class ControllerScreen extends Screen {
         return Component.translatable("screen.reticulum.access." + mode.getSerializedName());
     }
 
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if ((keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) && getFocused() instanceof EditBox) {
+            save();
+            setFocused(null);
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
     private void save() {
         PacketDistributor.sendToServer(new Payloads.ControllerSettings(view.pos(), name.getValue(), mode, password.getValue()));
     }

@@ -79,7 +79,9 @@ public class DeviceFacesScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) {
+            // Enter commits the edit and leaves the text box, like pressing Done on a form field.
             sendRenames();
+            setFocused(null);
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
