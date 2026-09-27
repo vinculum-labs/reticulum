@@ -96,7 +96,8 @@ public sealed interface NodeSettings {
     }
 
     /**
-     * @param perOperation items moved per operation at most (items only; continuous kinds use a rate limit node)
+     * @param perOperation items moved per operation at most; 0 means one full stack of whatever moves (items only;
+     *                     continuous kinds use a rate limit node)
      * @param interval     ticks between operations; 0 uses the sheet's interval (items only)
      * @param priority     higher runs first when several sources feed one flow
      */
@@ -104,7 +105,7 @@ public sealed interface NodeSettings {
         public static final MapCodec<SourceSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 Port.CODEC.forGetter(SourceSettings::port),
                 Limit.CODEC.listOf().optionalFieldOf("keep", List.of()).forGetter(SourceSettings::keep),
-                Codec.INT.optionalFieldOf("per_operation", 64).forGetter(SourceSettings::perOperation),
+                Codec.INT.optionalFieldOf("per_operation", 0).forGetter(SourceSettings::perOperation),
                 Codec.INT.optionalFieldOf("interval", 0).forGetter(SourceSettings::interval),
                 Codec.INT.optionalFieldOf("priority", 0).forGetter(SourceSettings::priority)
         ).apply(i, SourceSettings::new));

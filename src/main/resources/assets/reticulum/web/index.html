@@ -175,6 +175,9 @@ function renderSheet(sheet) {
       <select class="res"><option>item</option><option>fluid</option><option>energy</option></select>
       from <select class="src"></select> to <select class="dst"></select>
       <input class="filter" placeholder="filter (optional)" size="18">
+      <span class="itemAmount">move <select class="amount"><option value="1">single</option><option value="0" selected>stack</option><option value="custom">custom</option></select>
+        <input class="custom" type="number" min="1" value="16" style="width:5em; display:none"> per operation</span>
+      <span class="rateBox" style="display:none">max <input class="rate" type="number" min="1" placeholder="unlimited" style="width:7em"> <span class="rateUnit">mB</span>/s</span>
       <button class="add">Add</button></div>
   </div>`);
   box.querySelector(".on").onchange = (e) => edit({ type: "updateSheet", sheet: sheet.id, enabled: e.target.checked });
@@ -182,7 +185,8 @@ function renderSheet(sheet) {
   box.querySelector(".del").onclick = () => confirm(`Delete sheet ${sheet.name}?`) && edit({ type: "deleteSheet", sheet: sheet.id });
   for (const node of sheet.nodes || []) {
     const st = node.settings;
-    const detail = st.device ? `${st.resource} ${st.kind === "source" ? "from" : "to"} ${esc(deviceLabel(st.device))}`
+    const amountText = st.kind === "source" && st.resource === "item" ? `, ${!st.per_operation ? "a stack" : st.per_operation === 1 ? "single" : st.per_operation} per op` : "";
+    const detail = st.device ? `${st.resource} ${st.kind === "source" ? "from" : "to"} ${esc(deviceLabel(st.device))}${amountText}`
       : st.expression !== undefined ? `<code>${esc(st.expression)}</code>`
       : st.per_second !== undefined ? `${st.per_second}/s`
       : st.lines ? st.lines.map(l => `${l.count}× ${esc(l.filter)}`).join(" + ") : esc(st.mode || "");
@@ -197,22 +201,40 @@ function renderSheet(sheet) {
     src.innerHTML = opts; dst.innerHTML = opts;
     src.devices = offering; if (offering.length > 1) dst.value = "1";
   };
-  res.onchange = fill; fill();
+  const amount = box.querySelector(".amount"), custom = box.querySelector(".custom");
+  amount.onchange = () => { custom.style.display = amount.value === "custom" ? "" : "none"; };
+  const modes = () => {
+    const items = res.value === "item";
+    box.querySelector(".itemAmount").style.display = items ? "" : "none";
+    box.querySelector(".rateBox").style.display = items ? "none" : "";
+    box.querySelector(".rateUnit").textContent = res.value === "energy" ? "FE" : "mB";
+  };
+  res.onchange = () => { fill(); modes(); }; fill(); modes();
   box.querySelector(".add").onclick = () => {
     const from = src.devices[+src.value], to = src.devices[+dst.value];
     if (!from || !to) return;
     const port = (d) => ({ resource: res.value, device: d.pos, faces: [] });
-    const source = { id: crypto.randomUUID(), settings: { kind: "source", ...port(from) } };
+    const perOperation = amount.value === "custom" ? Math.max(1, +custom.value || 1) : +amount.value;
+    const source = { id: crypto.randomUUID(), settings: { kind: "source", ...port(from), ...(res.value === "item" ? { per_operation: perOperation } : {}) } };
     const sink = { id: crypto.randomUUID(), settings: { kind: "sink", ...port(to) } };
     const edits = [{ type: "addNode", sheet: sheet.id, node: source }, { type: "addNode", sheet: sheet.id, node: sink }];
     const expr = box.querySelector(".filter").value.trim();
     const wire = (a, b) => ({ type: "connect", sheet: sheet.id, wire: { id: crypto.randomUUID(), from: a.id, to: b.id } });
+    // Chain: source -> [filter] -> [rate limit] -> sink
+    const chain = [source];
     if (expr) {
       const filter = { id: crypto.randomUUID(), settings: { kind: "filter", expression: expr } };
-      edits.push({ type: "addNode", sheet: sheet.id, node: filter }, wire(source, filter), wire(filter, sink));
-    } else {
-      edits.push(wire(source, sink));
+      edits.push({ type: "addNode", sheet: sheet.id, node: filter });
+      chain.push(filter);
     }
+    const rate = +box.querySelector(".rate").value;
+    if (res.value !== "item" && rate > 0) {
+      const limit = { id: crypto.randomUUID(), settings: { kind: "rate_limit", per_second: rate } };
+      edits.push({ type: "addNode", sheet: sheet.id, node: limit });
+      chain.push(limit);
+    }
+    chain.push(sink);
+    for (let i = 0; i + 1 < chain.length; i++) edits.push(wire(chain[i], chain[i + 1]));
     edit(...edits);
   };
   return box;

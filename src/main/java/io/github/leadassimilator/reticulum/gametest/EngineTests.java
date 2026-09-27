@@ -300,4 +300,19 @@ public final class EngineTests {
             throw new IllegalStateException(e);
         }
     }
+
+    @GameTest(template = "empty")
+    public static void stackModeMovesOneStackPerOperation(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.ENDER_PEARL, 16));
+        rig.container(0).setItem(1, new ItemStack(Items.ENDER_PEARL, 16));
+        // Interval 20 so exactly one operation happens in the first 20 ticks.
+        rig.sheet().setInterval(20);
+        rig.wire(rig.sheet().add(Node.of(new NodeSettings.SourceSettings(rig.port(0, ResourceKind.ITEM), List.of(), 0, 20, 0))),
+                rig.sink(1, ResourceKind.ITEM, List.of()));
+        helper.runAfterDelay(21, () -> {
+            check(helper, rig.count(1, Items.ENDER_PEARL) == 16, "one stack of pearls is 16, moved " + rig.count(1, Items.ENDER_PEARL));
+            helper.succeed();
+        });
+    }
 }

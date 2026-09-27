@@ -68,8 +68,10 @@ final class ItemMover {
         }
         ServerLevel level = ctx.server().getLevel(source.settings().port().device().dimension());
         Map<UUID, ItemPort> sinks = new HashMap<>();
-        long perOperation = Math.max(1, source.settings().perOperation());
-        long budget = perOperation;
+        // 0 (or less) means one full stack of whatever moves first, like XNet's "stack" mode.
+        boolean oneStack = source.settings().perOperation() <= 0;
+        long budget = oneStack ? Long.MAX_VALUE : source.settings().perOperation();
+        long total = 0;
         Filters.Context plain = Filters.Context.of(level);
 
         for (IItemHandler handler : from.handlers) {
@@ -81,7 +83,8 @@ final class ItemMover {
                 if (stack.isEmpty()) {
                     continue;
                 }
-                long available = Math.min(Math.min(stack.getCount(), budget),
+                long limit = oneStack && total == 0 ? stack.getMaxStackSize() : budget;
+                long available = Math.min(Math.min(stack.getCount(), limit),
                         from.limit(source.settings().keep(), sheet, stack, plain, true));
                 for (CompiledSheet.Route route : routes) {
                     if (available <= 0) {
@@ -102,8 +105,13 @@ final class ItemMover {
                     if (amount <= 0) {
                         continue;
                     }
+                    int stackSize = stack.getMaxStackSize();
                     int moved = transfer(ctx, handler, slot, (int) Math.min(amount, Integer.MAX_VALUE), to);
                     if (moved > 0) {
+                        if (oneStack && total == 0) {
+                            budget = stackSize;
+                        }
+                        total += moved;
                         available -= moved;
                         budget -= moved;
                         ctx.runtime().delivered(route, moved);
@@ -116,7 +124,7 @@ final class ItemMover {
                 }
             }
         }
-        return perOperation - budget;
+        return total;
     }
 
     static boolean passes(List<CompiledSheet.Gate> gates, ItemStack stack, Filters.Context context) {
