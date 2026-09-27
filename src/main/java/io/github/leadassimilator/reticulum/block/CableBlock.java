@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 
 public class CableBlock extends LinkedBlock {
     public static final MapCodec<CableBlock> CODEC = simpleCodec(CableBlock::new);
-    static final Map<Direction, EnumProperty<Link>> LINKS = create(Link.NONE, Link.CABLE, Link.CAP);
+    static final Map<Direction, EnumProperty<Link>> LINKS = create(Link.NONE, Link.CABLE);
 
     public CableBlock(Properties properties) {
         super(properties);

@@ -15,7 +15,7 @@ import net.neoforged.neoforge.client.model.generators.MultiPartBlockStateBuilder
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
 
 /**
- * Multipart block states for cables and connectors. The element models they point at (core, arm, cap, plug) are
+ * Multipart block states for cables and connectors. The element models they point at (core, arm, plug) are
  * hand-made source art in src/main/resources, modeled facing north and rotated here for the other sides.
  */
 public class ModBlockStates extends BlockStateProvider {
@@ -27,9 +27,9 @@ public class ModBlockStates extends BlockStateProvider {
     protected void registerStatesAndModels() {
         simpleBlock(ModBlocks.CONTROLLER.get(), models().cubeAll("controller", modLoc("block/controller")));
 
-        linked(ModBlocks.CABLE.get(), "cable_core", Map.of(Link.CABLE, "cable_arm", Link.CAP, "cable_cap"));
+        linked(ModBlocks.CABLE.get(), "cable_core", Map.of(Link.CABLE, "cable_arm"));
         linked(ModBlocks.CONNECTOR.get(), "connector_core",
-                Map.of(Link.CABLE, "connector_arm", Link.CAP, "connector_cap", Link.DEVICE, "connector_plug"));
+                Map.of(Link.CABLE, "connector_arm", Link.DEVICE, "connector_plug"));
     }
 
     private void linked(LinkedBlock block, String core, Map<Link, String> parts) {

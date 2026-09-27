@@ -493,7 +493,8 @@ public final class Topology {
     private static Link link(ServerLevel level, BlockPos pos, NetworkBlockEntity be, Direction side, EnumProperty<Link> property) {
         BlockPos next = pos.relative(side);
         if (blockEntity(level, next) != null) {
-            return joined(level, pos, side) ? Link.CABLE : Link.CAP;
+            // A cut or blocked joint renders as if nothing were there.
+            return joined(level, pos, side) ? Link.CABLE : Link.NONE;
         }
         if (be instanceof ConnectorBlockEntity connector && property.getPossibleValues().contains(Link.DEVICE)
                 && connector.isDeviceEnabled(side) && Devices.isDevice(level, next)) {

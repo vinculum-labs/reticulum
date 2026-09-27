@@ -9,8 +9,6 @@ public enum Link implements StringRepresentable {
     NONE,
     /** Joined to a neighboring network block. */
     CABLE,
-    /** A neighboring network block that is cut or belongs to another network; renders an end cap. */
-    CAP,
     /** Connector only: a device on this side is connected. */
     DEVICE;
 
