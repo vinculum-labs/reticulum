@@ -1,0 +1,211 @@
+// The editor's shared state. The server is the only authority: edits are sent, and the snapshot it pushes back
+// replaces what is shown. Undo and redo send the inverse edits recorded with each change.
+
+import { Connection } from "./protocol";
+import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot } from "./types";
+import { posKey } from "./types";
+
+export interface Toast {
+  id: number;
+  text: string;
+  kind: "error" | "info";
+}
+
+interface Change {
+  network: string;
+  label: string;
+  redo: Edit[];
+  undo: Edit[];
+}
+
+export const app = $state({
+  socketOpen: false,
+  inWorld: false,
+  player: "",
+  networks: [] as NetworkSummary[],
+  current: null as string | null,
+  snapshot: null as Snapshot | null,
+  sheetId: null as string | null,
+  /** Amount moved in the last second, per node and wire id. */
+  rates: {} as Record<string, number>,
+  selectedNodes: [] as string[],
+  selectedEdges: [] as string[],
+  selectedDevice: null as string | null,
+  busy: 0,
+  toasts: [] as Toast[],
+  undo: [] as Change[],
+  redo: [] as Change[],
+});
+
+let toastSeq = 0;
+
+export function toast(text: string, kind: Toast["kind"] = "error"): void {
+  const id = ++toastSeq;
+  app.toasts.push({ id, text, kind });
+  setTimeout(() => {
+    app.toasts = app.toasts.filter((t) => t.id !== id);
+  }, kind === "error" ? 7000 : 3000);
+}
+
+const connection = new Connection(onMessage, (open) => {
+  app.socketOpen = open;
+  if (!open) app.inWorld = false;
+});
+
+export function start(): void {
+  connection.connect();
+}
+
+async function onMessage(m: any): Promise<void> {
+  switch (m.type) {
+    case "hello":
+      app.inWorld = m.connected;
+      if (m.connected) await loadNetworks(m.focus ?? hashNetwork());
+      break;
+    case "connected":
+      app.inWorld = true;
+      await loadNetworks(app.current ?? hashNetwork());
+      break;
+    case "disconnected":
+      app.inWorld = false;
+      break;
+    case "focus":
+      if (m.network) await selectNetwork(m.network);
+      break;
+    case "snapshot":
+      if (m.network.id === app.current) setSnapshot(m.network);
+      break;
+    case "metrics":
+      if (m.network === app.current) app.rates = m.perSecond;
+      break;
+    case "removed":
+      if (m.network === app.current) {
+        app.current = null;
+        app.snapshot = null;
+        toast("You no longer have access to that network", "info");
+      }
+      await loadNetworks(null);
+      break;
+  }
+}
+
+function hashNetwork(): string | null {
+  const match = location.hash.match(/network=([0-9a-f-]+)/);
+  return match ? match[1] : null;
+}
+
+export async function loadNetworks(focus: string | null): Promise<void> {
+  try {
+    const r = await connection.send({ op: "networks" });
+    app.networks = r.networks;
+    app.player = r.player;
+    const target = focus && app.networks.some((n) => n.id === focus) ? focus : app.current ?? app.networks[0]?.id ?? null;
+    if (target && target !== app.current) await selectNetwork(target);
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+export async function selectNetwork(id: string): Promise<void> {
+  if (app.current && app.current !== id) connection.send({ op: "unsubscribe", network: app.current }).catch(() => {});
+  app.current = id;
+  history.replaceState(null, "", `#network=${id}`);
+  app.rates = {};
+  app.selectedNodes = [];
+  app.selectedEdges = [];
+  app.selectedDevice = null;
+  try {
+    const r = await connection.send({ op: "subscribe", network: id });
+    setSnapshot(r.network);
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+function setSnapshot(snapshot: Snapshot): void {
+  app.snapshot = snapshot;
+  const summary = app.networks.find((n) => n.id === snapshot.id);
+  if (summary) Object.assign(summary, { name: snapshot.name, running: snapshot.running, enabled: snapshot.enabled });
+  if (!snapshot.sheets.some((s) => s.id === app.sheetId)) app.sheetId = snapshot.sheets[0]?.id ?? null;
+}
+
+// ---------------------------------------------------------------- edits
+
+/** Sends edits; returns the server's per-edit results (created ids) or null on failure. */
+export async function edit(edits: Edit[], undo?: Edit[], label = "change"): Promise<unknown[] | null> {
+  const network = app.current;
+  if (!network || edits.length === 0) return null;
+  app.busy++;
+  try {
+    const r = await connection.send({ op: "edit", network, edits });
+    if (undo) {
+      app.undo.push({ network, label, redo: edits, undo });
+      if (app.undo.length > 100) app.undo.shift();
+      app.redo = [];
+    }
+    return r.results;
+  } catch (e) {
+    toast((e as Error).message);
+    return null;
+  } finally {
+    app.busy--;
+  }
+}
+
+export async function undo(): Promise<void> {
+  const change = app.undo.pop();
+  if (!change) return;
+  if (change.network !== app.current) {
+    app.undo = [];
+    return;
+  }
+  app.busy++;
+  try {
+    await connection.send({ op: "edit", network: change.network, edits: change.undo });
+    app.redo.push(change);
+  } catch (e) {
+    toast(`Undo failed: ${(e as Error).message}`);
+  } finally {
+    app.busy--;
+  }
+}
+
+export async function redo(): Promise<void> {
+  const change = app.redo.pop();
+  if (!change || change.network !== app.current) return;
+  app.busy++;
+  try {
+    await connection.send({ op: "edit", network: change.network, edits: change.redo });
+    app.undo.push(change);
+  } catch (e) {
+    toast(`Redo failed: ${(e as Error).message}`);
+  } finally {
+    app.busy--;
+  }
+}
+
+export function request(op: string, payload: Record<string, unknown> = {}): Promise<any> {
+  return connection.send({ op, network: app.current, ...payload });
+}
+
+// ---------------------------------------------------------------- lookups
+
+export function currentSheet(): Sheet | null {
+  return app.snapshot?.sheets.find((s) => s.id === app.sheetId) ?? null;
+}
+
+export function deviceAt(key: string): Device | undefined {
+  return app.snapshot?.devices.find((d) => posKey(d.pos) === key);
+}
+
+export function deviceName(device: Device | undefined): string {
+  return device ? device.name || device.defaultName : "Unknown device";
+}
+
+export function nodeById(sheet: Sheet | null, id: string): GraphNode | undefined {
+  return sheet?.nodes?.find((n) => n.id === id);
+}
+
+export function uuid(): string {
+  return crypto.randomUUID();
+}

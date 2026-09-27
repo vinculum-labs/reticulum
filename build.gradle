@@ -3,6 +3,7 @@ plugins {
     id 'maven-publish'
     id 'net.neoforged.moddev' version '2.0.147'
     id 'idea'
+    id 'com.github.node-gradle.node' version '7.1.0'
 }
 
 tasks.named('wrapper', Wrapper).configure {
@@ -64,6 +65,8 @@ neoForge {
     runs {
         client {
             client()
+            // Serve the web editor straight from web/dist, so `npm run dev` changes show on a browser refresh.
+            systemProperty 'reticulum.webRoot', file('web/dist').absolutePath
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
@@ -165,5 +168,29 @@ idea {
     module {
         downloadSources = true
         downloadJavadoc = true
+    }
+}
+
+// ---------------------------------------------------------------- web editor
+
+node {
+    // A pinned Node.js is downloaded for the build, so CI and fresh checkouts need nothing installed.
+    download = true
+    version = '22.12.0'
+    nodeProjectDir = file('web')
+}
+
+def webBuild = tasks.register('webBuild', com.github.gradle.node.npm.task.NpmTask) {
+    description = 'Builds the web editor with Vite.'
+    dependsOn tasks.named('npmInstall')
+    args = ['run', 'build']
+    inputs.dir('web/src')
+    inputs.files('web/package.json', 'web/package-lock.json', 'web/vite.config.ts', 'web/tsconfig.json', 'web/index.html')
+    outputs.dir('web/dist')
+}
+
+tasks.named('processResources', ProcessResources) {
+    from(webBuild) {
+        into 'assets/reticulum/web'
     }
 }

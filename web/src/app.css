@@ -1,0 +1,173 @@
+@import "tailwindcss";
+@import "@xyflow/svelte/dist/style.css";
+
+/* Colors are tokens so light and dark themes change in one place. Dark is the default look. */
+:root {
+  color-scheme: light dark;
+  --bg: #f4f5f8;
+  --panel: #ffffff;
+  --panel-2: #eef0f4;
+  --field: #ffffff;
+  --ink: #1b1f2a;
+  --muted: #667085;
+  --line: #d8dce4;
+  --accent: #2f7fd1;
+  --accent-ink: #ffffff;
+  --good: #1f9d55;
+  --warn: #b7791f;
+  --bad: #c0392b;
+  --c-item: #d08a2e;
+  --c-fluid: #2f86d1;
+  --c-energy: #d6b52b;
+  --canvas: #f0f2f6;
+  --grid: #d9dde6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12151b;
+    --panel: #1a1e26;
+    --panel-2: #222733;
+    --field: #262b36;
+    --ink: #e3e7ef;
+    --muted: #8d96a8;
+    --line: #2f3542;
+    --accent: #5aa2ec;
+    --accent-ink: #0d1117;
+    --good: #45c07a;
+    --warn: #e0a846;
+    --bad: #e36b5d;
+    --c-item: #e3a14b;
+    --c-fluid: #56a7ec;
+    --c-energy: #e8cd4f;
+    --canvas: #151920;
+    --grid: #262c37;
+  }
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  color: var(--ink);
+}
+
+input:not([type="checkbox"]),
+select,
+textarea {
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 7px;
+  min-width: 0;
+}
+
+select option {
+  background: var(--panel);
+  color: var(--ink);
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.btn {
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+img.icon {
+  image-rendering: pixelated;
+}
+
+/* Svelte Flow follows the theme tokens. */
+.svelte-flow {
+  --xy-background-color: var(--canvas);
+  --xy-background-pattern-color: var(--grid);
+  --xy-edge-stroke: var(--muted);
+  --xy-edge-stroke-selected: var(--accent);
+  --xy-connectionline-stroke: var(--accent);
+  --xy-minimap-background-color: var(--panel);
+  --xy-controls-button-background-color: var(--panel);
+  --xy-controls-button-background-color-hover: var(--panel-2);
+  --xy-controls-button-color: var(--ink);
+  --xy-controls-button-border-color: var(--line);
+  --xy-edge-label-background-color: var(--panel);
+  --xy-edge-label-color: var(--ink);
+  --xy-handle-background-color: var(--muted);
+  --xy-handle-border-color: var(--panel);
+  --xy-selection-background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+  --xy-selection-border: 1px dashed var(--accent);
+  --xy-attribution-background-color: transparent;
+}
+
+.svelte-flow .svelte-flow__node {
+  border: none;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 8px;
+}
+
+.svelte-flow .svelte-flow__handle {
+  width: 10px;
+  height: 10px;
+}

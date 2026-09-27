@@ -180,7 +180,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             respond(ctx, request, HttpResponseStatus.NOT_FOUND, "text/plain", bytes("Not found"));
             return;
         }
-        try (InputStream in = HttpHandler.class.getResourceAsStream(WEB_ROOT + name)) {
+        try (InputStream in = open(name)) {
             if (in == null) {
                 respond(ctx, request, HttpResponseStatus.NOT_FOUND, "text/plain", bytes("Not found"));
                 return;
@@ -191,6 +191,23 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             Reticulum.LOGGER.warn("Could not serve {}", name, e);
             respond(ctx, request, HttpResponseStatus.INTERNAL_SERVER_ERROR, "text/plain", bytes("Error"));
         }
+    }
+
+    /**
+     * Web files come from the mod jar, or, in dev runs, from the directory named by the {@code reticulum.webRoot}
+     * system property (web/dist), so a rebuilt editor shows up on a browser refresh.
+     */
+    @Nullable
+    private static InputStream open(String name) throws IOException {
+        String devRoot = System.getProperty("reticulum.webRoot");
+        if (devRoot != null) {
+            java.nio.file.Path root = java.nio.file.Path.of(devRoot).toAbsolutePath().normalize();
+            java.nio.file.Path file = root.resolve(name).normalize();
+            if (file.startsWith(root) && java.nio.file.Files.isRegularFile(file)) {
+                return java.nio.file.Files.newInputStream(file);
+            }
+        }
+        return HttpHandler.class.getResourceAsStream(WEB_ROOT + name);
     }
 
     // ---------------------------------------------------------------- responses
