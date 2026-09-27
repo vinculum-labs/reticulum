@@ -22,7 +22,8 @@ public sealed interface NodeSettings {
         FILTER(FilterSettings.CODEC),
         RATE_LIMIT(RateLimitSettings.CODEC),
         SPLITTER(SplitterSettings.CODEC),
-        KIT(KitSettings.CODEC);
+        KIT(KitSettings.CODEC),
+        DEVICE(DeviceSettings.CODEC);
 
         public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(Kind::values);
 
@@ -174,6 +175,47 @@ public sealed interface NodeSettings {
         @Override
         public Kind kind() {
             return Kind.SPLITTER;
+        }
+    }
+
+    /** One way into a device node: what it takes, through which faces, and when to stop. */
+    record Input(ResourceKind resource, List<FaceKey> faces, Optional<SlotRange> slots, List<Limit> caps) {
+        public static final Codec<Input> CODEC = RecordCodecBuilder.create(i -> i.group(
+                ResourceKind.CODEC.fieldOf("resource").forGetter(Input::resource),
+                FaceKey.CODEC.listOf().optionalFieldOf("faces", List.of()).forGetter(Input::faces),
+                SlotRange.CODEC.optionalFieldOf("slots").forGetter(Input::slots),
+                Limit.CODEC.listOf().optionalFieldOf("caps", List.of()).forGetter(Input::caps)
+        ).apply(i, Input::new));
+    }
+
+    /** One way out of a device node; the same options as a source. */
+    record Output(ResourceKind resource, List<FaceKey> faces, Optional<SlotRange> slots, List<Limit> keep, int perOperation, int interval,
+            int priority) {
+        public static final Codec<Output> CODEC = RecordCodecBuilder.create(i -> i.group(
+                ResourceKind.CODEC.fieldOf("resource").forGetter(Output::resource),
+                FaceKey.CODEC.listOf().optionalFieldOf("faces", List.of()).forGetter(Output::faces),
+                SlotRange.CODEC.optionalFieldOf("slots").forGetter(Output::slots),
+                Limit.CODEC.listOf().optionalFieldOf("keep", List.of()).forGetter(Output::keep),
+                Codec.INT.optionalFieldOf("per_operation", 0).forGetter(Output::perOperation),
+                Codec.INT.optionalFieldOf("interval", 0).forGetter(Output::interval),
+                Codec.INT.optionalFieldOf("priority", 0).forGetter(Output::priority)
+        ).apply(i, Output::new));
+    }
+
+    /**
+     * A block that is both fed and emptied, such as a machine: any number of inputs (left) and outputs (right),
+     * each with its own resource, faces and rules. The engine treats each output as a source and each input as a sink.
+     */
+    record DeviceSettings(GlobalPos device, List<Input> inputs, List<Output> outputs) implements NodeSettings {
+        public static final MapCodec<DeviceSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                GlobalPos.CODEC.fieldOf("device").forGetter(DeviceSettings::device),
+                Input.CODEC.listOf().optionalFieldOf("inputs", List.of()).forGetter(DeviceSettings::inputs),
+                Output.CODEC.listOf().optionalFieldOf("outputs", List.of()).forGetter(DeviceSettings::outputs)
+        ).apply(i, DeviceSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.DEVICE;
         }
     }
 

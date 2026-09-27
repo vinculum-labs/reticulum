@@ -11,7 +11,7 @@
     type Connection,
   } from "@xyflow/svelte";
   import { app, currentSheet, deviceAt, edit, toast, uuid } from "../../lib/state.svelte";
-  import { toFlow, type NodeData } from "../../lib/graph";
+  import { handleIndex, toFlow, type NodeData } from "../../lib/graph";
   import { KIND_HINT, KIND_LABEL, defaultSettings } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Wire } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
@@ -51,9 +51,10 @@
 
   async function connect(c: Connection) {
     if (!sheet) return;
-    const output = c.sourceHandle === "reject" ? 1 : 0;
+    const output = handleIndex(c.sourceHandle);
+    const input = handleIndex(c.targetHandle);
     const order = (sheet.wires ?? []).filter((w) => w.from === c.source && (w.output ?? 0) === output).length;
-    const wire: Wire = { id: uuid(), from: c.source, output, to: c.target, order };
+    const wire: Wire = { id: uuid(), from: c.source, output, to: c.target, input, order };
     await edit([{ type: "connect", sheet: sheet.id, wire }], [{ type: "disconnect", sheet: sheet.id, wire: wire.id }], "connect");
   }
 
@@ -98,7 +99,7 @@
 
   async function addNode(kind: NodeKind, at: { x: number; y: number }, device: Device | null = null) {
     if (!sheet) return;
-    if ((kind === "source" || kind === "sink") && !device) {
+    if ((kind === "source" || kind === "sink" || kind === "device") && !device) {
       device = (app.selectedDevice && deviceAt(app.selectedDevice)) || app.snapshot?.devices.find((d) => d.state === "active") || null;
       if (!device) {
         toast("There are no devices on this network yet.");
@@ -138,10 +139,10 @@
     if (!device) return;
     e.preventDefault();
     const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    addNode(e.shiftKey ? "sink" : "source", { x: p.x - 112, y: p.y - 24 }, device);
+    addNode("device", { x: p.x - 136, y: p.y - 24 }, device);
   }
 
-  const palette: NodeKind[] = ["source", "sink", "filter", "rate_limit", "splitter", "kit"];
+  const palette: NodeKind[] = ["device", "filter", "rate_limit", "splitter", "kit"];
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->

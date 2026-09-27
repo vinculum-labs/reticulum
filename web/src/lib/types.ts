@@ -67,7 +67,48 @@ export interface KitSettings {
   max_kits?: number;
 }
 
-export type NodeSettings = SourceSettings | SinkSettings | FilterSettings | RateLimitSettings | SplitterSettings | KitSettings;
+/** Resource, faces and slot range of one way in or out of a device. */
+export interface Side {
+  resource: Resource;
+  faces?: Face[];
+  slots?: { first: number; last: number };
+}
+
+/** One way into a device node. */
+export interface DeviceInput {
+  resource: Resource;
+  faces?: Face[];
+  slots?: { first: number; last: number };
+  caps?: Limit[];
+}
+
+/** One way out of a device node; the same options as a source. */
+export interface DeviceOutput {
+  resource: Resource;
+  faces?: Face[];
+  slots?: { first: number; last: number };
+  keep?: Limit[];
+  per_operation?: number;
+  interval?: number;
+  priority?: number;
+}
+
+/** A block that is both fed and emptied: numbered inputs (left) and outputs (right). */
+export interface DeviceNodeSettings {
+  kind: "device";
+  device: GlobalPos;
+  inputs?: DeviceInput[];
+  outputs?: DeviceOutput[];
+}
+
+export type NodeSettings =
+  | SourceSettings
+  | SinkSettings
+  | FilterSettings
+  | RateLimitSettings
+  | SplitterSettings
+  | KitSettings
+  | DeviceNodeSettings;
 export type NodeKind = NodeSettings["kind"];
 
 export interface GraphNode {
@@ -82,9 +123,11 @@ export interface GraphNode {
 export interface Wire {
   id: string;
   from: string;
-  /** 0 = main / match, 1 = reject. */
+  /** Which output: 0 = main / match, 1 = reject; a device node's output number. */
   output?: number;
   to: string;
+  /** Which input on a device node. */
+  input?: number;
   order?: number;
 }
 

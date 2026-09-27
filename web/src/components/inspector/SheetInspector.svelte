@@ -63,6 +63,6 @@
     </dd>
   </dl>
   <p class="text-xs muted">
-    Tip: drag devices from the left onto the canvas (hold Shift for a sink), drag between handles to wire, Delete removes, Ctrl+Z undoes.
+    Tip: drag devices from the left onto the canvas, drag from an output (right) to an input (left) to wire, Delete removes, Ctrl+Z undoes.
   </p>
 </div>

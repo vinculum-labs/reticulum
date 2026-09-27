@@ -91,13 +91,25 @@ public final class CompiledSheet {
 
     private void build(Map<String, String> templates) {
         Map<UUID, Node> nodes = new LinkedHashMap<>();
+        Map<UUID, NodeSettings.DeviceSettings> devices = new LinkedHashMap<>();
         for (Node node : sheet.nodes()) {
-            if (node.enabled()) {
+            if (!node.enabled()) {
+                continue;
+            }
+            if (node.settings() instanceof NodeSettings.DeviceSettings device) {
+                devices.put(node.id(), device);
+                expand(node, device, nodes);
+            } else {
                 nodes.put(node.id(), node);
             }
         }
         Map<UUID, List<Wire>> outgoing = new LinkedHashMap<>();
-        for (Wire wire : sheet.wires()) {
+        for (Wire original : sheet.wires()) {
+            // Wires on a device node really leave one of its outputs or enter one of its inputs.
+            UUID from = devices.containsKey(original.from()) ? side(original.from(), "out", original.output()) : original.from();
+            UUID to = devices.containsKey(original.to()) ? side(original.to(), "in", original.input()) : original.to();
+            int output = devices.containsKey(original.from()) ? Wire.MATCH : original.output();
+            Wire wire = new Wire(original.id(), from, output, to, 0, original.order());
             if (nodes.containsKey(wire.from()) && nodes.containsKey(wire.to())) {
                 outgoing.computeIfAbsent(wire.from(), k -> new ArrayList<>()).add(wire);
             }
@@ -127,6 +139,32 @@ public final class CompiledSheet {
             List<Route> routes = new ArrayList<>();
             walk(source, source, settings.port().resource(), nodes, outgoing, gates, new Walk(), routes);
             sources.add(new Source(source, settings, routes));
+        }
+    }
+
+    /** Node ids of the sources and sinks a device node is made of, mapped back to the device node (for metrics). */
+    private final Map<UUID, UUID> owners = new LinkedHashMap<>();
+
+    private static UUID side(UUID device, String direction, int index) {
+        return UUID.nameUUIDFromBytes((device + ":" + direction + ":" + index).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    private void expand(Node node, NodeSettings.DeviceSettings device, Map<UUID, Node> nodes) {
+        for (int i = 0; i < device.outputs().size(); i++) {
+            NodeSettings.Output out = device.outputs().get(i);
+            NodeSettings.Port port = new NodeSettings.Port(out.resource(), device.device(), out.faces(), out.slots());
+            Node source = new Node(side(node.id(), "out", i),
+                    new NodeSettings.SourceSettings(port, out.keep(), out.perOperation(), out.interval(), out.priority()),
+                    node.label(), true, node.x(), node.y());
+            nodes.put(source.id(), source);
+            owners.put(source.id(), node.id());
+        }
+        for (int i = 0; i < device.inputs().size(); i++) {
+            NodeSettings.Input in = device.inputs().get(i);
+            NodeSettings.Port port = new NodeSettings.Port(in.resource(), device.device(), in.faces(), in.slots());
+            Node sink = new Node(side(node.id(), "in", i), new NodeSettings.SinkSettings(port, in.caps()), node.label(), true, node.x(), node.y());
+            nodes.put(sink.id(), sink);
+            owners.put(sink.id(), node.id());
         }
     }
 
@@ -161,7 +199,7 @@ public final class CompiledSheet {
             errors.add("Wires loop back to " + describe(node) + "; resource wires must not form a cycle");
             return;
         }
-        walk.path.add(node.id());
+        walk.path.add(owners.getOrDefault(node.id(), node.id()));
         switch (node.settings()) {
             case NodeSettings.SinkSettings sink -> {
                 if (sink.port().resource() != resource) {

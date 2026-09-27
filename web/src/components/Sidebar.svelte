@@ -122,7 +122,7 @@
   <section class="border-t p-3" style="border-color: var(--line)">
     <h2 class="panel-title mb-2">Devices</h2>
     <input class="mb-2 w-full" placeholder="Search devices" bind:value={deviceSearch} />
-    <p class="mb-2 text-xs muted">Drag a device onto the canvas to add it as a source.</p>
+    <p class="mb-2 text-xs muted">Drag a device onto the canvas to add it; give it inputs and outputs in the inspector.</p>
     <ul class="flex flex-col gap-0.5">
       {#each devices as d (posKey(d.pos))}
         {@const key = posKey(d.pos)}

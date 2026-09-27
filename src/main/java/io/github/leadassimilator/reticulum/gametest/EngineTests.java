@@ -331,4 +331,20 @@ public final class EngineTests {
             helper.succeed();
         });
     }
+
+    /** A device node is fed and emptied at once: A -> B -> C with B as one node. */
+    @GameTest(template = "empty")
+    public static void deviceNodeIsBothSinkAndSource(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 32));
+        Node middle = rig.node(new NodeSettings.DeviceSettings(rig.port(1, ResourceKind.ITEM).device(),
+                List.of(new NodeSettings.Input(ResourceKind.ITEM, List.of(), Optional.empty(), List.of())),
+                List.of(new NodeSettings.Output(ResourceKind.ITEM, List.of(), Optional.empty(), List.of(), 0, 1, 0))));
+        rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), middle);
+        rig.wire(middle, rig.sink(2, ResourceKind.ITEM, List.of()));
+        helper.succeedWhen(() -> {
+            check(helper, rig.count(2, Items.COBBLESTONE) == 32, "items did not pass through the device node, C has " + rig.count(2, Items.COBBLESTONE));
+            check(helper, rig.count(0, Items.COBBLESTONE) + rig.count(1, Items.COBBLESTONE) + rig.count(2, Items.COBBLESTONE) == 32, "items duplicated or lost");
+        });
+    }
 }

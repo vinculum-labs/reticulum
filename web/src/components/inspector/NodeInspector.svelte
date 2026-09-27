@@ -1,18 +1,45 @@
 <script lang="ts">
   import { app, edit } from "../../lib/state.svelte";
   import { KIND_HINT, KIND_LABEL, RESOURCE_UNIT } from "../../lib/kinds";
-  import type { GraphNode, NodeSettings, PortFields, Sheet, SinkSettings, SourceSettings } from "../../lib/types";
+  import type { DeviceNodeSettings, Edit, GraphNode, NodeSettings, PortFields, Sheet, SinkSettings, SourceSettings, Wire } from "../../lib/types";
   import Field from "./Field.svelte";
   import FilterField from "./FilterField.svelte";
   import PortEditor from "./PortEditor.svelte";
   import LimitsEditor from "./LimitsEditor.svelte";
+  import AmountEditor from "./AmountEditor.svelte";
+  import DeviceNodeEditor from "./DeviceNodeEditor.svelte";
   import Chart from "./Chart.svelte";
 
   let { node, sheet }: { node: GraphNode; sheet: Sheet } = $props();
 
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
   const s = $derived(node.settings);
-  const unit = $derived("resource" in s ? RESOURCE_UNIT[s.resource] : "units");
+  const unit = $derived(
+    "resource" in s ? RESOURCE_UNIT[s.resource] : s.kind === "device" && s.outputs?.[0] ? RESOURCE_UNIT[s.outputs[0].resource] : "units",
+  );
+
+  /**
+   * Saves a device node. When an input or output was removed, its wires go and wires on later ones are
+   * renumbered (the server identifies them by number).
+   */
+  function saveDevice(next: DeviceNodeSettings, removed?: { direction: "in" | "out"; index: number }) {
+    const edits: Edit[] = [];
+    const undo: Edit[] = [{ type: "updateNode", sheet: sheet.id, node }];
+    if (removed) {
+      const onSide = (w: Wire) => (removed.direction === "in" ? w.to === node.id : w.from === node.id);
+      const index = (w: Wire) => (removed.direction === "in" ? (w.input ?? 0) : (w.output ?? 0));
+      for (const w of (sheet.wires ?? []).filter((w) => onSide(w) && index(w) >= removed.index)) {
+        edits.push({ type: "disconnect", sheet: sheet.id, wire: w.id });
+        undo.push({ type: "connect", sheet: sheet.id, wire: w });
+        if (index(w) > removed.index) {
+          const moved = removed.direction === "in" ? { ...w, input: index(w) - 1 } : { ...w, output: index(w) - 1 };
+          edits.push({ type: "connect", sheet: sheet.id, wire: moved });
+          undo.unshift({ type: "disconnect", sheet: sheet.id, wire: w.id });
+        }
+      }
+    }
+    edit([...edits, { type: "updateNode", sheet: sheet.id, node: { ...node, settings: next } }], undo, "edit device");
+  }
 
   function save(next: GraphNode, label = "edit node") {
     edit([{ type: "updateNode", sheet: sheet.id, node: next }], [{ type: "updateNode", sheet: sheet.id, node }], label);
@@ -48,7 +75,6 @@
     );
   }
 
-  let amountMode = $derived(s.kind === "source" ? (!s.per_operation ? "stack" : s.per_operation === 1 ? "single" : "custom") : "stack");
 </script>
 
 <div class="flex flex-col gap-3">
@@ -74,53 +100,17 @@
     On
   </label>
 
+  {#if s.kind === "device"}
+    <DeviceNodeEditor settings={s} {sheet} nodeId={node.id} disabled={!canEdit} onchange={saveDevice} />
+  {/if}
+
   {#if s.kind === "source" || s.kind === "sink"}
     <PortEditor port={s} disabled={!canEdit} onchange={port} />
     {#if canEdit}<button class="btn self-start text-sm" onclick={flip}>Make this a {s.kind === "source" ? "sink" : "source"}</button>{/if}
   {/if}
 
   {#if s.kind === "source"}
-    {#if s.resource === "item"}
-      <Field label="Per operation">
-        <div class="flex items-center gap-2">
-          <select
-            value={amountMode}
-            disabled={!canEdit}
-            onchange={(e) => {
-              const v = e.currentTarget.value;
-              settings({ per_operation: v === "stack" ? 0 : v === "single" ? 1 : 16 });
-            }}
-          >
-            <option value="single">One item</option>
-            <option value="stack">One stack</option>
-            <option value="custom">Custom</option>
-          </select>
-          {#if amountMode === "custom"}
-            <input
-              type="number"
-              min="1"
-              class="w-20"
-              value={s.per_operation}
-              disabled={!canEdit}
-              onchange={(e) => settings({ per_operation: Math.max(1, Number(e.currentTarget.value) || 1) })}
-            />
-          {/if}
-        </div>
-      </Field>
-      <Field label="Every" hint="Ticks between operations; 0 uses the sheet's interval ({sheet.interval ?? 10}).">
-        <input
-          type="number"
-          min="0"
-          class="w-24"
-          value={s.interval ?? 0}
-          disabled={!canEdit}
-          onchange={(e) => settings({ interval: Math.max(0, Number(e.currentTarget.value) || 0) })}
-        />
-      </Field>
-    {/if}
-    <Field label="Priority" hint="Higher runs first when several sources feed the same sinks.">
-      <input type="number" class="w-24" value={s.priority ?? 0} disabled={!canEdit} onchange={(e) => settings({ priority: Number(e.currentTarget.value) || 0 })} />
-    </Field>
+    <AmountEditor settings={s} sheetInterval={sheet.interval ?? 10} disabled={!canEdit} onchange={(patch) => settings(patch)} />
     <LimitsEditor limits={s.keep ?? []} keep={true} resource={s.resource} disabled={!canEdit} onchange={(keep) => settings({ keep })} />
   {:else if s.kind === "sink"}
     <LimitsEditor limits={s.caps ?? []} keep={false} resource={s.resource} disabled={!canEdit} onchange={(caps) => settings({ caps })} />

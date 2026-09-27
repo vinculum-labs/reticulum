@@ -354,12 +354,13 @@ public final class WebApi {
 
         /** Sources and sinks may only point at devices of this network. */
         private static void checkPorts(Network network, Node node) throws RequestException {
-            NodeSettings.Port port = switch (node.settings()) {
-                case NodeSettings.SourceSettings s -> s.port();
-                case NodeSettings.SinkSettings s -> s.port();
+            GlobalPos device = switch (node.settings()) {
+                case NodeSettings.SourceSettings s -> s.port().device();
+                case NodeSettings.SinkSettings s -> s.port().device();
+                case NodeSettings.DeviceSettings s -> s.device();
                 default -> null;
             };
-            if (port != null && network.device(port.device()) == null) {
+            if (device != null && network.device(device) == null) {
                 throw new RequestException("That block is not a device of this network");
             }
         }

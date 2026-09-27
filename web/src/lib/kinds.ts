@@ -3,6 +3,7 @@
 import type { Device, GraphNode, NodeKind, NodeSettings, Resource } from "./types";
 
 export const KIND_LABEL: Record<NodeKind, string> = {
+  device: "Device",
   source: "Source",
   sink: "Sink",
   filter: "Filter",
@@ -12,6 +13,7 @@ export const KIND_LABEL: Record<NodeKind, string> = {
 };
 
 export const KIND_HINT: Record<NodeKind, string> = {
+  device: "A block that is fed through its inputs and emptied through its outputs",
   source: "Takes resources out of a device",
   sink: "Puts resources into a device",
   filter: "Sends matches one way and the rest another",
@@ -33,6 +35,8 @@ export const RESOURCE_VAR: Record<Resource, string> = {
 export function defaultSettings(kind: NodeKind, device: Device | null, resource: Resource): NodeSettings {
   const port = device ? { resource, device: device.pos, faces: [] } : null;
   switch (kind) {
+    case "device":
+      return { kind, device: device!.pos, inputs: [{ resource }], outputs: [{ resource, per_operation: 0 }] };
     case "source":
       return { kind, ...port!, per_operation: 0 };
     case "sink":
@@ -56,10 +60,20 @@ export function formatAmount(value: number, resource: Resource | null): string {
   return `${value} ${unit}`.trim();
 }
 
+/** Label for one input or output: resource and faces. */
+export function sideLabel(side: { resource: Resource; faces?: string[] }): string {
+  return `${RESOURCE_LABEL[side.resource]}${side.faces?.length ? ` · ${side.faces.join(", ")}` : ""}`;
+}
+
 /** One short line saying what a node is set to do. */
 export function summary(node: GraphNode): string {
   const s = node.settings;
   switch (s.kind) {
+    case "device": {
+      const ins = s.inputs?.length ?? 0;
+      const outs = s.outputs?.length ?? 0;
+      return `${ins} input${ins === 1 ? "" : "s"}, ${outs} output${outs === 1 ? "" : "s"}`;
+    }
     case "source": {
       const faces = s.faces?.length ? s.faces.join(", ") : "all faces";
       const amount = s.resource === "item" ? `, ${!s.per_operation ? "a stack" : s.per_operation === 1 ? "one" : s.per_operation} per op` : "";
