@@ -15,6 +15,7 @@ import io.github.leadassimilator.reticulum.Reticulum;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 
@@ -39,7 +40,7 @@ public final class ReticulumSavedData extends SavedData {
 
     private static ReticulumSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         ReticulumSavedData data = new ReticulumSavedData();
-        Contents.CODEC.parse(NbtOps.INSTANCE, tag)
+        Contents.CODEC.parse(RegistryOps.create(NbtOps.INSTANCE, registries), tag)
                 .resultOrPartial(err -> Reticulum.LOGGER.error("Failed to load Reticulum networks: {}", err))
                 .ifPresent(contents -> contents.networks().forEach(n -> data.networks.put(n.id(), n)));
         return data;
@@ -48,7 +49,7 @@ public final class ReticulumSavedData extends SavedData {
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         Contents contents = new Contents(SCHEMA_VERSION, List.copyOf(networks.values()));
-        Contents.CODEC.encodeStart(NbtOps.INSTANCE, contents)
+        Contents.CODEC.encodeStart(RegistryOps.create(NbtOps.INSTANCE, registries), contents)
                 .resultOrPartial(err -> Reticulum.LOGGER.error("Failed to save Reticulum networks: {}", err))
                 .ifPresent(encoded -> tag.merge((CompoundTag) encoded));
         return tag;

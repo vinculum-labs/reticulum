@@ -1,5 +1,6 @@
 package io.github.leadassimilator.reticulum.network;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -12,10 +13,13 @@ import javax.annotation.Nullable;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
+import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.security.Member;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.fluids.FluidStack;
 
 /**
  * One network: its identity, security settings, connectors and named devices.
@@ -32,7 +36,12 @@ public final class Network {
             Member.CODEC.listOf().optionalFieldOf("members", List.of()).forGetter(n -> List.copyOf(n.members.values())),
             GlobalPos.CODEC.optionalFieldOf("controller").forGetter(n -> Optional.ofNullable(n.controller)),
             ConnectorRecord.CODEC.listOf().optionalFieldOf("connectors", List.of()).forGetter(n -> List.copyOf(n.connectors.values())),
-            DeviceRecord.CODEC.listOf().optionalFieldOf("devices", List.of()).forGetter(n -> List.copyOf(n.devices.values()))
+            DeviceRecord.CODEC.listOf().optionalFieldOf("devices", List.of()).forGetter(n -> List.copyOf(n.devices.values())),
+            Codec.BOOL.optionalFieldOf("enabled", true).forGetter(n -> n.enabled),
+            Sheet.CODEC.listOf().optionalFieldOf("sheets", List.of()).forGetter(n -> List.copyOf(n.sheets)),
+            Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("filters", Map.of()).forGetter(n -> n.filters),
+            ItemStack.CODEC.listOf().optionalFieldOf("overflow_items", List.of()).forGetter(n -> List.copyOf(n.overflowItems)),
+            FluidStack.CODEC.listOf().optionalFieldOf("overflow_fluids", List.of()).forGetter(n -> List.copyOf(n.overflowFluids))
     ).apply(i, Network::new));
 
     private final UUID id;
@@ -48,6 +57,13 @@ public final class Network {
     private GlobalPos controller;
     private final Map<UUID, ConnectorRecord> connectors = new LinkedHashMap<>();
     private final Map<GlobalPos, DeviceRecord> devices = new LinkedHashMap<>();
+    private boolean enabled = true;
+    private final List<Sheet> sheets = new ArrayList<>();
+    /** Named filter templates, referenced from filter expressions as {@code @name}. */
+    private final Map<String, String> filters = new LinkedHashMap<>();
+    /** Resources that could be neither delivered nor returned; retried first on later operations. */
+    private final List<ItemStack> overflowItems = new ArrayList<>();
+    private final List<FluidStack> overflowFluids = new ArrayList<>();
 
     public Network(UUID id, String name, @Nullable UUID owner, String ownerName, AccessMode accessMode) {
         this.id = id;
@@ -58,13 +74,19 @@ public final class Network {
     }
 
     private Network(UUID id, String name, Optional<UUID> owner, String ownerName, AccessMode accessMode, Optional<String> passwordHash,
-            List<Member> members, Optional<GlobalPos> controller, List<ConnectorRecord> connectors, List<DeviceRecord> devices) {
+            List<Member> members, Optional<GlobalPos> controller, List<ConnectorRecord> connectors, List<DeviceRecord> devices,
+            boolean enabled, List<Sheet> sheets, Map<String, String> filters, List<ItemStack> overflowItems, List<FluidStack> overflowFluids) {
         this(id, name, owner.orElse(null), ownerName, accessMode);
         this.passwordHash = passwordHash.orElse(null);
         members.forEach(m -> this.members.put(m.id(), m));
         this.controller = controller.orElse(null);
         connectors.forEach(c -> this.connectors.put(c.id(), c));
         devices.forEach(d -> this.devices.put(d.pos(), d));
+        this.enabled = enabled;
+        this.sheets.addAll(sheets);
+        this.filters.putAll(filters);
+        this.overflowItems.addAll(overflowItems);
+        this.overflowFluids.addAll(overflowFluids);
     }
 
     public UUID id() {
@@ -154,5 +176,49 @@ public final class Network {
             }
         }
         return false;
+    }
+
+    public boolean enabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public List<Sheet> sheets() {
+        return sheets;
+    }
+
+    @Nullable
+    public Sheet sheet(UUID id) {
+        for (Sheet sheet : sheets) {
+            if (sheet.id().equals(id)) {
+                return sheet;
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    public Sheet sheetNamed(String name) {
+        for (Sheet sheet : sheets) {
+            if (sheet.name().equalsIgnoreCase(name)) {
+                return sheet;
+            }
+        }
+        return null;
+    }
+
+    public Map<String, String> filters() {
+        return filters;
+    }
+
+    public List<ItemStack> overflowItems() {
+        return overflowItems;
+    }
+
+    public List<FluidStack> overflowFluids() {
+        return overflowFluids;
     }
 }

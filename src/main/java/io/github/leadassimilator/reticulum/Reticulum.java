@@ -6,6 +6,7 @@ import com.mojang.logging.LogUtils;
 
 import io.github.leadassimilator.reticulum.command.ReticulumCommand;
 import io.github.leadassimilator.reticulum.datagen.DataGenerators;
+import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.integration.top.TopIntegration;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
@@ -45,6 +46,8 @@ public class Reticulum {
 
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> ReticulumCommand.register(event.getDispatcher()));
         NeoForge.EVENT_BUS.addListener(BreakProtection::onBreak);
+        NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerTick);
+        NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerStopped);
 
         modContainer.registerConfig(ModConfig.Type.SERVER, ReticulumConfig.SPEC);
     }
