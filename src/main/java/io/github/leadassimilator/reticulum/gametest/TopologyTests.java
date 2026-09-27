@@ -206,4 +206,21 @@ public final class TopologyTests {
         check(helper, text.contains(network.name()), "network name missing: " + text);
         helper.succeed();
     }
+
+    @GameTest(template = "empty")
+    public static void toolTargetsTheArmUnderTheCrosshair(GameTestHelper helper) {
+        BlockPos pos = BlockPos.ZERO;
+        // Looking south into the north face of a cable, from 2 blocks away.
+        java.util.function.BiFunction<Double, Double, Direction> aim = (x, y) -> {
+            net.minecraft.world.phys.Vec3 from = new net.minecraft.world.phys.Vec3(x, y, -2);
+            net.minecraft.world.phys.Vec3 to = new net.minecraft.world.phys.Vec3(x, y, 3);
+            return Topology.targetSide(pos, false, from, to, Direction.NORTH, new net.minecraft.world.phys.Vec3(x, y, 0));
+        };
+        check(helper, aim.apply(0.5, 0.5) == Direction.NORTH, "center should target the north arm");
+        check(helper, aim.apply(0.7, 0.5) == Direction.EAST, "just right of the core should target the east arm, got " + aim.apply(0.7, 0.5));
+        check(helper, aim.apply(0.3, 0.5) == Direction.WEST, "just left of the core should target the west arm");
+        check(helper, aim.apply(0.5, 0.7) == Direction.UP, "just above the core should target the up arm");
+        check(helper, aim.apply(0.9, 0.9) == Direction.EAST || aim.apply(0.9, 0.9) == Direction.UP, "corner should pick a nearby arm");
+        helper.succeed();
+    }
 }

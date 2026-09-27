@@ -8,6 +8,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -33,6 +34,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -452,22 +454,68 @@ public final class Topology {
         return Component.translatable(enable ? "message.reticulum.device_attached" : "message.reticulum.device_detached");
     }
 
+    /** Inset of the core from each edge of the block, in blocks. */
+    private static double coreInset(boolean connector) {
+        return connector ? 4 / 16.0 : 6 / 16.0;
+    }
+
+    /** The core of a cable or connector, in block-local coordinates. */
+    public static AABB coreBox(boolean connector) {
+        double inset = coreInset(connector);
+        return new AABB(inset, inset, inset, 1 - inset, 1 - inset, 1 - inset);
+    }
+
+    /** The joint (arm) running from the core out to one side, in block-local coordinates. */
+    public static AABB jointBox(Direction side, boolean connector) {
+        double inset = coreInset(connector);
+        double lo = connector ? 5 / 16.0 : 6 / 16.0;
+        double hi = 1 - lo;
+        double[] min = {lo, lo, lo};
+        double[] max = {hi, hi, hi};
+        int axis = side.getAxis().ordinal();
+        if (side.getAxisDirection() == Direction.AxisDirection.POSITIVE) {
+            min[axis] = 1 - inset;
+            max[axis] = 1;
+        } else {
+            min[axis] = 0;
+            max[axis] = inset;
+        }
+        return new AABB(min[0], min[1], min[2], max[0], max[1], max[2]);
+    }
+
     /**
-     * The side a click on a network block refers to. The hitbox is a full block, so the face alone is not enough:
-     * a click near the edge of a face means the arm running that way.
+     * The side the player is aiming at on a cable or connector. The hitbox is a full block, so this traces the
+     * look ray against the rendered shape instead: the arms (whether present or not) and the core. Hitting an arm
+     * means that arm's side; hitting the core means the core face hit. A ray through empty space falls back to
+     * where it entered the block: outside the core's outline means the arm running that way.
      */
-    public static Direction sideFromHit(BlockHitResult hit) {
-        Direction face = hit.getDirection();
-        Vec3 local = hit.getLocation().subtract(Vec3.atCenterOf(hit.getBlockPos()));
-        Direction best = face;
-        double bestValue = 0.22;
+    public static Direction targetSide(BlockPos pos, boolean connector, Vec3 from, Vec3 to, Direction enteredFace, Vec3 enteredAt) {
+        Direction best = null;
+        double bestDistance = Double.MAX_VALUE;
         for (Direction dir : Direction.values()) {
-            if (dir.getAxis() == face.getAxis()) {
+            Optional<Vec3> point = jointBox(dir, connector).move(pos).clip(from, to);
+            if (point.isPresent() && from.distanceToSqr(point.get()) < bestDistance) {
+                bestDistance = from.distanceToSqr(point.get());
+                best = dir;
+            }
+        }
+        BlockHitResult core = AABB.clip(List.of(coreBox(connector)), from, to, pos);
+        if (core != null && from.distanceToSqr(core.getLocation()) < bestDistance) {
+            best = core.getDirection();
+        }
+        if (best != null) {
+            return best;
+        }
+        Vec3 local = enteredAt.subtract(Vec3.atCenterOf(pos));
+        double threshold = 0.5 - coreInset(connector);
+        best = enteredFace;
+        for (Direction dir : Direction.values()) {
+            if (dir.getAxis() == enteredFace.getAxis()) {
                 continue;
             }
             double value = local.x * dir.getStepX() + local.y * dir.getStepY() + local.z * dir.getStepZ();
-            if (value > bestValue) {
-                bestValue = value;
+            if (value > threshold) {
+                threshold = value;
                 best = dir;
             }
         }

@@ -1,13 +1,19 @@
 package io.github.leadassimilator.reticulum.item;
 
+import io.github.leadassimilator.reticulum.block.ConnectorBlock;
+import io.github.leadassimilator.reticulum.block.LinkedBlock;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
 import io.github.leadassimilator.reticulum.topology.Topology;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The network tool. Phase 1 has only Configure mode: right-click a joint of a cable or connector to connect or disconnect it,
@@ -24,9 +30,20 @@ public class NetworkToolItem extends Item {
             return InteractionResult.PASS;
         }
         if (context.getLevel() instanceof ServerLevel level && context.getPlayer() instanceof ServerPlayer player) {
-            BlockHitResult hit = new BlockHitResult(context.getClickLocation(), context.getClickedFace(), context.getClickedPos(), context.isInside());
-            player.displayClientMessage(Topology.toggle(level, context.getClickedPos(), Topology.sideFromHit(hit), player), true);
+            Direction side = targetSide(player, level.getBlockState(context.getClickedPos()), context.getClickedPos(),
+                    context.getClickedFace(), context.getClickLocation(), 1.0f);
+            player.displayClientMessage(Topology.toggle(level, context.getClickedPos(), side, player), true);
         }
         return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
+    }
+
+    /** The side of a network block the player is aiming at. Used for both the click and the client outline. */
+    public static Direction targetSide(Player player, BlockState state, BlockPos pos, Direction face, Vec3 hitLocation, float partialTick) {
+        if (!(state.getBlock() instanceof LinkedBlock)) {
+            return face;
+        }
+        Vec3 from = player.getEyePosition(partialTick);
+        Vec3 to = from.add(player.getViewVector(partialTick).scale(player.blockInteractionRange() + 1));
+        return Topology.targetSide(pos, state.getBlock() instanceof ConnectorBlock, from, to, face, hitLocation);
     }
 }
