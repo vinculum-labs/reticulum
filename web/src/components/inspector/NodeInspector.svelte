@@ -1,12 +1,9 @@
 <script lang="ts">
   import { app, edit } from "../../lib/state.svelte";
   import { KIND_HINT, KIND_LABEL, RESOURCE_UNIT } from "../../lib/kinds";
-  import type { DeviceNodeSettings, Edit, GraphNode, NodeSettings, PortFields, Sheet, SinkSettings, SourceSettings, Wire } from "../../lib/types";
+  import type { DeviceNodeSettings, Edit, GraphNode, NodeSettings, Sheet, Wire } from "../../lib/types";
   import Field from "./Field.svelte";
   import FilterField from "./FilterField.svelte";
-  import PortEditor from "./PortEditor.svelte";
-  import LimitsEditor from "./LimitsEditor.svelte";
-  import AmountEditor from "./AmountEditor.svelte";
   import DeviceNodeEditor from "./DeviceNodeEditor.svelte";
   import Chart from "./Chart.svelte";
 
@@ -14,9 +11,7 @@
 
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
   const s = $derived(node.settings);
-  const unit = $derived(
-    "resource" in s ? RESOURCE_UNIT[s.resource] : s.kind === "device" && s.outputs?.[0] ? RESOURCE_UNIT[s.outputs[0].resource] : "units",
-  );
+  const unit = $derived(s.kind === "device" && s.outputs?.[0] ? RESOURCE_UNIT[s.outputs[0].resource] : "units");
 
   /**
    * Saves a device node. When an input or output was removed, its wires go and wires on later ones are
@@ -49,22 +44,6 @@
     save({ ...node, settings: { ...node.settings, ...patch } as NodeSettings });
   }
 
-  function port(p: PortFields) {
-    save({ ...node, settings: { ...node.settings, ...p } as NodeSettings });
-  }
-
-  /** Swaps a source for a sink or back, keeping the device and faces. */
-  function flip() {
-    const current = node.settings as SourceSettings | SinkSettings;
-    const base: PortFields = { resource: current.resource, device: current.device, faces: current.faces, slots: current.slots };
-    const next: NodeSettings = current.kind === "source" ? { kind: "sink", ...base } : { kind: "source", ...base, per_operation: 0 };
-    const wires = (sheet.wires ?? []).filter((w) => w.from === node.id || w.to === node.id);
-    if (wires.length && !confirm("Switching removes this node's wires. Continue?")) return;
-    const edits = wires.map((w) => ({ type: "disconnect", sheet: sheet.id, wire: w.id }));
-    const undo = [{ type: "updateNode", sheet: sheet.id, node }, ...wires.map((w) => ({ type: "connect", sheet: sheet.id, wire: w }))];
-    edit([...edits, { type: "updateNode", sheet: sheet.id, node: { ...node, settings: next } }], undo, "switch source/sink");
-  }
-
   function remove() {
     const wires = (sheet.wires ?? []).filter((w) => w.from === node.id || w.to === node.id);
     app.selectedNodes = [];
@@ -86,7 +65,7 @@
     <p class="text-xs muted">{KIND_HINT[s.kind]}</p>
   </div>
 
-  <Field label="Label" hint={s.kind === "source" || s.kind === "sink" ? "Optional; the device's name is shown otherwise." : undefined}>
+  <Field label="Label" hint={s.kind === "device" ? "Optional; the device's name is shown otherwise." : undefined}>
     <input
       value={node.label ?? ""}
       disabled={!canEdit}
@@ -104,17 +83,7 @@
     <DeviceNodeEditor settings={s} {sheet} nodeId={node.id} disabled={!canEdit} onchange={saveDevice} />
   {/if}
 
-  {#if s.kind === "source" || s.kind === "sink"}
-    <PortEditor port={s} disabled={!canEdit} onchange={port} />
-    {#if canEdit}<button class="btn self-start text-sm" onclick={flip}>Make this a {s.kind === "source" ? "sink" : "source"}</button>{/if}
-  {/if}
-
-  {#if s.kind === "source"}
-    <AmountEditor settings={s} sheetInterval={sheet.interval ?? 10} disabled={!canEdit} onchange={(patch) => settings(patch)} />
-    <LimitsEditor limits={s.keep ?? []} keep={true} resource={s.resource} disabled={!canEdit} onchange={(keep) => settings({ keep })} />
-  {:else if s.kind === "sink"}
-    <LimitsEditor limits={s.caps ?? []} keep={false} resource={s.resource} disabled={!canEdit} onchange={(caps) => settings({ caps })} />
-  {:else if s.kind === "filter"}
+  {#if s.kind === "filter"}
     <Field label="Filter" hint="Matches go out the green handle, everything else out the red one.">
       <FilterField value={s.expression} disabled={!canEdit} onchange={(expression) => settings({ expression })} />
     </Field>

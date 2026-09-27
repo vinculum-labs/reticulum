@@ -109,9 +109,9 @@ public final class FilterTests {
     public static void sheetsSurviveSaving(GameTestHelper helper) {
         Network network = new Network(UUID.randomUUID(), "test", null, "", AccessMode.PUBLIC);
         Sheet sheet = new Sheet(UUID.randomUUID(), "ore line");
-        NodeSettings.Port port = new NodeSettings.Port(ResourceKind.ITEM, GlobalPos.of(Level.OVERWORLD, BlockPos.ZERO), List.of(), Optional.empty());
-        Node source = sheet.add(Node.of(new NodeSettings.SourceSettings(port,
-                List.of(new NodeSettings.Limit(NodeSettings.Scope.PER_TYPE, 16, "tag:c:ores")), 32, 0, 1)));
+        Node source = sheet.add(Node.of(new NodeSettings.DeviceSettings(GlobalPos.of(Level.OVERWORLD, BlockPos.ZERO), List.of(),
+                List.of(new NodeSettings.Output(ResourceKind.ITEM, List.of(), Optional.empty(),
+                        List.of(new NodeSettings.Limit(NodeSettings.Scope.PER_TYPE, 16, "tag:c:ores")), 32, 0, 1)))));
         Node kit = sheet.add(Node.of(new NodeSettings.KitSettings(List.of(new NodeSettings.KitLine("iron_ingot", 4)), 2)));
         sheet.connect(Wire.of(source, kit));
         network.sheets().add(sheet);
@@ -125,7 +125,8 @@ public final class FilterTests {
         if (back.nodes().size() != 2 || back.wires().size() != 1 || !back.name().equals("ore line")) {
             helper.fail("sheet did not round-trip");
         }
-        if (!(back.node(source.id()).settings() instanceof NodeSettings.SourceSettings s) || s.perOperation() != 32 || s.keep().size() != 1) {
+        if (!(back.node(source.id()).settings() instanceof NodeSettings.DeviceSettings s) || s.outputs().getFirst().perOperation() != 32
+                || s.outputs().getFirst().keep().size() != 1) {
             helper.fail("source settings did not round-trip");
         }
         if (!"tag:c:ores".equals(decoded.filters().get("ores")) || decoded.overflowItems().getFirst().getCount() != 3) {

@@ -25,7 +25,6 @@ export function resources(sheet: Sheet): { wires: Map<string, Resource>; nodes: 
   const queue: [string, Resource][] = [];
   for (const n of sheet.nodes ?? []) {
     const s = n.settings;
-    if (s.kind === "source" || s.kind === "sink") nodes.set(n.id, s.resource);
     if (s.kind === "device") {
       const first = s.outputs?.[0]?.resource ?? s.inputs?.[0]?.resource;
       if (first) nodes.set(n.id, first);
@@ -37,7 +36,7 @@ export function resources(sheet: Sheet): { wires: Map<string, Resource>; nodes: 
       if (wires.has(w.id)) continue;
       wires.set(w.id, resource);
       const target = byId.get(w.to);
-      if (target && target.settings.kind !== "device" && target.settings.kind !== "sink") {
+      if (target && target.settings.kind !== "device") {
         if (!nodes.has(w.to)) nodes.set(w.to, resource);
         queue.push([w.to, resource]);
       }
@@ -45,7 +44,6 @@ export function resources(sheet: Sheet): { wires: Map<string, Resource>; nodes: 
   };
   for (const n of sheet.nodes ?? []) {
     const s = n.settings;
-    if (s.kind === "source") emit(n.id, s.resource);
     if (s.kind === "device") (s.outputs ?? []).forEach((o, i) => emit(n.id, o.resource, i));
   }
   while (queue.length) {

@@ -99,7 +99,7 @@
 
   async function addNode(kind: NodeKind, at: { x: number; y: number }, device: Device | null = null) {
     if (!sheet) return;
-    if ((kind === "source" || kind === "sink" || kind === "device") && !device) {
+    if (kind === "device" && !device) {
       device = (app.selectedDevice && deviceAt(app.selectedDevice)) || app.snapshot?.devices.find((d) => d.state === "active") || null;
       if (!device) {
         toast("There are no devices on this network yet.");
@@ -123,7 +123,7 @@
     const rect = container?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
     const p = flow.screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-    return { x: p.x - 112 + (Math.random() - 0.5) * 40, y: p.y - 30 + (Math.random() - 0.5) * 40 };
+    return { x: p.x - 60 + (Math.random() - 0.5) * 40, y: p.y - 17 + (Math.random() - 0.5) * 40 };
   }
 
   function ondragover(e: DragEvent) {
@@ -139,7 +139,7 @@
     if (!device) return;
     e.preventDefault();
     const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    addNode("device", { x: p.x - 136, y: p.y - 24 }, device);
+    addNode("device", { x: p.x - 70, y: p.y - 17 }, device);
   }
 
   const palette: NodeKind[] = ["device", "filter", "rate_limit", "splitter", "kit"];

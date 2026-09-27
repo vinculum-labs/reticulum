@@ -10,7 +10,7 @@
     const n: GraphNode | undefined = sheet.nodes?.find((x) => x.id === id);
     if (!n) return "?";
     if (n.label) return n.label;
-    if ("device" in n.settings) return deviceName(deviceAt(posKey(n.settings.device)));
+    if (n.settings.kind === "device") return deviceName(deviceAt(posKey(n.settings.device)));
     return KIND_LABEL[n.settings.kind];
   }
 </script>

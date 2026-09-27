@@ -93,8 +93,8 @@ public final class WebApiTests {
         String sink = UUID.randomUUID().toString();
         JsonArray edits = JsonParser.parseString("[" +
                 "{\"type\":\"updateSheet\",\"sheet\":\"" + sheet + "\",\"interval\":1}," +
-                "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + source + "\",\"settings\":{\"kind\":\"source\",\"resource\":\"item\",\"device\":" + pos(helper, new BlockPos(3, 1, 2)) + "}}}," +
-                "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + sink + "\",\"settings\":{\"kind\":\"sink\",\"resource\":\"item\",\"device\":" + pos(helper, new BlockPos(4, 1, 2)) + "}}}," +
+                "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + source + "\",\"settings\":{\"kind\":\"device\",\"device\":" + pos(helper, new BlockPos(3, 1, 2)) + ",\"outputs\":[{\"resource\":\"item\"}]}}}," +
+                "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + sink + "\",\"settings\":{\"kind\":\"device\",\"device\":" + pos(helper, new BlockPos(4, 1, 2)) + ",\"inputs\":[{\"resource\":\"item\"}]}}}," +
                 "{\"type\":\"connect\",\"sheet\":\"" + sheet + "\",\"wire\":{\"id\":\"" + UUID.randomUUID() + "\",\"from\":\"" + source + "\",\"to\":\"" + sink + "\"}}," +
                 "{\"type\":\"renameDevice\",\"device\":" + pos(helper, new BlockPos(4, 1, 2)) + ",\"name\":\"Output barrel\"}" +
                 "]").getAsJsonArray();
@@ -107,7 +107,7 @@ public final class WebApiTests {
         // A port pointing outside the network is refused.
         try {
             WebApi.handle(player, JsonParser.parseString("{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"addNode\",\"sheet\":\""
-                    + sheet + "\",\"node\":{\"id\":\"" + UUID.randomUUID() + "\",\"settings\":{\"kind\":\"sink\",\"resource\":\"item\",\"device\":"
+                    + sheet + "\",\"node\":{\"id\":\"" + UUID.randomUUID() + "\",\"settings\":{\"kind\":\"device\",\"device\":"
                     + pos(helper, new BlockPos(6, 1, 6)) + "}}}]}").getAsJsonObject(), "t");
             helper.fail("A sink outside the network was accepted");
         } catch (WebApi.RequestException expected) {

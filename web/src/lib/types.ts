@@ -19,28 +19,6 @@ export interface Limit {
   filter?: string;
 }
 
-export interface PortFields {
-  resource: Resource;
-  device: GlobalPos;
-  faces?: Face[];
-  slots?: { first: number; last: number };
-}
-
-export interface SourceSettings extends PortFields {
-  kind: "source";
-  keep?: Limit[];
-  /** 0 or absent: one full stack. */
-  per_operation?: number;
-  /** 0 or absent: the sheet's interval. */
-  interval?: number;
-  priority?: number;
-}
-
-export interface SinkSettings extends PortFields {
-  kind: "sink";
-  caps?: Limit[];
-}
-
 export interface FilterSettings {
   kind: "filter";
   expression: string;
@@ -102,8 +80,6 @@ export interface DeviceNodeSettings {
 }
 
 export type NodeSettings =
-  | SourceSettings
-  | SinkSettings
   | FilterSettings
   | RateLimitSettings
   | SplitterSettings

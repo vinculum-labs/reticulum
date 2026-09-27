@@ -17,15 +17,18 @@ public sealed interface NodeSettings {
     Kind kind();
 
     enum Kind implements StringRepresentable {
-        SOURCE(SourceSettings.CODEC),
-        SINK(SinkSettings.CODEC),
+        /** Engine-internal: one output of a device node. Never saved or sent. */
+        SOURCE(null),
+        /** Engine-internal: one input of a device node. Never saved or sent. */
+        SINK(null),
         FILTER(FilterSettings.CODEC),
         RATE_LIMIT(RateLimitSettings.CODEC),
         SPLITTER(SplitterSettings.CODEC),
         KIT(KitSettings.CODEC),
         DEVICE(DeviceSettings.CODEC);
 
-        public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(Kind::values);
+        /** Only the kinds a sheet can hold; the engine-internal ones can't be read or written. */
+        public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(() -> new Kind[] {FILTER, RATE_LIMIT, SPLITTER, KIT, DEVICE});
 
         private final MapCodec<? extends NodeSettings> codec;
 
@@ -47,12 +50,6 @@ public sealed interface NodeSettings {
 
     /** Which device faces a source or sink uses. An empty face list means every face that answers. */
     record Port(ResourceKind resource, GlobalPos device, List<FaceKey> faces, Optional<SlotRange> slots) {
-        public static final MapCodec<Port> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                ResourceKind.CODEC.fieldOf("resource").forGetter(Port::resource),
-                GlobalPos.CODEC.fieldOf("device").forGetter(Port::device),
-                FaceKey.CODEC.listOf().optionalFieldOf("faces", List.of()).forGetter(Port::faces),
-                SlotRange.CODEC.optionalFieldOf("slots").forGetter(Port::slots)
-        ).apply(i, Port::new));
     }
 
     /** Inclusive slot range; only meaningful for items. */
@@ -97,32 +94,22 @@ public sealed interface NodeSettings {
     }
 
     /**
+     * Engine-internal form of a device node's output (see {@link DeviceSettings}); never saved.
+     *
      * @param perOperation items moved per operation at most; 0 means one full stack of whatever moves (items only;
      *                     continuous kinds use a rate limit node)
      * @param interval     ticks between operations; 0 uses the sheet's interval (items only)
      * @param priority     higher runs first when several sources feed one flow
      */
     record SourceSettings(Port port, List<Limit> keep, int perOperation, int interval, int priority) implements NodeSettings {
-        public static final MapCodec<SourceSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Port.CODEC.forGetter(SourceSettings::port),
-                Limit.CODEC.listOf().optionalFieldOf("keep", List.of()).forGetter(SourceSettings::keep),
-                Codec.INT.optionalFieldOf("per_operation", 0).forGetter(SourceSettings::perOperation),
-                Codec.INT.optionalFieldOf("interval", 0).forGetter(SourceSettings::interval),
-                Codec.INT.optionalFieldOf("priority", 0).forGetter(SourceSettings::priority)
-        ).apply(i, SourceSettings::new));
-
         @Override
         public Kind kind() {
             return Kind.SOURCE;
         }
     }
 
+    /** Engine-internal form of a device node's input (see {@link DeviceSettings}); never saved. */
     record SinkSettings(Port port, List<Limit> caps) implements NodeSettings {
-        public static final MapCodec<SinkSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Port.CODEC.forGetter(SinkSettings::port),
-                Limit.CODEC.listOf().optionalFieldOf("caps", List.of()).forGetter(SinkSettings::caps)
-        ).apply(i, SinkSettings::new));
-
         @Override
         public Kind kind() {
             return Kind.SINK;

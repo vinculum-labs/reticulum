@@ -49,12 +49,19 @@ public final class EngineTests {
             return new NodeSettings.Port(resource, Devices.global(helper.getLevel(), helper.absolutePos(devices.get(i))), List.of(), Optional.empty());
         }
 
+        /** A device node with one output (a source), every tick. */
         Node source(int i, ResourceKind resource, List<NodeSettings.Limit> keep, int perOperation) {
-            return sheet.add(Node.of(new NodeSettings.SourceSettings(port(i, resource), keep, perOperation, 1, 0)));
+            return output(i, new NodeSettings.Output(resource, List.of(), Optional.empty(), keep, perOperation, 1, 0));
         }
 
+        Node output(int i, NodeSettings.Output output) {
+            return sheet.add(Node.of(new NodeSettings.DeviceSettings(port(i, output.resource()).device(), List.of(), List.of(output))));
+        }
+
+        /** A device node with one input (a sink). */
         Node sink(int i, ResourceKind resource, List<NodeSettings.Limit> caps) {
-            return sheet.add(Node.of(new NodeSettings.SinkSettings(port(i, resource), caps)));
+            return sheet.add(Node.of(new NodeSettings.DeviceSettings(port(i, resource).device(),
+                    List.of(new NodeSettings.Input(resource, List.of(), Optional.empty(), caps)), List.of())));
         }
 
         Node node(NodeSettings settings) {
@@ -308,7 +315,7 @@ public final class EngineTests {
         rig.container(0).setItem(1, new ItemStack(Items.ENDER_PEARL, 16));
         // Interval 20 so exactly one operation happens in the first 20 ticks.
         rig.sheet().setInterval(20);
-        rig.wire(rig.sheet().add(Node.of(new NodeSettings.SourceSettings(rig.port(0, ResourceKind.ITEM), List.of(), 0, 20, 0))),
+        rig.wire(rig.output(0, new NodeSettings.Output(ResourceKind.ITEM, List.of(), Optional.empty(), List.of(), 0, 20, 0)),
                 rig.sink(1, ResourceKind.ITEM, List.of()));
         helper.runAfterDelay(21, () -> {
             check(helper, rig.count(1, Items.ENDER_PEARL) == 16, "one stack of pearls is 16, moved " + rig.count(1, Items.ENDER_PEARL));
@@ -322,9 +329,9 @@ public final class EngineTests {
         Rig rig = rig(helper, Blocks.FURNACE, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.IRON_ORE, 8));
         rig.container(0).setItem(2, new ItemStack(Items.IRON_INGOT, 5));
-        NodeSettings.Port bottom = new NodeSettings.Port(ResourceKind.ITEM, rig.port(0, ResourceKind.ITEM).device(),
-                List.of(io.github.leadassimilator.reticulum.network.FaceKey.DOWN), Optional.empty());
-        rig.wire(rig.node(new NodeSettings.SourceSettings(bottom, List.of(), 64, 1, 0)), rig.sink(1, ResourceKind.ITEM, List.of()));
+        NodeSettings.Output bottom = new NodeSettings.Output(ResourceKind.ITEM, List.of(io.github.leadassimilator.reticulum.network.FaceKey.DOWN),
+                Optional.empty(), List.of(), 64, 1, 0);
+        rig.wire(rig.output(0, bottom), rig.sink(1, ResourceKind.ITEM, List.of()));
         helper.runAfterDelay(20, () -> {
             check(helper, rig.count(1, Items.IRON_INGOT) == 5, "furnace output not taken");
             check(helper, rig.count(1, Items.IRON_ORE) == 0, "furnace input was taken through the bottom face");

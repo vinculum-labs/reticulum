@@ -355,8 +355,6 @@ public final class WebApi {
         /** Sources and sinks may only point at devices of this network. */
         private static void checkPorts(Network network, Node node) throws RequestException {
             GlobalPos device = switch (node.settings()) {
-                case NodeSettings.SourceSettings s -> s.port().device();
-                case NodeSettings.SinkSettings s -> s.port().device();
                 case NodeSettings.DeviceSettings s -> s.device();
                 default -> null;
             };
