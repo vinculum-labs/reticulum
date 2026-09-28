@@ -13,7 +13,7 @@ export const KIND_LABEL: Record<NodeKind, string> = {
 export const KIND_HINT: Record<NodeKind, string> = {
   device: "A block that is fed through its inputs and emptied through its outputs",
   filter: "Sends matches one way and the rest another",
-  rate_limit: "Caps how much passes per second",
+  rate_limit: "Caps how much passes per tick (or per second)",
   splitter: "Shares between outputs, in turn or in order",
   kit: "Moves a set of items all together or not at all",
 };
@@ -43,12 +43,19 @@ export function defaultSettings(kind: NodeKind, device: Device | null, resource:
   }
 }
 
+/** A per-second amount (as the server counts) in the chosen unit, e.g. "3.2/t" or "64/s". */
+export function formatRate(perSecond: number, resource: Resource | null, unit: "t" | "s"): string {
+  const value = unit === "t" ? perSecond / 20 : perSecond;
+  return `${formatAmount(value, resource)}/${unit}`;
+}
+
 export function formatAmount(value: number, resource: Resource | null): string {
   const unit = resource ? RESOURCE_UNIT[resource] : "";
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}G ${unit}`;
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M ${unit}`;
   if (value >= 10_000) return `${(value / 1000).toFixed(1)}k ${unit}`;
-  return `${value} ${unit}`.trim();
+  const shown = Number.isInteger(value) ? String(value) : value >= 10 ? value.toFixed(1) : String(Number(value.toFixed(2)));
+  return `${shown} ${unit}`.trim();
 }
 
 /** Label for one input or output: resource and faces. */
@@ -63,7 +70,7 @@ export function shortLabel(side: { resource: Resource; faces?: string[] }): stri
 }
 
 /** One short line saying what a node is set to do. */
-export function summary(node: GraphNode): string {
+export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
   const s = node.settings;
   switch (s.kind) {
     case "device": {
@@ -74,7 +81,7 @@ export function summary(node: GraphNode): string {
     case "filter":
       return s.expression || "matches everything";
     case "rate_limit":
-      return `${s.per_second}/s`;
+      return unit === "t" ? `${Number((s.per_second / 20).toFixed(2))}/t` : `${s.per_second}/s`;
     case "splitter":
       return s.mode === "priority" ? "in order" : "round robin";
     case "kit":

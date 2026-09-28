@@ -3,7 +3,7 @@
 import type { Edge, Node } from "@xyflow/svelte";
 import type { Device, GraphNode, Resource, Sheet, Wire } from "./types";
 import { posKey } from "./types";
-import { RESOURCE_VAR } from "./kinds";
+import { RESOURCE_VAR, formatRate } from "./kinds";
 
 export interface NodeData extends Record<string, unknown> {
   node: GraphNode;
@@ -75,6 +75,7 @@ export function toFlow(
   devices: Device[],
   rates: Record<string, number>,
   selected: Set<string>,
+  unit: "t" | "s",
 ): { nodes: Node<NodeData>[]; edges: Edge[] } {
   const byKey = new Map(devices.map((d) => [posKey(d.pos), d]));
   const kinds = resources(sheet);
@@ -102,7 +103,7 @@ export function toFlow(
       targetHandle: targetHandle(byId.get(w.to), w.input ?? 0),
       selected: selected.has(w.id),
       animated: rate > 0,
-      label: rate > 0 ? `${rate}/s` : undefined,
+      label: rate > 0 ? formatRate(rate, resource, unit) : undefined,
       style: `stroke: ${byId.get(w.from)?.settings.kind === "filter" && w.output === 1 ? "var(--bad)" : color}; stroke-width: ${rate > 0 ? 2.5 : 1.5}px`,
     };
   });

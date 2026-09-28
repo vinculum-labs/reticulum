@@ -1,8 +1,8 @@
 <script lang="ts">
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
   import type { NodeData } from "../../lib/graph";
-  import { KIND_LABEL, RESOURCE_VAR, formatAmount, shortLabel, sideLabel, summary } from "../../lib/kinds";
-  import { deviceName } from "../../lib/state.svelte";
+  import { KIND_LABEL, RESOURCE_VAR, formatRate, shortLabel, sideLabel, summary } from "../../lib/kinds";
+  import { app, deviceName } from "../../lib/state.svelte";
   import DeviceIcon from "../DeviceIcon.svelte";
 
   let { id, data, selected }: { id: string; data: NodeData; selected?: boolean } = $props();
@@ -44,7 +44,7 @@
     <div class="min-w-0 flex-1 leading-tight">
       <div class="truncate font-medium" style="font-size: 12px" title={title}>{title}</div>
       <div class="truncate muted" style="font-size: 10px">
-        {#if data.rate > 0}<span class="tabular-nums" style="color: {color}">{formatAmount(data.rate, data.resource)}/s</span>{:else}{KIND_LABEL[kind]}{/if}{offline
+        {#if data.rate > 0}<span class="tabular-nums" style="color: {color}">{formatRate(data.rate, data.resource, app.rateUnit)}</span>{:else}{KIND_LABEL[kind]}{/if}{offline
           ? ` · ${data.device?.state}`
           : ""}{disabled ? " · off" : ""}
       </div>
@@ -64,13 +64,13 @@
       </div>
     </div>
   {:else if kind === "filter"}
-    <div class="truncate px-1.5 pt-0.5 muted" style="font-size: 10px" title={summary(data.node)}>{summary(data.node)}</div>
+    <div class="truncate px-1.5 pt-0.5 muted" style="font-size: 10px" title={summary(data.node, app.rateUnit)}>{summary(data.node, app.rateUnit)}</div>
     <div class="flex flex-col text-right" style="font-size: 10px">
       <div class="pr-2" style="height: {ROW}px; line-height: {ROW}px; color: var(--good)">match</div>
       <div class="pr-2" style="height: {ROW}px; line-height: {ROW}px; color: var(--bad)">other</div>
     </div>
   {:else}
-    <div class="truncate px-1.5 py-0.5 muted" style="font-size: 10px" title={summary(data.node)}>{summary(data.node)}</div>
+    <div class="truncate px-1.5 py-0.5 muted" style="font-size: 10px" title={summary(data.node, app.rateUnit)}>{summary(data.node, app.rateUnit)}</div>
   {/if}
 </div>
 

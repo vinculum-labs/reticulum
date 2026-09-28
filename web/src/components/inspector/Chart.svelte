@@ -2,7 +2,7 @@
   import { onDestroy } from "svelte";
   import uPlot from "uplot";
   import "uplot/dist/uPlot.min.css";
-  import { request } from "../../lib/state.svelte";
+  import { app, request } from "../../lib/state.svelte";
 
   let { item, unit }: { item: string; unit: string } = $props();
 
@@ -24,6 +24,9 @@
       return;
     }
     const step = window_ === "second" ? 1 : 60;
+    // Each value covers one second or one minute; show it as an average per tick or per second.
+    const ticksPerValue = step * 20;
+    values = values.map((v) => (app.rateUnit === "t" ? v / ticksPerValue : v / step));
     const now = Math.floor(Date.now() / 1000);
     const xs = values.map((_, i) => now - (values.length - 1 - i) * step);
     const data: uPlot.AlignedData = [xs, values];
@@ -49,6 +52,7 @@
 
   $effect(() => {
     void window_;
+    void app.rateUnit;
     plot?.destroy();
     plot = null;
     load();
@@ -64,7 +68,9 @@
 
 <div class="flex flex-col gap-1">
   <div class="flex items-center justify-between">
-    <span class="text-xs font-medium muted">Throughput ({unit} per {window_ === "second" ? "second, last 5 min" : "minute, last 24 h"})</span>
+    <span class="text-xs font-medium muted"
+      >Throughput{unit ? ` (${unit}` : " ("}/{app.rateUnit}, {window_ === "second" ? "last 5 min" : "last 24 h, per-minute averages"})</span
+    >
     <select bind:value={window_} class="text-xs">
       <option value="second">5 min</option>
       <option value="minute">24 h</option>

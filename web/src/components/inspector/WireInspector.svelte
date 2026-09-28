@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app, edit, deviceName, deviceAt } from "../../lib/state.svelte";
-  import { KIND_LABEL } from "../../lib/kinds";
+  import { KIND_LABEL, formatRate } from "../../lib/kinds";
   import { posKey, type GraphNode, type Sheet, type Wire } from "../../lib/types";
   import Chart from "./Chart.svelte";
 
@@ -29,6 +29,6 @@
     {/if}
   </div>
   <p class="text-sm">{name(wire.from)} {wire.output === 1 ? "(rejects)" : ""} → {name(wire.to)}</p>
-  <p class="text-sm muted">Moving {app.rates[wire.id] ?? 0} per second.</p>
-  <Chart item={wire.id} unit="per second" />
+  <p class="text-sm muted">Moving {formatRate(app.rates[wire.id] ?? 0, null, app.rateUnit)}.</p>
+  <Chart item={wire.id} unit="" />
 </div>

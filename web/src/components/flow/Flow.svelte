@@ -33,8 +33,9 @@
     const devices = app.snapshot?.devices ?? [];
     const rates = app.rates;
     const selected = new Set([...app.selectedNodes, ...app.selectedEdges]);
+    const unit = app.rateUnit;
     if (!s || dragging) return;
-    const built = toFlow(s, devices, rates, selected);
+    const built = toFlow(s, devices, rates, selected, unit);
     nodes = built.nodes;
     edges = built.edges;
   });

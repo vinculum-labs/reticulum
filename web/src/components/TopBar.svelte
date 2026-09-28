@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, edit, selectNetwork, undo, redo, request, loadNetworks, toast } from "../lib/state.svelte";
+  import { app, edit, selectNetwork, undo, redo, request, loadNetworks, toast, setRateUnit } from "../lib/state.svelte";
 
   const snapshot = $derived(app.snapshot);
 
@@ -43,6 +43,11 @@
       On
     </label>
     <span class="text-sm muted">{snapshot.running ? "Running" : snapshot.enabled ? "No controller loaded" : "Off"}</span>
+    <button
+      class="btn"
+      onclick={() => setRateUnit(app.rateUnit === "t" ? "s" : "t")}
+      title="Show rates per tick or per second">/{app.rateUnit}</button
+    >
     <button class="btn" onclick={undo} disabled={app.undo.length === 0} title="Undo (Ctrl+Z)">Undo</button>
     <button class="btn" onclick={redo} disabled={app.redo.length === 0} title="Redo (Ctrl+Shift+Z)">Redo</button>
     {#if snapshot.role === "owner"}

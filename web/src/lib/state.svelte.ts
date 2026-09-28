@@ -18,7 +18,28 @@ interface Change {
   undo: Edit[];
 }
 
+export type RateUnit = "t" | "s";
+
+function storedRateUnit(): RateUnit {
+  try {
+    return localStorage.getItem("reticulum.rateUnit") === "s" ? "s" : "t";
+  } catch {
+    return "t";
+  }
+}
+
+export function setRateUnit(unit: RateUnit): void {
+  app.rateUnit = unit;
+  try {
+    localStorage.setItem("reticulum.rateUnit", unit);
+  } catch {
+    // Private windows and blocked storage: the choice lasts until the page closes.
+  }
+}
+
 export const app = $state({
+  /** Rates are shown per tick by default, or per second. */
+  rateUnit: storedRateUnit(),
   socketOpen: false,
   inWorld: false,
   player: "",

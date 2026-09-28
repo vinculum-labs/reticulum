@@ -101,14 +101,18 @@
       </ul>
     </details>
   {:else if s.kind === "rate_limit"}
-    <Field label="Per second">
+    <Field label={app.rateUnit === "t" ? "Per tick" : "Per second"} hint={`${unit}; the top bar switches between per tick and per second.`}>
       <input
         type="number"
-        min="1"
+        min={app.rateUnit === "t" ? 0.05 : 1}
+        step={app.rateUnit === "t" ? 0.05 : 1}
         class="w-32"
-        value={s.per_second}
+        value={app.rateUnit === "t" ? Number((s.per_second / 20).toFixed(2)) : s.per_second}
         disabled={!canEdit}
-        onchange={(e) => settings({ per_second: Math.max(1, Number(e.currentTarget.value) || 1) })}
+        onchange={(e) => {
+          const entered = Number(e.currentTarget.value) || 0;
+          settings({ per_second: Math.max(1, Math.round(app.rateUnit === "t" ? entered * 20 : entered)) });
+        }}
       />
     </Field>
   {:else if s.kind === "splitter"}
