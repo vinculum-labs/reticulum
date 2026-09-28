@@ -1,6 +1,6 @@
 // What each node kind looks like and how it is summarized, plus defaults for new nodes.
 
-import type { Device, GraphNode, NodeKind, NodeSettings, Redstone, Resource } from "./types";
+import type { Device, Face, GraphNode, NodeKind, NodeSettings, Redstone, Resource } from "./types";
 
 export const KIND_LABEL: Record<NodeKind, string> = {
   device: "Device",
@@ -23,6 +23,7 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   delay: "Delay",
   publish: "Publish",
   signal: "Network signal",
+  me_port: "ME port",
 };
 
 export const KIND_HINT: Record<NodeKind, string> = {
@@ -46,6 +47,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   delay: "Its input, some ticks later",
   publish: "Publishes its input under a name that any sheet can read",
   signal: "Reads a published network signal",
+  me_port: "One ME side of a connector; wire it to another ME port to join the two AE2 networks (32 channels)",
 };
 
 /** Signal nodes, in palette order. */
@@ -97,7 +99,7 @@ export function signalOutput(kind: NodeKind): boolean {
 
 /** Kinds a signal wire can switch on and off through their gate (the pin on top). */
 export function gated(kind: NodeKind): boolean {
-  return !isSignal(kind) && kind !== "sheet_input" && kind !== "sheet_output";
+  return !isSignal(kind) && kind !== "sheet_input" && kind !== "sheet_output" && kind !== "me_port";
 }
 
 export const REDSTONE_MODE_LABEL: Record<string, string> = {
@@ -131,8 +133,16 @@ export const RESOURCE_VAR: Record<Resource, string> = {
   chemical: "var(--c-chemical)",
 };
 
-export function defaultSettings(kind: NodeKind, device: Device | null, resource: Resource, subsheet?: string): NodeSettings {
+export function defaultSettings(
+  kind: NodeKind,
+  device: Device | null,
+  resource: Resource,
+  subsheet?: string,
+  mePort?: { connector: string; side: Face },
+): NodeSettings {
   switch (kind) {
+    case "me_port":
+      return { kind, connector: mePort!.connector, side: mePort!.side };
     case "redstone_in":
       return { kind, device: device!.pos };
     case "redstone_out":
@@ -284,6 +294,8 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
     case "publish":
     case "signal":
       return s.name ? `“${s.name}”` : "no name";
+    case "me_port":
+      return `${s.side} side`;
   }
 }
 

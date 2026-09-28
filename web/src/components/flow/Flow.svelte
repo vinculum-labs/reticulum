@@ -38,6 +38,7 @@
       ticksSinceMoved: app.ticksSinceMoved,
       status: app.status,
       signals: app.signals,
+      me: app.me,
     };
     const selected = new Set([...app.selectedNodes, ...app.selectedEdges]);
     const unit = app.rateUnit;
@@ -66,6 +67,9 @@
     const to = nodeOf(c.target);
     if (!from || !to || c.source === c.target) return false;
     const pin = (k: string) => k === "sheet_input" || k === "sheet_output";
+    if (from.settings.kind === "me_port" || to.settings.kind === "me_port") {
+      return from.settings.kind === "me_port" && to.settings.kind === "me_port" && c.targetHandle !== "gate";
+    }
     const fromSignal = isSignal(from.settings.kind);
     if (c.targetHandle === "gate") return fromSignal || pin(from.settings.kind);
     if (pin(from.settings.kind) || pin(to.settings.kind)) return true;
@@ -134,9 +138,14 @@
       toast("Mark another sheet as a sub-sheet first (in its settings).");
       return;
     }
+    const mePort = kind === "me_port" ? mePorts[0] : undefined;
+    if (kind === "me_port" && !mePort) {
+      toast("No connector has an ME side: put a connector next to an AE2 cable or machine.");
+      return;
+    }
     const node: GraphNode = {
       id: uuid(),
-      settings: defaultSettings(kind, device, device ? offered(device) : "item", subsheet),
+      settings: defaultSettings(kind, device, device ? offered(device) : "item", subsheet, mePort),
       x: Math.round(at.x),
       y: Math.round(at.y),
     };
@@ -170,6 +179,9 @@
     addNode("device", { x: p.x - 70, y: p.y - 17 }, device);
   }
 
+  /** Every connector side with an ME endpoint (AE2 installed and an AE2 block next to it). */
+  const mePorts = $derived((app.snapshot?.connectors ?? []).flatMap((c) => (c.me ?? []).map((side) => ({ connector: c.id, side }))));
+
   /** Sheets that can be placed here as sub-sheets: marked as one, and not this sheet. */
   const subsheets = $derived((app.snapshot?.sheets ?? []).filter((x) => x.subsheet && x.id !== sheet?.id));
   const palette = $derived<NodeKind[]>([
@@ -180,6 +192,7 @@
     "kit",
     ...(subsheets.length ? (["subsheet"] as NodeKind[]) : []),
     ...(sheet?.subsheet ? (["sheet_input", "sheet_output"] as NodeKind[]) : []),
+    ...(mePorts.length ? (["me_port"] as NodeKind[]) : []),
   ]);
 
   function addSignal(e: Event & { currentTarget: HTMLSelectElement }) {

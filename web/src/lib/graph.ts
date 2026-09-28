@@ -20,6 +20,10 @@ export interface NodeData extends Record<string, unknown> {
   subsheet?: { sheet?: Sheet; inputs: string[]; outputs: string[] };
   /** For a signal node: its output as last reported. */
   signal?: number;
+  /** For an ME port: channels in use, e.g. "27/32". */
+  me?: string;
+  /** For an ME port: the connector's name. */
+  connectorName?: string;
 }
 
 export interface Activity {
@@ -28,6 +32,7 @@ export interface Activity {
   ticksSinceMoved: Record<string, number>;
   status: Record<string, string>;
   signals: Record<string, number>;
+  me: Record<string, string>;
 }
 
 /**
@@ -133,6 +138,7 @@ export function toFlow(
         status: activity.status[n.id],
         subsheet,
         signal: isSignal(s.kind) ? (activity.signals[n.id] ?? 0) : undefined,
+        me: s.kind === "me_port" ? activity.me[n.id] : undefined,
       },
     };
   });
@@ -143,7 +149,8 @@ export function toFlow(
     const fromNode = byId.get(w.from);
     const signal = isSignal(fromNode?.settings.kind);
     const on = signal && (activity.signals[w.from] ?? 0) > 0;
-    const color = signal ? "var(--c-signal)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
+    const me = fromNode?.settings.kind === "me_port";
+    const color = signal ? "var(--c-signal)" : me ? "var(--c-me)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
     return {
       id: w.id,
       source: w.from,

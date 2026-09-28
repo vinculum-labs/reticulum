@@ -29,9 +29,17 @@
   const s = $derived(data.node.settings);
   const kind = $derived(s.kind);
   const signal = $derived(isSignal(s.kind));
-  const color = $derived(signal ? "var(--c-signal)" : data.resource ? RESOURCE_VAR[data.resource] : "var(--muted)");
+  const color = $derived(
+    signal ? "var(--c-signal)" : s.kind === "me_port" ? "var(--c-me)" : data.resource ? RESOURCE_VAR[data.resource] : "var(--muted)",
+  );
+  const connectorName = $derived.by(() => {
+    if (s.kind !== "me_port") return "";
+    const c = app.snapshot?.connectors.find((x) => x.id === s.connector);
+    return c ? c.name || `Connector (${c.pos.pos.join(", ")})` : "Missing connector";
+  });
   const title = $derived(
     data.node.label ||
+      connectorName ||
       (data.device
         ? deviceName(data.device)
         : kind === "subsheet"
@@ -102,7 +110,9 @@
     <div class="min-w-0 flex-1 leading-tight">
       <div class="truncate font-medium" style="font-size: 12px" title={title}>{title}</div>
       <div class="truncate muted" style="font-size: 10px" title={signal ? summary(data.node, app.rateUnit) : idleTitle}>
-        {#if signal}
+        {#if s.kind === "me_port"}
+          <span class="tabular-nums" style="color: {color}">{data.me ?? "not linked"}</span> · {summary(data.node, app.rateUnit)}
+        {:else if signal}
           <span class="tabular-nums" style="color: {(data.signal ?? 0) > 0 ? color : 'var(--muted)'}">{data.signal ?? 0}</span>
           · {summary(data.node, app.rateUnit)}
         {:else if data.rate > 0}

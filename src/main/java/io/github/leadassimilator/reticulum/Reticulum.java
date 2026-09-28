@@ -45,6 +45,9 @@ public class Reticulum {
         if (Mods.MEKANISM) {
             MekanismChemicals.init();
         }
+        if (Mods.AE2) {
+            modEventBus.addListener(io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration::registerCapabilities);
+        }
         modEventBus.addListener((InterModEnqueueEvent event) -> {
             if (ModList.get().isLoaded(TopIntegration.MODID)) {
                 TopIntegration.register();

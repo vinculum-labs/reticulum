@@ -125,6 +125,15 @@ final class Snapshots {
             JsonArray reached = new JsonArray();
             connector.devices().forEach(d -> reached.add(encode(server, GlobalPos.CODEC, d)));
             json.add("devices", reached);
+            if (Mods.AE2) {
+                ServerLevel connectorLevel = server.getLevel(connector.pos().dimension());
+                if (connectorLevel != null && connectorLevel.isLoaded(connector.pos().pos())) {
+                    JsonArray me = new JsonArray();
+                    io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration.sides(connectorLevel, connector.pos().pos())
+                            .forEach(side -> me.add(side.getSerializedName()));
+                    json.add("me", me);
+                }
+            }
             NetworkRuntime.Reach reach = runtime.reach(connector.id());
             if (reach != null) {
                 json.addProperty("reach", reach.key());

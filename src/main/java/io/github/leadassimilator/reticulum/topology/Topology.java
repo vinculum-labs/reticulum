@@ -574,6 +574,7 @@ public final class Topology {
         }
         boolean enable = !connector.isDeviceEnabled(side);
         connector.setDeviceEnabled(side, enable);
+        connector.refreshEndpoints();
         rescanConnector(level, pos);
         refreshState(level, pos);
         return Component.translatable(enable ? "message.reticulum.device_attached" : "message.reticulum.device_detached");

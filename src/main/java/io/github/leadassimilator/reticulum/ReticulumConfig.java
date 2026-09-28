@@ -22,6 +22,10 @@ public final class ReticulumConfig {
                     "Tier 2 reaches the whole dimension, tier 3 every dimension.")
             .defineInRange("antennaRange", 128, 1, 30_000_000);
 
+    public static final ModConfigSpec.DoubleValue ME_ENDPOINT_POWER = BUILDER
+            .comment("AE power (AE/t) each ME endpoint (a connector side facing AE2) draws from its AE2 network.")
+            .defineInRange("meEndpointPower", 1.0, 0.0, 1000.0);
+
     public static final ModConfigSpec.IntValue ENERGY_PER_TICK = BUILDER
             .comment("Most FE one energy route moves per tick. Set above Mekanism's best cables by default.")
             .defineInRange("energyPerTick", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);

@@ -72,6 +72,12 @@ public final class NetworkRuntime {
         }
     }
 
+    /** AE2 links, when AE2 is installed. */
+    @Nullable
+    private final MeLinker meLinker = io.github.leadassimilator.reticulum.integration.Mods.AE2
+            ? io.github.leadassimilator.reticulum.integration.ae2.Ae2Links.create() : null;
+    private Map<UUID, String> meUsage = Map.of();
+
     private long reachVersion = -1;
     private long reachWorkedOut = Long.MIN_VALUE;
     private int reachTier = -1;
@@ -147,6 +153,14 @@ public final class NetworkRuntime {
         }
         Context context = new Context(server, network, this);
         signals.evaluate(context, sheets);
+        if (meLinker != null) {
+            List<CompiledSheet.MeLink> links = new ArrayList<>();
+            sheets.forEach(sheet -> links.addAll(sheet.meLinks()));
+            meLinker.update(server, network, links, id -> reach(id) != Reach.OUT_OF_RANGE);
+            if (ticks % 20 == 0) {
+                meUsage = links.isEmpty() ? Map.of() : meLinker.usage(server, network, links);
+            }
+        }
         for (CompiledSheet sheet : sheets) {
             if (sheet.switchable()) {
                 signals.switchNodes(server, network, sheet);
@@ -176,6 +190,9 @@ public final class NetworkRuntime {
     public void stop(MinecraftServer server, Network network) {
         if (!stopped) {
             signals.stop(server, network);
+            if (meLinker != null) {
+                meLinker.clear();
+            }
             stopped = true;
         }
     }
@@ -255,6 +272,11 @@ public final class NetworkRuntime {
             folder = slash < 0 ? "" : folder.substring(0, slash);
         }
         return verdict;
+    }
+
+    /** Channels used on each ME port node, as "27/32", updated once a second. */
+    public Map<UUID, String> meUsage() {
+        return meUsage;
     }
 
     /** Signal node outputs this tick, by node id. */

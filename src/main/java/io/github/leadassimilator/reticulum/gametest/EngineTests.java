@@ -347,6 +347,38 @@ public final class EngineTests {
         helper.succeed();
     }
 
+    // ---------------------------------------------------------------- AE2
+
+    @GameTest(template = "empty")
+    public static void meLinkJoinsTwoAe2Networks(GameTestHelper helper) {
+        if (!Mods.AE2) {
+            helper.succeed();
+            return;
+        }
+        // An ME controller and an ME interface, kept apart by a barrel so only the link can join them.
+        Rig rig = rig(helper, Ae2TestSupport.block("controller"), Blocks.BARREL, Ae2TestSupport.block("interface"));
+        BlockPos controller = helper.absolutePos(rig.devices().get(0));
+        BlockPos iface = helper.absolutePos(rig.devices().get(2));
+        java.util.function.Function<Integer, UUID> connector = x -> rig.network().connectors().stream()
+                .filter(c -> c.pos().pos().equals(helper.absolutePos(new BlockPos(x, 1, 1)))).findFirst().orElseThrow().id();
+        Node a = rig.node(new NodeSettings.MePortSettings(connector.apply(3), Direction.SOUTH));
+        Node b = rig.node(new NodeSettings.MePortSettings(connector.apply(5), Direction.SOUTH));
+        Wire[] link = new Wire[1];
+        helper.startSequence()
+                .thenExecuteAfter(10, () -> {
+                    check(helper, !Ae2TestSupport.sameGrid(helper.getLevel(), controller, Direction.NORTH, iface, Direction.NORTH),
+                            "joined before any link");
+                    link[0] = Wire.of(a, b);
+                    rig.sheet().connect(link[0]);
+                })
+                .thenWaitUntil(() -> check(helper, Ae2TestSupport.sameGrid(helper.getLevel(), controller, Direction.NORTH, iface, Direction.NORTH),
+                        "the ME link didn't join the two AE2 networks; errors " + rig.compiled().errors()))
+                .thenExecute(() -> rig.sheet().disconnect(link[0].id()))
+                .thenWaitUntil(() -> check(helper, !Ae2TestSupport.sameGrid(helper.getLevel(), controller, Direction.NORTH, iface, Direction.NORTH),
+                        "still joined after the link was removed"))
+                .thenSucceed();
+    }
+
     @GameTest(template = "empty")
     public static void antennaTiersReach(GameTestHelper helper) {
         var overworld = net.minecraft.world.level.Level.OVERWORLD;

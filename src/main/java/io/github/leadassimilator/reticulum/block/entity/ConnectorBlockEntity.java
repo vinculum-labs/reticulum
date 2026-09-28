@@ -4,6 +4,8 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import net.minecraft.core.BlockPos;
@@ -21,6 +23,9 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     /** Network of the bound connector item this block was placed from; consumed by topology. */
     @Nullable
     private UUID itemNetworkId;
+    /** The AE2 endpoints (integration.ae2.MeEndpoints) when AE2 is installed; typed loosely so AE2 is optional. */
+    @Nullable
+    private Object meEndpoints;
 
     public ConnectorBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.CONNECTOR.get(), pos, state);
@@ -37,6 +42,46 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     public void setDeviceEnabled(Direction side, boolean enabled) {
         disabledDevices = enabled ? disabledDevices & ~bit(side) : disabledDevices | bit(side);
         setChanged();
+    }
+
+    @Nullable
+    public Object meEndpoints() {
+        return meEndpoints;
+    }
+
+    public void setMeEndpoints(Object endpoints) {
+        meEndpoints = endpoints;
+    }
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        if (Mods.AE2 && level != null && !level.isClientSide) {
+            Ae2Integration.onLoad(this);
+        }
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        if (Mods.AE2) {
+            Ae2Integration.destroy(this);
+        }
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        super.onChunkUnloaded();
+        if (Mods.AE2) {
+            Ae2Integration.destroy(this);
+        }
+    }
+
+    /** A neighbor changed or a device side was switched: ME endpoints follow the AE2 blocks around the connector. */
+    public void refreshEndpoints() {
+        if (Mods.AE2 && level != null && !level.isClientSide) {
+            Ae2Integration.refresh(this);
+        }
     }
 
     @Nullable

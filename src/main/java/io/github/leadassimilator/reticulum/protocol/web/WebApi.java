@@ -471,6 +471,9 @@ public final class WebApi {
             if (device != null && network.device(device) == null) {
                 throw new RequestException("That block is not a device of this network");
             }
+            if (node.settings() instanceof NodeSettings.MePortSettings port && network.connector(port.connector()) == null) {
+                throw new RequestException("That connector is not on this network");
+            }
         }
     }
 
@@ -574,6 +577,9 @@ public final class WebApi {
         JsonObject named = new JsonObject();
         runtime.networkSignals().forEach(named::addProperty);
         out.add("networkSignals", named);
+        JsonObject me = new JsonObject();
+        runtime.meUsage().forEach((id, usage) -> me.addProperty(id.toString(), usage));
+        out.add("me", me);
         JsonArray sheetsOff = new JsonArray();
         runtime.sheetsOff().forEach(id -> sheetsOff.add(id.toString()));
         out.add("sheetsOff", sheetsOff);

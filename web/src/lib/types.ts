@@ -179,7 +179,15 @@ export type SignalNodeSettings =
   | PublishSettings
   | SignalSettings;
 
+/** One ME side of a connector (AE2); a wire to another ME port joins the two AE2 networks. */
+export interface MePortSettings {
+  kind: "me_port";
+  connector: string;
+  side: Face;
+}
+
 export type NodeSettings =
+  | MePortSettings
   | FilterSettings
   | RateLimitSettings
   | SplitterSettings
@@ -261,6 +269,8 @@ export interface Connector {
   pos: GlobalPos;
   name?: string;
   devices: GlobalPos[];
+  /** Sides with an ME endpoint (facing an AE2 cable or machine); only sent when AE2 is installed. */
+  me?: Face[];
   /** How it reaches the controller: through cables, wirelessly, or not at all. */
   reach?: "wired" | "wireless" | "out_of_range";
 }

@@ -16,6 +16,7 @@ import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.Redstone;
+import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
@@ -117,6 +118,7 @@ public final class CompiledSheet {
         Map<UUID, Node> nodes = new LinkedHashMap<>();
         Map<UUID, NodeSettings.DeviceSettings> devices = new LinkedHashMap<>();
         Set<UUID> carriers = compileSignals(flatNodes, flatWires);
+        Set<UUID> mePorts = compileMeLinks(flatNodes, flatWires);
         for (Node node : flatNodes) {
             if (!node.enabled()) {
                 continue;
@@ -134,7 +136,8 @@ public final class CompiledSheet {
         }
         Map<UUID, List<Wire>> outgoing = new LinkedHashMap<>();
         for (Wire original : flatWires) {
-            if (carriers.contains(original.from()) || original.input() == Wire.GATE) {
+            if (carriers.contains(original.from()) || original.input() == Wire.GATE
+                    || mePorts.contains(original.from()) || mePorts.contains(original.to())) {
                 continue;
             }
             // Wires on a device node really leave one of its outputs or enter one of its inputs.
@@ -172,6 +175,44 @@ public final class CompiledSheet {
             walk(source, source, settings.port().resource(), nodes, outgoing, gates, new Walk(), routes);
             sources.add(new Source(source, settings, routes, controls(List.of(source.id()))));
         }
+    }
+
+    // ---------------------------------------------------------------- ME links
+
+    /** An ME link wire between two ME ports (connector sides). */
+    public record MeLink(UUID nodeA, UUID connectorA, Direction sideA, UUID nodeB, UUID connectorB, Direction sideB) {
+    }
+
+    private final List<MeLink> meLinks = new ArrayList<>();
+
+    public List<MeLink> meLinks() {
+        return meLinks;
+    }
+
+    /** Takes out the wires between ME ports; they join AE2 networks and carry no resources. */
+    private Set<UUID> compileMeLinks(List<Node> flatNodes, List<Wire> wires) {
+        Map<UUID, NodeSettings.MePortSettings> ports = new LinkedHashMap<>();
+        Map<UUID, Node> byId = new LinkedHashMap<>();
+        for (Node node : flatNodes) {
+            byId.put(node.id(), node);
+            if (node.enabled() && node.settings() instanceof NodeSettings.MePortSettings port) {
+                ports.put(node.id(), port);
+            }
+        }
+        if (ports.isEmpty()) {
+            return Set.of();
+        }
+        for (Wire wire : wires) {
+            NodeSettings.MePortSettings a = ports.get(wire.from());
+            NodeSettings.MePortSettings b = ports.get(wire.to());
+            if (a != null && b != null) {
+                meLinks.add(new MeLink(wire.from(), a.connector(), a.side(), wire.to(), b.connector(), b.side()));
+            } else if ((a != null || b != null) && wire.input() != Wire.GATE) {
+                Node other = byId.get(a != null ? wire.to() : wire.from());
+                errors.add((other == null ? "A node" : describe(other)) + ": ME ports only link to other ME ports");
+            }
+        }
+        return ports.keySet();
     }
 
     // ---------------------------------------------------------------- signals and redstone

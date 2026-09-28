@@ -53,6 +53,9 @@ public class ConnectorBlock extends LinkedBlock {
         if (level instanceof ServerLevel serverLevel) {
             Topology.rescanConnector(serverLevel, pos);
             Topology.refreshState(serverLevel, pos);
+            if (serverLevel.getBlockEntity(pos) instanceof ConnectorBlockEntity be) {
+                be.refreshEndpoints();
+            }
         }
     }
 }

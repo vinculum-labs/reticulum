@@ -42,7 +42,8 @@ public sealed interface NodeSettings {
         COUNTER(CounterSettings.CODEC, true),
         DELAY(DelaySettings.CODEC, true),
         PUBLISH(PublishSettings.CODEC, true),
-        SIGNAL(SignalSettings.CODEC, true);
+        SIGNAL(SignalSettings.CODEC, true),
+        ME_PORT(MePortSettings.CODEC, false);
 
         /** Only the kinds a sheet can hold; the engine-internal ones can't be read or written. */
         public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(() -> java.util.Arrays.stream(values())
@@ -462,6 +463,22 @@ public sealed interface NodeSettings {
         @Override
         public Kind kind() {
             return Kind.SIGNAL;
+        }
+    }
+
+    /**
+     * One ME side of a connector (AE2): the side facing an AE2 cable or machine. A wire between two ME ports joins
+     * their AE2 networks through that link, 32 channels at most (8 with a smart cable), like AE2's own cables.
+     */
+    record MePortSettings(UUID connector, net.minecraft.core.Direction side) implements NodeSettings {
+        public static final MapCodec<MePortSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Ids.UUID_CODEC.fieldOf("connector").forGetter(MePortSettings::connector),
+                net.minecraft.core.Direction.CODEC.fieldOf("side").forGetter(MePortSettings::side)
+        ).apply(i, MePortSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.ME_PORT;
         }
     }
 }

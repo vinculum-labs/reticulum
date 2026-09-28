@@ -121,7 +121,37 @@
     On
   </label>
 
-  {#if !signal && s.kind !== "sheet_input" && s.kind !== "sheet_output"}
+  {#if s.kind === "me_port"}
+    {@const connectors = (app.snapshot?.connectors ?? []).filter((c) => (c.me ?? []).length || c.id === s.connector)}
+    {@const current = connectors.find((c) => c.id === s.connector)}
+    <Field label="Connector" hint="Connectors with a side facing an AE2 cable or machine.">
+      <select
+        value={s.connector}
+        disabled={!canEdit}
+        onchange={(e) => {
+          const c = connectors.find((x) => x.id === e.currentTarget.value);
+          settings({ connector: e.currentTarget.value, side: (c?.me ?? [s.side])[0] });
+        }}
+      >
+        {#if !current}<option value={s.connector}>(missing)</option>{/if}
+        {#each connectors as c (c.id)}<option value={c.id}>{c.name || `Connector (${c.pos.pos.join(", ")})`}</option>{/each}
+      </select>
+    </Field>
+    <Field label="Side">
+      <select value={s.side} disabled={!canEdit} onchange={(e) => settings({ side: e.currentTarget.value as Face })}>
+        {#each current?.me?.length ? current.me : [s.side] as side}<option value={side}>{side}</option>{/each}
+      </select>
+    </Field>
+    <p class="text-sm">
+      Channels: <span class="tabular-nums">{app.me[node.id] ?? "not linked"}</span>
+      <span class="block text-xs muted">
+        Wire this port to another ME port to join their AE2 networks. Each side carries 32 channels (8 through a smart cable); for more,
+        use more sides and link each pair.
+      </span>
+    </p>
+  {/if}
+
+  {#if !signal && s.kind !== "sheet_input" && s.kind !== "sheet_output" && s.kind !== "me_port"}
     <RedstoneEditor
       value={node.redstone}
       disabled={!canEdit}
@@ -298,5 +328,5 @@
     </div>
   {/if}
 
-  {#if !signal}<Chart item={node.id} {unit} />{/if}
+  {#if !signal && s.kind !== "me_port"}<Chart item={node.id} {unit} />{/if}
 </div>

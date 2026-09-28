@@ -61,6 +61,8 @@ export const app = $state({
   networkSignals: {} as Record<string, number>,
   /** Sheets their redstone condition currently switches off. */
   sheetsOff: [] as string[],
+  /** Channels in use on each ME port node, e.g. "27/32". */
+  me: {} as Record<string, string>,
   selectedNodes: [] as string[],
   selectedEdges: [] as string[],
   selectedDevice: null as string | null,
@@ -129,6 +131,7 @@ async function onMessage(m: any): Promise<void> {
         app.signals = m.signals ?? {};
         app.networkSignals = m.networkSignals ?? {};
         app.sheetsOff = m.sheetsOff ?? [];
+        app.me = m.me ?? {};
       }
       break;
     case "removed":
@@ -170,6 +173,7 @@ export async function selectNetwork(id: string): Promise<void> {
   app.signals = {};
   app.networkSignals = {};
   app.sheetsOff = [];
+  app.me = {};
   app.selectedNodes = [];
   app.selectedEdges = [];
   app.selectedDevice = null;
