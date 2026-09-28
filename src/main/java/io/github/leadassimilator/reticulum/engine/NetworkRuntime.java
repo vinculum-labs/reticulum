@@ -210,6 +210,9 @@ public final class NetworkRuntime {
             return;
         }
         int tier = level.getBlockEntity(controller.pos()) instanceof ControllerBlockEntity c ? c.antennaTier() : 0;
+        if (ticks - reachWorkedOut >= 100) {
+            rescanConnectors(server, network);
+        }
         if (reachVersion == Topology.version() && reachTier == tier && ticks - reachWorkedOut < 100) {
             return;
         }
@@ -232,6 +235,19 @@ public final class NetworkRuntime {
         all.removeAll(reached);
         reach = found;
         unreachable = all;
+    }
+
+    /**
+     * Has every loaded connector look at its neighbors again. Changes next to a connector are normally caught as they
+     * happen, but not ones that happened while it was unloaded, or blocks that only now count as devices.
+     */
+    private static void rescanConnectors(MinecraftServer server, Network network) {
+        for (ConnectorRecord connector : List.copyOf(network.connectors())) {
+            ServerLevel level = server.getLevel(connector.pos().dimension());
+            if (level != null && level.isLoaded(connector.pos().pos())) {
+                Topology.rescanConnector(level, connector.pos().pos());
+            }
+        }
     }
 
     /** Whether an antenna of this tier on the controller reaches a wireless connector. */

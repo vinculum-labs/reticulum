@@ -81,9 +81,8 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     @Override
     public void onLoad() {
         super.onLoad();
-        // Blocks placed without a player (commands, structures, other mods) are connected up on the next tick,
-        // and connectors look at their neighbors again (what counts as a device can change between versions).
-        if ((!registered || this instanceof ConnectorBlockEntity) && level != null && !level.isClientSide) {
+        // Blocks placed without a player (commands, structures, other mods) are connected up on the next tick.
+        if (!registered && level != null && !level.isClientSide) {
             level.scheduleTick(worldPosition, getBlockState().getBlock(), 1);
         }
     }

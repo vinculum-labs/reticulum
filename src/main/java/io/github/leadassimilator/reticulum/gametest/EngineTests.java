@@ -241,6 +241,16 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 300)
+    public static void connectorFindsDevicesItMissed(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL);
+        // Placed without any block update, as if it changed while the connector was unloaded.
+        BlockPos lamp = helper.absolutePos(new BlockPos(3, 1, 0));
+        helper.getLevel().setBlock(lamp, Blocks.REDSTONE_LAMP.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+        GlobalPos device = Devices.global(helper.getLevel(), lamp);
+        helper.succeedWhen(() -> check(helper, rig.network().device(device) != null, "the connector never found the lamp"));
+    }
+
     @GameTest(template = "empty")
     public static void gateWireSwitchesAFlow(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.LEVER);
