@@ -76,6 +76,7 @@ public abstract class NetworkBlock extends BaseEntityBlock {
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         Topology.onPlaced(level, pos, null, null);
+        Topology.rescanConnector(level, pos);
     }
 
     @Override
