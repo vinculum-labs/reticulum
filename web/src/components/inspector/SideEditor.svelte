@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { RESOURCE_LABEL } from "../../lib/kinds";
+  import { RESOURCE_LABEL, offeredResources } from "../../lib/kinds";
   import { SIDES, type Device, type Face, type Resource, type Side } from "../../lib/types";
   import Field from "./Field.svelte";
 
@@ -13,6 +13,12 @@
     return sides.length ? sides : faces;
   });
   const chosen = $derived(new Set(side.faces ?? []));
+  // Items, fluids and energy are always offered; chemicals only where a device has them (they need Mekanism).
+  const choices = $derived.by(() => {
+    const list: Resource[] = ["item", "fluid", "energy"];
+    if (side.resource === "chemical" || offeredResources(device?.resources).includes("chemical")) list.push("chemical");
+    return list;
+  });
 
   function toggleFace(face: Face, on: boolean) {
     const faces = new Set(side.faces ?? []);
@@ -30,7 +36,7 @@
 
 <Field label="Resource">
   <select value={side.resource} {disabled} onchange={(e) => onchange({ ...side, resource: e.currentTarget.value as Resource, faces: [] })}>
-    {#each ["item", "fluid", "energy"] as r}<option value={r}>{RESOURCE_LABEL[r as Resource]}</option>{/each}
+    {#each choices as r}<option value={r}>{RESOURCE_LABEL[r]}</option>{/each}
   </select>
 </Field>
 

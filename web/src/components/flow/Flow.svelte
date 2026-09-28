@@ -12,7 +12,7 @@
   } from "@xyflow/svelte";
   import { app, currentSheet, deviceAt, edit, toast, uuid } from "../../lib/state.svelte";
   import { handleIndex, toFlow, type NodeData } from "../../lib/graph";
-  import { KIND_HINT, KIND_LABEL, defaultSettings } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, defaultSettings, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Wire } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
   import { layout } from "../../lib/layout";
@@ -95,8 +95,7 @@
   }
 
   function offered(device: Device): Resource {
-    const r = device.resources ?? {};
-    return r.item?.length ? "item" : r.fluid?.length ? "fluid" : r.energy?.length ? "energy" : "item";
+    return offeredResources(device.resources)[0] ?? "item";
   }
 
   async function addNode(kind: NodeKind, at: { x: number; y: number }, device: Device | null = null) {

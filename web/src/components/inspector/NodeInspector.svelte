@@ -136,6 +136,7 @@
         <li><code>is:fuel|food|stackable|damaged|enchanted|smeltable</code>, <code>has:minecraft:custom_name</code></li>
         <li><code>in:sink</code> only what the sink already holds; <code>@name</code> a template</li>
         <li>Fluids: <code>temp:&gt;1000</code>, <code>is:gaseous</code></li>
+        <li>Chemicals: <code>chem:radioactive|coolant|fuel</code></li>
         <li>Combine with <code>&amp;</code> (or just a space), <code>|</code>, <code>!</code> and brackets</li>
       </ul>
     </details>
@@ -155,7 +156,7 @@
       />
     </Field>
   {:else if s.kind === "splitter"}
-    <Field label="Mode" hint="Round robin shares out (evenly for fluids and energy); in order fills the first output before the next.">
+    <Field label="Mode" hint="Round robin shares out (evenly for fluids, chemicals and energy); in order fills the first output before the next.">
       <select value={s.mode ?? "round_robin"} disabled={!canEdit} onchange={(e) => settings({ mode: e.currentTarget.value as "round_robin" | "priority" })}>
         <option value="round_robin">Round robin</option>
         <option value="priority">In order (wire order)</option>

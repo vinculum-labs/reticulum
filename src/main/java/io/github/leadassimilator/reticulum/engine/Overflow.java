@@ -6,6 +6,7 @@ import java.util.List;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
+import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import net.minecraft.server.level.ServerLevel;
@@ -67,7 +68,7 @@ final class Overflow {
     /** Tries to deliver buffered resources to any sink on the network whose route would accept them. */
     static void retry(NetworkRuntime.Context ctx, List<CompiledSheet> sheets) {
         Network network = ctx.network();
-        if (network.overflowItems().isEmpty() && network.overflowFluids().isEmpty()) {
+        if (network.overflow().isEmpty()) {
             return;
         }
         boolean changed = false;
@@ -85,6 +86,8 @@ final class Overflow {
                         changed |= retryItems(ctx, sheet, route, level);
                     } else if (source.resource() == ResourceKind.FLUID) {
                         changed |= retryFluids(ctx, route, level);
+                    } else if (source.resource() == ResourceKind.CHEMICAL && Mods.MEKANISM) {
+                        changed |= ChemicalMover.retry(ctx, route, level);
                     }
                 }
             }

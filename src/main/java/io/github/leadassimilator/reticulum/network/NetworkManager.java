@@ -135,7 +135,7 @@ public final class NetworkManager {
     /** True when the network holds nothing a player made: no sheets, devices, connectors, filters or overflow. */
     public static boolean isEmpty(Network network) {
         return network.sheets().isEmpty() && network.devices().isEmpty() && network.connectors().isEmpty()
-                && network.filters().isEmpty() && network.overflowItems().isEmpty() && network.overflowFluids().isEmpty();
+                && network.filters().isEmpty() && network.overflow().isEmpty();
     }
 
     /**
@@ -184,6 +184,7 @@ public final class NetworkManager {
         }
         into.overflowItems().addAll(from.overflowItems());
         into.overflowFluids().addAll(from.overflowFluids());
+        from.overflow().chemicals().forEach((id, amount) -> into.overflow().chemicals().merge(id, amount, Long::sum));
         delete(server, from);
         data(server).alias(from.id(), into.id());
         changed(server, into);

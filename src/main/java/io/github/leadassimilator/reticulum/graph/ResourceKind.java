@@ -6,11 +6,12 @@ import com.mojang.serialization.Codec;
 
 import net.minecraft.util.StringRepresentable;
 
-/** What a flow moves. Chemicals (Mekanism) and ME links join in phase 5. */
+/** What a flow moves. Chemicals need Mekanism; without it no device offers them. */
 public enum ResourceKind implements StringRepresentable {
     ITEM(false),
     FLUID(true),
-    ENERGY(true);
+    ENERGY(true),
+    CHEMICAL(true);
 
     public static final Codec<ResourceKind> CODEC = StringRepresentable.fromEnum(ResourceKind::values);
 

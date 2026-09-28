@@ -3,6 +3,7 @@ package io.github.leadassimilator.reticulum.network;
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.integration.Mods;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
@@ -28,7 +29,6 @@ public final class Devices {
 
     /**
      * A device is any non-network block with a block entity or a supported capability on some face.
-     * The resource types added in later phases extend the capability list.
      */
     public static boolean isDevice(Level level, BlockPos pos) {
         if (!level.isLoaded(pos)) {
@@ -45,14 +45,25 @@ public final class Devices {
         if (be != null) {
             return true;
         }
+        BlockCapability<?, Direction> chemicals = Mods.chemicalCapability();
+        if (chemicals != null && offers(level, pos, chemicals)) {
+            return true;
+        }
         for (BlockCapability<?, Direction> cap : CAPABILITIES) {
-            if (level.getCapability(cap, pos, null) != null) {
+            if (offers(level, pos, cap)) {
                 return true;
             }
-            for (Direction side : Direction.values()) {
-                if (level.getCapability(cap, pos, side) != null) {
-                    return true;
-                }
+        }
+        return false;
+    }
+
+    private static boolean offers(Level level, BlockPos pos, BlockCapability<?, Direction> cap) {
+        if (level.getCapability(cap, pos, null) != null) {
+            return true;
+        }
+        for (Direction side : Direction.values()) {
+            if (level.getCapability(cap, pos, side) != null) {
+                return true;
             }
         }
         return false;

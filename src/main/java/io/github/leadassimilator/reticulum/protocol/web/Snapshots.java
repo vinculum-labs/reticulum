@@ -14,6 +14,7 @@ import io.github.leadassimilator.reticulum.engine.CompiledSheet;
 import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
+import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
@@ -131,6 +132,14 @@ final class Snapshots {
         network.overflowFluids().forEach(stack -> fluids.add(encode(server, FluidStack.CODEC, stack)));
         overflow.add("items", items);
         overflow.add("fluids", fluids);
+        JsonArray chemicals = new JsonArray();
+        network.overflow().chemicals().forEach((id, amount) -> {
+            JsonObject chemical = new JsonObject();
+            chemical.addProperty("id", id.toString());
+            chemical.addProperty("amount", amount);
+            chemicals.add(chemical);
+        });
+        overflow.add("chemicals", chemicals);
         out.add("overflow", overflow);
         return out;
     }
@@ -159,6 +168,9 @@ final class Snapshots {
             resources.add(ResourceKind.ITEM.getSerializedName(), faces(level, at, Capabilities.ItemHandler.BLOCK));
             resources.add(ResourceKind.FLUID.getSerializedName(), faces(level, at, Capabilities.FluidHandler.BLOCK));
             resources.add(ResourceKind.ENERGY.getSerializedName(), faces(level, at, Capabilities.EnergyStorage.BLOCK));
+            if (Mods.chemicalCapability() != null) {
+                resources.add(ResourceKind.CHEMICAL.getSerializedName(), faces(level, at, Mods.chemicalCapability()));
+            }
             json.add("resources", resources);
             json.addProperty("loaded", true);
         } else {

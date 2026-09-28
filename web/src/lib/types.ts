@@ -1,7 +1,7 @@
 // Shapes of the JSON the server sends and accepts. They mirror the Java codecs (Sheet, Node, NodeSettings, Wire);
 // optional fields are left out by the server when they hold their default value.
 
-export type Resource = "item" | "fluid" | "energy";
+export type Resource = "item" | "fluid" | "energy" | "chemical";
 export type Face = "down" | "up" | "north" | "south" | "west" | "east" | "unsided";
 export const FACES: Face[] = ["up", "down", "north", "south", "west", "east", "unsided"];
 export const SIDES: Face[] = ["up", "down", "north", "south", "west", "east"];
@@ -183,7 +183,7 @@ export interface Snapshot extends NetworkSummary {
   devices: Device[];
   connectors: Connector[];
   filters: Record<string, string>;
-  overflow: { items: { id: string; count: number }[]; fluids: { id: string; amount: number }[] };
+  overflow: { items: { id: string; count: number }[]; fluids: { id: string; amount: number }[]; chemicals: { id: string; amount: number }[] };
 }
 
 export type Edit = { type: string } & Record<string, unknown>;

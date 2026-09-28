@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app } from "../../lib/state.svelte";
-  import { sideLabel } from "../../lib/kinds";
+  import { offeredResources, sideLabel } from "../../lib/kinds";
   import { posKey, type DeviceInput, type DeviceNodeSettings, type DeviceOutput, type Resource, type Sheet } from "../../lib/types";
   import Field from "./Field.svelte";
   import SideEditor from "./SideEditor.svelte";
@@ -28,7 +28,7 @@
   const inputs = $derived(settings.inputs ?? []);
   const outputs = $derived(settings.outputs ?? []);
   const primary = $derived<Resource>(
-    device?.resources?.item?.length ? "item" : device?.resources?.fluid?.length ? "fluid" : device?.resources?.energy?.length ? "energy" : "item",
+    offeredResources(device?.resources)[0] ?? "item",
   );
 
   function setInput(i: number, next: DeviceInput) {

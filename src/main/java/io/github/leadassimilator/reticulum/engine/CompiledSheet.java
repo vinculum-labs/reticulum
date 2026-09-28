@@ -30,7 +30,7 @@ public final class CompiledSheet {
     }
 
     /** One filter on the way, and whether the route took its reject output. */
-    public record Gate(Filters.ItemFilter items, Filters.FluidFilter fluids, boolean reject) {
+    public record Gate(Filters.ItemFilter items, Filters.FluidFilter fluids, Filters.ChemicalFilter chemicals, boolean reject) {
     }
 
     /** {@code path} lists every node from source to sink and {@code wires} every wire between them, for metrics. */
@@ -61,6 +61,7 @@ public final class CompiledSheet {
     private final List<String> errors = new ArrayList<>();
     private final Map<String, Filters.ItemFilter> itemLimitFilters = new LinkedHashMap<>();
     private final Map<String, Filters.FluidFilter> fluidLimitFilters = new LinkedHashMap<>();
+    private final Map<String, Filters.ChemicalFilter> chemicalLimitFilters = new LinkedHashMap<>();
 
     private CompiledSheet(Sheet sheet, int filtersHash) {
         this.sheet = sheet;
@@ -335,7 +336,7 @@ public final class CompiledSheet {
             for (int output : new int[] {Wire.MATCH, Wire.REJECT}) {
                 List<Wire> branch = wires.stream().filter(w -> w.output() == output).toList();
                 Walk next = walk.copy();
-                next.gates.add(new Gate(gate.items(), gate.fluids(), output == Wire.REJECT));
+                next.gates.add(new Gate(gate.items(), gate.fluids(), gate.chemicals(), output == Wire.REJECT));
                 follow(source, node, branch, resource, nodes, outgoing, gates, next, routes);
             }
             return;
@@ -359,7 +360,7 @@ public final class CompiledSheet {
     @Nullable
     private Gate compileGate(Node node, String expression, Map<String, String> templates) {
         try {
-            return new Gate(Filters.items(expression, templates), fluidsOrAny(expression, templates), false);
+            return new Gate(Filters.items(expression, templates), fluidsOrAny(expression, templates), chemicalsOrNone(expression, templates), false);
         } catch (FilterException e) {
             errors.add(describe(node) + ": " + e.getMessage());
             return null;
@@ -372,6 +373,15 @@ public final class CompiledSheet {
             return Filters.fluids(expression, templates);
         } catch (FilterException e) {
             return (stack, context) -> false;
+        }
+    }
+
+    /** Likewise for chemicals, which also match nothing without Mekanism. */
+    private static Filters.ChemicalFilter chemicalsOrNone(String expression, Map<String, String> templates) {
+        try {
+            return Filters.chemicals(expression, templates);
+        } catch (FilterException e) {
+            return Filters.ChemicalFilter.NONE;
         }
     }
 
@@ -388,6 +398,7 @@ public final class CompiledSheet {
                     itemLimitFilters.put(expression, Filters.items(expression, templates));
                 }
                 fluidLimitFilters.computeIfAbsent(expression, e -> fluidsOrAny(e, templates));
+                chemicalLimitFilters.computeIfAbsent(expression, e -> chemicalsOrNone(e, templates));
             } catch (FilterException e) {
                 errors.add(describe(node) + ": " + e.getMessage());
             }
@@ -401,6 +412,10 @@ public final class CompiledSheet {
 
     public Filters.FluidFilter fluidFilter(NodeSettings.Limit limit) {
         return fluidLimitFilters.getOrDefault(limit.filter(), (s, c) -> false);
+    }
+
+    public Filters.ChemicalFilter chemicalFilter(NodeSettings.Limit limit) {
+        return chemicalLimitFilters.getOrDefault(limit.filter(), Filters.ChemicalFilter.NONE);
     }
 
     static String describe(Node node) {

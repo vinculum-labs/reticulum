@@ -24,14 +24,20 @@ export const KIND_HINT: Record<NodeKind, string> = {
   sheet_output: "Inside a sub-sheet: where resources go out (a pin on the right of the sub-sheet node)",
 };
 
-export const RESOURCE_LABEL: Record<Resource, string> = { item: "Items", fluid: "Fluid", energy: "Energy" };
-export const RESOURCE_UNIT: Record<Resource, string> = { item: "items", fluid: "mB", energy: "FE" };
+export const RESOURCE_LABEL: Record<Resource, string> = { item: "Items", fluid: "Fluid", energy: "Energy", chemical: "Chemical" };
+export const RESOURCE_UNIT: Record<Resource, string> = { item: "items", fluid: "mB", energy: "FE", chemical: "mB" };
+
+/** The resources a device offers on some face, in palette order. */
+export function offeredResources(resources: Partial<Record<Resource, string[]>> | undefined): Resource[] {
+  return (["item", "fluid", "energy", "chemical"] as Resource[]).filter((r) => resources?.[r]?.length);
+}
 
 /** CSS custom property holding the color for a resource's wires. */
 export const RESOURCE_VAR: Record<Resource, string> = {
   item: "var(--c-item)",
   fluid: "var(--c-fluid)",
   energy: "var(--c-energy)",
+  chemical: "var(--c-chemical)",
 };
 
 export function defaultSettings(kind: NodeKind, device: Device | null, resource: Resource, subsheet?: string): NodeSettings {

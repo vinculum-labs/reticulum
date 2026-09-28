@@ -8,13 +8,14 @@ import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
+import io.github.leadassimilator.reticulum.integration.Mods;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
 /**
- * Energy and fluid flows, which behave like Mekanism pressurized tubes: every tick, each sink says how much it can
+ * Energy, fluid and chemical flows, which behave like Mekanism pressurized tubes: every tick, each sink says how much it can
  * take right now, the source supplies what it can, and the supply is shared evenly (a sink needing less than its
  * share gives the rest to the others). A priority splitter anywhere on the routes switches to filling in order.
  */
@@ -35,6 +36,8 @@ final class ContinuousMover {
                 } else {
                     fluid(ctx, sheet, source);
                 }
+            } else if (source.resource() == ResourceKind.CHEMICAL && Mods.MEKANISM) {
+                ChemicalMover.run(ctx, sheet, source);
             }
         }
     }
@@ -311,7 +314,7 @@ final class ContinuousMover {
 
     // ---------------------------------------------------------------- sharing
 
-    private static boolean anyPriority(List<CompiledSheet.Route> routes) {
+    static boolean anyPriority(List<CompiledSheet.Route> routes) {
         for (CompiledSheet.Route route : routes) {
             for (CompiledSheet.Branch branch : route.branches()) {
                 if (branch.mode() == NodeSettings.SplitMode.PRIORITY) {

@@ -11,6 +11,7 @@ import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
+import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
@@ -283,6 +284,28 @@ public final class EngineTests {
         helper.succeedWhen(() -> {
             helper.assertBlockPresent(Blocks.CAULDRON, rig.devices().get(0));
             helper.assertBlockPresent(Blocks.WATER_CAULDRON, rig.devices().get(1));
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void chemicalMovesBetweenMekanismTanks(GameTestHelper helper) {
+        if (!Mods.MEKANISM) {
+            helper.succeed();
+            return;
+        }
+        Block tank = MekanismTestSupport.block("basic_chemical_tank");
+        Rig rig = rig(helper, tank, tank);
+        BlockPos from = helper.absolutePos(rig.devices().get(0));
+        BlockPos to = helper.absolutePos(rig.devices().get(1));
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), from);
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), to);
+        long filled = MekanismTestSupport.fill(helper.getLevel(), from, "hydrogen", 4000);
+        check(helper, filled == 4000, "could fill only " + filled + " mB of hydrogen");
+        rig.wire(rig.source(0, ResourceKind.CHEMICAL, List.of(), 0), rig.sink(1, ResourceKind.CHEMICAL, List.of()));
+        helper.succeedWhen(() -> {
+            long left = MekanismTestSupport.stored(helper.getLevel(), from);
+            long moved = MekanismTestSupport.stored(helper.getLevel(), to);
+            check(helper, left == 0 && moved == 4000, "source has " + left + " mB, target " + moved + " mB");
         });
     }
 

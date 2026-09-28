@@ -120,6 +120,10 @@ dependencies {
     compileOnly "maven.modrinth:jade:${jade_version}"
     compileOnly("mcjty.theoneprobe:theoneprobe:${top_version}") { transitive = false }
 
+    // Optional integrations (Mekanism chemicals, AE2 ME links): compiled against, loaded only when the mod is present.
+    compileOnly "mekanism:Mekanism:${minecraft_version}-${mekanism_version}:api"
+    compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+
     // Only on the dev run classpath, to make testing easier. The mod does not depend on any of these.
     localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     localRuntime "mekanism:Mekanism:${minecraft_version}-${mekanism_version}"

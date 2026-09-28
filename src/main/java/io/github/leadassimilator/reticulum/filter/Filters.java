@@ -32,7 +32,8 @@ import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 /**
- * Compiles parsed filters into predicates for items and fluids. Energy has no types, so energy flows ignore filters.
+ * Compiles parsed filters into predicates for items, fluids and (with Mekanism) chemicals. Energy has no types, so
+ * energy flows ignore filters.
  */
 public final class Filters {
     private static final int MAX_TEMPLATE_DEPTH = 16;
@@ -41,10 +42,15 @@ public final class Filters {
     private Filters() {
     }
 
-    /** What a predicate may look at besides the resource itself. */
-    public record Context(Level level, @Nullable Predicate<ItemStack> itemsInSink, @Nullable Predicate<FluidStack> fluidsInSink) {
+    /** What a predicate may look at besides the resource itself. {@code chemicalsInSink} is given Mekanism chemical stacks. */
+    public record Context(Level level, @Nullable Predicate<ItemStack> itemsInSink, @Nullable Predicate<FluidStack> fluidsInSink,
+            @Nullable Predicate<Object> chemicalsInSink) {
+        public Context(Level level, @Nullable Predicate<ItemStack> itemsInSink, @Nullable Predicate<FluidStack> fluidsInSink) {
+            this(level, itemsInSink, fluidsInSink, null);
+        }
+
         public static Context of(Level level) {
-            return new Context(level, null, null);
+            return new Context(level, null, null, null);
         }
     }
 
@@ -60,6 +66,25 @@ public final class Filters {
         boolean test(FluidStack stack, Context context);
     }
 
+    /** A filter over Mekanism chemical stacks, typed loosely so this class never loads Mekanism's. */
+    public interface ChemicalFilter {
+        ChemicalFilter NONE = (stack, context) -> false;
+
+        boolean test(Object stack, Context context);
+    }
+
+    /** Compiles a resolved filter for chemicals; installed by the Mekanism integration. */
+    public interface ChemicalCompiler {
+        ChemicalFilter compile(FilterExpr expr) throws FilterException;
+    }
+
+    @Nullable
+    private static ChemicalCompiler chemicalCompiler;
+
+    public static void setChemicalCompiler(ChemicalCompiler compiler) {
+        chemicalCompiler = compiler;
+    }
+
     // ---------------------------------------------------------------- entry points
 
     public static ItemFilter items(String expression, Map<String, String> templates) throws FilterException {
@@ -70,6 +95,13 @@ public final class Filters {
 
     public static FluidFilter fluids(String expression, Map<String, String> templates) throws FilterException {
         return compileFluids(resolve(FilterParser.parse(expression), templates, 0));
+    }
+
+    public static ChemicalFilter chemicals(String expression, Map<String, String> templates) throws FilterException {
+        if (chemicalCompiler == null) {
+            throw new FilterException("Chemicals need Mekanism", -1);
+        }
+        return chemicalCompiler.compile(resolve(FilterParser.parse(expression), templates, 0));
     }
 
     /** Replaces template references with their parsed expressions, refusing cycles. */
@@ -307,13 +339,13 @@ public final class Filters {
 
     // ---------------------------------------------------------------- shared helpers
 
-    private static void requireSink(String value) throws FilterException {
+    public static void requireSink(String value) throws FilterException {
         if (!value.equals("sink")) {
             throw new FilterException("Only in:sink is supported so far", -1);
         }
     }
 
-    private static ResourceLocation location(String value) throws FilterException {
+    public static ResourceLocation location(String value) throws FilterException {
         ResourceLocation rl = ResourceLocation.tryParse(value);
         if (rl == null) {
             throw new FilterException("Not a valid id: " + value, -1);
@@ -322,7 +354,7 @@ public final class Filters {
     }
 
     /** Glob over the full id; a pattern without a namespace matches any namespace. */
-    static Predicate<String> idMatcher(String pattern) {
+    public static Predicate<String> idMatcher(String pattern) {
         String full = pattern.contains(":") ? pattern : "*:" + pattern;
         StringBuilder regex = new StringBuilder();
         for (char ch : full.toLowerCase(Locale.ROOT).toCharArray()) {
@@ -339,7 +371,7 @@ public final class Filters {
     }
 
     /** {@code /regex/} searches; any other value is a case-insensitive "contains". */
-    private static Predicate<String> textMatcher(FilterExpr.Atom atom) throws FilterException {
+    public static Predicate<String> textMatcher(FilterExpr.Atom atom) throws FilterException {
         if (atom.regex()) {
             try {
                 Pattern pattern = Pattern.compile(atom.value());

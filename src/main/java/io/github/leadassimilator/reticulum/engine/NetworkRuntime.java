@@ -239,7 +239,7 @@ public final class NetworkRuntime {
      * block's own side configuration decides what can go in and out (a Mekanism machine's unsided handler, for
      * example, is read-only). The unsided handler is used only when no face answers. Equal handlers are listed once.
      */
-    private <T> List<T> handlers(MinecraftServer server, Network network, NodeSettings.Port port, BlockCapability<T, Direction> capability,
+    <T> List<T> handlers(MinecraftServer server, Network network, NodeSettings.Port port, BlockCapability<T, Direction> capability,
             ResourceKind resource) {
         return resolve(server, network, port, capability, resource, false);
     }

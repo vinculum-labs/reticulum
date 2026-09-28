@@ -8,6 +8,8 @@ import io.github.leadassimilator.reticulum.block.PlacementRedirect;
 import io.github.leadassimilator.reticulum.command.ReticulumCommand;
 import io.github.leadassimilator.reticulum.datagen.DataGenerators;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
+import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.integration.mekanism.MekanismChemicals;
 import io.github.leadassimilator.reticulum.integration.top.TopIntegration;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.protocol.web.WebApi;
@@ -40,6 +42,9 @@ public class Reticulum {
 
         modEventBus.addListener(Payloads::register);
         modEventBus.addListener(DataGenerators::gatherData);
+        if (Mods.MEKANISM) {
+            MekanismChemicals.init();
+        }
         modEventBus.addListener((InterModEnqueueEvent event) -> {
             if (ModList.get().isLoaded(TopIntegration.MODID)) {
                 TopIntegration.register();

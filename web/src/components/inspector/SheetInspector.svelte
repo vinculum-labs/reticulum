@@ -28,7 +28,7 @@
     />
     On
   </label>
-  <Field label="Item operations every" hint="Ticks between item operations; sources can override it. Fluids and energy move every tick.">
+  <Field label="Item operations every" hint="Ticks between item operations; sources can override it. Fluids, chemicals and energy move every tick.">
     <input
       type="number"
       min="1"
@@ -78,9 +78,10 @@
     <dt class="muted">Connectors</dt><dd>{snapshot.connectors.length}</dd>
     <dt class="muted">Overflow</dt>
     <dd>
-      {#if snapshot.overflow.items.length || snapshot.overflow.fluids.length}
+      {#if snapshot.overflow.items.length || snapshot.overflow.fluids.length || snapshot.overflow.chemicals?.length}
         {#each snapshot.overflow.items as s}<div>{s.count}× {s.id}</div>{/each}
         {#each snapshot.overflow.fluids as f}<div>{f.amount} mB {f.id}</div>{/each}
+        {#each snapshot.overflow.chemicals ?? [] as c}<div>{c.amount} mB {c.id}</div>{/each}
       {:else}
         empty
       {/if}
