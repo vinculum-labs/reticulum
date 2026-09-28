@@ -70,7 +70,9 @@ async function onMessage(m: any): Promise<void> {
       app.inWorld = false;
       break;
     case "focus":
-      if (m.network) await selectNetwork(m.network);
+      // A network the page hasn't seen yet (a new controller): reload the list first so its tab exists.
+      if (m.network && !app.networks.some((n) => n.id === m.network)) await loadNetworks(m.network);
+      else if (m.network) await selectNetwork(m.network);
       break;
     case "snapshot":
       if (m.network.id === app.current) setSnapshot(m.network);
