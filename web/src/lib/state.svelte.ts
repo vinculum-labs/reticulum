@@ -261,7 +261,7 @@ export function deviceAt(key: string): Device | undefined {
   return app.snapshot?.devices.find((d) => posKey(d.pos) === key);
 }
 
-/** An ME port's name: the device on that side of the connector (the AE2 cable or machine), then the side. */
+/** An ME port's name: the device on that side of the connector (the AE2 cable or machine), then its face's name (or the side). */
 export function mePortName(connectorId: string, side: string): string {
   const c = app.snapshot?.connectors.find((x) => x.id === connectorId);
   if (!c) return "Missing connector";
@@ -278,7 +278,10 @@ export function mePortName(connectorId: string, side: string): string {
   const at = `${c.pos.dimension}|${[x + dx, y + dy, z + dz].join(",")}`;
   const device = app.snapshot?.devices.find((d) => `${d.pos.dimension}|${d.pos.pos.join(",")}` === at);
   const base = device ? deviceName(device) : c.name || `Connector (${c.pos.pos.join(", ")})`;
-  return `${base} › ${side}`;
+  // The device's face touching the connector, named as in game if it has a name.
+  const opposite: Record<string, string> = { down: "up", up: "down", north: "south", south: "north", west: "east", east: "west" };
+  const faceName = device?.faceNames?.[opposite[side] as keyof typeof device.faceNames];
+  return `${base} › ${faceName || side}`;
 }
 
 export function deviceName(device: Device | undefined): string {
