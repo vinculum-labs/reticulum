@@ -19,6 +19,7 @@ import io.github.leadassimilator.reticulum.registry.ModCreativeTabs;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import io.github.leadassimilator.reticulum.registry.ModItems;
 import io.github.leadassimilator.reticulum.security.BreakProtection;
+import io.github.leadassimilator.reticulum.topology.Topology;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
@@ -56,6 +57,8 @@ public class Reticulum {
 
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> ReticulumCommand.register(event.getDispatcher()));
         NeoForge.EVENT_BUS.addListener(BreakProtection::onBreak);
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.ChunkEvent.Load event) -> Topology.onChunkChanged(event));
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.ChunkEvent.Unload event) -> Topology.onChunkChanged(event));
         NeoForge.EVENT_BUS.addListener(PlacementRedirect::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerTick);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerStopped);

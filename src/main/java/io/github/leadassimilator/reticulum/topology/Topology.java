@@ -59,6 +59,14 @@ public final class Topology {
         return version;
     }
 
+    /** A chunk with cables, connectors or a controller in it loaded or unloaded: what joins what may have changed. */
+    public static void onChunkChanged(net.neoforged.neoforge.event.level.ChunkEvent event) {
+        if (!event.getLevel().isClientSide() && event.getChunk() instanceof net.minecraft.world.level.chunk.LevelChunk chunk
+                && chunk.getBlockEntities().values().stream().anyMatch(be -> be instanceof NetworkBlockEntity)) {
+            version++;
+        }
+    }
+
     private Topology() {
     }
 

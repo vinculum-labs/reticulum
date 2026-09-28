@@ -79,8 +79,9 @@ public final class NetworkRuntime {
     private Map<UUID, String> meUsage = Map.of();
 
     private long reachVersion = -1;
-    private long reachWorkedOut = Long.MIN_VALUE;
     private int reachTier = -1;
+    /** Where the rolling connector rescan got to. */
+    private int rescanCursor;
     private Map<UUID, Reach> reach = Map.of();
     /** Devices that only out-of-range connectors reach. */
     private Set<GlobalPos> unreachable = Set.of();
@@ -200,8 +201,8 @@ public final class NetworkRuntime {
     // ---------------------------------------------------------------- wireless reach
 
     /**
-     * Works out which connectors a cable joins to the controller and which the antenna must reach. Done again
-     * whenever cables change anywhere, and every 5 seconds for chunks loading and unloading.
+     * Works out which connectors a cable joins to the controller and which the antenna must reach. Done again only
+     * when something changes: cables or joints, the antenna, or a chunk with network blocks loading or unloading.
      */
     private void updateReach(MinecraftServer server, Network network) {
         GlobalPos controller = network.controller();
@@ -210,15 +211,12 @@ public final class NetworkRuntime {
             return;
         }
         int tier = level.getBlockEntity(controller.pos()) instanceof ControllerBlockEntity c ? c.antennaTier() : 0;
-        if (ticks - reachWorkedOut >= 100) {
-            rescanConnectors(server, network);
-        }
-        if (reachVersion == Topology.version() && reachTier == tier && ticks - reachWorkedOut < 100) {
+        rescanSomeConnectors(server, network);
+        if (reachVersion == Topology.version() && reachTier == tier) {
             return;
         }
         reachVersion = Topology.version();
         reachTier = tier;
-        reachWorkedOut = ticks;
         Set<net.minecraft.core.BlockPos> wired = Topology.component(level, controller.pos(), null).blocks();
         Map<UUID, Reach> found = new HashMap<>();
         Set<GlobalPos> reached = new java.util.HashSet<>();
@@ -237,12 +235,22 @@ public final class NetworkRuntime {
         unreachable = all;
     }
 
+    /** Ticks it takes the rolling rescan to get round every connector once. */
+    private static final int RESCAN_PERIOD = 100;
+
     /**
-     * Has every loaded connector look at its neighbors again. Changes next to a connector are normally caught as they
-     * happen, but not ones that happened while it was unloaded, or blocks that only now count as devices.
+     * Has a few loaded connectors look at their neighbors again, so every connector is rescanned once per
+     * {@link #RESCAN_PERIOD} ticks without a spike on any one tick. Changes next to a connector are normally caught as
+     * they happen, but not ones that happened while it was unloaded, or blocks that only now count as devices.
      */
-    private static void rescanConnectors(MinecraftServer server, Network network) {
-        for (ConnectorRecord connector : List.copyOf(network.connectors())) {
+    private void rescanSomeConnectors(MinecraftServer server, Network network) {
+        List<ConnectorRecord> all = List.copyOf(network.connectors());
+        if (all.isEmpty()) {
+            return;
+        }
+        int count = (all.size() + RESCAN_PERIOD - 1) / RESCAN_PERIOD;
+        for (int i = 0; i < count; i++) {
+            ConnectorRecord connector = all.get(Math.floorMod(rescanCursor++, all.size()));
             ServerLevel level = server.getLevel(connector.pos().dimension());
             if (level != null && level.isLoaded(connector.pos().pos())) {
                 Topology.rescanConnector(level, connector.pos().pos());
