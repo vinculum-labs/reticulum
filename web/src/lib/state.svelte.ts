@@ -2,7 +2,7 @@
 // replaces what is shown. Undo and redo send the inverse edits recorded with each change.
 
 import { Connection } from "./protocol";
-import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage } from "./types";
+import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face } from "./types";
 import { posKey } from "./types";
 
 export interface Toast {
@@ -261,27 +261,41 @@ export function deviceAt(key: string): Device | undefined {
   return app.snapshot?.devices.find((d) => posKey(d.pos) === key);
 }
 
-/** An ME port's name: the device on that side of the connector (the AE2 cable or machine), then its face's name (or the side). */
+const OFFSET: Record<string, [number, number, number]> = {
+  down: [0, -1, 0],
+  up: [0, 1, 0],
+  north: [0, 0, -1],
+  south: [0, 0, 1],
+  west: [-1, 0, 0],
+  east: [1, 0, 0],
+};
+const OPPOSITE: Record<string, Face> = { down: "up", up: "down", north: "south", south: "north", west: "east", east: "west" };
+
+/** The device on one side of a connector (for an ME port: the AE2 cable or machine there). */
+export function deviceBeside(connectorId: string, side: string): Device | undefined {
+  const c = app.snapshot?.connectors.find((x) => x.id === connectorId);
+  if (!c) return undefined;
+  const [dx, dy, dz] = OFFSET[side] ?? [0, 0, 0];
+  const at = `${c.pos.dimension}|${[c.pos.pos[0] + dx, c.pos.pos[1] + dy, c.pos.pos[2] + dz].join(",")}`;
+  return app.snapshot?.devices.find((d) => posKey(d.pos) === at);
+}
+
+/** An ME port's name: the device on that side of the connector, then the name of its face touching the connector (or the side). */
 export function mePortName(connectorId: string, side: string): string {
   const c = app.snapshot?.connectors.find((x) => x.id === connectorId);
   if (!c) return "Missing connector";
-  const [x, y, z] = c.pos.pos;
-  const offset: Record<string, [number, number, number]> = {
-    down: [0, -1, 0],
-    up: [0, 1, 0],
-    north: [0, 0, -1],
-    south: [0, 0, 1],
-    west: [-1, 0, 0],
-    east: [1, 0, 0],
-  };
-  const [dx, dy, dz] = offset[side] ?? [0, 0, 0];
-  const at = `${c.pos.dimension}|${[x + dx, y + dy, z + dz].join(",")}`;
-  const device = app.snapshot?.devices.find((d) => `${d.pos.dimension}|${d.pos.pos.join(",")}` === at);
+  const device = deviceBeside(connectorId, side);
   const base = device ? deviceName(device) : c.name || `Connector (${c.pos.pos.join(", ")})`;
-  // The device's face touching the connector, named as in game if it has a name.
-  const opposite: Record<string, string> = { down: "up", up: "down", north: "south", south: "north", west: "east", east: "west" };
-  const faceName = device?.faceNames?.[opposite[side] as keyof typeof device.faceNames];
+  const faceName = device?.faceNames?.[OPPOSITE[side]];
   return `${base} › ${faceName || side}`;
+}
+
+/** Shows a device's names (and face names) in the inspector. */
+export function openDevice(device: Device) {
+  app.selectedDevice = posKey(device.pos);
+  app.selectedNodes = [];
+  app.selectedEdges = [];
+  app.panel = null;
 }
 
 export function deviceName(device: Device | undefined): string {

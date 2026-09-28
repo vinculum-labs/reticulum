@@ -203,6 +203,7 @@
               app.selectedDevice = key;
               app.selectedNodes = [];
               app.selectedEdges = [];
+              app.panel = null;
             }}
             title={`${d.defaultName}\n${d.block}`}
           >

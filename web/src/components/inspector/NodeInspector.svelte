@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { app, edit, mePortName } from "../../lib/state.svelte";
+  import { app, deviceAt, deviceBeside, deviceName, edit, mePortName, openDevice } from "../../lib/state.svelte";
   import { KIND_HINT, KIND_LABEL, OP_SYMBOL, meUsageLabel, RESOURCE_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate, isSignal } from "../../lib/kinds";
   import {
     SIDES,
+    posKey,
     pinName,
     sheetPins,
     type CompareOp,
@@ -28,6 +29,10 @@
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
   const s = $derived(node.settings);
   const signal = $derived(isSignal(s.kind));
+  /** The device the node points at, whose names (and face names) can be edited. */
+  const namedDevice = $derived(
+    s.kind === "me_port" ? deviceBeside(s.connector, s.side) : "device" in s ? deviceAt(posKey(s.device)) : undefined,
+  );
   const devices = $derived(app.snapshot?.devices ?? []);
   const names = $derived.by(() => {
     const found = new Set<string>(Object.keys(app.networkSignals));
@@ -106,6 +111,12 @@
       {app.ticksSinceMoved[node.id] !== undefined ? `last moved ${formatAgo(app.ticksSinceMoved[node.id])}` : "never moved"}
     </div>{/if}
   </div>
+
+  {#if namedDevice}
+    <button class="btn self-start text-sm" onclick={() => openDevice(namedDevice)} title="Rename the device and its faces">
+      Names of “{deviceName(namedDevice)}”…
+    </button>
+  {/if}
 
   <Field label="Label" hint={s.kind === "device" ? "Optional; the device's name is shown otherwise." : undefined}>
     <input
