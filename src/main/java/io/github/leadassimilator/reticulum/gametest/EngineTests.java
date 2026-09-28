@@ -410,6 +410,11 @@ public final class EngineTests {
         helper.succeedWhen(() -> {
             var sides = io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration.sides(helper.getLevel(), first);
             check(helper, !sides.contains(Direction.NORTH), "an ME endpoint faces a storage bus with no cable: " + sides);
+            check(helper, rig.network().device(Devices.global(helper.getLevel(), first.north())) == null,
+                    "a storage bus with no cable counts as a device");
+            check(helper, helper.getLevel().getBlockState(first).getValue(
+                    io.github.leadassimilator.reticulum.block.ConnectorBlock.LINKS.get(Direction.NORTH)) != io.github.leadassimilator.reticulum.block.Link.DEVICE,
+                    "the connector shows a plug towards a storage bus with no cable");
             String usage = rig.runtime().meUsage().get(b.id());
             check(helper, usage != null && usage.endsWith("/8"), "the glass cable side shows " + usage + " instead of x/8");
         });

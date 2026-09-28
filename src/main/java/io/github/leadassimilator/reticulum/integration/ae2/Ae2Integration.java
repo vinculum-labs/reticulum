@@ -53,6 +53,12 @@ public final class Ae2Integration {
                 ? endpoints.sides() : Set.of();
     }
 
+    /** An AE2 block that exposes no grid node on that side (a cable bus holding only a part there, or nothing at all). */
+    public static boolean offersNothing(Level level, BlockPos pos, Direction facing) {
+        return level.getCapability(AECapabilities.IN_WORLD_GRID_NODE_HOST, pos, null) != null
+                && GridHelper.getExposedNode(level, pos, facing) == null;
+    }
+
     @Nullable
     static MeEndpoints existing(Level level, BlockPos pos) {
         return level.isLoaded(pos) && level.getBlockEntity(pos) instanceof ConnectorBlockEntity be && be.meEndpoints() instanceof MeEndpoints endpoints

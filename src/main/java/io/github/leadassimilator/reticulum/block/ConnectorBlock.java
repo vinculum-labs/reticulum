@@ -19,7 +19,7 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 
 public class ConnectorBlock extends LinkedBlock {
     public static final MapCodec<ConnectorBlock> CODEC = simpleCodec(ConnectorBlock::new);
-    static final Map<Direction, EnumProperty<Link>> LINKS = create(Link.values());
+    public static final Map<Direction, EnumProperty<Link>> LINKS = create(Link.values());
 
     public ConnectorBlock(Properties properties) {
         super(properties);

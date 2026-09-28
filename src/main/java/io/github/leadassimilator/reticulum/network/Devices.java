@@ -4,6 +4,7 @@ import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
 import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
@@ -55,6 +56,31 @@ public final class Devices {
         }
         for (BlockCapability<?, Direction> cap : CAPABILITIES) {
             if (offers(level, pos, cap)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the block counts as a device for a connector on its {@code facing} side. AE2 blocks that offer nothing
+     * on that side (a cable bus holding only a part, like a storage bus with no cable) don't: a connector can neither
+     * move anything through them nor link to their AE2 network there.
+     */
+    public static boolean isDevice(Level level, BlockPos pos, Direction facing) {
+        if (!isDevice(level, pos)) {
+            return false;
+        }
+        return !Mods.AE2 || !Ae2Integration.offersNothing(level, pos, facing) || offersResource(level, pos, facing);
+    }
+
+    private static boolean offersResource(Level level, BlockPos pos, Direction facing) {
+        BlockCapability<?, Direction> chemicals = Mods.chemicalCapability();
+        if (chemicals != null && level.getCapability(chemicals, pos, facing) != null) {
+            return true;
+        }
+        for (BlockCapability<?, Direction> cap : CAPABILITIES) {
+            if (level.getCapability(cap, pos, facing) != null) {
                 return true;
             }
         }

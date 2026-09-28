@@ -477,7 +477,7 @@ public final class Topology {
         List<GlobalPos> devices = new ArrayList<>();
         for (Direction dir : Direction.values()) {
             BlockPos next = pos.relative(dir);
-            if (connector.isDeviceEnabled(dir) && Devices.isDevice(level, next)) {
+            if (connector.isDeviceEnabled(dir) && Devices.isDevice(level, next, dir.getOpposite())) {
                 devices.add(Devices.global(level, next));
             }
         }
@@ -500,6 +500,8 @@ public final class Topology {
             return;
         }
         NetworkManager.updateConnector(level, network, connector.connectorId(), Devices.global(level, pos), devices);
+        // Which sides show a plug follows the devices.
+        refreshState(level, pos);
     }
 
     // ---------------------------------------------------------------- player actions
@@ -517,7 +519,7 @@ public final class Topology {
         BlockPos otherPos = pos.relative(side);
         NetworkBlockEntity b = blockEntity(level, otherPos);
         if (b == null) {
-            if (a instanceof ConnectorBlockEntity connector && Devices.isDevice(level, otherPos)) {
+            if (a instanceof ConnectorBlockEntity connector && Devices.isDevice(level, otherPos, side.getOpposite())) {
                 return toggleDevice(level, pos, connector, side, player);
             }
             return Component.translatable("message.reticulum.nothing_to_connect");
@@ -707,7 +709,7 @@ public final class Topology {
             return connected(level, pos, side) ? Link.CABLE : Link.NONE;
         }
         if (be instanceof ConnectorBlockEntity connector && property.getPossibleValues().contains(Link.DEVICE)
-                && connector.isDeviceEnabled(side) && Devices.isDevice(level, next)) {
+                && connector.isDeviceEnabled(side) && Devices.isDevice(level, next, side.getOpposite())) {
             return Link.DEVICE;
         }
         return Link.NONE;

@@ -98,7 +98,7 @@ public final class Screens {
             return new Views.SideView(dir, Views.SideKind.JOINT, view, true, Devices.icon(level, next),
                     level.getBlockState(next).getBlock().getName().getString(), "", List.of());
         }
-        if (be instanceof ConnectorBlockEntity connector && Devices.isDevice(level, next)) {
+        if (be instanceof ConnectorBlockEntity connector && Devices.isDevice(level, next, dir.getOpposite())) {
             DeviceRecord record = network == null ? null : network.device(Devices.global(level, next));
             List<String> faces = new ArrayList<>();
             for (FaceKey face : FaceKey.values()) {
