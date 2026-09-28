@@ -21,6 +21,10 @@
   const outputs = $derived(s.kind === "device" ? (s.outputs ?? []) : []);
   const rows = $derived(Math.max(inputs.length, outputs.length, 1));
 
+  // Color says what a pin carries; shape says which way: inputs are hollow rings, outputs filled dots.
+  const inPin = (c: string) => `background: var(--panel); border: 2px solid ${c}`;
+  const outPin = (c: string) => `background: ${c}; border: 2px solid ${c}`;
+
   // New or removed handles must be measured again, or wires attach to stale positions.
   $effect(() => {
     void inputs.length;
@@ -72,18 +76,18 @@
 
 {#if kind === "device"}
   {#each inputs as input, i}
-    <Handle type="target" position={Position.Left} id={`in:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; background: {RESOURCE_VAR[input.resource]}" />
+    <Handle type="target" position={Position.Left} id={`in:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; {inPin(RESOURCE_VAR[input.resource])}" />
   {/each}
   {#each outputs as output, i}
-    <Handle type="source" position={Position.Right} id={`out:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; background: {RESOURCE_VAR[output.resource]}" />
+    <Handle type="source" position={Position.Right} id={`out:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(RESOURCE_VAR[output.resource])}" />
   {/each}
 {:else}
-  <Handle type="target" position={Position.Left} id="in" />
+  <Handle type="target" position={Position.Left} id="in" style={inPin(color)} />
   {#if kind === "filter"}
     <!-- Aligned with the "match" and "other" rows under the summary line (16px). -->
-    <Handle type="source" position={Position.Right} id="match" style="top: {HEADER + 16 + ROW / 2}px; background: var(--good)" />
-    <Handle type="source" position={Position.Right} id="reject" style="top: {HEADER + 16 + ROW + ROW / 2}px; background: var(--bad)" />
+    <Handle type="source" position={Position.Right} id="match" style="top: {HEADER + 16 + ROW / 2}px; {outPin('var(--good)')}" />
+    <Handle type="source" position={Position.Right} id="reject" style="top: {HEADER + 16 + ROW + ROW / 2}px; {outPin('var(--bad)')}" />
   {:else}
-    <Handle type="source" position={Position.Right} id="out" style="background: {color}" />
+    <Handle type="source" position={Position.Right} id="out" style={outPin(color)} />
   {/if}
 {/if}
