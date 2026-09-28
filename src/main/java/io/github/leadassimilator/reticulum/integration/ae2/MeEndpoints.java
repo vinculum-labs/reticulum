@@ -45,8 +45,11 @@ public final class MeEndpoints implements IInWorldGridNodeHost {
         BlockPos pos = connector.getBlockPos();
         for (Direction side : Direction.values()) {
             BlockPos next = pos.relative(side);
+            // A cable or machine offers a node on the side facing us; a cable bus holding only a part (a storage
+            // bus, say) doesn't, and AE2 wouldn't connect to it anyway.
             boolean wanted = connector.isDeviceEnabled(side) && level.isLoaded(next)
-                    && level.getCapability(AECapabilities.IN_WORLD_GRID_NODE_HOST, next, null) != null;
+                    && level.getCapability(AECapabilities.IN_WORLD_GRID_NODE_HOST, next, null) != null
+                    && GridHelper.getExposedNode(level, next, side.getOpposite()) != null;
             IManagedGridNode existing = nodes.get(side);
             if (wanted && existing == null) {
                 IManagedGridNode node = GridHelper.createManagedNode(this, LISTENER)
@@ -73,6 +76,22 @@ public final class MeEndpoints implements IInWorldGridNodeHost {
     /** Sides with an ME endpoint. */
     public Set<Direction> sides() {
         return nodes.isEmpty() ? Set.of() : EnumSet.copyOf(nodes.keySet());
+    }
+
+    /** Channels in use and the most the link can carry: its own 32, or less through the cable on that side. */
+    @Nullable
+    String usage(Direction side) {
+        IGridNode node = node(side);
+        if (node == null) {
+            return null;
+        }
+        int max = node.getMaxChannels();
+        appeng.api.networking.IGridConnection cable = node.getInWorldConnections().get(side);
+        if (cable == null) {
+            return "not connected";
+        }
+        max = Math.min(max, cable.getOtherSide(node).getMaxChannels());
+        return node.getUsedChannels() + "/" + max;
     }
 
     @Nullable

@@ -489,6 +489,7 @@ public final class Topology {
         if (!(blockEntity(level, pos) instanceof ConnectorBlockEntity connector)) {
             return;
         }
+        connector.refreshEndpoints();
         Network network = NetworkManager.network(level.getServer(), networkOf(level, connector));
         if (network == null) {
             return;

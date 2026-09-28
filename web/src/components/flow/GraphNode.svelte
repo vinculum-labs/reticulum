@@ -17,7 +17,7 @@
     signalOutput,
     summary,
   } from "../../lib/kinds";
-  import { app, deviceName } from "../../lib/state.svelte";
+  import { app, deviceName, mePortName } from "../../lib/state.svelte";
   import DeviceIcon from "../DeviceIcon.svelte";
 
   let { id, data, selected }: { id: string; data: NodeData; selected?: boolean } = $props();
@@ -32,11 +32,7 @@
   const color = $derived(
     signal ? "var(--c-signal)" : s.kind === "me_port" ? "var(--c-me)" : data.resource ? RESOURCE_VAR[data.resource] : "var(--muted)",
   );
-  const connectorName = $derived.by(() => {
-    if (s.kind !== "me_port") return "";
-    const c = app.snapshot?.connectors.find((x) => x.id === s.connector);
-    return c ? c.name || `Connector (${c.pos.pos.join(", ")})` : "Missing connector";
-  });
+  const connectorName = $derived(s.kind === "me_port" ? mePortName(s.connector, s.side) : "");
   const title = $derived(
     data.node.label ||
       connectorName ||

@@ -389,6 +389,32 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void mePortsReportCableCapacityAndSkipBareParts(GameTestHelper helper) {
+        if (!Mods.AE2) {
+            helper.succeed();
+            return;
+        }
+        Rig rig = rig(helper, Ae2TestSupport.block("controller"), Blocks.BARREL);
+        BlockPos first = helper.absolutePos(new BlockPos(3, 1, 1));
+        BlockPos second = helper.absolutePos(new BlockPos(4, 1, 1));
+        // A glass cable (8 channels) north of the second connector, placed by clicking the connector's north face.
+        Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", second, Direction.NORTH);
+        // A storage bus with no cable north of the first connector, placed by clicking the connector's north face.
+        Ae2TestSupport.use(helper.getLevel(), "storage_bus", first, Direction.NORTH);
+        java.util.function.Function<BlockPos, UUID> connector = pos -> rig.network().connectors().stream()
+                .filter(c -> c.pos().pos().equals(pos)).findFirst().orElseThrow().id();
+        Node a = rig.node(new NodeSettings.MePortSettings(connector.apply(first), Direction.SOUTH));
+        Node b = rig.node(new NodeSettings.MePortSettings(connector.apply(second), Direction.NORTH));
+        rig.sheet().connect(Wire.of(a, b));
+        helper.succeedWhen(() -> {
+            var sides = io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration.sides(helper.getLevel(), first);
+            check(helper, !sides.contains(Direction.NORTH), "an ME endpoint faces a storage bus with no cable: " + sides);
+            String usage = rig.runtime().meUsage().get(b.id());
+            check(helper, usage != null && usage.endsWith("/8"), "the glass cable side shows " + usage + " instead of x/8");
+        });
+    }
+
     @GameTest(template = "empty")
     public static void ae2CableShowsItsCableAsIcon(GameTestHelper helper) {
         if (!Mods.AE2) {

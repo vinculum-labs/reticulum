@@ -261,6 +261,26 @@ export function deviceAt(key: string): Device | undefined {
   return app.snapshot?.devices.find((d) => posKey(d.pos) === key);
 }
 
+/** An ME port's name: the device on that side of the connector (the AE2 cable or machine), then the side. */
+export function mePortName(connectorId: string, side: string): string {
+  const c = app.snapshot?.connectors.find((x) => x.id === connectorId);
+  if (!c) return "Missing connector";
+  const [x, y, z] = c.pos.pos;
+  const offset: Record<string, [number, number, number]> = {
+    down: [0, -1, 0],
+    up: [0, 1, 0],
+    north: [0, 0, -1],
+    south: [0, 0, 1],
+    west: [-1, 0, 0],
+    east: [1, 0, 0],
+  };
+  const [dx, dy, dz] = offset[side] ?? [0, 0, 0];
+  const at = `${c.pos.dimension}|${[x + dx, y + dy, z + dz].join(",")}`;
+  const device = app.snapshot?.devices.find((d) => `${d.pos.dimension}|${d.pos.pos.join(",")}` === at);
+  const base = device ? deviceName(device) : c.name || `Connector (${c.pos.pos.join(", ")})`;
+  return `${base} › ${side}`;
+}
+
 export function deviceName(device: Device | undefined): string {
   return device ? device.name || device.defaultName : "Unknown device";
 }

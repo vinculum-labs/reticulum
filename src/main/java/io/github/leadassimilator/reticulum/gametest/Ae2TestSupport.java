@@ -22,6 +22,17 @@ final class Ae2TestSupport {
         return BuiltInRegistries.BLOCK.get(ResourceLocation.fromNamespaceAndPath("ae2", path));
     }
 
+    /** Uses an AE2 item (a cable or a part) on a block face, as a player would. */
+    static net.minecraft.world.InteractionResult use(net.minecraft.server.level.ServerLevel level, String item, BlockPos clicked, Direction face) {
+        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
+        net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(
+                BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("ae2", item)));
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, stack);
+        var hit = new net.minecraft.world.phys.BlockHitResult(
+                net.minecraft.world.phys.Vec3.atCenterOf(clicked).relative(face, 0.5), face, clicked, false);
+        return stack.useOn(new net.minecraft.world.item.context.UseOnContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, hit));
+    }
+
     @Nullable
     static IGrid grid(Level level, BlockPos pos, Direction side) {
         IInWorldGridNodeHost host = GridHelper.getNodeHost(level, pos);

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, edit } from "../../lib/state.svelte";
+  import { app, edit, mePortName } from "../../lib/state.svelte";
   import { KIND_HINT, KIND_LABEL, OP_SYMBOL, RESOURCE_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate, isSignal } from "../../lib/kinds";
   import {
     SIDES,
@@ -124,22 +124,19 @@
   {#if s.kind === "me_port"}
     {@const connectors = (app.snapshot?.connectors ?? []).filter((c) => (c.me ?? []).length || c.id === s.connector)}
     {@const current = connectors.find((c) => c.id === s.connector)}
-    <Field label="Connector" hint="Connectors with a side facing an AE2 cable or machine.">
+    <Field label="ME side" hint="Every connector side facing an AE2 cable or machine, named after what is there.">
       <select
-        value={s.connector}
+        value={`${s.connector}|${s.side}`}
         disabled={!canEdit}
         onchange={(e) => {
-          const c = connectors.find((x) => x.id === e.currentTarget.value);
-          settings({ connector: e.currentTarget.value, side: (c?.me ?? [s.side])[0] });
+          const [connector, side] = e.currentTarget.value.split("|");
+          settings({ connector, side: side as Face });
         }}
       >
-        {#if !current}<option value={s.connector}>(missing)</option>{/if}
-        {#each connectors as c (c.id)}<option value={c.id}>{c.name || `Connector (${c.pos.pos.join(", ")})`}</option>{/each}
-      </select>
-    </Field>
-    <Field label="Side">
-      <select value={s.side} disabled={!canEdit} onchange={(e) => settings({ side: e.currentTarget.value as Face })}>
-        {#each current?.me?.length ? current.me : [s.side] as side}<option value={side}>{side}</option>{/each}
+        {#if !current?.me?.includes(s.side)}<option value={`${s.connector}|${s.side}`}>{mePortName(s.connector, s.side)} (gone)</option>{/if}
+        {#each connectors.flatMap((c) => (c.me ?? []).map((side) => ({ connector: c.id, side }))) as port}
+          <option value={`${port.connector}|${port.side}`}>{mePortName(port.connector, port.side)}</option>
+        {/each}
       </select>
     </Field>
     <p class="text-sm">

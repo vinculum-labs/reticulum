@@ -112,28 +112,34 @@ public final class Ae2Links implements MeLinker {
     public Map<UUID, String> usage(MinecraftServer server, Network network, Collection<CompiledSheet.MeLink> wanted) {
         Map<UUID, String> out = new HashMap<>();
         for (CompiledSheet.MeLink link : wanted) {
-            put(out, link.nodeA(), node(server, network, new End(link.connectorA(), link.sideA())));
-            put(out, link.nodeB(), node(server, network, new End(link.connectorB(), link.sideB())));
+            put(out, link.nodeA(), endpoints(server, network, link.connectorA()), link.sideA());
+            put(out, link.nodeB(), endpoints(server, network, link.connectorB()), link.sideB());
         }
         return out;
     }
 
-    private static void put(Map<UUID, String> out, UUID port, @Nullable IGridNode node) {
-        if (node != null) {
-            out.put(port, node.getUsedChannels() + "/" + node.getMaxChannels());
+    private static void put(Map<UUID, String> out, UUID port, @Nullable MeEndpoints endpoints, Direction side) {
+        String usage = endpoints == null ? null : endpoints.usage(side);
+        if (usage != null) {
+            out.put(port, usage);
         }
     }
 
     /** The grid node of a connector side, if the connector is loaded and has an endpoint there. */
     @Nullable
     private static IGridNode node(MinecraftServer server, Network network, End end) {
-        ConnectorRecord record = network.connector(end.connector);
+        MeEndpoints endpoints = endpoints(server, network, end.connector);
+        return endpoints == null ? null : endpoints.node(end.side);
+    }
+
+    @Nullable
+    private static MeEndpoints endpoints(MinecraftServer server, Network network, UUID connector) {
+        ConnectorRecord record = network.connector(connector);
         if (record == null) {
             return null;
         }
         ServerLevel level = server.getLevel(record.pos().dimension());
-        MeEndpoints endpoints = level == null ? null : Ae2Integration.existing(level, record.pos().pos());
-        return endpoints == null ? null : endpoints.node(end.side);
+        return level == null ? null : Ae2Integration.existing(level, record.pos().pos());
     }
 
     private static boolean alive(IGridConnection connection, IGridNode a, IGridNode b) {
