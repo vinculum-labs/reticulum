@@ -35,11 +35,15 @@ final class ItemMover {
         // Kits can gather their parts from several sources, so kit routes are grouped per kit across the sheet.
         Map<UUID, List<CompiledSheet.Route>> kits = new HashMap<>();
         for (CompiledSheet.Source source : sheet.sources()) {
-            if (source.resource() != ResourceKind.ITEM || source.routes().isEmpty()) {
+            if (source.resource() != ResourceKind.ITEM || !ctx.runtime().active(source)) {
+                continue;
+            }
+            List<CompiledSheet.Route> routes = ctx.runtime().routes(source);
+            if (routes.isEmpty()) {
                 continue;
             }
             List<CompiledSheet.Route> direct = new ArrayList<>();
-            for (CompiledSheet.Route route : source.routes()) {
+            for (CompiledSheet.Route route : routes) {
                 if (route.kit() == null) {
                     direct.add(route);
                 } else {
@@ -48,13 +52,13 @@ final class ItemMover {
             }
             int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.sheet().interval();
             UUID id = source.node().id();
-            if (!direct.isEmpty() && due(ctx, id, interval * ctx.runtime().backoff(id))) {
+            if (!direct.isEmpty() && (due(ctx, id, interval * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, direct))) {
                 ctx.runtime().recordOperation(id, operate(ctx, sheet, source, ctx.runtime().ordered(direct)) > 0);
             }
         }
         for (Map.Entry<UUID, List<CompiledSheet.Route>> kit : kits.entrySet()) {
             UUID id = kit.getKey();
-            if (due(ctx, id, sheet.sheet().interval() * ctx.runtime().backoff(id))) {
+            if (due(ctx, id, sheet.sheet().interval() * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, kit.getValue())) {
                 ctx.runtime().recordOperation(id, KitMover.operate(ctx, sheet, kit.getValue().getFirst().kit(), ctx.runtime().ordered(kit.getValue())));
             }
         }

@@ -49,7 +49,7 @@ final class ChemicalMover {
                 }
             }
         }
-        List<CompiledSheet.Route> ordered = ctx.runtime().ordered(source.routes());
+        List<CompiledSheet.Route> ordered = ctx.runtime().ordered(ctx.runtime().routes(source));
         long total = 0;
         Status why = Status.SOURCE_EMPTY;
         for (ChemicalStack kind : kinds) {
@@ -193,6 +193,21 @@ final class ChemicalMover {
             allowed = Math.min(allowed, Math.max(0, keep ? present - limit.amount() : limit.amount() - present));
         }
         return allowed;
+    }
+
+    /** mB of matching chemicals a port holds, for level sensors. */
+    static long count(NetworkRuntime.Context ctx, NodeSettings.Port port, Filters.ChemicalFilter filter, Filters.Context context) {
+        List<IChemicalHandler> handlers = ctx.runtime().view(ctx.server(), ctx.network(), port, MekanismChemicals.CAPABILITY, ResourceKind.CHEMICAL);
+        long total = 0;
+        for (IChemicalHandler handler : handlers) {
+            for (int tank = 0; tank < handler.getChemicalTanks(); tank++) {
+                ChemicalStack chemical = handler.getChemicalInTank(tank);
+                if (!chemical.isEmpty() && filter.test(chemical, context)) {
+                    total += chemical.getAmount();
+                }
+            }
+        }
+        return total;
     }
 
     // ---------------------------------------------------------------- overflow

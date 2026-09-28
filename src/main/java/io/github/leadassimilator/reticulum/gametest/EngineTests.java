@@ -6,8 +6,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.engine.CompiledSheet;
+import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
+import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
+import io.github.leadassimilator.reticulum.graph.Redstone;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
@@ -19,6 +23,7 @@ import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.Container;
@@ -27,6 +32,10 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LayeredCauldronBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.RedstoneLampBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.AttachFace;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -80,6 +89,27 @@ public final class EngineTests {
         int count(int i, net.minecraft.world.item.Item item) {
             return container(i).countItem(item);
         }
+
+        GlobalPos device(int i) {
+            return Devices.global(helper.getLevel(), helper.absolutePos(devices.get(i)));
+        }
+
+        /** A signal wire into a signal node's input, or into any node's gate with {@link Wire#GATE}. */
+        void signal(Node from, Node to, int input) {
+            sheet.connect(new Wire(UUID.randomUUID(), from.id(), 0, to.id(), input, 0));
+        }
+
+        NetworkRuntime runtime() {
+            return NetworkTicker.runtime(network.id());
+        }
+
+        CompiledSheet compiled() {
+            return runtime().compiled(sheet, network);
+        }
+    }
+
+    private static BlockState lever(boolean powered) {
+        return Blocks.LEVER.defaultBlockState().setValue(LeverBlock.FACE, AttachFace.FLOOR).setValue(LeverBlock.POWERED, powered);
     }
 
     private static Rig rig(GameTestHelper helper, Block... devices) {
@@ -183,6 +213,98 @@ public final class EngineTests {
             int moved = rig.count(1, Items.COBBLESTONE);
             check(helper, moved > 0 && moved <= 21, "20 items/s should move at most ~20 in 20 ticks, moved " + moved);
             helper.succeed();
+        });
+    }
+
+    // ---------------------------------------------------------------- redstone
+
+    @GameTest(template = "empty")
+    public static void leverSwitchesLampThroughNot(GameTestHelper helper) {
+        // A barrel keeps the lever and the lamp apart, so only the network links them.
+        Rig rig = rig(helper, Blocks.LEVER, Blocks.BARREL, Blocks.REDSTONE_LAMP);
+        helper.setBlock(rig.devices().get(0), lever(true));
+        Node in = rig.node(new NodeSettings.RedstoneInSettings(rig.device(0), Optional.empty(), false));
+        Node not = rig.node(new NodeSettings.LogicSettings(NodeSettings.LogicOp.NOT));
+        Node out = rig.node(new NodeSettings.RedstoneOutSettings(rig.device(2)));
+        rig.signal(in, not, 0);
+        rig.signal(not, out, 0);
+        BlockPos lamp = rig.devices().get(2);
+        helper.startSequence()
+                .thenExecuteAfter(10, () -> {
+                    check(helper, rig.compiled().errors().isEmpty(),
+                            "errors: " + rig.compiled().errors());
+                    check(helper, !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "lamp lit while the lever is on");
+                    helper.setBlock(rig.devices().get(0), lever(false));
+                })
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "lamp not lit after the lever went off"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void gateWireSwitchesAFlow(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.LEVER);
+        helper.setBlock(rig.devices().get(2), lever(false));
+        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
+        Node source = rig.source(0, ResourceKind.ITEM, List.of(), 64);
+        rig.wire(source, rig.sink(1, ResourceKind.ITEM, List.of()));
+        rig.signal(rig.node(new NodeSettings.RedstoneInSettings(rig.device(2), Optional.empty(), false)), source, Wire.GATE);
+        helper.startSequence()
+                .thenExecuteAfter(20, () -> {
+                    check(helper, rig.count(1, Items.COBBLESTONE) == 0, "items moved through a closed gate");
+                    helper.setBlock(rig.devices().get(2), lever(true));
+                })
+                .thenWaitUntil(() -> check(helper, rig.count(1, Items.COBBLESTONE) == 64, "items didn't move once the gate opened"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void sheetRunsWhileControllerSignalIsLow(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        helper.setBlock(new BlockPos(1, 2, 1), Blocks.REDSTONE_BLOCK);
+        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
+        rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
+        rig.sheet().setRedstone(new Redstone(Redstone.Mode.LOW, Redstone.Source.DEFAULT, Optional.empty(), Optional.empty(), Optional.empty(), ""));
+        helper.startSequence()
+                .thenExecuteAfter(20, () -> {
+                    check(helper, rig.count(1, Items.COBBLESTONE) == 0, "sheet ran while its controller was powered");
+                    helper.setBlock(new BlockPos(1, 2, 1), Blocks.AIR);
+                })
+                .thenWaitUntil(() -> check(helper, rig.count(1, Items.COBBLESTONE) == 64, "sheet didn't run once the signal went low"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void counterPublishesAndDelayLoopCompiles(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL);
+        Node timer = rig.node(new NodeSettings.TimerSettings(2));
+        Node counter = rig.node(new NodeSettings.CounterSettings());
+        Node compare = rig.node(new NodeSettings.CompareSettings(NodeSettings.CompareOp.GE, 3));
+        Node publish = rig.node(new NodeSettings.PublishSettings("done"));
+        rig.signal(timer, counter, 0);
+        rig.signal(counter, compare, 0);
+        rig.signal(compare, publish, 0);
+        // A clock made of a NOT fed by its own output one tick late: a loop, but through a Delay.
+        Node not = rig.node(new NodeSettings.LogicSettings(NodeSettings.LogicOp.NOT));
+        Node delay = rig.node(new NodeSettings.DelaySettings(1));
+        rig.signal(not, delay, 0);
+        rig.signal(delay, not, 0);
+        helper.succeedWhen(() -> {
+            check(helper, rig.compiled().errors().isEmpty(),
+                    "errors: " + rig.compiled().errors());
+            check(helper, rig.runtime().networkSignals().getOrDefault("done", 0L) == 15, "counter didn't reach 3 and publish");
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void signalLoopWithoutMemoryIsRefused(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL);
+        Node a = rig.node(new NodeSettings.LogicSettings(NodeSettings.LogicOp.NOT));
+        Node b = rig.node(new NodeSettings.LogicSettings(NodeSettings.LogicOp.OR));
+        rig.signal(a, b, 0);
+        rig.signal(b, a, 0);
+        helper.succeedWhen(() -> {
+            CompiledSheet compiled = rig.compiled();
+            check(helper, compiled != null && compiled.errors().stream().anyMatch(e -> e.contains("loop")), "loop not reported");
         });
     }
 

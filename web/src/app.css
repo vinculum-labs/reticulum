@@ -20,6 +20,7 @@
   --c-fluid: #2f86d1;
   --c-energy: #d6b52b;
   --c-chemical: #9a5fcf;
+  --c-signal: #c8322b;
   --canvas: #f0f2f6;
   --grid: #d9dde6;
 }
@@ -42,6 +43,7 @@
     --c-fluid: #56a7ec;
     --c-energy: #e8cd4f;
     --c-chemical: #b88ae8;
+    --c-signal: #f0625a;
     --canvas: #151920;
     --grid: #262c37;
   }

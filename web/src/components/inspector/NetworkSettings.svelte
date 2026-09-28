@@ -2,6 +2,7 @@
   import { app, edit } from "../../lib/state.svelte";
   import type { Member } from "../../lib/types";
   import Field from "./Field.svelte";
+  import RedstoneEditor from "./RedstoneEditor.svelte";
 
   const snapshot = $derived(app.snapshot!);
   const canEdit = $derived(snapshot.canEdit);
@@ -49,6 +50,22 @@
       onchange={(e) => e.currentTarget.value.trim() && edit([{ type: "renameNetwork", name: e.currentTarget.value.trim() }], [{ type: "renameNetwork", name: snapshot.name }], "rename network")}
     />
   </Field>
+
+  <RedstoneEditor
+    value={snapshot.redstone}
+    disabled={!canEdit}
+    defaultLabel="the controller"
+    onchange={(redstone) =>
+      edit([{ type: "setNetworkRedstone", redstone }], [{ type: "setNetworkRedstone", redstone: snapshot.redstone ?? { mode: "ignored" } }], "network redstone")}
+  />
+  {#if Object.keys(app.networkSignals).length}
+    <section class="flex flex-col gap-1 text-sm">
+      <h3 class="panel-title">Network signals</h3>
+      {#each Object.entries(app.networkSignals) as [name, value]}
+        <div class="flex justify-between"><span>{name}</span><span class="tabular-nums" style="color: {value > 0 ? 'var(--c-signal)' : 'var(--muted)'}">{value}</span></div>
+      {/each}
+    </section>
+  {/if}
 
   <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
     <dt class="muted">Owner</dt>

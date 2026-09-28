@@ -25,7 +25,7 @@ final class ContinuousMover {
 
     static void run(NetworkRuntime.Context ctx, CompiledSheet sheet) {
         for (CompiledSheet.Source source : sheet.sources()) {
-            if (source.routes().isEmpty()) {
+            if (!ctx.runtime().active(source) || ctx.runtime().routes(source).isEmpty()) {
                 continue;
             }
             if (source.resource() == ResourceKind.ENERGY) {
@@ -65,7 +65,7 @@ final class ContinuousMover {
             ctx.runtime().status(owner, keep > 0 && stored > 0 ? Status.KEEP_RULE : Status.SOURCE_EMPTY);
             return;
         }
-        List<CompiledSheet.Route> routes = ctx.runtime().ordered(source.routes());
+        List<CompiledSheet.Route> routes = ctx.runtime().ordered(ctx.runtime().routes(source));
         List<List<IEnergyStorage>> sinks = new ArrayList<>();
         long[] demand = new long[routes.size()];
         for (int i = 0; i < routes.size(); i++) {
@@ -164,7 +164,7 @@ final class ContinuousMover {
                 }
             }
         }
-        List<CompiledSheet.Route> ordered = ctx.runtime().ordered(source.routes());
+        List<CompiledSheet.Route> ordered = ctx.runtime().ordered(ctx.runtime().routes(source));
         long total = 0;
         Status why = Status.SOURCE_EMPTY;
         for (FluidStack kind : kinds) {

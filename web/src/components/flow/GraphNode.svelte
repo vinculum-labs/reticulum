@@ -1,19 +1,35 @@
 <script lang="ts">
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
   import type { NodeData } from "../../lib/graph";
-  import { KIND_LABEL, RESOURCE_VAR, STATUS_LABEL, formatAgo, formatAverage, formatRate, shortLabel, sideLabel, summary } from "../../lib/kinds";
+  import {
+    KIND_LABEL,
+    RESOURCE_VAR,
+    STATUS_LABEL,
+    formatAgo,
+    formatAverage,
+    formatRate,
+    gated,
+    isSignal,
+    redstoneSummary,
+    shortLabel,
+    sideLabel,
+    signalInputs,
+    signalOutput,
+    summary,
+  } from "../../lib/kinds";
   import { app, deviceName } from "../../lib/state.svelte";
   import DeviceIcon from "../DeviceIcon.svelte";
 
   let { id, data, selected }: { id: string; data: NodeData; selected?: boolean } = $props();
   const updateInternals = useUpdateNodeInternals();
 
-  const HEADER = 34;
+  const BASE_HEADER = 34;
   const ROW = 18;
 
   const s = $derived(data.node.settings);
   const kind = $derived(s.kind);
-  const color = $derived(data.resource ? RESOURCE_VAR[data.resource] : "var(--muted)");
+  const signal = $derived(isSignal(s.kind));
+  const color = $derived(signal ? "var(--c-signal)" : data.resource ? RESOURCE_VAR[data.resource] : "var(--muted)");
   const title = $derived(
     data.node.label ||
       (data.device
@@ -33,16 +49,22 @@
       ? (s.inputs ?? []).map((x) => ({ label: shortLabel(x), title: sideLabel(x), color: RESOURCE_VAR[x.resource] }))
       : kind === "subsheet"
         ? (data.subsheet?.inputs ?? []).map((name) => ({ label: name, title: name, color }))
-        : [],
+        : signal
+          ? signalInputs(kind).map((name) => ({ label: name, title: name, color }))
+          : [],
   );
   const rightRows = $derived<{ label: string; title: string; color: string }[]>(
     s.kind === "device"
       ? (s.outputs ?? []).map((x) => ({ label: shortLabel(x), title: sideLabel(x), color: RESOURCE_VAR[x.resource] }))
       : kind === "subsheet"
         ? (data.subsheet?.outputs ?? []).map((name) => ({ label: name, title: name, color }))
-        : [],
+        : signal && signalOutput(kind)
+          ? [{ label: "out", title: "Output", color }]
+          : [],
   );
-  const pinned = $derived(kind === "device" || kind === "subsheet");
+  const pinned = $derived(kind === "device" || kind === "subsheet" || signal);
+  const redstone = $derived(redstoneSummary(data.node.redstone));
+  const HEADER = $derived(BASE_HEADER + (redstone ? 13 : 0));
   const rows = $derived(Math.max(leftRows.length, rightRows.length, 1));
   const idleTitle = $derived(
     [
@@ -62,6 +84,7 @@
   $effect(() => {
     void leftRows.length;
     void rightRows.length;
+    void HEADER;
     updateInternals(id);
   });
 </script>
@@ -78,8 +101,11 @@
     {#if data.device}<DeviceIcon item={data.device.icon} size={16} />{/if}
     <div class="min-w-0 flex-1 leading-tight">
       <div class="truncate font-medium" style="font-size: 12px" title={title}>{title}</div>
-      <div class="truncate muted" style="font-size: 10px" title={idleTitle}>
-        {#if data.rate > 0}
+      <div class="truncate muted" style="font-size: 10px" title={signal ? summary(data.node, app.rateUnit) : idleTitle}>
+        {#if signal}
+          <span class="tabular-nums" style="color: {(data.signal ?? 0) > 0 ? color : 'var(--muted)'}">{data.signal ?? 0}</span>
+          · {summary(data.node, app.rateUnit)}
+        {:else if data.rate > 0}
           <span class="tabular-nums" style="color: {color}">{formatRate(data.rate, data.resource, app.rateUnit)}</span>
         {:else if data.status}
           <span style="color: var(--warn)">{STATUS_LABEL[data.status] ?? data.status}</span>
@@ -89,6 +115,7 @@
           {KIND_LABEL[kind]}
         {/if}{offline ? ` · ${data.device?.state}` : ""}{disabled ? " · off" : ""}
       </div>
+      {#if redstone}<div class="truncate" style="font-size: 10px; color: var(--c-signal)" title={redstone}>⚡ {redstone}</div>{/if}
     </div>
   </div>
   {#if pinned}
@@ -115,6 +142,10 @@
   {/if}
 </div>
 
+{#if gated(kind)}
+  <!-- A signal wire into the gate switches the node on (above 0) and off. -->
+  <Handle type="target" position={Position.Top} id="gate" title="Gate: a signal here switches this node on and off" style={inPin("var(--c-signal)")} />
+{/if}
 {#if pinned}
   {#each leftRows as row, i}
     <Handle type="target" position={Position.Left} id={`in:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}" />

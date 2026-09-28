@@ -20,30 +20,49 @@ public sealed interface NodeSettings {
 
     enum Kind implements StringRepresentable {
         /** Engine-internal: one output of a device node. Never saved or sent. */
-        SOURCE(null),
+        SOURCE(null, false),
         /** Engine-internal: one input of a device node. Never saved or sent. */
-        SINK(null),
-        FILTER(FilterSettings.CODEC),
-        RATE_LIMIT(RateLimitSettings.CODEC),
-        SPLITTER(SplitterSettings.CODEC),
-        KIT(KitSettings.CODEC),
-        DEVICE(DeviceSettings.CODEC),
-        SUBSHEET(SubSheetSettings.CODEC),
-        SHEET_INPUT(SheetPinSettings.INPUT_CODEC),
-        SHEET_OUTPUT(SheetPinSettings.OUTPUT_CODEC);
+        SINK(null, false),
+        FILTER(FilterSettings.CODEC, false),
+        RATE_LIMIT(RateLimitSettings.CODEC, false),
+        SPLITTER(SplitterSettings.CODEC, false),
+        KIT(KitSettings.CODEC, false),
+        DEVICE(DeviceSettings.CODEC, false),
+        SUBSHEET(SubSheetSettings.CODEC, false),
+        SHEET_INPUT(SheetPinSettings.INPUT_CODEC, false),
+        SHEET_OUTPUT(SheetPinSettings.OUTPUT_CODEC, false),
+        REDSTONE_IN(RedstoneInSettings.CODEC, true),
+        REDSTONE_OUT(RedstoneOutSettings.CODEC, true),
+        LEVEL(LevelSettings.CODEC, true),
+        COMPARE(CompareSettings.CODEC, true),
+        LOGIC(LogicSettings.CODEC, true),
+        TIMER(TimerSettings.CODEC, true),
+        PULSE(PulseSettings.CODEC, true),
+        LATCH(LatchSettings.CODEC, true),
+        COUNTER(CounterSettings.CODEC, true),
+        DELAY(DelaySettings.CODEC, true),
+        PUBLISH(PublishSettings.CODEC, true),
+        SIGNAL(SignalSettings.CODEC, true);
 
         /** Only the kinds a sheet can hold; the engine-internal ones can't be read or written. */
-        public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(
-                () -> new Kind[] {FILTER, RATE_LIMIT, SPLITTER, KIT, DEVICE, SUBSHEET, SHEET_INPUT, SHEET_OUTPUT});
+        public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(() -> java.util.Arrays.stream(values())
+                .filter(kind -> kind.codec != null).toArray(Kind[]::new));
 
         private final MapCodec<? extends NodeSettings> codec;
+        private final boolean signal;
 
-        Kind(MapCodec<? extends NodeSettings> codec) {
+        Kind(MapCodec<? extends NodeSettings> codec, boolean signal) {
             this.codec = codec;
+            this.signal = signal;
         }
 
         public MapCodec<? extends NodeSettings> codec() {
             return codec;
+        }
+
+        /** Signal nodes take and give integers on signal wires; they never carry resources. */
+        public boolean signal() {
+            return signal;
         }
 
         @Override
@@ -259,6 +278,190 @@ public sealed interface NodeSettings {
         @Override
         public Kind kind() {
             return Kind.KIT;
+        }
+    }
+
+    // ---------------------------------------------------------------- signal nodes
+    //
+    // Signal nodes pass integers along signal wires. Anything above 0 counts as on; nodes that answer yes or no
+    // give 15 or 0, so their output can drive redstone directly.
+
+    /** Reads the redstone a device gives out of one face (or its strongest face), or its comparator value. */
+    record RedstoneInSettings(GlobalPos device, Optional<FaceKey> face, boolean comparator) implements NodeSettings {
+        public static final MapCodec<RedstoneInSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                GlobalPos.CODEC.fieldOf("device").forGetter(RedstoneInSettings::device),
+                FaceKey.CODEC.optionalFieldOf("face").forGetter(RedstoneInSettings::face),
+                Codec.BOOL.optionalFieldOf("comparator", false).forGetter(RedstoneInSettings::comparator)
+        ).apply(i, RedstoneInSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.REDSTONE_IN;
+        }
+    }
+
+    /** Every connector next to the device gives its input (0 to 15) to the device, on the side facing it. */
+    record RedstoneOutSettings(GlobalPos device) implements NodeSettings {
+        public static final MapCodec<RedstoneOutSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                GlobalPos.CODEC.fieldOf("device").forGetter(RedstoneOutSettings::device)
+        ).apply(i, RedstoneOutSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.REDSTONE_OUT;
+        }
+    }
+
+    /** How much of a resource a device holds (items, mB or FE), counting only what matches {@code filter}. */
+    record LevelSettings(ResourceKind resource, GlobalPos device, List<FaceKey> faces, String filter) implements NodeSettings {
+        public static final MapCodec<LevelSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                ResourceKind.CODEC.fieldOf("resource").forGetter(LevelSettings::resource),
+                GlobalPos.CODEC.fieldOf("device").forGetter(LevelSettings::device),
+                FaceKey.CODEC.listOf().optionalFieldOf("faces", List.of()).forGetter(LevelSettings::faces),
+                Codec.STRING.optionalFieldOf("filter", "").forGetter(LevelSettings::filter)
+        ).apply(i, LevelSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.LEVEL;
+        }
+    }
+
+    enum CompareOp implements StringRepresentable {
+        LT, LE, GT, GE, EQ, NE;
+
+        public static final Codec<CompareOp> CODEC = StringRepresentable.fromEnum(CompareOp::values);
+
+        public boolean test(long a, long b) {
+            return switch (this) {
+                case LT -> a < b;
+                case LE -> a <= b;
+                case GT -> a > b;
+                case GE -> a >= b;
+                case EQ -> a == b;
+                case NE -> a != b;
+            };
+        }
+
+        @Override
+        public String getSerializedName() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+    }
+
+    /** Input A (0) against input B (1), or against {@code constant} when B isn't wired. */
+    record CompareSettings(CompareOp op, long constant) implements NodeSettings {
+        public static final MapCodec<CompareSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                CompareOp.CODEC.optionalFieldOf("op", CompareOp.GE).forGetter(CompareSettings::op),
+                Codec.LONG.optionalFieldOf("constant", 1L).forGetter(CompareSettings::constant)
+        ).apply(i, CompareSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.COMPARE;
+        }
+    }
+
+    enum LogicOp implements StringRepresentable {
+        AND, OR, NOT, XOR;
+
+        public static final Codec<LogicOp> CODEC = StringRepresentable.fromEnum(LogicOp::values);
+
+        @Override
+        public String getSerializedName() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+    }
+
+    /** Every wire into the input is one operand. NOT is on only while none of them is (so with several, a NOR). */
+    record LogicSettings(LogicOp op) implements NodeSettings {
+        public static final MapCodec<LogicSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                LogicOp.CODEC.optionalFieldOf("op", LogicOp.AND).forGetter(LogicSettings::op)
+        ).apply(i, LogicSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.LOGIC;
+        }
+    }
+
+    /** Gives a one-tick pulse every {@code interval} ticks, while its input is on or unwired. */
+    record TimerSettings(int interval) implements NodeSettings {
+        public static final MapCodec<TimerSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.INT.optionalFieldOf("interval", 20).forGetter(TimerSettings::interval)
+        ).apply(i, TimerSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.TIMER;
+        }
+    }
+
+    /** On each rising edge of its input, gives 15 for {@code length} ticks. */
+    record PulseSettings(int length) implements NodeSettings {
+        public static final MapCodec<PulseSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.INT.optionalFieldOf("length", 1).forGetter(PulseSettings::length)
+        ).apply(i, PulseSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.PULSE;
+        }
+    }
+
+    /** Set (input 0) turns it on, reset (input 1) off; it remembers in between, even across restarts. */
+    record LatchSettings() implements NodeSettings {
+        public static final MapCodec<LatchSettings> CODEC = MapCodec.unit(new LatchSettings());
+
+        @Override
+        public Kind kind() {
+            return Kind.LATCH;
+        }
+    }
+
+    /** Counts rising edges on input 0; input 1 resets it to 0. Kept across restarts. */
+    record CounterSettings() implements NodeSettings {
+        public static final MapCodec<CounterSettings> CODEC = MapCodec.unit(new CounterSettings());
+
+        @Override
+        public Kind kind() {
+            return Kind.COUNTER;
+        }
+    }
+
+    /** Gives its input as it was {@code ticks} ticks ago. */
+    record DelaySettings(int ticks) implements NodeSettings {
+        public static final MapCodec<DelaySettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.INT.optionalFieldOf("ticks", 1).forGetter(DelaySettings::ticks)
+        ).apply(i, DelaySettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.DELAY;
+        }
+    }
+
+    /** Publishes its input as a named network signal that any sheet (or redstone condition) can read. */
+    record PublishSettings(String name) implements NodeSettings {
+        public static final MapCodec<PublishSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.STRING.optionalFieldOf("name", "").forGetter(PublishSettings::name)
+        ).apply(i, PublishSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.PUBLISH;
+        }
+    }
+
+    /** Reads a named network signal (as published on the previous tick). */
+    record SignalSettings(String name) implements NodeSettings {
+        public static final MapCodec<SignalSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.STRING.optionalFieldOf("name", "").forGetter(SignalSettings::name)
+        ).apply(i, SignalSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.SIGNAL;
         }
     }
 }

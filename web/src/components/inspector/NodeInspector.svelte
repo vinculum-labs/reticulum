@@ -1,7 +1,23 @@
 <script lang="ts">
   import { app, edit } from "../../lib/state.svelte";
-  import { KIND_HINT, KIND_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate } from "../../lib/kinds";
-  import { pinName, sheetPins, type DeviceNodeSettings, type Edit, type GraphNode, type NodeSettings, type Sheet, type Wire } from "../../lib/types";
+  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, RESOURCE_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate, isSignal } from "../../lib/kinds";
+  import {
+    SIDES,
+    pinName,
+    sheetPins,
+    type CompareOp,
+    type DeviceNodeSettings,
+    type Edit,
+    type Face,
+    type GraphNode,
+    type LogicOp,
+    type NodeSettings,
+    type Resource,
+    type Sheet,
+    type Wire,
+  } from "../../lib/types";
+  import DevicePicker from "./DevicePicker.svelte";
+  import RedstoneEditor from "./RedstoneEditor.svelte";
   import Field from "./Field.svelte";
   import FilterField from "./FilterField.svelte";
   import DeviceNodeEditor from "./DeviceNodeEditor.svelte";
@@ -11,6 +27,15 @@
 
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
   const s = $derived(node.settings);
+  const signal = $derived(isSignal(s.kind));
+  const devices = $derived(app.snapshot?.devices ?? []);
+  const names = $derived.by(() => {
+    const found = new Set<string>(Object.keys(app.networkSignals));
+    for (const sheet of app.snapshot?.sheets ?? []) {
+      for (const n of sheet.nodes ?? []) if (n.settings.kind === "publish" && n.settings.name) found.add(n.settings.name);
+    }
+    return [...found].sort();
+  });
   const unit = $derived(s.kind === "device" && s.outputs?.[0] ? RESOURCE_UNIT[s.outputs[0].resource] : "units");
 
   /**
@@ -66,17 +91,20 @@
   </div>
 
   <div class="rounded-md border p-2 text-sm" style="border-color: var(--line)">
-    {#if (app.rates[node.id] ?? 0) > 0}
+    {#if signal}
+      Output <span class="tabular-nums font-medium" style="color: {(app.signals[node.id] ?? 0) > 0 ? 'var(--c-signal)' : 'var(--muted)'}">{app.signals[node.id] ?? 0}</span>
+      <div class="text-xs muted">Updated once a second. Above 0 counts as on.</div>
+    {:else if (app.rates[node.id] ?? 0) > 0}
       Moving {formatRate(app.rates[node.id], null, app.rateUnit)}
     {:else if app.status[node.id]}
       <span style="color: var(--warn)">Idle: {STATUS_LABEL[app.status[node.id]] ?? app.status[node.id]}</span>
     {:else}
       Idle
     {/if}
-    <div class="text-xs muted">
+    {#if !signal}<div class="text-xs muted">
       Average {formatAverage(app.fiveMinutes[node.id] ?? 0, null, app.rateUnit)} over 5 min ·
       {app.ticksSinceMoved[node.id] !== undefined ? `last moved ${formatAgo(app.ticksSinceMoved[node.id])}` : "never moved"}
-    </div>
+    </div>{/if}
   </div>
 
   <Field label="Label" hint={s.kind === "device" ? "Optional; the device's name is shown otherwise." : undefined}>
@@ -92,6 +120,87 @@
     <input type="checkbox" checked={node.enabled !== false} disabled={!canEdit} onchange={(e) => save({ ...node, enabled: e.currentTarget.checked }, "node on/off")} />
     On
   </label>
+
+  {#if !signal && s.kind !== "sheet_input" && s.kind !== "sheet_output"}
+    <RedstoneEditor
+      value={node.redstone}
+      disabled={!canEdit}
+      defaultLabel={s.kind === "device" ? "this device's connectors" : "the controller"}
+      onchange={(redstone) => save({ ...node, redstone: redstone.mode === "ignored" ? undefined : redstone }, "redstone")}
+    />
+  {/if}
+
+  {#if s.kind === "redstone_in" || s.kind === "redstone_out" || s.kind === "level"}
+    <Field label="Device" hint={s.kind === "redstone_out" ? "Every connector next to it gives it the signal, on the side facing it." : undefined}>
+      <DevicePicker {devices} value={s.device} disabled={!canEdit} onchange={(d) => settings({ device: d.pos })} />
+    </Field>
+  {/if}
+  {#if s.kind === "redstone_in"}
+    <Field label="Face" hint="The signal the device gives out of that face; any face takes the strongest.">
+      <select value={s.face ?? ""} disabled={!canEdit || s.comparator} onchange={(e) => settings({ face: (e.currentTarget.value || undefined) as Face | undefined })}>
+        <option value="">Any face</option>
+        {#each SIDES as f}<option value={f}>{f}</option>{/each}
+      </select>
+    </Field>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" checked={s.comparator === true} disabled={!canEdit} onchange={(e) => settings({ comparator: e.currentTarget.checked })} />
+      Comparator value instead (how full it is, and the like)
+    </label>
+  {:else if s.kind === "level"}
+    <Field label="Resource">
+      <select value={s.resource} disabled={!canEdit} onchange={(e) => settings({ resource: e.currentTarget.value as Resource })}>
+        {#each Object.entries(RESOURCE_LABEL) as [key, label]}<option value={key}>{label}</option>{/each}
+      </select>
+    </Field>
+    {#if s.resource !== "energy"}
+      <Field label="Count only" hint="A filter; empty counts everything.">
+        <FilterField value={s.filter ?? ""} disabled={!canEdit} onchange={(filter) => settings({ filter })} />
+      </Field>
+    {/if}
+  {:else if s.kind === "compare"}
+    <Field label="Test" hint="Gives 15 when true, else 0. B is the number below unless something is wired into B.">
+      <div class="flex items-center gap-2">
+        <span>A</span>
+        <select value={s.op ?? "ge"} disabled={!canEdit} onchange={(e) => settings({ op: e.currentTarget.value as CompareOp })}>
+          {#each Object.entries(OP_SYMBOL) as [key, symbol]}<option value={key}>{symbol}</option>{/each}
+        </select>
+        <input type="number" class="w-24" value={s.constant ?? 1} disabled={!canEdit} onchange={(e) => settings({ constant: Number(e.currentTarget.value) || 0 })} />
+      </div>
+    </Field>
+  {:else if s.kind === "logic"}
+    <Field label="Operation" hint="Every wire into the input is one operand. NOT is on only while none is (a NOR with several).">
+      <select value={s.op ?? "and"} disabled={!canEdit} onchange={(e) => settings({ op: e.currentTarget.value as LogicOp })}>
+        <option value="and">AND: all on</option>
+        <option value="or">OR: any on</option>
+        <option value="not">NOT: none on</option>
+        <option value="xor">XOR: an odd number on</option>
+      </select>
+    </Field>
+  {:else if s.kind === "timer"}
+    <Field label="Every" hint="Ticks between one-tick pulses (20 ticks = 1 second). Runs while its input is on or unwired.">
+      <input type="number" min="1" class="w-24" value={s.interval ?? 20} disabled={!canEdit} onchange={(e) => settings({ interval: Math.max(1, Number(e.currentTarget.value) || 1) })} />
+    </Field>
+  {:else if s.kind === "pulse"}
+    <Field label="Length" hint="Ticks the pulse lasts.">
+      <input type="number" min="1" class="w-24" value={s.length ?? 1} disabled={!canEdit} onchange={(e) => settings({ length: Math.max(1, Number(e.currentTarget.value) || 1) })} />
+    </Field>
+  {:else if s.kind === "delay"}
+    <Field label="Ticks" hint="How late the output follows the input. A loop of signal wires must pass a Delay, Latch or Counter.">
+      <input type="number" min="1" class="w-24" value={s.ticks ?? 1} disabled={!canEdit} onchange={(e) => settings({ ticks: Math.max(1, Number(e.currentTarget.value) || 1) })} />
+    </Field>
+  {:else if s.kind === "latch" || s.kind === "counter"}
+    <p class="text-xs muted">It remembers its value across restarts. Its output follows one tick after its inputs.</p>
+  {:else if s.kind === "publish" || s.kind === "signal"}
+    <Field
+      label="Signal name"
+      hint={s.kind === "publish"
+        ? "Any sheet can read it with a Network signal node, and redstone conditions can use it. With several publishers, the highest wins."
+        : "Reads the value published on the previous tick."}
+    >
+      <input value={s.name ?? ""} disabled={!canEdit} list="reticulum-signal-names" placeholder="e.g. Furnaces full" onchange={(e) => settings({ name: e.currentTarget.value.trim() })} />
+      <datalist id="reticulum-signal-names">{#each names as name}<option value={name}></option>{/each}</datalist>
+    </Field>
+  {/if}
 
   {#if s.kind === "device"}
     <DeviceNodeEditor settings={s} {sheet} nodeId={node.id} disabled={!canEdit} onchange={saveDevice} />
@@ -189,5 +298,5 @@
     </div>
   {/if}
 
-  <Chart item={node.id} {unit} />
+  {#if !signal}<Chart item={node.id} {unit} />{/if}
 </div>

@@ -15,6 +15,7 @@ import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.graph.Redstone;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
@@ -70,6 +71,10 @@ final class Snapshots {
         JsonArray disabledFolders = new JsonArray();
         network.disabledFolders().forEach(disabledFolders::add);
         out.add("disabledFolders", disabledFolders);
+        out.add("redstone", encode(server, Redstone.CODEC, network.switches().redstone()));
+        JsonObject folderRedstone = new JsonObject();
+        network.switches().folderRedstone().forEach((folder, redstone) -> folderRedstone.add(folder, encode(server, Redstone.CODEC, redstone)));
+        out.add("folderRedstone", folderRedstone);
         if (canAdmin) {
             // The member list is shown to those who can change it.
             JsonArray members = new JsonArray();

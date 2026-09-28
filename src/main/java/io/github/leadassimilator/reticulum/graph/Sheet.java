@@ -27,7 +27,8 @@ public final class Sheet {
             Codec.INT.optionalFieldOf("priority", 0).forGetter(s -> s.priority),
             Codec.BOOL.optionalFieldOf("subsheet", false).forGetter(s -> s.subsheet),
             Node.CODEC.listOf().optionalFieldOf("nodes", List.of()).forGetter(s -> s.nodes),
-            Wire.CODEC.listOf().optionalFieldOf("wires", List.of()).forGetter(s -> s.wires)
+            Wire.CODEC.listOf().optionalFieldOf("wires", List.of()).forGetter(s -> s.wires),
+            Redstone.CODEC.optionalFieldOf("redstone", Redstone.IGNORED).forGetter(s -> s.redstone)
     ).apply(i, Sheet::new));
 
     private final UUID id;
@@ -40,15 +41,16 @@ public final class Sheet {
     private boolean subsheet;
     private final List<Node> nodes = new ArrayList<>();
     private final List<Wire> wires = new ArrayList<>();
+    private Redstone redstone;
     /** Bumped on every edit; not saved. The engine recompiles when it changes. */
     private int revision;
 
     public Sheet(UUID id, String name) {
-        this(id, name, "", true, DEFAULT_INTERVAL, 0, false, List.of(), List.of());
+        this(id, name, "", true, DEFAULT_INTERVAL, 0, false, List.of(), List.of(), Redstone.IGNORED);
     }
 
     private Sheet(UUID id, String name, String folder, boolean enabled, int interval, int priority, boolean subsheet, List<Node> nodes,
-            List<Wire> wires) {
+            List<Wire> wires, Redstone redstone) {
         this.id = id;
         this.name = name;
         this.folder = folder;
@@ -58,6 +60,7 @@ public final class Sheet {
         this.subsheet = subsheet;
         this.nodes.addAll(nodes);
         this.wires.addAll(wires);
+        this.redstone = redstone;
     }
 
     public UUID id() {
@@ -105,6 +108,14 @@ public final class Sheet {
 
     public boolean enabled() {
         return enabled;
+    }
+
+    public Redstone redstone() {
+        return redstone;
+    }
+
+    public void setRedstone(Redstone redstone) {
+        this.redstone = redstone;
     }
 
     public void setEnabled(boolean enabled) {

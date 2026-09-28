@@ -2,6 +2,7 @@
   import { app, edit } from "../../lib/state.svelte";
   import type { Sheet } from "../../lib/types";
   import Field from "./Field.svelte";
+  import RedstoneEditor from "./RedstoneEditor.svelte";
 
   let { sheet }: { sheet: Sheet } = $props();
 
@@ -50,6 +51,34 @@
       {#each [...new Set(snapshot.sheets.map((s) => s.folder).filter(Boolean))] as folder}<option value={folder}></option>{/each}
     </datalist>
   </Field>
+  {#if !sheet.subsheet}
+    <RedstoneEditor
+      value={sheet.redstone}
+      disabled={!canEdit}
+      defaultLabel="the controller"
+      onchange={(redstone) => update({ redstone }, { redstone: sheet.redstone ?? { mode: "ignored" } }, "sheet redstone")}
+    />
+    {#if app.sheetsOff.includes(sheet.id)}<p class="text-xs" style="color: var(--c-signal)">Redstone has this sheet switched off right now.</p>{/if}
+    {#if sheet.folder}
+      <details class="text-sm">
+        <summary class="cursor-pointer">Folder “{sheet.folder}” redstone</summary>
+        <div class="mt-2">
+          <RedstoneEditor
+            value={snapshot.folderRedstone?.[sheet.folder]}
+            disabled={!canEdit}
+            defaultLabel="the controller"
+            onchange={(redstone) =>
+              edit(
+                [{ type: "setFolderRedstone", folder: sheet.folder, redstone }],
+                [{ type: "setFolderRedstone", folder: sheet.folder, redstone: snapshot.folderRedstone?.[sheet.folder!] ?? { mode: "ignored" } }],
+                "folder redstone",
+              )}
+          />
+          <p class="mt-1 text-xs muted">Applies to every sheet in this folder and the folders under it.</p>
+        </div>
+      </details>
+    {/if}
+  {/if}
   <label class="flex items-start gap-2 text-sm">
     <input
       type="checkbox"

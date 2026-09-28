@@ -55,6 +55,12 @@ export const app = $state({
   ticksSinceMoved: {} as Record<string, number>,
   /** Why each node moved nothing on its last attempt (absent while it moves). */
   status: {} as Record<string, string>,
+  /** Each signal node's output as of the last metrics update. */
+  signals: {} as Record<string, number>,
+  /** Published network signals, by name. */
+  networkSignals: {} as Record<string, number>,
+  /** Sheets their redstone condition currently switches off. */
+  sheetsOff: [] as string[],
   selectedNodes: [] as string[],
   selectedEdges: [] as string[],
   selectedDevice: null as string | null,
@@ -120,6 +126,9 @@ async function onMessage(m: any): Promise<void> {
         app.fiveMinutes = m.fiveMinutes ?? {};
         app.ticksSinceMoved = m.ticksSinceMoved ?? {};
         app.status = m.status ?? {};
+        app.signals = m.signals ?? {};
+        app.networkSignals = m.networkSignals ?? {};
+        app.sheetsOff = m.sheetsOff ?? [];
       }
       break;
     case "removed":
@@ -158,6 +167,9 @@ export async function selectNetwork(id: string): Promise<void> {
   app.fiveMinutes = {};
   app.ticksSinceMoved = {};
   app.status = {};
+  app.signals = {};
+  app.networkSignals = {};
+  app.sheetsOff = [];
   app.selectedNodes = [];
   app.selectedEdges = [];
   app.selectedDevice = null;

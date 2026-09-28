@@ -2,8 +2,8 @@
 
 import type { Edge, Node } from "@xyflow/svelte";
 import type { Device, GraphNode, Resource, Sheet, Wire } from "./types";
-import { pinName, posKey, sheetPins } from "./types";
-import { RESOURCE_VAR, formatRate } from "./kinds";
+import { GATE, pinName, posKey, sheetPins } from "./types";
+import { RESOURCE_VAR, formatRate, isSignal } from "./kinds";
 
 export interface NodeData extends Record<string, unknown> {
   node: GraphNode;
@@ -18,6 +18,8 @@ export interface NodeData extends Record<string, unknown> {
   status?: string;
   /** For a sub-sheet node: the sheet it copies and its pin names. */
   subsheet?: { sheet?: Sheet; inputs: string[]; outputs: string[] };
+  /** For a signal node: its output as last reported. */
+  signal?: number;
 }
 
 export interface Activity {
@@ -25,6 +27,7 @@ export interface Activity {
   fiveMinutes: Record<string, number>;
   ticksSinceMoved: Record<string, number>;
   status: Record<string, string>;
+  signals: Record<string, number>;
 }
 
 /**
@@ -48,10 +51,10 @@ export function resources(sheet: Sheet): { wires: Map<string, Resource>; nodes: 
   const emit = (from: string, resource: Resource, only?: number) => {
     for (const w of outgoing.get(from) ?? []) {
       if (only !== undefined && (w.output ?? 0) !== only) continue;
-      if (wires.has(w.id)) continue;
+      if (wires.has(w.id) || (w.input ?? 0) === GATE) continue;
       wires.set(w.id, resource);
       const target = byId.get(w.to);
-      if (target && target.settings.kind !== "device") {
+      if (target && target.settings.kind !== "device" && !isSignal(target.settings.kind)) {
         if (!nodes.has(w.to)) nodes.set(w.to, resource);
         queue.push([w.to, resource]);
       }
@@ -70,7 +73,7 @@ export function resources(sheet: Sheet): { wires: Map<string, Resource>; nodes: 
 
 /** Kinds whose inputs and outputs are numbered pins ("in:0", "out:1"). */
 function numbered(node: GraphNode | undefined): boolean {
-  return node?.settings.kind === "device" || node?.settings.kind === "subsheet";
+  return node?.settings.kind === "device" || node?.settings.kind === "subsheet" || isSignal(node?.settings.kind);
 }
 
 export function sourceHandle(node: GraphNode | undefined, output: number): string {
@@ -80,12 +83,14 @@ export function sourceHandle(node: GraphNode | undefined, output: number): strin
 }
 
 export function targetHandle(node: GraphNode | undefined, input: number): string {
+  if (input === GATE) return "gate";
   return numbered(node) ? `in:${input}` : "in";
 }
 
 /** Reads a handle id back into an output or input number. */
 export function handleIndex(handle: string | null | undefined): number {
   if (handle === "reject") return 1;
+  if (handle === "gate") return GATE;
   const match = handle?.match(/^(?:in|out):(\d+)$/);
   return match ? Number(match[1]) : 0;
 }
@@ -127,6 +132,7 @@ export function toFlow(
         ticksSinceMoved: activity.ticksSinceMoved[n.id],
         status: activity.status[n.id],
         subsheet,
+        signal: isSignal(s.kind) ? (activity.signals[n.id] ?? 0) : undefined,
       },
     };
   });
@@ -134,7 +140,10 @@ export function toFlow(
   const edges: Edge[] = (sheet.wires ?? []).map((w) => {
     const rate = rates[w.id] ?? 0;
     const resource = kinds.wires.get(w.id) ?? null;
-    const color = resource ? RESOURCE_VAR[resource] : "var(--muted)";
+    const fromNode = byId.get(w.from);
+    const signal = isSignal(fromNode?.settings.kind);
+    const on = signal && (activity.signals[w.from] ?? 0) > 0;
+    const color = signal ? "var(--c-signal)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
     return {
       id: w.id,
       source: w.from,
@@ -144,7 +153,9 @@ export function toFlow(
       selected: selected.has(w.id),
       animated: rate > 0,
       label: rate > 0 ? formatRate(rate, resource, unit) : undefined,
-      style: `stroke: ${byId.get(w.from)?.settings.kind === "filter" && w.output === 1 ? "var(--bad)" : color}; stroke-width: ${rate > 0 ? 2.5 : 1.5}px`,
+      style: signal
+        ? `stroke: ${color}; stroke-width: ${on ? 2.5 : 1.5}px; stroke-dasharray: ${on ? "none" : "4 3"}; opacity: ${on ? 1 : 0.7}`
+        : `stroke: ${fromNode?.settings.kind === "filter" && w.output === 1 ? "var(--bad)" : color}; stroke-width: ${rate > 0 ? 2.5 : 1.5}px`,
     };
   });
   return { nodes, edges };

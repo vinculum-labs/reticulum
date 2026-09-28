@@ -10,11 +10,14 @@ import io.github.leadassimilator.reticulum.network.Ids;
 /**
  * A wire from one node's output to another node's input. {@code output} and {@code input} pick the output and input
  * on nodes with several (a filter's outputs: 0 = match, 1 = reject; a device node's numbered inputs and outputs).
+ * A signal wire into input {@link #GATE} switches its node on (signal above 0) or off.
  * Wires leaving the same output are ordered by {@code order}.
  */
 public record Wire(UUID id, UUID from, int output, UUID to, int input, int order) {
     public static final int MATCH = 0;
     public static final int REJECT = 1;
+    /** The input every node has for a signal that switches it on or off. */
+    public static final int GATE = -1;
 
     public static final Codec<Wire> CODEC = RecordCodecBuilder.create(i -> i.group(
             Ids.UUID_CODEC.fieldOf("id").forGetter(Wire::id),

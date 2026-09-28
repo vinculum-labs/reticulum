@@ -24,6 +24,7 @@ import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
+import io.github.leadassimilator.reticulum.graph.Redstone;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
@@ -274,6 +275,9 @@ public final class WebApi {
                     if (edit.has("folder")) {
                         sheet.setFolder(edit.get("folder").getAsString());
                     }
+                    if (edit.has("redstone")) {
+                        sheet.setRedstone(decode(server, Redstone.CODEC, edit.get("redstone"), "redstone"));
+                    }
                     if (edit.has("subsheet")) {
                         sheet.setSubsheet(edit.get("subsheet").getAsBoolean());
                         network.sheets().forEach(Sheet::touch);
@@ -345,8 +349,7 @@ public final class WebApi {
                         JsonObject p = element.getAsJsonObject();
                         Node node = sheet.node(uuid(p, "id"));
                         if (node != null) {
-                            sheet.replace(new Node(node.id(), node.settings(), node.label(), node.enabled(),
-                                    p.get("x").getAsFloat(), p.get("y").getAsFloat()));
+                            sheet.replace(node.at(p.get("x").getAsFloat(), p.get("y").getAsFloat()));
                         }
                     }
                 }
@@ -387,6 +390,16 @@ public final class WebApi {
                     network.sheets().forEach(Sheet::touch);
                 }
                 case "setNetworkEnabled" -> network.setEnabled(edit.get("enabled").getAsBoolean());
+                case "setNetworkRedstone" -> network.switches().setRedstone(decode(server, Redstone.CODEC, edit.get("redstone"), "redstone"));
+                case "setFolderRedstone" -> {
+                    String folder = Sheet.normalizeFolder(string(edit, "folder"));
+                    Redstone redstone = decode(server, Redstone.CODEC, edit.get("redstone"), "redstone");
+                    if (redstone.ignored()) {
+                        network.switches().folderRedstone().remove(folder);
+                    } else {
+                        network.switches().folderRedstone().put(folder, redstone);
+                    }
+                }
                 default -> throw new RequestException("Unknown edit '" + type + "'");
             }
             return com.google.gson.JsonNull.INSTANCE;
@@ -450,6 +463,9 @@ public final class WebApi {
         private static void checkPorts(Network network, Node node) throws RequestException {
             GlobalPos device = switch (node.settings()) {
                 case NodeSettings.DeviceSettings s -> s.device();
+                case NodeSettings.RedstoneInSettings s -> s.device();
+                case NodeSettings.RedstoneOutSettings s -> s.device();
+                case NodeSettings.LevelSettings s -> s.device();
                 default -> null;
             };
             if (device != null && network.device(device) == null) {
@@ -552,6 +568,15 @@ public final class WebApi {
         JsonObject statuses = new JsonObject();
         runtime.statuses().forEach((id, status) -> statuses.addProperty(id.toString(), status.key()));
         out.add("status", statuses);
+        JsonObject signals = new JsonObject();
+        runtime.signalValues().forEach((id, value) -> signals.addProperty(id.toString(), value));
+        out.add("signals", signals);
+        JsonObject named = new JsonObject();
+        runtime.networkSignals().forEach(named::addProperty);
+        out.add("networkSignals", named);
+        JsonArray sheetsOff = new JsonArray();
+        runtime.sheetsOff().forEach(id -> sheetsOff.add(id.toString()));
+        out.add("sheetsOff", sheetsOff);
         return out;
     }
 

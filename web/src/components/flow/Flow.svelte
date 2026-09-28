@@ -12,7 +12,7 @@
   } from "@xyflow/svelte";
   import { app, currentSheet, deviceAt, edit, toast, uuid } from "../../lib/state.svelte";
   import { handleIndex, toFlow, type NodeData } from "../../lib/graph";
-  import { KIND_HINT, KIND_LABEL, defaultSettings, offeredResources } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Wire } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
   import { layout } from "../../lib/layout";
@@ -32,7 +32,13 @@
   $effect(() => {
     const s = sheet;
     const devices = app.snapshot?.devices ?? [];
-    const activity = { rates: app.rates, fiveMinutes: app.fiveMinutes, ticksSinceMoved: app.ticksSinceMoved, status: app.status };
+    const activity = {
+      rates: app.rates,
+      fiveMinutes: app.fiveMinutes,
+      ticksSinceMoved: app.ticksSinceMoved,
+      status: app.status,
+      signals: app.signals,
+    };
     const selected = new Set([...app.selectedNodes, ...app.selectedEdges]);
     const unit = app.rateUnit;
     if (!s || dragging) return;
@@ -49,6 +55,21 @@
 
   function nodeOf(id: string): GraphNode | undefined {
     return sheet?.nodes?.find((n) => n.id === id);
+  }
+
+  /**
+   * Signals go into signal inputs or a node's gate; resources go into resource inputs. Sheet pins carry either,
+   * so they are left to the server to check.
+   */
+  function validConnection(c: Connection | Edge): boolean {
+    const from = nodeOf(c.source);
+    const to = nodeOf(c.target);
+    if (!from || !to || c.source === c.target) return false;
+    const pin = (k: string) => k === "sheet_input" || k === "sheet_output";
+    const fromSignal = isSignal(from.settings.kind);
+    if (c.targetHandle === "gate") return fromSignal || pin(from.settings.kind);
+    if (pin(from.settings.kind) || pin(to.settings.kind)) return true;
+    return fromSignal === isSignal(to.settings.kind);
   }
 
   async function connect(c: Connection) {
@@ -100,7 +121,8 @@
 
   async function addNode(kind: NodeKind, at: { x: number; y: number }, device: Device | null = null) {
     if (!sheet) return;
-    if (kind === "device" && !device) {
+    const needsDevice = kind === "device" || kind === "redstone_in" || kind === "redstone_out" || kind === "level";
+    if (needsDevice && !device) {
       device = (app.selectedDevice && deviceAt(app.selectedDevice)) || app.snapshot?.devices.find((d) => d.state === "active") || null;
       if (!device) {
         toast("There are no devices on this network yet.");
@@ -160,6 +182,12 @@
     ...(sheet?.subsheet ? (["sheet_input", "sheet_output"] as NodeKind[]) : []),
   ]);
 
+  function addSignal(e: Event & { currentTarget: HTMLSelectElement }) {
+    const kind = e.currentTarget.value as NodeKind;
+    e.currentTarget.value = "";
+    if (kind) addNode(kind, viewCenter());
+  }
+
   /** Double-click a sub-sheet node to open the sheet it copies. */
   function nodeClick({ node, event }: { node: Node<NodeData>; event: MouseEvent | TouchEvent }) {
     const s = node.data.node.settings;
@@ -205,6 +233,7 @@
     elementsSelectable={true}
     onselectionchange={selectionChange}
     onconnect={connect}
+    isValidConnection={validConnection}
     ondelete={remove}
     onnodedragstart={() => (dragging = true)}
     onnodedragstop={dragStop}
@@ -220,6 +249,10 @@
           {#each palette as kind}
             <button class="btn text-sm" title={KIND_HINT[kind]} onclick={() => addNode(kind, viewCenter())}>+ {KIND_LABEL[kind]}</button>
           {/each}
+          <select class="text-sm" title="Redstone and signal nodes" value="" onchange={addSignal} style="color: var(--c-signal)">
+            <option value="" disabled>+ Signal…</option>
+            {#each SIGNAL_KINDS as kind}<option value={kind} title={KIND_HINT[kind]}>{KIND_LABEL[kind]}</option>{/each}
+          </select>
           <button class="btn text-sm" title="Lay the sheet out left to right" disabled={tidying || !sheet?.nodes?.length} onclick={tidy}>Tidy up</button>
         </div>
       </Panel>

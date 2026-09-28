@@ -14,6 +14,7 @@ import javax.annotation.Nullable;
 import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
+import io.github.leadassimilator.reticulum.graph.Redstone;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
@@ -45,6 +46,12 @@ public final class NetworkRuntime {
     private final Metrics metrics = new Metrics();
     /** Why each node last moved nothing; absent once it moves again. Keyed by the node the editor shows. */
     private final Map<UUID, Status> statuses = new HashMap<>();
+    private final Signals signals = new Signals();
+    /** Sheets whose redstone pulse (or the network's) fired this tick: their item flows do one operation now. */
+    private final Set<UUID> pulsedSheets = new java.util.HashSet<>();
+    /** Sheets switched off by redstone this tick, for the editor. */
+    private final Set<UUID> sheetsOff = new java.util.HashSet<>();
+    private boolean stopped = true;
     private long ticks;
 
     private record CacheKey(GlobalPos device, FaceKey face, ResourceKind resource) {
@@ -87,15 +94,45 @@ public final class NetworkRuntime {
 
     public void tick(MinecraftServer server, Network network) {
         ticks++;
+        signals.startTick();
+        statuses.values().removeIf(status -> status == Status.SWITCHED_OFF);
+        pulsedSheets.clear();
+        sheetsOff.clear();
+        Signals.Verdict networkVerdict = signals.check(server, network, "network", network.switches().redstone(), null);
+        if (networkVerdict == Signals.Verdict.OFF) {
+            stop(server, network);
+            return;
+        }
+        stopped = false;
         List<CompiledSheet> sheets = new ArrayList<>();
         for (Sheet sheet : network.sheets()) {
-            if (network.runs(sheet)) {
-                sheets.add(compiled(sheet, network));
+            if (!network.runs(sheet)) {
+                continue;
+            }
+            Signals.Verdict verdict = sheetVerdict(server, network, sheet);
+            if (verdict == Signals.Verdict.OFF) {
+                sheetsOff.add(sheet.id());
+                continue;
+            }
+            sheets.add(compiled(sheet, network));
+            if (verdict == Signals.Verdict.PULSED || networkVerdict == Signals.Verdict.PULSED) {
+                pulsedSheets.add(sheet.id());
+            }
+        }
+        Context context = new Context(server, network, this);
+        signals.evaluate(context, sheets);
+        for (CompiledSheet sheet : sheets) {
+            if (sheet.switchable()) {
+                signals.switchNodes(server, network, sheet);
+                for (UUID node : signals.off()) {
+                    if (sheet.conditions().containsKey(node) || sheet.switchedBy().containsKey(node)) {
+                        statuses.put(sheet.owner(node), Status.SWITCHED_OFF);
+                    }
+                }
             }
         }
         refillTokens(sheets);
         sheets.sort(Comparator.comparingInt((CompiledSheet c) -> c.sheet().priority()).reversed());
-        Context context = new Context(server, network, this);
         // Continuous flows go first so the tick budget can never delay them.
         for (CompiledSheet sheet : sheets) {
             ContinuousMover.run(context, sheet);
@@ -107,6 +144,92 @@ public final class NetworkRuntime {
             Overflow.retry(context, sheets);
         }
         metrics.tick(ticks);
+    }
+
+    /** The network isn't running: connectors stop giving out redstone, once. */
+    public void stop(MinecraftServer server, Network network) {
+        if (!stopped) {
+            signals.stop(server, network);
+            stopped = true;
+        }
+    }
+
+    /** A sheet runs under its own redstone condition and those of every folder it is in. */
+    private Signals.Verdict sheetVerdict(MinecraftServer server, Network network, Sheet sheet) {
+        Signals.Verdict verdict = signals.check(server, network, "sheet:" + sheet.id(), sheet.redstone(), null);
+        String folder = sheet.folder();
+        while (!folder.isEmpty() && verdict != Signals.Verdict.OFF) {
+            Redstone redstone = network.switches().folderRedstone().get(folder);
+            if (redstone != null) {
+                Signals.Verdict parent = signals.check(server, network, "folder:" + folder, redstone, null);
+                verdict = parent == Signals.Verdict.OFF ? parent : parent == Signals.Verdict.PULSED ? parent : verdict;
+            }
+            int slash = folder.lastIndexOf('/');
+            folder = slash < 0 ? "" : folder.substring(0, slash);
+        }
+        return verdict;
+    }
+
+    /** Signal node outputs this tick, by node id. */
+    public Map<UUID, Long> signalValues() {
+        return signals.values();
+    }
+
+    /** Network signals as last published. */
+    public Map<String, Long> networkSignals() {
+        return signals.published();
+    }
+
+    public Set<UUID> sheetsOff() {
+        return sheetsOff;
+    }
+
+    // ---------------------------------------------------------------- redstone switching
+
+    /** Whether a source is on: nothing that controls it is switched off by redstone. */
+    boolean active(CompiledSheet.Source source) {
+        return signals.off().isEmpty() || disjoint(source.controls(), signals.off());
+    }
+
+    /** A source's routes that redstone leaves on. */
+    List<CompiledSheet.Route> routes(CompiledSheet.Source source) {
+        if (signals.off().isEmpty()) {
+            return source.routes();
+        }
+        List<CompiledSheet.Route> on = new ArrayList<>();
+        for (CompiledSheet.Route route : source.routes()) {
+            if (disjoint(route.controls(), signals.off())) {
+                on.add(route);
+            }
+        }
+        return on;
+    }
+
+    /** Whether a redstone pulse fired for these routes this tick, so their item operation runs now. */
+    boolean forced(CompiledSheet sheet, List<CompiledSheet.Route> routes) {
+        if (pulsedSheets.contains(sheet.sheet().id())) {
+            return true;
+        }
+        if (signals.pulsed().isEmpty()) {
+            return false;
+        }
+        for (CompiledSheet.Route route : routes) {
+            if (!disjoint(route.controls(), signals.pulsed())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean disjoint(Set<UUID> a, Set<UUID> b) {
+        Set<UUID> small = a.size() <= b.size() ? a : b;
+        Set<UUID> large = small == a ? b : a;
+        for (UUID id : small) {
+            if (large.contains(id)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public CompiledSheet compiled(Sheet sheet, Network network) {
@@ -234,6 +357,15 @@ public final class NetworkRuntime {
         return handlers(server, network, port, Capabilities.EnergyStorage.BLOCK, ResourceKind.ENERGY);
     }
 
+    /** Fluid handlers for counting: the unsided one when no faces are chosen, so tanks are counted once. */
+    List<IFluidHandler> fluidView(MinecraftServer server, Network network, NodeSettings.Port port) {
+        return view(server, network, port, Capabilities.FluidHandler.BLOCK, ResourceKind.FLUID);
+    }
+
+    List<IEnergyStorage> energyView(MinecraftServer server, Network network, NodeSettings.Port port) {
+        return view(server, network, port, Capabilities.EnergyStorage.BLOCK, ResourceKind.ENERGY);
+    }
+
     /**
      * Resolves a port for moving resources. With no faces chosen ("auto"), every face that answers is used, so the
      * block's own side configuration decides what can go in and out (a Mekanism machine's unsided handler, for
@@ -248,7 +380,7 @@ public final class NetworkRuntime {
      * Resolves a port for counting (keep rules and caps). With no faces chosen, the unsided handler is preferred:
      * it sees the whole inventory exactly once, where several faces may share slots.
      */
-    private <T> List<T> view(MinecraftServer server, Network network, NodeSettings.Port port, BlockCapability<T, Direction> capability,
+    <T> List<T> view(MinecraftServer server, Network network, NodeSettings.Port port, BlockCapability<T, Direction> capability,
             ResourceKind resource) {
         return resolve(server, network, port, capability, resource, true);
     }

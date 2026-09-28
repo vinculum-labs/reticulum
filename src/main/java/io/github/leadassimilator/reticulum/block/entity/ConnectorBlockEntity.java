@@ -13,6 +13,8 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     private UUID connectorId = UUID.randomUUID();
     /** Device sides the player switched off; those neighbors are not devices of this connector. */
     private int disabledDevices;
+    /** Redstone given out towards each side (Redstone out nodes); not saved, the network sets it every tick. */
+    private final byte[] power = new byte[6];
 
     public ConnectorBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.CONNECTOR.get(), pos, state);
@@ -29,6 +31,21 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     public void setDeviceEnabled(Direction side, boolean enabled) {
         disabledDevices = enabled ? disabledDevices & ~bit(side) : disabledDevices | bit(side);
         setChanged();
+    }
+
+    /** Redstone this connector gives to the block on that side. */
+    public int power(Direction toward) {
+        return power[toward.get3DDataValue()];
+    }
+
+    /** Returns whether it changed, so the neighbors need an update. */
+    public boolean setPower(Direction toward, int level) {
+        byte next = (byte) Math.max(0, Math.min(15, level));
+        if (power[toward.get3DDataValue()] == next) {
+            return false;
+        }
+        power[toward.get3DDataValue()] = next;
+        return true;
     }
 
     @Override

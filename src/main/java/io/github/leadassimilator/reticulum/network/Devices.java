@@ -12,7 +12,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.RedstoneLampBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.capabilities.Capabilities;
 
@@ -42,7 +44,7 @@ public final class Devices {
         if (be instanceof NetworkBlockEntity) {
             return false;
         }
-        if (be != null) {
+        if (be != null || redstone(state)) {
             return true;
         }
         BlockCapability<?, Direction> chemicals = Mods.chemicalCapability();
@@ -67,6 +69,16 @@ public final class Devices {
             }
         }
         return false;
+    }
+
+    /**
+     * Blocks that give out redstone (levers, sensors, dust), have a comparator value, or react to it (lamps, doors,
+     * pistons, dispensers), so Redstone in and out nodes can use them.
+     */
+    private static boolean redstone(BlockState state) {
+        return state.isSignalSource() || state.hasAnalogOutputSignal()
+                || state.hasProperty(BlockStateProperties.POWERED) || state.hasProperty(BlockStateProperties.TRIGGERED)
+                || state.hasProperty(BlockStateProperties.EXTENDED) || state.getBlock() instanceof RedstoneLampBlock;
     }
 
     public static ResourceLocation blockId(Level level, BlockPos pos) {

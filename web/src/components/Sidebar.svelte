@@ -155,7 +155,7 @@
             {:else}
               <button
                 class="flex-1 truncate text-left"
-                style={sheet.enabled === false || folderOff(sheet.folder ?? "") ? "color: var(--muted)" : ""}
+                style={sheet.enabled === false || folderOff(sheet.folder ?? "") || app.sheetsOff.includes(sheet.id) ? "color: var(--muted)" : ""}
                 onclick={() => {
                   app.sheetId = sheet.id;
                   app.selectedNodes = [];
@@ -166,6 +166,7 @@
                 title={sheet.subsheet ? "Sub-sheet: runs only where it is placed. Double-click to rename." : "Double-click to rename"}
               >
                 {#if sheet.subsheet}<span class="muted">⧉ </span>{/if}{sheet.name}
+                {#if app.sheetsOff.includes(sheet.id)}<span style="color: var(--c-signal)" title="Switched off by redstone"> ⚡</span>{/if}
                 {#if sheet.errors?.length}<span style="color: var(--bad)" title={sheet.errors.join("\n")}> ⚠</span>{/if}
               </button>
             {/if}

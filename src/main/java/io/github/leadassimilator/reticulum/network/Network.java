@@ -36,11 +36,11 @@ public final class Network {
             GlobalPos.CODEC.optionalFieldOf("controller").forGetter(n -> Optional.ofNullable(n.controller)),
             ConnectorRecord.CODEC.listOf().optionalFieldOf("connectors", List.of()).forGetter(n -> List.copyOf(n.connectors.values())),
             DeviceRecord.CODEC.listOf().optionalFieldOf("devices", List.of()).forGetter(n -> List.copyOf(n.devices.values())),
-            Codec.BOOL.optionalFieldOf("enabled", true).forGetter(n -> n.enabled),
+            Switches.CODEC.optionalFieldOf("switches", new Switches()).forGetter(n -> n.switches),
             Sheet.CODEC.listOf().optionalFieldOf("sheets", List.of()).forGetter(n -> List.copyOf(n.sheets)),
             Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("filters", Map.of()).forGetter(n -> n.filters),
             OverflowBuffer.CODEC.optionalFieldOf("overflow", new OverflowBuffer()).forGetter(n -> n.overflow),
-            Codec.STRING.listOf().optionalFieldOf("disabled_folders", List.of()).forGetter(n -> List.copyOf(n.disabledFolders))
+            Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("signal_memory", Map.of()).forGetter(n -> n.signalMemory)
     ).apply(i, Network::new));
 
     private final UUID id;
@@ -56,14 +56,14 @@ public final class Network {
     private GlobalPos controller;
     private final Map<UUID, ConnectorRecord> connectors = new LinkedHashMap<>();
     private final Map<GlobalPos, DeviceRecord> devices = new LinkedHashMap<>();
-    private boolean enabled = true;
+    private Switches switches = new Switches();
     private final List<Sheet> sheets = new ArrayList<>();
     /** Named filter templates, referenced from filter expressions as {@code @name}. */
     private final Map<String, String> filters = new LinkedHashMap<>();
     /** Resources that could be neither delivered nor returned; retried first on later operations. */
     private OverflowBuffer overflow = new OverflowBuffer();
-    /** Folders switched off: sheets in them, or in folders under them, don't run. */
-    private final java.util.Set<String> disabledFolders = new java.util.LinkedHashSet<>();
+    /** What latches and counters remember (by node id), so they survive restarts. */
+    private final Map<String, Long> signalMemory = new LinkedHashMap<>();
     /** Bumped on every change; not saved. The web protocol sends a new snapshot when it moves. */
     private int revision;
 
@@ -77,18 +77,18 @@ public final class Network {
 
     private Network(UUID id, String name, Optional<UUID> owner, String ownerName, AccessMode accessMode, Optional<String> passwordHash,
             List<Member> members, Optional<GlobalPos> controller, List<ConnectorRecord> connectors, List<DeviceRecord> devices,
-            boolean enabled, List<Sheet> sheets, Map<String, String> filters, OverflowBuffer overflow, List<String> disabledFolders) {
+            Switches switches, List<Sheet> sheets, Map<String, String> filters, OverflowBuffer overflow, Map<String, Long> signalMemory) {
         this(id, name, owner.orElse(null), ownerName, accessMode);
         this.passwordHash = passwordHash.orElse(null);
         members.forEach(m -> this.members.put(m.id(), m));
         this.controller = controller.orElse(null);
         connectors.forEach(c -> this.connectors.put(c.id(), c));
         devices.forEach(d -> this.devices.put(d.pos(), d));
-        this.enabled = enabled;
+        this.switches = switches;
         this.sheets.addAll(sheets);
         this.filters.putAll(filters);
         this.overflow = overflow;
-        this.disabledFolders.addAll(disabledFolders);
+        this.signalMemory.putAll(signalMemory);
     }
 
     public UUID id() {
@@ -186,12 +186,20 @@ public final class Network {
         return false;
     }
 
+    public Switches switches() {
+        return switches;
+    }
+
+    public Map<String, Long> signalMemory() {
+        return signalMemory;
+    }
+
     public boolean enabled() {
-        return enabled;
+        return switches.enabled();
     }
 
     public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
+        switches.setEnabled(enabled);
     }
 
     public List<Sheet> sheets() {
@@ -235,7 +243,7 @@ public final class Network {
     }
 
     public java.util.Set<String> disabledFolders() {
-        return disabledFolders;
+        return switches.disabledFolders();
     }
 
     /** Whether a sheet may run: it is on, isn't a sub-sheet, and neither its folder nor any folder above it is off. */
@@ -245,7 +253,7 @@ public final class Network {
         }
         String folder = sheet.folder();
         while (!folder.isEmpty()) {
-            if (disabledFolders.contains(folder)) {
+            if (switches.disabledFolders().contains(folder)) {
                 return false;
             }
             int slash = folder.lastIndexOf('/');

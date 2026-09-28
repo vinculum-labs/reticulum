@@ -91,6 +91,94 @@ export interface SheetPinSettings {
   name?: string;
 }
 
+// Signal nodes pass integers along signal wires; above 0 counts as on, and yes/no answers are 15 or 0.
+
+/** Reads the redstone a device gives out of one face (or its strongest face), or its comparator value. */
+export interface RedstoneInSettings {
+  kind: "redstone_in";
+  device: GlobalPos;
+  face?: Face;
+  comparator?: boolean;
+}
+
+/** Every connector next to the device gives its input (0 to 15) to it, on the side facing it. */
+export interface RedstoneOutSettings {
+  kind: "redstone_out";
+  device: GlobalPos;
+}
+
+/** How much of a resource a device holds, counting what matches the filter. */
+export interface LevelSettings {
+  kind: "level";
+  resource: Resource;
+  device: GlobalPos;
+  faces?: Face[];
+  filter?: string;
+}
+
+export type CompareOp = "lt" | "le" | "gt" | "ge" | "eq" | "ne";
+
+/** A (input 0) against B (input 1), or against the constant when B isn't wired. */
+export interface CompareSettings {
+  kind: "compare";
+  op?: CompareOp;
+  constant?: number;
+}
+
+export type LogicOp = "and" | "or" | "not" | "xor";
+
+export interface LogicSettings {
+  kind: "logic";
+  op?: LogicOp;
+}
+
+export interface TimerSettings {
+  kind: "timer";
+  interval?: number;
+}
+
+export interface PulseSettings {
+  kind: "pulse";
+  length?: number;
+}
+
+export interface LatchSettings {
+  kind: "latch";
+}
+
+export interface CounterSettings {
+  kind: "counter";
+}
+
+export interface DelaySettings {
+  kind: "delay";
+  ticks?: number;
+}
+
+export interface PublishSettings {
+  kind: "publish";
+  name?: string;
+}
+
+export interface SignalSettings {
+  kind: "signal";
+  name?: string;
+}
+
+export type SignalNodeSettings =
+  | RedstoneInSettings
+  | RedstoneOutSettings
+  | LevelSettings
+  | CompareSettings
+  | LogicSettings
+  | TimerSettings
+  | PulseSettings
+  | LatchSettings
+  | CounterSettings
+  | DelaySettings
+  | PublishSettings
+  | SignalSettings;
+
 export type NodeSettings =
   | FilterSettings
   | RateLimitSettings
@@ -98,8 +186,25 @@ export type NodeSettings =
   | KitSettings
   | DeviceNodeSettings
   | SubSheetSettings
-  | SheetPinSettings;
+  | SheetPinSettings
+  | SignalNodeSettings;
 export type NodeKind = NodeSettings["kind"];
+
+export type RedstoneMode = "ignored" | "high" | "low" | "pulse";
+export type RedstoneSource = "default" | "connector" | "face" | "signal";
+
+/** A redstone condition: the thing runs only while it allows (and its on/off button is on). */
+export interface Redstone {
+  mode?: RedstoneMode;
+  source?: RedstoneSource;
+  device?: GlobalPos;
+  face?: Face;
+  connector?: string;
+  signal?: string;
+}
+
+/** The input every node has for a signal wire that switches it on and off. */
+export const GATE = -1;
 
 export interface GraphNode {
   id: string;
@@ -108,6 +213,7 @@ export interface GraphNode {
   enabled?: boolean;
   x?: number;
   y?: number;
+  redstone?: Redstone;
 }
 
 export interface Wire {
@@ -130,6 +236,7 @@ export interface Sheet {
   priority?: number;
   /** A sub-sheet never runs on its own; other sheets place copies of it. */
   subsheet?: boolean;
+  redstone?: Redstone;
   nodes?: GraphNode[];
   wires?: Wire[];
   errors?: string[];
@@ -176,6 +283,9 @@ export interface Snapshot extends NetworkSummary {
   canAdmin: boolean;
   hasPassword: boolean;
   disabledFolders: string[];
+  redstone?: Redstone;
+  /** Redstone conditions of folders, by folder path. */
+  folderRedstone?: Record<string, Redstone>;
   /** Only sent to admins. */
   members?: Member[];
   controller?: GlobalPos;

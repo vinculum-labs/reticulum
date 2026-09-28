@@ -25,6 +25,10 @@ public final class NetworkTicker {
         MinecraftServer server = event.getServer();
         for (Network network : NetworkManager.data(server).networks()) {
             if (!isRunning(server, network)) {
+                NetworkRuntime idle = RUNTIMES.get(network.id());
+                if (idle != null) {
+                    idle.stop(server, network);
+                }
                 continue;
             }
             try {

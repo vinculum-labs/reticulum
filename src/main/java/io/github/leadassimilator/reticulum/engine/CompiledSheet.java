@@ -15,6 +15,8 @@ import io.github.leadassimilator.reticulum.filter.FilterException;
 import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
+import io.github.leadassimilator.reticulum.graph.Redstone;
+import net.minecraft.core.GlobalPos;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
@@ -33,9 +35,13 @@ public final class CompiledSheet {
     public record Gate(Filters.ItemFilter items, Filters.FluidFilter fluids, Filters.ChemicalFilter chemicals, boolean reject) {
     }
 
-    /** {@code path} lists every node from source to sink and {@code wires} every wire between them, for metrics. */
+    /**
+     * {@code path} lists every node from source to sink and {@code wires} every wire between them, for metrics.
+     * {@code controls} holds every node whose redstone condition or gate can switch the route off: the nodes on it,
+     * the device nodes their sources and sinks belong to, and the sub-sheet nodes they were pasted from.
+     */
     public record Route(Node source, Node sink, List<Gate> gates, List<Node> rateLimits, List<Branch> branches,
-            @Nullable Node kit, List<Gate> gatesBeforeKit, List<UUID> path, List<UUID> wires) {
+            @Nullable Node kit, List<Gate> gatesBeforeKit, List<UUID> path, List<UUID> wires, Set<UUID> controls) {
         public NodeSettings.SourceSettings sourceSettings() {
             return (NodeSettings.SourceSettings) source.settings();
         }
@@ -45,8 +51,8 @@ public final class CompiledSheet {
         }
     }
 
-    /** A source and every route leaving it, in wire order. */
-    public record Source(Node node, NodeSettings.SourceSettings settings, List<Route> routes) {
+    /** A source and every route leaving it, in wire order. {@code controls} as for a route. */
+    public record Source(Node node, NodeSettings.SourceSettings settings, List<Route> routes, Set<UUID> controls) {
         public ResourceKind resource() {
             return settings.port().resource();
         }
@@ -110,9 +116,14 @@ public final class CompiledSheet {
 
         Map<UUID, Node> nodes = new LinkedHashMap<>();
         Map<UUID, NodeSettings.DeviceSettings> devices = new LinkedHashMap<>();
+        Set<UUID> carriers = compileSignals(flatNodes, flatWires);
         for (Node node : flatNodes) {
             if (!node.enabled()) {
                 continue;
+            }
+            if (!node.redstone().ignored()) {
+                conditions.put(node.id(), new Condition(node.redstone(),
+                        node.settings() instanceof NodeSettings.DeviceSettings device ? device.device() : null));
             }
             if (node.settings() instanceof NodeSettings.DeviceSettings device) {
                 devices.put(node.id(), device);
@@ -123,6 +134,9 @@ public final class CompiledSheet {
         }
         Map<UUID, List<Wire>> outgoing = new LinkedHashMap<>();
         for (Wire original : flatWires) {
+            if (carriers.contains(original.from()) || original.input() == Wire.GATE) {
+                continue;
+            }
             // Wires on a device node really leave one of its outputs or enter one of its inputs.
             UUID from = devices.containsKey(original.from()) ? side(original.from(), "out", original.output()) : original.from();
             UUID to = devices.containsKey(original.to()) ? side(original.to(), "in", original.input()) : original.to();
@@ -156,8 +170,162 @@ public final class CompiledSheet {
             NodeSettings.SourceSettings settings = (NodeSettings.SourceSettings) source.settings();
             List<Route> routes = new ArrayList<>();
             walk(source, source, settings.port().resource(), nodes, outgoing, gates, new Walk(), routes);
-            sources.add(new Source(source, settings, routes));
+            sources.add(new Source(source, settings, routes, controls(List.of(source.id()))));
         }
+    }
+
+    // ---------------------------------------------------------------- signals and redstone
+
+    /** A signal node and, for each of its inputs, the nodes wired into it. */
+    public record SignalNode(Node node, List<List<UUID>> inputs) {
+        public List<UUID> input(int index) {
+            return index < inputs.size() ? inputs.get(index) : List.of();
+        }
+    }
+
+    /** A redstone condition; {@code device} is set for device nodes, whose default source is their connectors. */
+    public record Condition(Redstone redstone, @Nullable GlobalPos device) {
+    }
+
+    /** Signal nodes in the order they are worked out each tick; empty when the signal wires loop. */
+    private final List<SignalNode> signals = new ArrayList<>();
+    /** Nodes with a signal wire into their gate, and the nodes wired into it. */
+    private final Map<UUID, List<UUID>> switchedBy = new LinkedHashMap<>();
+    /** Nodes (by compiled id, including sub-sheet nodes) with a redstone condition. */
+    private final Map<UUID, Condition> conditions = new LinkedHashMap<>();
+
+    public List<SignalNode> signals() {
+        return signals;
+    }
+
+    public Map<UUID, List<UUID>> switchedBy() {
+        return switchedBy;
+    }
+
+    public Map<UUID, Condition> conditions() {
+        return conditions;
+    }
+
+    /** Whether anything on the sheet can be switched by redstone, so the engine can skip the checks otherwise. */
+    public boolean switchable() {
+        return !conditions.isEmpty() || !switchedBy.isEmpty();
+    }
+
+    /** Latches, counters and delays give what they remembered, so wires into them never make a loop. */
+    private static boolean remembers(NodeSettings.Kind kind) {
+        return kind == NodeSettings.Kind.LATCH || kind == NodeSettings.Kind.COUNTER || kind == NodeSettings.Kind.DELAY;
+    }
+
+    /**
+     * Sorts out the signal side of the sheet: which nodes carry signals (signal nodes, and sheet pins fed by them),
+     * what is wired into each, and which nodes are gated. Returns the carriers, whose wires the resource walk skips.
+     */
+    private Set<UUID> compileSignals(List<Node> flatNodes, List<Wire> wires) {
+        Map<UUID, Node> byId = new LinkedHashMap<>();
+        for (Node node : flatNodes) {
+            if (node.enabled()) {
+                byId.put(node.id(), node);
+            }
+        }
+        Set<UUID> carriers = new java.util.LinkedHashSet<>();
+        byId.values().stream().filter(n -> n.kind().signal()).forEach(n -> carriers.add(n.id()));
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (Wire wire : wires) {
+                Node to = byId.get(wire.to());
+                if (carriers.contains(wire.from()) && to != null && to.settings() instanceof NodeSettings.SheetPinSettings && carriers.add(to.id())) {
+                    grew = true;
+                }
+            }
+        }
+        if (carriers.isEmpty()) {
+            for (Wire wire : wires) {
+                if (wire.input() == Wire.GATE) {
+                    errors.add("Only signal wires can switch a node on and off");
+                }
+            }
+            return carriers;
+        }
+        Map<UUID, List<List<UUID>>> inputs = new LinkedHashMap<>();
+        for (Wire wire : wires) {
+            if (!carriers.contains(wire.from())) {
+                if (wire.input() == Wire.GATE) {
+                    errors.add("Only signal wires can switch a node on and off");
+                }
+                continue;
+            }
+            if (!byId.containsKey(wire.from())) {
+                continue;
+            }
+            if (wire.input() == Wire.GATE) {
+                switchedBy.computeIfAbsent(wire.to(), k -> new ArrayList<>()).add(wire.from());
+            } else if (carriers.contains(wire.to())) {
+                List<List<UUID>> in = inputs.computeIfAbsent(wire.to(), k -> new ArrayList<>());
+                while (in.size() <= wire.input()) {
+                    in.add(new ArrayList<>());
+                }
+                in.get(wire.input()).add(wire.from());
+            } else if (byId.containsKey(wire.to())) {
+                errors.add(describe(byId.get(wire.to())) + ": a signal wire must go into its gate (the pin on top), not a resource input");
+            }
+        }
+        // Remembering nodes first, then the rest so every node comes after the nodes wired into it.
+        List<SignalNode> ordered = new ArrayList<>();
+        Map<UUID, Integer> waiting = new LinkedHashMap<>();
+        Map<UUID, List<UUID>> feeds = new LinkedHashMap<>();
+        for (UUID id : carriers) {
+            Node node = byId.get(id);
+            List<List<UUID>> in = inputs.getOrDefault(id, List.of());
+            if (remembers(node.kind())) {
+                ordered.add(new SignalNode(node, in));
+                continue;
+            }
+            int count = 0;
+            for (List<UUID> from : in) {
+                for (UUID source : from) {
+                    if (!remembers(byId.get(source).kind())) {
+                        count++;
+                        feeds.computeIfAbsent(source, k -> new ArrayList<>()).add(id);
+                    }
+                }
+            }
+            waiting.put(id, count);
+        }
+        java.util.ArrayDeque<UUID> ready = new java.util.ArrayDeque<>();
+        waiting.forEach((id, count) -> {
+            if (count == 0) {
+                ready.add(id);
+            }
+        });
+        while (!ready.isEmpty()) {
+            UUID id = ready.poll();
+            ordered.add(new SignalNode(byId.get(id), inputs.getOrDefault(id, List.of())));
+            for (UUID next : feeds.getOrDefault(id, List.of())) {
+                if (waiting.merge(next, -1, Integer::sum) == 0) {
+                    ready.add(next);
+                }
+            }
+        }
+        if (ordered.size() < carriers.size()) {
+            errors.add("Signal wires loop back on themselves; a loop must pass through a Latch, Counter or Delay");
+        } else {
+            signals.addAll(ordered);
+        }
+        return carriers;
+    }
+
+    /** The given nodes plus everything that owns them (device nodes, sub-sheet nodes). */
+    private Set<UUID> controls(List<UUID> raw) {
+        Set<UUID> out = new java.util.HashSet<>();
+        for (UUID id : raw) {
+            UUID current = id;
+            for (int hops = 0; current != null && hops < 32; hops++) {
+                out.add(current);
+                current = owners.get(current);
+            }
+        }
+        return out;
     }
 
     /** Node ids of the sources and sinks a device node is made of, mapped back to the device node (for metrics). */
@@ -194,6 +362,9 @@ public final class CompiledSheet {
                 out.add(node);
                 continue;
             }
+            if (!node.redstone().ignored()) {
+                conditions.put(node.id(), new Condition(node.redstone(), null));
+            }
             Sheet used = network.sheet(sub.sheet());
             if (used == null || !used.subsheet()) {
                 errors.add(describe(node) + ": the sub-sheet it uses no longer exists or is no longer marked as a sub-sheet");
@@ -208,7 +379,7 @@ public final class CompiledSheet {
                     UUID.nameUUIDFromBytes((node.id() + "/" + id).getBytes(java.nio.charset.StandardCharsets.UTF_8));
             List<Node> copies = new ArrayList<>();
             for (Node inner : used.nodes()) {
-                Node pasted = new Node(copy.apply(inner.id()), inner.settings(), inner.label(), inner.enabled(), inner.x(), inner.y());
+                Node pasted = inner.withId(copy.apply(inner.id()));
                 copies.add(pasted);
                 owners.put(pasted.id(), node.id());
             }
@@ -219,7 +390,7 @@ public final class CompiledSheet {
             List<Node> outputs = pins(used, false);
             for (int i = 0; i < wires.size(); i++) {
                 Wire w = wires.get(i);
-                if (w.to().equals(node.id())) {
+                if (w.to().equals(node.id()) && w.input() != Wire.GATE) {
                     UUID pin = w.input() < inputs.size() ? copy.apply(inputs.get(w.input()).id()) : null;
                     wires.set(i, pin == null ? w : new Wire(w.id(), w.from(), w.output(), pin, 0, w.order()));
                 } else if (w.from().equals(node.id())) {
@@ -255,14 +426,15 @@ public final class CompiledSheet {
             NodeSettings.Port port = new NodeSettings.Port(out.resource(), device.device(), out.faces(), out.slots());
             Node source = new Node(side(node.id(), "out", i),
                     new NodeSettings.SourceSettings(port, out.keep(), out.perOperation(), out.interval(), out.priority()),
-                    node.label(), true, node.x(), node.y());
+                    node.label(), true, node.x(), node.y(), Redstone.IGNORED);
             nodes.put(source.id(), source);
             owners.put(source.id(), node.id());
         }
         for (int i = 0; i < device.inputs().size(); i++) {
             NodeSettings.Input in = device.inputs().get(i);
             NodeSettings.Port port = new NodeSettings.Port(in.resource(), device.device(), in.faces(), in.slots());
-            Node sink = new Node(side(node.id(), "in", i), new NodeSettings.SinkSettings(port, in.caps()), node.label(), true, node.x(), node.y());
+            Node sink = new Node(side(node.id(), "in", i), new NodeSettings.SinkSettings(port, in.caps()), node.label(), true, node.x(), node.y(),
+                    Redstone.IGNORED);
             nodes.put(sink.id(), sink);
             owners.put(sink.id(), node.id());
         }
@@ -276,6 +448,8 @@ public final class CompiledSheet {
         final Set<UUID> onPath = new HashSet<>();
         final List<UUID> path = new ArrayList<>();
         final List<UUID> wires = new ArrayList<>();
+        /** Node ids as compiled (not mapped to the node the editor shows), for redstone. */
+        final List<UUID> raw = new ArrayList<>();
         Node kit;
         List<Gate> gatesBeforeKit = List.of();
 
@@ -287,6 +461,7 @@ public final class CompiledSheet {
             w.onPath.addAll(onPath);
             w.path.addAll(path);
             w.wires.addAll(wires);
+            w.raw.addAll(raw);
             w.kit = kit;
             w.gatesBeforeKit = gatesBeforeKit;
             return w;
@@ -300,14 +475,23 @@ public final class CompiledSheet {
             return;
         }
         walk.path.add(owners.getOrDefault(node.id(), node.id()));
+        if (node.kind().signal()) {
+            errors.add(describe(node) + " takes signals, not resources");
+            return;
+        }
+        if (!(node.settings() instanceof NodeSettings.SinkSettings)) {
+            walk.raw.add(node.id());
+        }
         switch (node.settings()) {
             case NodeSettings.SinkSettings sink -> {
                 if (sink.port().resource() != resource) {
                     errors.add(describe(node) + " takes " + sink.port().resource().getSerializedName()
                             + " but is wired to a " + resource.getSerializedName() + " source");
                 } else {
+                    walk.raw.add(node.id());
                     routes.add(new Route(source, node, List.copyOf(walk.gates), List.copyOf(walk.rateLimits),
-                            List.copyOf(walk.branches), walk.kit, walk.gatesBeforeKit, List.copyOf(walk.path), List.copyOf(walk.wires)));
+                            List.copyOf(walk.branches), walk.kit, walk.gatesBeforeKit, List.copyOf(walk.path), List.copyOf(walk.wires),
+                            controls(walk.raw)));
                 }
                 return;
             }

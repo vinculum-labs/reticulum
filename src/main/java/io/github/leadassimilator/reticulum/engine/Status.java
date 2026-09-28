@@ -17,7 +17,9 @@ public enum Status {
     TARGET_FULL,
     WAITING_FOR_PARTS,
     NO_ROOM_FOR_KIT,
-    OVERFLOW_FULL;
+    OVERFLOW_FULL,
+    /** Its redstone condition or gate has it switched off (set directly, never through {@link #furthest}). */
+    SWITCHED_OFF;
 
     public String key() {
         return name().toLowerCase(Locale.ROOT);
