@@ -59,6 +59,12 @@
         {/each}
       </div>
     </div>
+  {:else if kind === "filter"}
+    <div class="truncate px-1.5 pt-0.5 muted" style="font-size: 10px" title={summary(data.node)}>{summary(data.node)}</div>
+    <div class="flex flex-col text-right" style="font-size: 10px">
+      <div class="pr-2" style="height: {ROW}px; line-height: {ROW}px; color: var(--good)">match</div>
+      <div class="pr-2" style="height: {ROW}px; line-height: {ROW}px; color: var(--bad)">other</div>
+    </div>
   {:else}
     <div class="truncate px-1.5 py-0.5 muted" style="font-size: 10px" title={summary(data.node)}>{summary(data.node)}</div>
   {/if}
@@ -74,8 +80,9 @@
 {:else}
   <Handle type="target" position={Position.Left} id="in" />
   {#if kind === "filter"}
-    <Handle type="source" position={Position.Right} id="match" style="top: 35%; background: var(--good)" />
-    <Handle type="source" position={Position.Right} id="reject" style="top: 75%; background: var(--bad)" />
+    <!-- Aligned with the "match" and "other" rows under the summary line (16px). -->
+    <Handle type="source" position={Position.Right} id="match" style="top: {HEADER + 16 + ROW / 2}px; background: var(--good)" />
+    <Handle type="source" position={Position.Right} id="reject" style="top: {HEADER + 16 + ROW + ROW / 2}px; background: var(--bad)" />
   {:else}
     <Handle type="source" position={Position.Right} id="out" style="background: {color}" />
   {/if}
