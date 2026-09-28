@@ -22,6 +22,15 @@ public interface MeLinker {
     /** Disconnects everything, e.g. when the network stops. */
     void clear();
 
-    /** Channels in use and available on each ME port node, by node id, as "27/32". */
-    Map<UUID, String> usage(MinecraftServer server, Network network, Collection<CompiledSheet.MeLink> wanted);
+    /** Channel use of each ME port node, by node id. */
+    Map<UUID, Usage> usage(MinecraftServer server, Network network, Collection<CompiledSheet.MeLink> wanted);
+
+    /**
+     * {@code through}: channels going through this port (the AE2 machines behind it). {@code used} of {@code max}:
+     * the fullest cable on the way to the ME controller, which every port on that way shares. Not connected: all 0
+     * and {@code connected} false.
+     */
+    record Usage(boolean connected, int through, int used, int max) {
+        public static final Usage NOT_CONNECTED = new Usage(false, 0, 0, 0);
+    }
 }

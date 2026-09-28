@@ -312,6 +312,16 @@ export interface Snapshot extends NetworkSummary {
   overflow: { items: { id: string; count: number }[]; fluids: { id: string; amount: number }[]; chemicals: { id: string; amount: number }[] };
 }
 
+/** Channel use of an ME port: through it, and the fullest cable on the way to the ME controller. */
+export interface MeUsage {
+  connected: boolean;
+  /** Channels going through this port (the AE2 machines behind it). */
+  through: number;
+  /** The fullest cable on the way to the controller: channels in use and the most it carries. */
+  used: number;
+  max: number;
+}
+
 export type Edit = { type: string } & Record<string, unknown>;
 
 export function posKey(p: GlobalPos): string {

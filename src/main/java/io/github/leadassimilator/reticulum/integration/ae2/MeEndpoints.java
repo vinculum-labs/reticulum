@@ -17,6 +17,7 @@ import appeng.api.networking.IManagedGridNode;
 import appeng.api.util.AECableType;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
+import io.github.leadassimilator.reticulum.engine.MeLinker;
 import io.github.leadassimilator.reticulum.registry.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -81,16 +82,16 @@ public final class MeEndpoints implements IInWorldGridNodeHost {
     /**
      * How full the way to the ME controller is: of the cable on this side and every node on AE2's own route from
      * this endpoint to the controller, the one with the least room left (usually a normal cable carrying other
-     * machines' channels too), as "used/max".
+     * machines' channels too), and how many channels go through this endpoint.
      */
     @Nullable
-    String usage(Direction side) {
+    MeLinker.Usage usage(Direction side) {
         IGridNode node = node(side);
         if (node == null) {
             return null;
         }
         if (node.getInWorldConnections().get(side) == null && node.getConnections().isEmpty()) {
-            return "not connected";
+            return MeLinker.Usage.NOT_CONNECTED;
         }
         // The cable on this side limits the link too, even when it lies further out than us rather than towards the controller.
         appeng.api.networking.IGridConnection cable = node.getInWorldConnections().get(side);
@@ -117,7 +118,8 @@ public final class MeEndpoints implements IInWorldGridNodeHost {
         if (tightest == null) {
             tightest = node;
         }
-        return tightest.getUsedChannels() + "/" + tightest.getMaxChannels();
+        // AE2 counts on each node the channels routed through it to the machines further out.
+        return new MeLinker.Usage(true, node.getUsedChannels(), tightest.getUsedChannels(), tightest.getMaxChannels());
     }
 
     private static int room(IGridNode node) {

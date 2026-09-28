@@ -2,7 +2,7 @@
 // replaces what is shown. Undo and redo send the inverse edits recorded with each change.
 
 import { Connection } from "./protocol";
-import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot } from "./types";
+import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage } from "./types";
 import { posKey } from "./types";
 
 export interface Toast {
@@ -61,8 +61,8 @@ export const app = $state({
   networkSignals: {} as Record<string, number>,
   /** Sheets their redstone condition currently switches off. */
   sheetsOff: [] as string[],
-  /** Channels in use on each ME port node, e.g. "27/32". */
-  me: {} as Record<string, string>,
+  /** Channel use of each ME port node. */
+  me: {} as Record<string, MeUsage>,
   selectedNodes: [] as string[],
   selectedEdges: [] as string[],
   selectedDevice: null as string | null,

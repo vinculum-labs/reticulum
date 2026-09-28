@@ -415,8 +415,8 @@ public final class EngineTests {
             check(helper, helper.getLevel().getBlockState(first).getValue(
                     io.github.leadassimilator.reticulum.block.ConnectorBlock.LINKS.get(Direction.NORTH)) != io.github.leadassimilator.reticulum.block.Link.DEVICE,
                     "the connector shows a plug towards a storage bus with no cable");
-            String usage = rig.runtime().meUsage().get(b.id());
-            check(helper, usage != null && usage.endsWith("/8"), "the glass cable side shows " + usage + " instead of x/8");
+            var usage = rig.runtime().meUsage().get(b.id());
+            check(helper, usage != null && usage.max() == 8, "the glass cable side shows " + usage + " instead of x/8");
         });
     }
 
@@ -444,8 +444,12 @@ public final class EngineTests {
         Node b = rig.node(new NodeSettings.MePortSettings(connector.apply(shortbus), Direction.NORTH));
         rig.sheet().connect(Wire.of(a, b));
         helper.succeedWhen(() -> {
-            check(helper, "3/8".equals(rig.runtime().meUsage().get(a.id())), "ae2c shows " + rig.runtime().meUsage().get(a.id()) + ", not 3/8");
-            check(helper, "3/8".equals(rig.runtime().meUsage().get(b.id())), "shortbus shows " + rig.runtime().meUsage().get(b.id()) + ", not 3/8");
+            var ae2cUsage = rig.runtime().meUsage().get(a.id());
+            var shortbusUsage = rig.runtime().meUsage().get(b.id());
+            check(helper, ae2cUsage != null && ae2cUsage.used() == 3 && ae2cUsage.max() == 8 && ae2cUsage.through() == 1,
+                    "ae2c shows " + ae2cUsage + ", not 1 through and 3/8");
+            check(helper, shortbusUsage != null && shortbusUsage.used() == 3 && shortbusUsage.max() == 8 && shortbusUsage.through() == 1,
+                    "shortbus shows " + shortbusUsage + ", not 1 through and 3/8");
         });
     }
 

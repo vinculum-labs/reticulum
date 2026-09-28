@@ -1,7 +1,7 @@
 // Turns a sheet into Svelte Flow nodes and edges.
 
 import type { Edge, Node } from "@xyflow/svelte";
-import type { Device, GraphNode, Resource, Sheet, Wire } from "./types";
+import type { Device, GraphNode, MeUsage, Resource, Sheet, Wire } from "./types";
 import { GATE, pinName, posKey, sheetPins } from "./types";
 import { RESOURCE_VAR, formatRate, isSignal } from "./kinds";
 
@@ -20,8 +20,8 @@ export interface NodeData extends Record<string, unknown> {
   subsheet?: { sheet?: Sheet; inputs: string[]; outputs: string[] };
   /** For a signal node: its output as last reported. */
   signal?: number;
-  /** For an ME port: channels in use, e.g. "27/32". */
-  me?: string;
+  /** For an ME port: its channel use. */
+  me?: MeUsage;
   /** For an ME port: the connector's name. */
   connectorName?: string;
 }
@@ -32,7 +32,7 @@ export interface Activity {
   ticksSinceMoved: Record<string, number>;
   status: Record<string, string>;
   signals: Record<string, number>;
-  me: Record<string, string>;
+  me: Record<string, MeUsage>;
 }
 
 /**

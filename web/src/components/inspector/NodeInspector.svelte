@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app, edit, mePortName } from "../../lib/state.svelte";
-  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, RESOURCE_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate, isSignal } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, meUsageLabel, RESOURCE_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate, isSignal } from "../../lib/kinds";
   import {
     SIDES,
     pinName,
@@ -139,10 +139,24 @@
         {/each}
       </select>
     </Field>
+    {@const usage = app.me[node.id]}
+    <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+      {#if usage?.connected}
+        <dt class="muted">Through this port</dt>
+        <dd class="tabular-nums">{usage.through} channel{usage.through === 1 ? "" : "s"}</dd>
+        <dt class="muted">Fullest cable</dt>
+        <dd class="tabular-nums" style={usage.used >= usage.max ? "color: var(--warn)" : ""}>
+          {usage.used} of {usage.max} in use{usage.used >= usage.max ? " (full)" : ""}
+        </dd>
+      {:else}
+        <dt class="muted">Channels</dt>
+        <dd>{meUsageLabel(usage)}</dd>
+      {/if}
+    </dl>
     <p class="text-sm">
-      Channels: <span class="tabular-nums">{app.me[node.id] ?? "not linked"}</span>
       <span class="block text-xs muted">
-        Wire this port to another ME port to join their AE2 networks. Each side carries 32 channels (8 through a smart cable); for more,
+        Wire this port to another ME port to join their AE2 networks. The fullest cable is the one with the least room left on
+        the way to the ME controller, which every machine behind this port shares. A link carries 32 channels at most; for more,
         use more sides and link each pair.
       </span>
     </p>

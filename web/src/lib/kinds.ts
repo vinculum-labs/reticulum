@@ -183,6 +183,13 @@ export function defaultSettings(
   }
 }
 
+/** "1 ch · 4/8": channels through the port, then the fullest cable on the way to the ME controller. */
+export function meUsageLabel(usage: { connected: boolean; through: number; used: number; max: number } | undefined): string {
+  if (!usage) return "not linked";
+  if (!usage.connected) return "not connected";
+  return `${usage.through} ch · ${usage.used}/${usage.max}`;
+}
+
 /** Why a node moved nothing, in words. */
 export const STATUS_LABEL: Record<string, string> = {
   device_offline: "device offline",

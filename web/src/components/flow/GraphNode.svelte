@@ -9,6 +9,7 @@
     formatAverage,
     formatRate,
     gated,
+    meUsageLabel,
     isSignal,
     redstoneSummary,
     shortLabel,
@@ -107,7 +108,12 @@
       <div class="truncate font-medium" style="font-size: 12px" title={title}>{title}</div>
       <div class="truncate muted" style="font-size: 10px" title={signal ? summary(data.node, app.rateUnit) : idleTitle}>
         {#if s.kind === "me_port"}
-          <span class="tabular-nums" style="color: {color}">{data.me ?? "not linked"}</span> · {summary(data.node, app.rateUnit)}
+          <span
+            class="tabular-nums"
+            style="color: {data.me && data.me.connected && data.me.used >= data.me.max ? 'var(--warn)' : color}"
+            title="Channels through this port · the fullest cable on the way to the ME controller (in use / most it carries)"
+            >{meUsageLabel(data.me)}</span
+          >
         {:else if signal}
           <span class="tabular-nums" style="color: {(data.signal ?? 0) > 0 ? color : 'var(--muted)'}">{data.signal ?? 0}</span>
           · {summary(data.node, app.rateUnit)}

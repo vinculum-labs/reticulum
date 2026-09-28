@@ -578,7 +578,14 @@ public final class WebApi {
         runtime.networkSignals().forEach(named::addProperty);
         out.add("networkSignals", named);
         JsonObject me = new JsonObject();
-        runtime.meUsage().forEach((id, usage) -> me.addProperty(id.toString(), usage));
+        runtime.meUsage().forEach((id, usage) -> {
+            JsonObject port = new JsonObject();
+            port.addProperty("connected", usage.connected());
+            port.addProperty("through", usage.through());
+            port.addProperty("used", usage.used());
+            port.addProperty("max", usage.max());
+            me.add(id.toString(), port);
+        });
         out.add("me", me);
         JsonArray sheetsOff = new JsonArray();
         runtime.sheetsOff().forEach(id -> sheetsOff.add(id.toString()));

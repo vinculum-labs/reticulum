@@ -76,7 +76,7 @@ public final class NetworkRuntime {
     @Nullable
     private final MeLinker meLinker = io.github.leadassimilator.reticulum.integration.Mods.AE2
             ? io.github.leadassimilator.reticulum.integration.ae2.Ae2Links.create() : null;
-    private Map<UUID, String> meUsage = Map.of();
+    private Map<UUID, MeLinker.Usage> meUsage = Map.of();
 
     private long reachVersion = -1;
     private int reachTier = -1;
@@ -298,8 +298,8 @@ public final class NetworkRuntime {
         return verdict;
     }
 
-    /** Channels used on each ME port node, as "27/32", updated once a second. */
-    public Map<UUID, String> meUsage() {
+    /** Channel use of each ME port node, updated once a second. */
+    public Map<UUID, MeLinker.Usage> meUsage() {
         return meUsage;
     }
 
