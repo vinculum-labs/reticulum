@@ -75,6 +75,14 @@ async function onMessage(m: any): Promise<void> {
     case "snapshot":
       if (m.network.id === app.current) setSnapshot(m.network);
       break;
+    case "networks":
+      app.networks = m.networks;
+      if (app.current && !app.networks.some((n) => n.id === app.current)) {
+        app.current = null;
+        app.snapshot = null;
+      }
+      if (!app.current && app.networks.length) await selectNetwork(app.networks[0].id);
+      break;
     case "metrics":
       if (m.network === app.current) app.rates = m.perSecond;
       break;

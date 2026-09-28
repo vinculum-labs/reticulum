@@ -49,6 +49,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public final class WebApi {
     /** Per player: subscribed networks and the revision last sent. */
     private static final Map<UUID, Map<UUID, Integer>> SUBSCRIPTIONS = new HashMap<>();
+    /** Players whose editor shows the network list, and the list they were last sent. */
+    private static final Map<UUID, String> LIST_LISTENERS = new HashMap<>();
     private static int nextMessage;
 
     private WebApi() {
@@ -111,12 +113,8 @@ public final class WebApi {
         String op = string(request, "op");
         return switch (op) {
             case "networks" -> {
-                JsonArray list = new JsonArray();
-                for (Network network : NetworkManager.data(server).networks()) {
-                    if (Security.canView(network, player)) {
-                        list.add(Snapshots.summary(server, network, Security.role(network, player)));
-                    }
-                }
+                JsonArray list = networkList(server, player);
+                LIST_LISTENERS.put(player.getUUID(), list.toString());
                 JsonObject out = ok(id);
                 out.add("networks", list);
                 out.addProperty("player", player.getGameProfile().getName());
@@ -197,6 +195,17 @@ public final class WebApi {
             }
             default -> throw new RequestException("Unknown op '" + op + "'");
         };
+    }
+
+    /** The networks a player can see, as the editor's tabs show them. */
+    private static JsonArray networkList(MinecraftServer server, ServerPlayer player) {
+        JsonArray list = new JsonArray();
+        for (Network network : NetworkManager.data(server).networks()) {
+            if (Security.canView(network, player)) {
+                list.add(Snapshots.summary(server, network, Security.role(network, player)));
+            }
+        }
+        return list;
     }
 
     private static Network viewable(ServerPlayer player, JsonObject request) throws RequestException {
@@ -368,6 +377,9 @@ public final class WebApi {
 
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
+        if (server.getTickCount() % 20 == 0) {
+            pushNetworkLists(server);
+        }
         if (SUBSCRIPTIONS.isEmpty() || server.getTickCount() % 5 != 0) {
             return;
         }
@@ -418,6 +430,25 @@ public final class WebApi {
         }
     }
 
+    /** Sends the network list to editors whose list changed: a network was added, removed, renamed, or access changed. */
+    private static void pushNetworkLists(MinecraftServer server) {
+        for (Map.Entry<UUID, String> entry : LIST_LISTENERS.entrySet()) {
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            if (player == null) {
+                continue;
+            }
+            JsonArray list = networkList(server, player);
+            String text = list.toString();
+            if (!text.equals(entry.getValue())) {
+                entry.setValue(text);
+                JsonObject push = new JsonObject();
+                push.addProperty("type", "networks");
+                push.add("networks", list);
+                send(player, push);
+            }
+        }
+    }
+
     private static JsonObject metrics(Network network) {
         NetworkRuntime runtime = NetworkTicker.runtime(network.id());
         Metrics metrics = runtime.metrics();
@@ -432,10 +463,12 @@ public final class WebApi {
 
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         SUBSCRIPTIONS.remove(event.getEntity().getUUID());
+        LIST_LISTENERS.remove(event.getEntity().getUUID());
     }
 
     public static void onServerStopped(ServerStoppedEvent event) {
         SUBSCRIPTIONS.clear();
+        LIST_LISTENERS.clear();
     }
 
     /** Used by the "Open editor" button on the controller; the client turns this into a tab switch. */
