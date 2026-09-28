@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { app, deviceName } from "../../lib/state.svelte";
+  import { app } from "../../lib/state.svelte";
   import { sideLabel } from "../../lib/kinds";
   import { posKey, type DeviceInput, type DeviceNodeSettings, type DeviceOutput, type Resource, type Sheet } from "../../lib/types";
   import Field from "./Field.svelte";
   import SideEditor from "./SideEditor.svelte";
   import LimitsEditor from "./LimitsEditor.svelte";
   import AmountEditor from "./AmountEditor.svelte";
+  import DevicePicker from "./DevicePicker.svelte";
 
   let {
     settings,
@@ -49,18 +50,7 @@
 </script>
 
 <Field label="Device">
-  <select
-    value={key}
-    {disabled}
-    onchange={(e) => {
-      const d = devices.find((x) => posKey(x.pos) === e.currentTarget.value);
-      if (d) onchange({ ...settings, device: d.pos });
-    }}
-  >
-    {#each devices as d (posKey(d.pos))}
-      <option value={posKey(d.pos)}>{deviceName(d)}{d.state !== "active" ? ` (${d.state})` : ""}</option>
-    {/each}
-  </select>
+  <DevicePicker {devices} value={settings.device} {disabled} onchange={(d) => onchange({ ...settings, device: d.pos })} />
 </Field>
 
 <section class="flex flex-col gap-2">
