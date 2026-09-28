@@ -78,20 +78,23 @@ public final class MeEndpoints implements IInWorldGridNodeHost {
         return nodes.isEmpty() ? Set.of() : EnumSet.copyOf(nodes.keySet());
     }
 
-    /** Channels in use and the most the link can carry: its own 32, or less through the cable on that side. */
+    /**
+     * Channels in use on the cable (or machine) on that side, and the most it carries: AE2 limits the cable as a
+     * whole, so what it already carries for other machines counts too, as does what goes through this link.
+     */
     @Nullable
     String usage(Direction side) {
         IGridNode node = node(side);
         if (node == null) {
             return null;
         }
-        int max = node.getMaxChannels();
         appeng.api.networking.IGridConnection cable = node.getInWorldConnections().get(side);
         if (cable == null) {
             return "not connected";
         }
-        max = Math.min(max, cable.getOtherSide(node).getMaxChannels());
-        return node.getUsedChannels() + "/" + max;
+        IGridNode other = cable.getOtherSide(node);
+        int max = Math.min(node.getMaxChannels(), other.getMaxChannels());
+        return Math.max(node.getUsedChannels(), other.getUsedChannels()) + "/" + max;
     }
 
     @Nullable
