@@ -5,6 +5,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.protocol.Screens;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
@@ -98,11 +99,15 @@ public abstract class NetworkBlock extends BaseEntityBlock {
         return state;
     }
 
-    /** Anything in hand (the network tool, a cable to place) is used as an item; only an empty hand opens the screen. */
+    /**
+     * Like a chest: right-click opens the screen whatever is in hand, and sneak + right-click places the held block
+     * (vanilla skips the block when sneaking with an item). The network tool still acts on the block itself.
+     */
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
             InteractionHand hand, BlockHitResult hitResult) {
-        return stack.isEmpty() ? ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION : ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+        return stack.getItem() instanceof NetworkToolItem ? ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION
+                : ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
     }
 
     @Override
