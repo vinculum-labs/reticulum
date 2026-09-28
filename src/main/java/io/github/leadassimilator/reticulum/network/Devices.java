@@ -14,6 +14,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.RedstoneLampBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -85,10 +87,22 @@ public final class Devices {
         return BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock());
     }
 
+    /**
+     * The item that shows the device: what pick-block (middle-click) gives, so blocks without an item of their own,
+     * like AE2's cable bus, show the cable or part in them. Falls back to the block's item.
+     */
     public static ItemStack icon(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        ItemStack stack = new ItemStack(state.getBlock().asItem());
-        return stack;
+        try {
+            BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, true);
+            ItemStack picked = state.getCloneItemStack(hit, level, pos, null);
+            if (!picked.isEmpty()) {
+                return picked;
+            }
+        } catch (RuntimeException e) {
+            // Some blocks expect a player here; the block's item will do.
+        }
+        return new ItemStack(state.getBlock().asItem());
     }
 
     /** "Crusher (12, 64, -3)": the block's name plus its position. */

@@ -390,6 +390,25 @@ public final class EngineTests {
     }
 
     @GameTest(template = "empty")
+    public static void ae2CableShowsItsCableAsIcon(GameTestHelper helper) {
+        if (!Mods.AE2) {
+            helper.succeed();
+            return;
+        }
+        BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
+        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());
+        ItemStack cable = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("ae2", "fluix_covered_dense_cable")));
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, cable);
+        var hit = new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(pos.below()), Direction.UP, pos.below(), false);
+        cable.useOn(new net.minecraft.world.item.context.UseOnContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, hit));
+        helper.succeedWhen(() -> {
+            ItemStack icon = Devices.icon(helper.getLevel(), pos);
+            check(helper, icon.is(cable.getItem()), "icon is " + icon + " for " + helper.getLevel().getBlockState(pos));
+        });
+    }
+
+    @GameTest(template = "empty")
     public static void antennaTiersReach(GameTestHelper helper) {
         var overworld = net.minecraft.world.level.Level.OVERWORLD;
         var nether = net.minecraft.world.level.Level.NETHER;

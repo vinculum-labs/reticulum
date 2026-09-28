@@ -186,7 +186,7 @@ final class Snapshots {
         if (level != null && level.isLoaded(at)) {
             BlockState state = level.getBlockState(at);
             json.addProperty("defaultName", Devices.defaultName(level, at));
-            json.addProperty("icon", BuiltInRegistries.ITEM.getKey(state.getBlock().asItem()).toString());
+            json.addProperty("icon", BuiltInRegistries.ITEM.getKey(Devices.icon(level, at).getItem()).toString());
             JsonObject resources = new JsonObject();
             resources.add(ResourceKind.ITEM.getSerializedName(), faces(level, at, Capabilities.ItemHandler.BLOCK));
             resources.add(ResourceKind.FLUID.getSerializedName(), faces(level, at, Capabilities.FluidHandler.BLOCK));
