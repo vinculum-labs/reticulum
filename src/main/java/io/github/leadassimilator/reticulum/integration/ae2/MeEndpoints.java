@@ -94,7 +94,12 @@ public final class MeEndpoints implements IInWorldGridNodeHost {
         }
         IGridNode other = cable.getOtherSide(node);
         int max = Math.min(node.getMaxChannels(), other.getMaxChannels());
-        return Math.max(node.getUsedChannels(), other.getUsedChannels()) + "/" + max;
+        // As AE2 draws a cable: its busiest connection carries everything behind it.
+        int used = 0;
+        for (appeng.api.networking.IGridConnection connection : other.getConnections()) {
+            used = Math.max(used, connection.getUsedChannels());
+        }
+        return used + "/" + max;
     }
 
     @Nullable

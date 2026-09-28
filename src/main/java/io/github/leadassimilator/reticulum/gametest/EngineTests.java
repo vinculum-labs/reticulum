@@ -420,6 +420,31 @@ public final class EngineTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 400)
+    public static void mePortCountsChannelsOnItsCable(GameTestHelper helper) {
+        if (!Mods.AE2) {
+            helper.succeed();
+            return;
+        }
+        // A powered ME controller on the first connector; a glass cable with two interfaces on the second.
+        Rig rig = rig(helper, Ae2TestSupport.block("controller"), Blocks.BARREL);
+        helper.setBlock(new BlockPos(3, 1, 3), Ae2TestSupport.block("creative_energy_cell"));
+        BlockPos first = helper.absolutePos(new BlockPos(3, 1, 1));
+        BlockPos second = helper.absolutePos(new BlockPos(4, 1, 1));
+        Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", second, Direction.NORTH);
+        helper.setBlock(new BlockPos(4, 2, 0), Ae2TestSupport.block("interface"));
+        helper.setBlock(new BlockPos(5, 1, 0), Ae2TestSupport.block("interface"));
+        java.util.function.Function<BlockPos, UUID> connector = pos -> rig.network().connectors().stream()
+                .filter(c -> c.pos().pos().equals(pos)).findFirst().orElseThrow().id();
+        Node a = rig.node(new NodeSettings.MePortSettings(connector.apply(first), Direction.SOUTH));
+        Node b = rig.node(new NodeSettings.MePortSettings(connector.apply(second), Direction.NORTH));
+        rig.sheet().connect(Wire.of(a, b));
+        helper.succeedWhen(() -> {
+            String usage = rig.runtime().meUsage().get(b.id());
+            check(helper, "2/8".equals(usage), "the glass cable carries two interfaces' channels but shows " + usage);
+        });
+    }
+
     @GameTest(template = "empty")
     public static void ae2CableShowsItsCableAsIcon(GameTestHelper helper) {
         if (!Mods.AE2) {
@@ -604,14 +629,14 @@ public final class EngineTests {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.ENDER_PEARL, 16));
         rig.container(0).setItem(1, new ItemStack(Items.ENDER_PEARL, 16));
-        // Interval 20 so exactly one operation happens in the first 20 ticks.
+        // Interval 20: as soon as the first operation has moved anything, it must have moved exactly one stack.
         rig.sheet().setInterval(20);
         rig.wire(rig.output(0, new NodeSettings.Output(ResourceKind.ITEM, List.of(), Optional.empty(), List.of(), 0, 20, 0)),
                 rig.sink(1, ResourceKind.ITEM, List.of()));
-        helper.runAfterDelay(21, () -> {
-            check(helper, rig.count(1, Items.ENDER_PEARL) == 16, "one stack of pearls is 16, moved " + rig.count(1, Items.ENDER_PEARL));
-            helper.succeed();
-        });
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, rig.count(1, Items.ENDER_PEARL) > 0, "nothing moved yet"))
+                .thenExecute(() -> check(helper, rig.count(1, Items.ENDER_PEARL) == 16, "one stack of pearls is 16, moved " + rig.count(1, Items.ENDER_PEARL)))
+                .thenSucceed();
     }
 
     /** A source on one face follows that face's rules: a furnace's bottom gives up only its output, not its ore. */
