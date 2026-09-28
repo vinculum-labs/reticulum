@@ -13,6 +13,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
+import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Codec;
 
 import io.github.leadassimilator.reticulum.engine.Metrics;
@@ -29,6 +30,10 @@ import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.security.AccessMode;
+import io.github.leadassimilator.reticulum.security.Member;
+import io.github.leadassimilator.reticulum.security.Passwords;
+import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
@@ -147,7 +152,7 @@ public final class WebApi {
                 JsonArray created = new JsonArray();
                 for (int i = 0; i < edits.size(); i++) {
                     try {
-                        JsonElement result = Edits.apply(server, network, edits.get(i).getAsJsonObject());
+                        JsonElement result = Edits.apply(player, network, edits.get(i).getAsJsonObject());
                         created.add(result);
                     } catch (RequestException e) {
                         NetworkManager.changed(server, network);
@@ -162,7 +167,7 @@ public final class WebApi {
             }
             case "deleteNetwork" -> {
                 Network network = viewable(player, request);
-                if (!Security.has(network, player, io.github.leadassimilator.reticulum.security.Role.OWNER)) {
+                if (!Security.has(network, player, Role.OWNER)) {
                     throw new RequestException("Only the owner can delete " + network.name());
                 }
                 NetworkManager.delete(server, network);
@@ -246,7 +251,8 @@ public final class WebApi {
         private Edits() {
         }
 
-        static JsonElement apply(MinecraftServer server, Network network, JsonObject edit) throws RequestException {
+        static JsonElement apply(ServerPlayer player, Network network, JsonObject edit) throws RequestException {
+            MinecraftServer server = player.server;
             String type = string(edit, "type");
             switch (type) {
                 case "createSheet" -> {
@@ -265,6 +271,54 @@ public final class WebApi {
                     if (edit.has("interval")) {
                         sheet.setInterval(Math.max(1, edit.get("interval").getAsInt()));
                     }
+                    if (edit.has("folder")) {
+                        sheet.setFolder(edit.get("folder").getAsString());
+                    }
+                    if (edit.has("subsheet")) {
+                        sheet.setSubsheet(edit.get("subsheet").getAsBoolean());
+                        network.sheets().forEach(Sheet::touch);
+                    }
+                }
+                case "setFolderEnabled" -> {
+                    String folder = Sheet.normalizeFolder(string(edit, "folder"));
+                    if (edit.get("enabled").getAsBoolean()) {
+                        network.disabledFolders().remove(folder);
+                    } else {
+                        network.disabledFolders().add(folder);
+                    }
+                }
+                case "renameNetwork" -> network.setName(string(edit, "name"));
+                case "setAccess" -> {
+                    admin(network, player);
+                    AccessMode mode = decode(server, AccessMode.CODEC, edit.get("mode"), "mode");
+                    if (mode == AccessMode.PASSWORD && network.passwordHash() == null) {
+                        throw new RequestException("Set a password before choosing password access");
+                    }
+                    network.setAccessMode(mode);
+                }
+                case "setPassword" -> {
+                    admin(network, player);
+                    String password = string(edit, "password");
+                    if (password.isEmpty()) {
+                        throw new RequestException("The password can't be empty");
+                    }
+                    network.setPasswordHash(Passwords.hash(password));
+                }
+                case "setMember" -> {
+                    admin(network, player);
+                    Role role = decode(server, Role.CODEC, edit.get("role"), "role");
+                    if (role == Role.OWNER) {
+                        throw new RequestException("Ownership can't be given away here");
+                    }
+                    GameProfile profile = profile(server, string(edit, "player"));
+                    if (profile.getId().equals(network.owner())) {
+                        throw new RequestException("That player owns the network");
+                    }
+                    network.members().put(profile.getId(), new Member(profile.getId(), profile.getName(), role));
+                }
+                case "removeMember" -> {
+                    admin(network, player);
+                    network.members().remove(uuid(edit, "id"));
                 }
                 case "deleteSheet" -> network.sheets().remove(sheet(network, edit));
                 case "addNode", "updateNode" -> {
@@ -336,6 +390,37 @@ public final class WebApi {
                 default -> throw new RequestException("Unknown edit '" + type + "'");
             }
             return com.google.gson.JsonNull.INSTANCE;
+        }
+
+        private static void admin(Network network, ServerPlayer player) throws RequestException {
+            if (!Security.canAdmin(network, player)) {
+                throw new RequestException("Only the network's admins can change access and members");
+            }
+        }
+
+        /** A player by name or UUID, online or remembered by the server. */
+        private static GameProfile profile(MinecraftServer server, String name) throws RequestException {
+            ServerPlayer online = server.getPlayerList().getPlayerByName(name);
+            if (online != null) {
+                return online.getGameProfile();
+            }
+            try {
+                UUID id = UUID.fromString(name);
+                ServerPlayer byId = server.getPlayerList().getPlayer(id);
+                if (byId != null) {
+                    return byId.getGameProfile();
+                }
+            } catch (IllegalArgumentException notAnId) {
+                // a name, looked up below
+            }
+            var cache = server.getProfileCache();
+            if (cache != null) {
+                var found = cache.get(name);
+                if (found.isPresent()) {
+                    return found.get();
+                }
+            }
+            throw new RequestException("No player called " + name + " has been on this server");
         }
 
         private static Map<String, String> withTemplate(Network network, String name, String expression) {

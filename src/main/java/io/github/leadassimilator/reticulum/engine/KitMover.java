@@ -89,12 +89,12 @@ final class KitMover {
         ServerLevel level = ctx.server().getLevel(first.sinkSettings().port().device().dimension());
         ItemPort to = ctx.runtime().itemPort(ctx.server(), ctx.network(), first.sinkSettings().port());
         if (to.isEmpty() || level == null) {
-            ctx.runtime().status(first.kit().id(), Status.TARGET_OFFLINE);
+            ctx.runtime().status(sheet.owner(first.kit().id()), Status.TARGET_OFFLINE);
             return false;
         }
         Filters.Context context = new Filters.Context(level, to::contains, null);
 
-        UUID kitNode = first.kit().id();
+        UUID kitNode = sheet.owner(first.kit().id());
         List<Take> takes = planExtraction(ctx, sheet, kit, lineFilters, routes, context);
         if (takes == null) {
             ctx.runtime().status(kitNode, Status.WAITING_FOR_PARTS);

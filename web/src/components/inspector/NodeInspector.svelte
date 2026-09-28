@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app, edit } from "../../lib/state.svelte";
   import { KIND_HINT, KIND_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate } from "../../lib/kinds";
-  import type { DeviceNodeSettings, Edit, GraphNode, NodeSettings, Sheet, Wire } from "../../lib/types";
+  import { pinName, sheetPins, type DeviceNodeSettings, type Edit, type GraphNode, type NodeSettings, type Sheet, type Wire } from "../../lib/types";
   import Field from "./Field.svelte";
   import FilterField from "./FilterField.svelte";
   import DeviceNodeEditor from "./DeviceNodeEditor.svelte";
@@ -95,6 +95,31 @@
 
   {#if s.kind === "device"}
     <DeviceNodeEditor settings={s} {sheet} nodeId={node.id} disabled={!canEdit} onchange={saveDevice} />
+  {/if}
+
+  {#if s.kind === "subsheet"}
+    {@const choices = (app.snapshot?.sheets ?? []).filter((x) => x.subsheet && x.id !== sheet.id)}
+    {@const used = app.snapshot?.sheets.find((x) => x.id === s.sheet)}
+    <Field label="Sub-sheet" hint="Only sheets marked “Use as sub-sheet” are listed. Double-click the node to open it.">
+      <select value={s.sheet} disabled={!canEdit} onchange={(e) => settings({ sheet: e.currentTarget.value })}>
+        {#if !used}<option value={s.sheet}>(missing)</option>{/if}
+        {#each choices as choice (choice.id)}<option value={choice.id}>{choice.name}</option>{/each}
+      </select>
+    </Field>
+    {#if used}
+      <div class="text-sm">
+        <div><span class="muted">Inputs:</span> {sheetPins(used, true).map(pinName).join(", ") || "none"}</div>
+        <div><span class="muted">Outputs:</span> {sheetPins(used, false).map(pinName).join(", ") || "none"}</div>
+      </div>
+      <button class="btn self-start text-sm" onclick={() => (app.sheetId = used.id)}>Open “{used.name}”</button>
+    {/if}
+  {:else if s.kind === "sheet_input" || s.kind === "sheet_output"}
+    <Field
+      label="Pin name"
+      hint={`Shown on the ${s.kind === "sheet_input" ? "left" : "right"} of sub-sheet nodes that use this sheet. Pins are ordered top to bottom as placed here.`}
+    >
+      <input value={s.name ?? ""} disabled={!canEdit} placeholder="e.g. ores" onchange={(e) => settings({ name: e.currentTarget.value.trim() })} />
+    </Field>
   {/if}
 
   {#if s.kind === "filter"}

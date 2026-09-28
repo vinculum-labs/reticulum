@@ -18,6 +18,7 @@ import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
+import io.github.leadassimilator.reticulum.network.Network;
 
 /**
  * A sheet turned into routes: every path from a source through filters, rate limits, splitters and kits to a sink.
@@ -54,6 +55,8 @@ public final class CompiledSheet {
     private final Sheet sheet;
     private final int revision;
     private final int filtersHash;
+    /** Revision of every sub-sheet pasted in, so a change to one recompiles the sheets using it. */
+    private final Map<UUID, Integer> dependencies = new LinkedHashMap<>();
     private final List<Source> sources = new ArrayList<>();
     private final List<String> errors = new ArrayList<>();
     private final Map<String, Filters.ItemFilter> itemLimitFilters = new LinkedHashMap<>();
@@ -65,14 +68,23 @@ public final class CompiledSheet {
         this.filtersHash = filtersHash;
     }
 
-    public static CompiledSheet compile(Sheet sheet, Map<String, String> templates) {
-        CompiledSheet compiled = new CompiledSheet(sheet, templates.hashCode());
-        compiled.build(templates);
+    public static CompiledSheet compile(Sheet sheet, Network network) {
+        CompiledSheet compiled = new CompiledSheet(sheet, network.filters().hashCode());
+        compiled.build(network);
         return compiled;
     }
 
-    public boolean isCurrent(Sheet sheet, Map<String, String> templates) {
-        return this.sheet == sheet && revision == sheet.revision() && filtersHash == templates.hashCode();
+    public boolean isCurrent(Sheet sheet, Network network) {
+        if (this.sheet != sheet || revision != sheet.revision() || filtersHash != network.filters().hashCode()) {
+            return false;
+        }
+        for (Map.Entry<UUID, Integer> dependency : dependencies.entrySet()) {
+            Sheet used = network.sheet(dependency.getKey());
+            if (used == null || used.revision() != dependency.getValue()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public Sheet sheet() {
@@ -89,10 +101,15 @@ public final class CompiledSheet {
 
     // ---------------------------------------------------------------- building
 
-    private void build(Map<String, String> templates) {
+    private void build(Network network) {
+        Map<String, String> templates = network.filters();
+        List<Node> flatNodes = new ArrayList<>();
+        List<Wire> flatWires = new ArrayList<>(sheet.wires());
+        paste(network, sheet.nodes(), flatNodes, flatWires, List.of(sheet.id()));
+
         Map<UUID, Node> nodes = new LinkedHashMap<>();
         Map<UUID, NodeSettings.DeviceSettings> devices = new LinkedHashMap<>();
-        for (Node node : sheet.nodes()) {
+        for (Node node : flatNodes) {
             if (!node.enabled()) {
                 continue;
             }
@@ -104,7 +121,7 @@ public final class CompiledSheet {
             }
         }
         Map<UUID, List<Wire>> outgoing = new LinkedHashMap<>();
-        for (Wire original : sheet.wires()) {
+        for (Wire original : flatWires) {
             // Wires on a device node really leave one of its outputs or enter one of its inputs.
             UUID from = devices.containsKey(original.from()) ? side(original.from(), "out", original.output()) : original.from();
             UUID to = devices.containsKey(original.to()) ? side(original.to(), "in", original.input()) : original.to();
@@ -145,9 +162,86 @@ public final class CompiledSheet {
     /** Node ids of the sources and sinks a device node is made of, mapped back to the device node (for metrics). */
     private final Map<UUID, UUID> owners = new LinkedHashMap<>();
 
-    /** The node the editor shows for a node id: a device node for its internal sources and sinks, else itself. */
+    /**
+     * The node the editor shows for a node id: a device node for its internal sources and sinks, the sub-sheet
+     * node for anything pasted in from a sub-sheet, else the node itself.
+     */
     public UUID owner(UUID node) {
-        return owners.getOrDefault(node, node);
+        UUID current = node;
+        for (int hops = 0; hops < 32; hops++) {
+            UUID next = owners.get(current);
+            if (next == null) {
+                return current;
+            }
+            current = next;
+        }
+        return current;
+    }
+
+    private static final int MAX_SUBSHEET_DEPTH = 8;
+
+    /**
+     * Copies nodes into {@code out}, replacing every sub-sheet node with a copy of that sheet's nodes and wires.
+     * Wires on the sub-sheet node are moved to its Sheet input and Sheet output nodes inside the copy.
+     */
+    private void paste(Network network, List<Node> from, List<Node> out, List<Wire> wires, List<UUID> using) {
+        for (Node node : from) {
+            if (!node.enabled()) {
+                continue;
+            }
+            if (!(node.settings() instanceof NodeSettings.SubSheetSettings sub)) {
+                out.add(node);
+                continue;
+            }
+            Sheet used = network.sheet(sub.sheet());
+            if (used == null || !used.subsheet()) {
+                errors.add(describe(node) + ": the sub-sheet it uses no longer exists or is no longer marked as a sub-sheet");
+                continue;
+            }
+            if (using.contains(used.id()) || using.size() > MAX_SUBSHEET_DEPTH) {
+                errors.add(describe(node) + ": sub-sheet '" + used.name() + "' contains itself");
+                continue;
+            }
+            dependencies.put(used.id(), used.revision());
+            java.util.function.Function<UUID, UUID> copy = id ->
+                    UUID.nameUUIDFromBytes((node.id() + "/" + id).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            List<Node> copies = new ArrayList<>();
+            for (Node inner : used.nodes()) {
+                Node pasted = new Node(copy.apply(inner.id()), inner.settings(), inner.label(), inner.enabled(), inner.x(), inner.y());
+                copies.add(pasted);
+                owners.put(pasted.id(), node.id());
+            }
+            for (Wire inner : used.wires()) {
+                wires.add(new Wire(copy.apply(inner.id()), copy.apply(inner.from()), inner.output(), copy.apply(inner.to()), inner.input(), inner.order()));
+            }
+            List<Node> inputs = pins(used, true);
+            List<Node> outputs = pins(used, false);
+            for (int i = 0; i < wires.size(); i++) {
+                Wire w = wires.get(i);
+                if (w.to().equals(node.id())) {
+                    UUID pin = w.input() < inputs.size() ? copy.apply(inputs.get(w.input()).id()) : null;
+                    wires.set(i, pin == null ? w : new Wire(w.id(), w.from(), w.output(), pin, 0, w.order()));
+                } else if (w.from().equals(node.id())) {
+                    UUID pin = w.output() < outputs.size() ? copy.apply(outputs.get(w.output()).id()) : null;
+                    wires.set(i, pin == null ? w : new Wire(w.id(), pin, Wire.MATCH, w.to(), w.input(), w.order()));
+                }
+            }
+            List<UUID> deeper = new ArrayList<>(using);
+            deeper.add(used.id());
+            paste(network, copies, out, wires, deeper);
+        }
+    }
+
+    /** A sub-sheet's Sheet input (or output) nodes in pin order: top to bottom, then left to right. */
+    public static List<Node> pins(Sheet sheet, boolean input) {
+        List<Node> pins = new ArrayList<>();
+        for (Node node : sheet.nodes()) {
+            if (node.settings() instanceof NodeSettings.SheetPinSettings pin && pin.input() == input) {
+                pins.add(node);
+            }
+        }
+        pins.sort(Comparator.comparingDouble(Node::y).thenComparingDouble(Node::x).thenComparing(n -> n.id().toString()));
+        return pins;
     }
 
     private static UUID side(UUID device, String direction, int index) {

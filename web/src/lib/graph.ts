@@ -2,7 +2,7 @@
 
 import type { Edge, Node } from "@xyflow/svelte";
 import type { Device, GraphNode, Resource, Sheet, Wire } from "./types";
-import { posKey } from "./types";
+import { pinName, posKey, sheetPins } from "./types";
 import { RESOURCE_VAR, formatRate } from "./kinds";
 
 export interface NodeData extends Record<string, unknown> {
@@ -16,6 +16,8 @@ export interface NodeData extends Record<string, unknown> {
   ticksSinceMoved?: number;
   /** Why it moved nothing on its last attempt. */
   status?: string;
+  /** For a sub-sheet node: the sheet it copies and its pin names. */
+  subsheet?: { sheet?: Sheet; inputs: string[]; outputs: string[] };
 }
 
 export interface Activity {
@@ -66,14 +68,19 @@ export function resources(sheet: Sheet): { wires: Map<string, Resource>; nodes: 
   return { wires, nodes };
 }
 
+/** Kinds whose inputs and outputs are numbered pins ("in:0", "out:1"). */
+function numbered(node: GraphNode | undefined): boolean {
+  return node?.settings.kind === "device" || node?.settings.kind === "subsheet";
+}
+
 export function sourceHandle(node: GraphNode | undefined, output: number): string {
   if (node?.settings.kind === "filter") return output === 1 ? "reject" : "match";
-  if (node?.settings.kind === "device") return `out:${output}`;
+  if (numbered(node)) return `out:${output}`;
   return "out";
 }
 
 export function targetHandle(node: GraphNode | undefined, input: number): string {
-  return node?.settings.kind === "device" ? `in:${input}` : "in";
+  return numbered(node) ? `in:${input}` : "in";
 }
 
 /** Reads a handle id back into an output or input number. */
@@ -85,6 +92,7 @@ export function handleIndex(handle: string | null | undefined): number {
 
 export function toFlow(
   sheet: Sheet,
+  sheets: Sheet[],
   devices: Device[],
   activity: Activity,
   selected: Set<string>,
@@ -96,6 +104,15 @@ export function toFlow(
   const nodes: Node<NodeData>[] = (sheet.nodes ?? []).map((n) => {
     const s = n.settings;
     const device = "device" in s ? byKey.get(posKey(s.device)) : undefined;
+    let subsheet: NodeData["subsheet"];
+    if (s.kind === "subsheet") {
+      const used = sheets.find((x) => x.id === s.sheet);
+      subsheet = {
+        sheet: used,
+        inputs: sheetPins(used, true).map(pinName),
+        outputs: sheetPins(used, false).map(pinName),
+      };
+    }
     return {
       id: n.id,
       type: "graph",
@@ -109,6 +126,7 @@ export function toFlow(
         fiveMinutes: activity.fiveMinutes[n.id] ?? 0,
         ticksSinceMoved: activity.ticksSinceMoved[n.id],
         status: activity.status[n.id],
+        subsheet,
       },
     };
   });

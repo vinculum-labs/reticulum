@@ -45,6 +45,12 @@
     <span class="text-sm muted">{snapshot.running ? "Running" : snapshot.enabled ? "No controller loaded" : "Off"}</span>
     <button
       class="btn"
+      style={app.panel === "network" ? "border-color: var(--accent); color: var(--accent)" : ""}
+      onclick={() => (app.panel = app.panel === "network" ? null : "network")}
+      title="Name, access, password and members">Settings</button
+    >
+    <button
+      class="btn"
       onclick={() => setRateUnit(app.rateUnit === "t" ? "s" : "t")}
       title="Show rates per tick or per second">/{app.rateUnit}</button
     >

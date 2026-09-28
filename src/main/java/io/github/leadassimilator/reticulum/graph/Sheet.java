@@ -25,6 +25,7 @@ public final class Sheet {
             Codec.BOOL.optionalFieldOf("enabled", true).forGetter(s -> s.enabled),
             Codec.INT.optionalFieldOf("interval", DEFAULT_INTERVAL).forGetter(s -> s.interval),
             Codec.INT.optionalFieldOf("priority", 0).forGetter(s -> s.priority),
+            Codec.BOOL.optionalFieldOf("subsheet", false).forGetter(s -> s.subsheet),
             Node.CODEC.listOf().optionalFieldOf("nodes", List.of()).forGetter(s -> s.nodes),
             Wire.CODEC.listOf().optionalFieldOf("wires", List.of()).forGetter(s -> s.wires)
     ).apply(i, Sheet::new));
@@ -35,22 +36,26 @@ public final class Sheet {
     private boolean enabled;
     private int interval;
     private int priority;
+    /** A sub-sheet never runs on its own; other sheets place copies of it. */
+    private boolean subsheet;
     private final List<Node> nodes = new ArrayList<>();
     private final List<Wire> wires = new ArrayList<>();
     /** Bumped on every edit; not saved. The engine recompiles when it changes. */
     private int revision;
 
     public Sheet(UUID id, String name) {
-        this(id, name, "", true, DEFAULT_INTERVAL, 0, List.of(), List.of());
+        this(id, name, "", true, DEFAULT_INTERVAL, 0, false, List.of(), List.of());
     }
 
-    private Sheet(UUID id, String name, String folder, boolean enabled, int interval, int priority, List<Node> nodes, List<Wire> wires) {
+    private Sheet(UUID id, String name, String folder, boolean enabled, int interval, int priority, boolean subsheet, List<Node> nodes,
+            List<Wire> wires) {
         this.id = id;
         this.name = name;
         this.folder = folder;
         this.enabled = enabled;
         this.interval = interval;
         this.priority = priority;
+        this.subsheet = subsheet;
         this.nodes.addAll(nodes);
         this.wires.addAll(wires);
     }
@@ -70,6 +75,32 @@ public final class Sheet {
 
     public String folder() {
         return folder;
+    }
+
+    /** Folder path, "/" separated; empty for the top level. */
+    public void setFolder(String folder) {
+        this.folder = normalizeFolder(folder);
+        touch();
+    }
+
+    public static String normalizeFolder(String folder) {
+        StringBuilder out = new StringBuilder();
+        for (String part : folder.split("/")) {
+            String trimmed = part.strip();
+            if (!trimmed.isEmpty()) {
+                out.append(out.isEmpty() ? "" : "/").append(trimmed);
+            }
+        }
+        return out.toString();
+    }
+
+    public boolean subsheet() {
+        return subsheet;
+    }
+
+    public void setSubsheet(boolean subsheet) {
+        this.subsheet = subsheet;
+        touch();
     }
 
     public boolean enabled() {

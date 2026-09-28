@@ -63,6 +63,24 @@ final class Snapshots {
         JsonObject out = summary(server, network, role);
         out.addProperty("revision", network.revision());
         out.addProperty("canEdit", role.map(r -> r.atLeast(Role.EDITOR)).orElse(false));
+        boolean canAdmin = role.map(r -> r.atLeast(Role.ADMIN)).orElse(false);
+        out.addProperty("canAdmin", canAdmin);
+        out.addProperty("hasPassword", network.passwordHash() != null);
+        JsonArray disabledFolders = new JsonArray();
+        network.disabledFolders().forEach(disabledFolders::add);
+        out.add("disabledFolders", disabledFolders);
+        if (canAdmin) {
+            // The member list is shown to those who can change it.
+            JsonArray members = new JsonArray();
+            for (io.github.leadassimilator.reticulum.security.Member member : network.members().values()) {
+                JsonObject m = new JsonObject();
+                m.addProperty("id", member.id().toString());
+                m.addProperty("name", member.name());
+                m.addProperty("role", member.role().getSerializedName());
+                members.add(m);
+            }
+            out.add("members", members);
+        }
         if (network.controller() != null) {
             out.add("controller", encode(server, GlobalPos.CODEC, network.controller()));
         }

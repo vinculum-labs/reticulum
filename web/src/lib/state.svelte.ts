@@ -58,6 +58,8 @@ export const app = $state({
   selectedNodes: [] as string[],
   selectedEdges: [] as string[],
   selectedDevice: null as string | null,
+  /** A panel shown in place of the inspector ("network" = network settings). */
+  panel: null as "network" | null,
   busy: 0,
   toasts: [] as Toast[],
   undo: [] as Change[],

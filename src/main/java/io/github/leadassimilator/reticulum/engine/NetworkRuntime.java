@@ -87,13 +87,13 @@ public final class NetworkRuntime {
 
     public void tick(MinecraftServer server, Network network) {
         ticks++;
-        refillTokens(network);
         List<CompiledSheet> sheets = new ArrayList<>();
         for (Sheet sheet : network.sheets()) {
-            if (sheet.enabled()) {
+            if (network.runs(sheet)) {
                 sheets.add(compiled(sheet, network));
             }
         }
+        refillTokens(sheets);
         sheets.sort(Comparator.comparingInt((CompiledSheet c) -> c.sheet().priority()).reversed());
         Context context = new Context(server, network, this);
         // Continuous flows go first so the tick budget can never delay them.
@@ -111,8 +111,8 @@ public final class NetworkRuntime {
 
     public CompiledSheet compiled(Sheet sheet, Network network) {
         CompiledSheet current = compiled.get(sheet.id());
-        if (current == null || !current.isCurrent(sheet, network.filters())) {
-            current = CompiledSheet.compile(sheet, network.filters());
+        if (current == null || !current.isCurrent(sheet, network)) {
+            current = CompiledSheet.compile(sheet, network);
             compiled.put(sheet.id(), current);
             for (String error : current.errors()) {
                 if (reportedErrors.add(sheet.id() + error)) {
@@ -129,14 +129,19 @@ public final class NetworkRuntime {
 
     // ---------------------------------------------------------------- rate limits
 
-    private void refillTokens(Network network) {
-        for (Sheet sheet : network.sheets()) {
-            for (Node node : sheet.nodes()) {
-                if (node.settings() instanceof NodeSettings.RateLimitSettings rate) {
-                    double perTick = rate.perSecond() / 20.0;
-                    // Bursts are limited to one second's worth.
-                    double capacity = Math.max(rate.perSecond(), perTick);
-                    tokens.merge(node.id(), perTick, (a, b) -> Math.min(capacity, a + b));
+    private void refillTokens(List<CompiledSheet> sheets) {
+        Set<UUID> seen = new java.util.HashSet<>();
+        for (CompiledSheet sheet : sheets) {
+            for (CompiledSheet.Source source : sheet.sources()) {
+                for (CompiledSheet.Route route : source.routes()) {
+                    for (Node node : route.rateLimits()) {
+                        if (seen.add(node.id()) && node.settings() instanceof NodeSettings.RateLimitSettings rate) {
+                            double perTick = rate.perSecond() / 20.0;
+                            // Bursts are limited to one second's worth.
+                            double capacity = Math.max(rate.perSecond(), perTick);
+                            tokens.merge(node.id(), perTick, (a, b) -> Math.min(capacity, a + b));
+                        }
+                    }
                 }
             }
         }

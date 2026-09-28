@@ -15,6 +15,7 @@
   import { KIND_HINT, KIND_LABEL, defaultSettings } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Wire } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
+  import { layout } from "../../lib/layout";
 
   const nodeTypes = { graph: GraphNodeView };
   const flow = useSvelteFlow();
@@ -35,7 +36,7 @@
     const selected = new Set([...app.selectedNodes, ...app.selectedEdges]);
     const unit = app.rateUnit;
     if (!s || dragging) return;
-    const built = toFlow(s, devices, activity, selected, unit);
+    const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit);
     nodes = built.nodes;
     edges = built.edges;
   });
@@ -107,9 +108,14 @@
         return;
       }
     }
+    const subsheet = kind === "subsheet" ? subsheets[0]?.id : undefined;
+    if (kind === "subsheet" && !subsheet) {
+      toast("Mark another sheet as a sub-sheet first (in its settings).");
+      return;
+    }
     const node: GraphNode = {
       id: uuid(),
-      settings: defaultSettings(kind, device, device ? offered(device) : "item"),
+      settings: defaultSettings(kind, device, device ? offered(device) : "item", subsheet),
       x: Math.round(at.x),
       y: Math.round(at.y),
     };
@@ -143,7 +149,46 @@
     addNode("device", { x: p.x - 70, y: p.y - 17 }, device);
   }
 
-  const palette: NodeKind[] = ["device", "filter", "rate_limit", "splitter", "kit"];
+  /** Sheets that can be placed here as sub-sheets: marked as one, and not this sheet. */
+  const subsheets = $derived((app.snapshot?.sheets ?? []).filter((x) => x.subsheet && x.id !== sheet?.id));
+  const palette = $derived<NodeKind[]>([
+    "device",
+    "filter",
+    "rate_limit",
+    "splitter",
+    "kit",
+    ...(subsheets.length ? (["subsheet"] as NodeKind[]) : []),
+    ...(sheet?.subsheet ? (["sheet_input", "sheet_output"] as NodeKind[]) : []),
+  ]);
+
+  /** Double-click a sub-sheet node to open the sheet it copies. */
+  function nodeClick({ node, event }: { node: Node<NodeData>; event: MouseEvent | TouchEvent }) {
+    const s = node.data.node.settings;
+    if (event instanceof MouseEvent && event.detail === 2 && s.kind === "subsheet" && app.snapshot?.sheets.some((x) => x.id === s.sheet)) {
+      app.sheetId = s.sheet;
+      app.selectedNodes = [];
+      app.selectedEdges = [];
+    }
+  }
+
+  let tidying = $state(false);
+
+  /** Lays the sheet out left to right with ELK, as one undoable move. */
+  async function tidy() {
+    if (!sheet || tidying) return;
+    tidying = true;
+    try {
+      const sizes = new Map(nodes.map((n) => [n.id, { width: n.measured?.width ?? 160, height: n.measured?.height ?? 60 }]));
+      const positions = await layout(sheet, sizes);
+      const before = (sheet.nodes ?? []).map((n) => ({ id: n.id, x: n.x ?? 0, y: n.y ?? 0 }));
+      await edit([{ type: "moveNodes", sheet: sheet.id, positions }], [{ type: "moveNodes", sheet: sheet.id, positions: before }], "tidy up");
+      setTimeout(() => flow.fitView({ duration: 300 }), 100);
+    } catch (e) {
+      toast(`Couldn't tidy up: ${(e as Error).message}`);
+    } finally {
+      tidying = false;
+    }
+  }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -164,6 +209,7 @@
     ondelete={remove}
     onnodedragstart={() => (dragging = true)}
     onnodedragstop={dragStop}
+    onnodeclick={nodeClick}
     proOptions={{ hideAttribution: true }}
   >
     <Background gap={24} />
@@ -175,6 +221,7 @@
           {#each palette as kind}
             <button class="btn text-sm" title={KIND_HINT[kind]} onclick={() => addNode(kind, viewCenter())}>+ {KIND_LABEL[kind]}</button>
           {/each}
+          <button class="btn text-sm" title="Lay the sheet out left to right" disabled={tidying || !sheet?.nodes?.length} onclick={tidy}>Tidy up</button>
         </div>
       </Panel>
     {/if}

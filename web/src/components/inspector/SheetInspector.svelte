@@ -38,6 +38,30 @@
       onchange={(e) => update({ interval: Math.max(1, Number(e.currentTarget.value) || 1) }, { interval: sheet.interval ?? 10 }, "sheet interval")}
     />
   </Field>
+  <Field label="Folder" hint="Use / for folders inside folders, e.g. smelting/ores. Leave empty for the top level.">
+    <input
+      value={sheet.folder ?? ""}
+      disabled={!canEdit}
+      placeholder="top level"
+      list="reticulum-folders"
+      onchange={(e) => update({ folder: e.currentTarget.value }, { folder: sheet.folder ?? "" }, "move sheet")}
+    />
+    <datalist id="reticulum-folders">
+      {#each [...new Set(snapshot.sheets.map((s) => s.folder).filter(Boolean))] as folder}<option value={folder}></option>{/each}
+    </datalist>
+  </Field>
+  <label class="flex items-start gap-2 text-sm">
+    <input
+      type="checkbox"
+      checked={sheet.subsheet === true}
+      disabled={!canEdit}
+      onchange={(e) => update({ subsheet: e.currentTarget.checked }, { subsheet: sheet.subsheet === true }, "sub-sheet")}
+    />
+    <span>
+      Use as sub-sheet
+      <span class="block text-xs muted">It stops running on its own; other sheets place it as a node. Add Sheet input and Sheet output nodes for its pins.</span>
+    </span>
+  </label>
   {#if sheet.errors?.length}
     <div class="rounded-md border p-2 text-sm" style="border-color: var(--bad)">
       {#each sheet.errors as error}<div>{error}</div>{/each}

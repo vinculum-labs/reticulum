@@ -4,6 +4,7 @@
   import WireInspector from "./inspector/WireInspector.svelte";
   import DeviceInspector from "./inspector/DeviceInspector.svelte";
   import SheetInspector from "./inspector/SheetInspector.svelte";
+  import NetworkSettings from "./inspector/NetworkSettings.svelte";
 
   const sheet = $derived(currentSheet());
   const node = $derived(app.selectedNodes.length === 1 ? sheet?.nodes?.find((n) => n.id === app.selectedNodes[0]) : undefined);
@@ -14,7 +15,9 @@
 </script>
 
 <aside class="flex w-80 shrink-0 flex-col overflow-y-auto border-l p-3" style="background: var(--panel); border-color: var(--line)">
-  {#if node && sheet}
+  {#if app.panel === "network" && app.snapshot}
+    <NetworkSettings />
+  {:else if node && sheet}
     {#key node.id}
       <NodeInspector {node} {sheet} />
     {/key}

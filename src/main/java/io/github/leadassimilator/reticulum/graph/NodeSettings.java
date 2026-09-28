@@ -3,12 +3,14 @@ package io.github.leadassimilator.reticulum.graph;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import io.github.leadassimilator.reticulum.network.FaceKey;
+import io.github.leadassimilator.reticulum.network.Ids;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.util.StringRepresentable;
 
@@ -25,10 +27,14 @@ public sealed interface NodeSettings {
         RATE_LIMIT(RateLimitSettings.CODEC),
         SPLITTER(SplitterSettings.CODEC),
         KIT(KitSettings.CODEC),
-        DEVICE(DeviceSettings.CODEC);
+        DEVICE(DeviceSettings.CODEC),
+        SUBSHEET(SubSheetSettings.CODEC),
+        SHEET_INPUT(SheetPinSettings.INPUT_CODEC),
+        SHEET_OUTPUT(SheetPinSettings.OUTPUT_CODEC);
 
         /** Only the kinds a sheet can hold; the engine-internal ones can't be read or written. */
-        public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(() -> new Kind[] {FILTER, RATE_LIMIT, SPLITTER, KIT, DEVICE});
+        public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(
+                () -> new Kind[] {FILTER, RATE_LIMIT, SPLITTER, KIT, DEVICE, SUBSHEET, SHEET_INPUT, SHEET_OUTPUT});
 
         private final MapCodec<? extends NodeSettings> codec;
 
@@ -203,6 +209,36 @@ public sealed interface NodeSettings {
         @Override
         public Kind kind() {
             return Kind.DEVICE;
+        }
+    }
+
+    /**
+     * A copy of another sheet (one marked as a sub-sheet) placed here. Its pins are that sheet's Sheet input nodes
+     * (inputs, left) and Sheet output nodes (outputs, right), each ordered top to bottom as laid out in it.
+     */
+    record SubSheetSettings(UUID sheet) implements NodeSettings {
+        public static final MapCodec<SubSheetSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Ids.UUID_CODEC.fieldOf("sheet").forGetter(SubSheetSettings::sheet)
+        ).apply(i, SubSheetSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.SUBSHEET;
+        }
+    }
+
+    /** A named pin of a sub-sheet, placed inside it: where resources enter (input) or leave (output). */
+    record SheetPinSettings(boolean input, String name) implements NodeSettings {
+        public static final MapCodec<SheetPinSettings> INPUT_CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.STRING.optionalFieldOf("name", "").forGetter(SheetPinSettings::name)
+        ).apply(i, name -> new SheetPinSettings(true, name)));
+        public static final MapCodec<SheetPinSettings> OUTPUT_CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.STRING.optionalFieldOf("name", "").forGetter(SheetPinSettings::name)
+        ).apply(i, name -> new SheetPinSettings(false, name)));
+
+        @Override
+        public Kind kind() {
+            return input ? Kind.SHEET_INPUT : Kind.SHEET_OUTPUT;
         }
     }
 

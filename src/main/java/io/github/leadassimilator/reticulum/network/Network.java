@@ -40,7 +40,8 @@ public final class Network {
             Sheet.CODEC.listOf().optionalFieldOf("sheets", List.of()).forGetter(n -> List.copyOf(n.sheets)),
             Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("filters", Map.of()).forGetter(n -> n.filters),
             ItemStack.CODEC.listOf().optionalFieldOf("overflow_items", List.of()).forGetter(n -> List.copyOf(n.overflowItems)),
-            FluidStack.CODEC.listOf().optionalFieldOf("overflow_fluids", List.of()).forGetter(n -> List.copyOf(n.overflowFluids))
+            FluidStack.CODEC.listOf().optionalFieldOf("overflow_fluids", List.of()).forGetter(n -> List.copyOf(n.overflowFluids)),
+            Codec.STRING.listOf().optionalFieldOf("disabled_folders", List.of()).forGetter(n -> List.copyOf(n.disabledFolders))
     ).apply(i, Network::new));
 
     private final UUID id;
@@ -63,6 +64,8 @@ public final class Network {
     /** Resources that could be neither delivered nor returned; retried first on later operations. */
     private final List<ItemStack> overflowItems = new ArrayList<>();
     private final List<FluidStack> overflowFluids = new ArrayList<>();
+    /** Folders switched off: sheets in them, or in folders under them, don't run. */
+    private final java.util.Set<String> disabledFolders = new java.util.LinkedHashSet<>();
     /** Bumped on every change; not saved. The web protocol sends a new snapshot when it moves. */
     private int revision;
 
@@ -76,7 +79,8 @@ public final class Network {
 
     private Network(UUID id, String name, Optional<UUID> owner, String ownerName, AccessMode accessMode, Optional<String> passwordHash,
             List<Member> members, Optional<GlobalPos> controller, List<ConnectorRecord> connectors, List<DeviceRecord> devices,
-            boolean enabled, List<Sheet> sheets, Map<String, String> filters, List<ItemStack> overflowItems, List<FluidStack> overflowFluids) {
+            boolean enabled, List<Sheet> sheets, Map<String, String> filters, List<ItemStack> overflowItems, List<FluidStack> overflowFluids,
+            List<String> disabledFolders) {
         this(id, name, owner.orElse(null), ownerName, accessMode);
         this.passwordHash = passwordHash.orElse(null);
         members.forEach(m -> this.members.put(m.id(), m));
@@ -88,6 +92,7 @@ public final class Network {
         this.filters.putAll(filters);
         this.overflowItems.addAll(overflowItems);
         this.overflowFluids.addAll(overflowFluids);
+        this.disabledFolders.addAll(disabledFolders);
     }
 
     public UUID id() {
@@ -227,6 +232,26 @@ public final class Network {
 
     public List<FluidStack> overflowFluids() {
         return overflowFluids;
+    }
+
+    public java.util.Set<String> disabledFolders() {
+        return disabledFolders;
+    }
+
+    /** Whether a sheet may run: it is on, isn't a sub-sheet, and neither its folder nor any folder above it is off. */
+    public boolean runs(Sheet sheet) {
+        if (!sheet.enabled() || sheet.subsheet()) {
+            return false;
+        }
+        String folder = sheet.folder();
+        while (!folder.isEmpty()) {
+            if (disabledFolders.contains(folder)) {
+                return false;
+            }
+            int slash = folder.lastIndexOf('/');
+            folder = slash < 0 ? "" : folder.substring(0, slash);
+        }
+        return true;
     }
 
     public int revision() {

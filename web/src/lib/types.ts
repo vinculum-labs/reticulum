@@ -79,12 +79,26 @@ export interface DeviceNodeSettings {
   outputs?: DeviceOutput[];
 }
 
+/** A copy of a sub-sheet; its pins are that sheet's Sheet input and Sheet output nodes. */
+export interface SubSheetSettings {
+  kind: "subsheet";
+  sheet: string;
+}
+
+/** A named pin of a sub-sheet, placed inside it. */
+export interface SheetPinSettings {
+  kind: "sheet_input" | "sheet_output";
+  name?: string;
+}
+
 export type NodeSettings =
   | FilterSettings
   | RateLimitSettings
   | SplitterSettings
   | KitSettings
-  | DeviceNodeSettings;
+  | DeviceNodeSettings
+  | SubSheetSettings
+  | SheetPinSettings;
 export type NodeKind = NodeSettings["kind"];
 
 export interface GraphNode {
@@ -114,6 +128,8 @@ export interface Sheet {
   enabled?: boolean;
   interval?: number;
   priority?: number;
+  /** A sub-sheet never runs on its own; other sheets place copies of it. */
+  subsheet?: boolean;
   nodes?: GraphNode[];
   wires?: Wire[];
   errors?: string[];
@@ -148,9 +164,20 @@ export interface NetworkSummary {
   running: boolean;
 }
 
+export interface Member {
+  id: string;
+  name: string;
+  role: "viewer" | "user" | "editor" | "admin";
+}
+
 export interface Snapshot extends NetworkSummary {
   revision: number;
   canEdit: boolean;
+  canAdmin: boolean;
+  hasPassword: boolean;
+  disabledFolders: string[];
+  /** Only sent to admins. */
+  members?: Member[];
   controller?: GlobalPos;
   sheets: Sheet[];
   devices: Device[];
@@ -167,4 +194,17 @@ export function posKey(p: GlobalPos): string {
 
 export function samePos(a: GlobalPos, b: GlobalPos): boolean {
   return posKey(a) === posKey(b);
+}
+
+/** A sub-sheet's Sheet input (or output) nodes in pin order: top to bottom, then left to right (as the server orders them). */
+export function sheetPins(sheet: Sheet | undefined, input: boolean): GraphNode[] {
+  const kind = input ? "sheet_input" : "sheet_output";
+  return (sheet?.nodes ?? [])
+    .filter((n) => n.settings.kind === kind)
+    .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+export function pinName(node: GraphNode, index: number): string {
+  const s = node.settings;
+  return (s.kind === "sheet_input" || s.kind === "sheet_output") && s.name ? s.name : `${s.kind === "sheet_input" ? "in" : "out"} ${index + 1}`;
 }

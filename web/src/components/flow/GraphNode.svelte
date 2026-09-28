@@ -14,12 +14,36 @@
   const s = $derived(data.node.settings);
   const kind = $derived(s.kind);
   const color = $derived(data.resource ? RESOURCE_VAR[data.resource] : "var(--muted)");
-  const title = $derived(data.node.label || (data.device ? deviceName(data.device) : KIND_LABEL[kind]));
+  const title = $derived(
+    data.node.label ||
+      (data.device
+        ? deviceName(data.device)
+        : kind === "subsheet"
+          ? (data.subsheet?.sheet?.name ?? "Missing sub-sheet")
+          : (s.kind === "sheet_input" || s.kind === "sheet_output") && s.name
+            ? s.name
+            : KIND_LABEL[kind]),
+  );
   const offline = $derived(data.device && data.device.state !== "active");
   const disabled = $derived(data.node.enabled === false);
-  const inputs = $derived(s.kind === "device" ? (s.inputs ?? []) : []);
-  const outputs = $derived(s.kind === "device" ? (s.outputs ?? []) : []);
-  const rows = $derived(Math.max(inputs.length, outputs.length, 1));
+
+  /** Labeled pin rows: a device's inputs and outputs, or a sub-sheet's pins. */
+  const leftRows = $derived<{ label: string; title: string; color: string }[]>(
+    s.kind === "device"
+      ? (s.inputs ?? []).map((x) => ({ label: shortLabel(x), title: sideLabel(x), color: RESOURCE_VAR[x.resource] }))
+      : kind === "subsheet"
+        ? (data.subsheet?.inputs ?? []).map((name) => ({ label: name, title: name, color }))
+        : [],
+  );
+  const rightRows = $derived<{ label: string; title: string; color: string }[]>(
+    s.kind === "device"
+      ? (s.outputs ?? []).map((x) => ({ label: shortLabel(x), title: sideLabel(x), color: RESOURCE_VAR[x.resource] }))
+      : kind === "subsheet"
+        ? (data.subsheet?.outputs ?? []).map((name) => ({ label: name, title: name, color }))
+        : [],
+  );
+  const pinned = $derived(kind === "device" || kind === "subsheet");
+  const rows = $derived(Math.max(leftRows.length, rightRows.length, 1));
   const idleTitle = $derived(
     [
       data.fiveMinutes > 0 ? `Average over 5 min: ${formatAverage(data.fiveMinutes, data.resource, app.rateUnit)}` : "Nothing moved in the last 5 min",
@@ -36,15 +60,17 @@
 
   // New or removed handles must be measured again, or wires attach to stale positions.
   $effect(() => {
-    void inputs.length;
-    void outputs.length;
+    void leftRows.length;
+    void rightRows.length;
     updateInternals(id);
   });
 </script>
 
 <div
   class="rounded-md border text-left text-xs"
-  style="width: max-content; min-width: {kind === 'device' ? 140 : 110}px; max-width: {kind === 'device' ? 220 : 180}px; background: var(--panel); border-color: {selected ? 'var(--accent)' : 'var(--line)'}; box-shadow: {selected
+  style="width: max-content; min-width: {pinned ? 140 : 110}px; max-width: {pinned ? 220 : 180}px; background: var(--panel); border-color: {selected
+    ? 'var(--accent)'
+    : 'var(--line)'}; border-style: {kind === 'subsheet' ? 'double' : 'solid'}; border-width: {kind === 'subsheet' ? 3 : 1}px; box-shadow: {selected
     ? '0 0 0 1px var(--accent)'
     : '0 1px 3px rgb(0 0 0 / 0.25)'}; opacity: {disabled ? 0.5 : 1}"
 >
@@ -65,16 +91,16 @@
       </div>
     </div>
   </div>
-  {#if kind === "device"}
+  {#if pinned}
     <div class="grid grid-cols-2 gap-2" style="height: {rows * ROW}px; font-size: 10px">
       <div class="flex flex-col">
-        {#each inputs as input}
-          <div class="truncate pl-2" style="height: {ROW}px; line-height: {ROW}px" title={sideLabel(input)}>{shortLabel(input)}</div>
+        {#each leftRows as row}
+          <div class="truncate pl-2" style="height: {ROW}px; line-height: {ROW}px" title={row.title}>{row.label}</div>
         {/each}
       </div>
       <div class="flex flex-col text-right">
-        {#each outputs as output}
-          <div class="truncate pr-2" style="height: {ROW}px; line-height: {ROW}px" title={sideLabel(output)}>{shortLabel(output)}</div>
+        {#each rightRows as row}
+          <div class="truncate pr-2" style="height: {ROW}px; line-height: {ROW}px" title={row.title}>{row.label}</div>
         {/each}
       </div>
     </div>
@@ -84,25 +110,27 @@
       <div class="pr-2" style="height: {ROW}px; line-height: {ROW}px; color: var(--good)">match</div>
       <div class="pr-2" style="height: {ROW}px; line-height: {ROW}px; color: var(--bad)">other</div>
     </div>
-  {:else}
+  {:else if kind !== "sheet_input" && kind !== "sheet_output"}
     <div class="truncate px-1.5 py-0.5 muted" style="font-size: 10px" title={summary(data.node, app.rateUnit)}>{summary(data.node, app.rateUnit)}</div>
   {/if}
 </div>
 
-{#if kind === "device"}
-  {#each inputs as input, i}
-    <Handle type="target" position={Position.Left} id={`in:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; {inPin(RESOURCE_VAR[input.resource])}" />
+{#if pinned}
+  {#each leftRows as row, i}
+    <Handle type="target" position={Position.Left} id={`in:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}" />
   {/each}
-  {#each outputs as output, i}
-    <Handle type="source" position={Position.Right} id={`out:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(RESOURCE_VAR[output.resource])}" />
+  {#each rightRows as row, i}
+    <Handle type="source" position={Position.Right} id={`out:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}" />
   {/each}
 {:else}
-  <Handle type="target" position={Position.Left} id="in" style={inPin(color)} />
+  {#if kind !== "sheet_input"}
+    <Handle type="target" position={Position.Left} id="in" style={inPin(color)} />
+  {/if}
   {#if kind === "filter"}
     <!-- Aligned with the "match" and "other" rows under the summary line (16px). -->
     <Handle type="source" position={Position.Right} id="match" style="top: {HEADER + 16 + ROW / 2}px; {outPin('var(--good)')}" />
     <Handle type="source" position={Position.Right} id="reject" style="top: {HEADER + 16 + ROW + ROW / 2}px; {outPin('var(--bad)')}" />
-  {:else}
+  {:else if kind !== "sheet_output"}
     <Handle type="source" position={Position.Right} id="out" style={outPin(color)} />
   {/if}
 {/if}
