@@ -421,27 +421,31 @@ public final class EngineTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 400)
-    public static void mePortCountsChannelsOnItsCable(GameTestHelper helper) {
+    public static void mePortShowsTheFullestCableOnTheWayToTheController(GameTestHelper helper) {
         if (!Mods.AE2) {
             helper.succeed();
             return;
         }
-        // A powered ME controller on the first connector; a glass cable with two interfaces on the second.
-        Rig rig = rig(helper, Ae2TestSupport.block("controller"), Blocks.BARREL);
-        helper.setBlock(new BlockPos(3, 1, 3), Ae2TestSupport.block("creative_energy_cell"));
-        BlockPos first = helper.absolutePos(new BlockPos(3, 1, 1));
-        BlockPos second = helper.absolutePos(new BlockPos(4, 1, 1));
-        Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", second, Direction.NORTH);
-        helper.setBlock(new BlockPos(4, 2, 0), Ae2TestSupport.block("interface"));
-        helper.setBlock(new BlockPos(5, 1, 0), Ae2TestSupport.block("interface"));
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
+        BlockPos ae2c = helper.absolutePos(new BlockPos(3, 1, 1));
+        BlockPos shortbus = helper.absolutePos(new BlockPos(6, 1, 1));
+        // ae2c: a glass cable on the way to a powered ME controller, carrying two interfaces' channels as well.
+        Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", ae2c, Direction.NORTH);
+        helper.setBlock(new BlockPos(3, 2, 0), Ae2TestSupport.block("controller"));
+        helper.setBlock(new BlockPos(3, 3, 0), Ae2TestSupport.block("creative_energy_cell"));
+        helper.setBlock(new BlockPos(2, 1, 0), Ae2TestSupport.block("interface"));
+        helper.setBlock(new BlockPos(4, 1, 0), Ae2TestSupport.block("interface"));
+        // shortbus: a glass cable holding a storage bus, whose channel comes through the link.
+        Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", shortbus, Direction.NORTH);
+        Ae2TestSupport.use(helper.getLevel(), "storage_bus", shortbus.north(), Direction.UP);
         java.util.function.Function<BlockPos, UUID> connector = pos -> rig.network().connectors().stream()
                 .filter(c -> c.pos().pos().equals(pos)).findFirst().orElseThrow().id();
-        Node a = rig.node(new NodeSettings.MePortSettings(connector.apply(first), Direction.SOUTH));
-        Node b = rig.node(new NodeSettings.MePortSettings(connector.apply(second), Direction.NORTH));
+        Node a = rig.node(new NodeSettings.MePortSettings(connector.apply(ae2c), Direction.NORTH));
+        Node b = rig.node(new NodeSettings.MePortSettings(connector.apply(shortbus), Direction.NORTH));
         rig.sheet().connect(Wire.of(a, b));
         helper.succeedWhen(() -> {
-            String usage = rig.runtime().meUsage().get(b.id());
-            check(helper, "2/8".equals(usage), "the glass cable carries two interfaces' channels but shows " + usage);
+            check(helper, "3/8".equals(rig.runtime().meUsage().get(a.id())), "ae2c shows " + rig.runtime().meUsage().get(a.id()) + ", not 3/8");
+            check(helper, "3/8".equals(rig.runtime().meUsage().get(b.id())), "shortbus shows " + rig.runtime().meUsage().get(b.id()) + ", not 3/8");
         });
     }
 

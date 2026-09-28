@@ -79,8 +79,9 @@ public final class MeEndpoints implements IInWorldGridNodeHost {
     }
 
     /**
-     * Channels in use on the cable (or machine) on that side, and the most it carries: AE2 limits the cable as a
-     * whole, so what it already carries for other machines counts too, as does what goes through this link.
+     * How full the way to the ME controller is: of the cable on this side and every node on AE2's own route from
+     * this endpoint to the controller, the one with the least room left (usually a normal cable carrying other
+     * machines' channels too), as "used/max".
      */
     @Nullable
     String usage(Direction side) {
@@ -88,18 +89,39 @@ public final class MeEndpoints implements IInWorldGridNodeHost {
         if (node == null) {
             return null;
         }
-        appeng.api.networking.IGridConnection cable = node.getInWorldConnections().get(side);
-        if (cable == null) {
+        if (node.getInWorldConnections().get(side) == null && node.getConnections().isEmpty()) {
             return "not connected";
         }
-        IGridNode other = cable.getOtherSide(node);
-        int max = Math.min(node.getMaxChannels(), other.getMaxChannels());
-        // As AE2 draws a cable: its busiest connection carries everything behind it.
-        int used = 0;
-        for (appeng.api.networking.IGridConnection connection : other.getConnections()) {
-            used = Math.max(used, connection.getUsedChannels());
+        // The cable on this side limits the link too, even when it lies further out than us rather than towards the controller.
+        appeng.api.networking.IGridConnection cable = node.getInWorldConnections().get(side);
+        IGridNode tightest = cable == null ? null : cable.getOtherSide(node);
+        IGridNode current = node;
+        for (int steps = 0; current != null && steps < 4096; steps++) {
+            IGridNode parent = null;
+            for (appeng.api.networking.IGridConnection connection : current.getConnections()) {
+                IGridNode other = connection.getOtherSide(current);
+                if (connection instanceof appeng.me.GridConnection gc && gc.getControllerRoute() == other) {
+                    parent = other;
+                    break;
+                }
+            }
+            if (parent == null) {
+                // current is the controller (or the route ends): it isn't a cable with a limit to report.
+                break;
+            }
+            if (tightest == null || room(current) < room(tightest)) {
+                tightest = current;
+            }
+            current = parent;
         }
-        return used + "/" + max;
+        if (tightest == null) {
+            tightest = node;
+        }
+        return tightest.getUsedChannels() + "/" + tightest.getMaxChannels();
+    }
+
+    private static int room(IGridNode node) {
+        return node.getMaxChannels() - node.getUsedChannels();
     }
 
     @Nullable
