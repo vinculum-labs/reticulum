@@ -10,6 +10,19 @@ export interface NodeData extends Record<string, unknown> {
   device?: Device;
   resource: Resource | null;
   rate: number;
+  /** Moved over the last 5 minutes. */
+  fiveMinutes: number;
+  /** Ticks since it last moved, if it ever did. */
+  ticksSinceMoved?: number;
+  /** Why it moved nothing on its last attempt. */
+  status?: string;
+}
+
+export interface Activity {
+  rates: Record<string, number>;
+  fiveMinutes: Record<string, number>;
+  ticksSinceMoved: Record<string, number>;
+  status: Record<string, string>;
 }
 
 /**
@@ -73,10 +86,11 @@ export function handleIndex(handle: string | null | undefined): number {
 export function toFlow(
   sheet: Sheet,
   devices: Device[],
-  rates: Record<string, number>,
+  activity: Activity,
   selected: Set<string>,
   unit: "t" | "s",
 ): { nodes: Node<NodeData>[]; edges: Edge[] } {
+  const rates = activity.rates;
   const byKey = new Map(devices.map((d) => [posKey(d.pos), d]));
   const kinds = resources(sheet);
   const nodes: Node<NodeData>[] = (sheet.nodes ?? []).map((n) => {
@@ -87,7 +101,15 @@ export function toFlow(
       type: "graph",
       position: { x: n.x ?? 0, y: n.y ?? 0 },
       selected: selected.has(n.id),
-      data: { node: n, device, resource: kinds.nodes.get(n.id) ?? null, rate: rates[n.id] ?? 0 },
+      data: {
+        node: n,
+        device,
+        resource: kinds.nodes.get(n.id) ?? null,
+        rate: rates[n.id] ?? 0,
+        fiveMinutes: activity.fiveMinutes[n.id] ?? 0,
+        ticksSinceMoved: activity.ticksSinceMoved[n.id],
+        status: activity.status[n.id],
+      },
     };
   });
   const byId = new Map((sheet.nodes ?? []).map((n) => [n.id, n]));

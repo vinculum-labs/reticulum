@@ -14,6 +14,7 @@ public final class Metrics {
 
     private static final class Series {
         long current;
+        long lastMovedTick = -1;
         long lastSecond;
         final long[] seconds = new long[SECONDS];
         int secondIndex;
@@ -39,16 +40,44 @@ public final class Metrics {
 
     private final Map<UUID, Series> series = new HashMap<>();
 
-    void record(CompiledSheet.Route route, long amount) {
+    void record(CompiledSheet.Route route, long amount, long tick) {
         if (amount <= 0) {
             return;
         }
         for (UUID node : route.path()) {
-            series.computeIfAbsent(node, k -> new Series()).current += amount;
+            Series s = series.computeIfAbsent(node, k -> new Series());
+            s.current += amount;
+            s.lastMovedTick = tick;
         }
         for (UUID wire : route.wires()) {
-            series.computeIfAbsent(wire, k -> new Series()).current += amount;
+            Series s = series.computeIfAbsent(wire, k -> new Series());
+            s.current += amount;
+            s.lastMovedTick = tick;
         }
+    }
+
+    /** Total moved over the last 5 minutes, per id. */
+    public Map<UUID, Long> lastFiveMinutes() {
+        Map<UUID, Long> out = new HashMap<>();
+        series.forEach((id, s) -> {
+            long total = 0;
+            for (long v : s.seconds) {
+                total += v;
+            }
+            out.put(id, total);
+        });
+        return out;
+    }
+
+    /** Ticks since each id last moved anything. */
+    public Map<UUID, Long> ticksSinceMoved(long now) {
+        Map<UUID, Long> out = new HashMap<>();
+        series.forEach((id, s) -> {
+            if (s.lastMovedTick >= 0) {
+                out.put(id, now - s.lastMovedTick);
+            }
+        });
+        return out;
     }
 
     /** Called every tick; closes a second every 20 ticks. */

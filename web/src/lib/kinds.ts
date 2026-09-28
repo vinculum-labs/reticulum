@@ -43,6 +43,45 @@ export function defaultSettings(kind: NodeKind, device: Device | null, resource:
   }
 }
 
+/** Why a node moved nothing, in words. */
+export const STATUS_LABEL: Record<string, string> = {
+  device_offline: "device offline",
+  source_empty: "nothing to take",
+  keep_rule: "keep rule reached",
+  filtered_out: "filtered out",
+  target_offline: "target offline",
+  rate_limited: "rate limited",
+  cap_reached: "cap reached",
+  target_full: "target full",
+  waiting_for_parts: "waiting for parts",
+  no_room_for_kit: "no room for a kit",
+  overflow_full: "overflow full",
+};
+
+/**
+ * An average over the last 5 minutes. The unit steps up for slow flows so the number stays readable:
+ * per tick (or second), then per minute, then per hour.
+ */
+export function formatAverage(fiveMinuteTotal: number, resource: Resource | null, unit: "t" | "s"): string {
+  const perSecond = fiveMinuteTotal / 300;
+  const preferred = unit === "t" ? perSecond / 20 : perSecond;
+  if (preferred >= 0.1) return `${formatAmount(round(preferred), resource)}/${unit}`;
+  if (perSecond * 60 >= 0.1) return `${formatAmount(round(perSecond * 60), resource)}/min`;
+  return `${formatAmount(round(perSecond * 3600), resource)}/h`;
+}
+
+function round(v: number): number {
+  return v >= 10 ? Math.round(v * 10) / 10 : Math.round(v * 100) / 100;
+}
+
+/** "12s ago", "4m ago", "2h ago". */
+export function formatAgo(ticks: number): string {
+  const seconds = Math.floor(ticks / 20);
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  return `${Math.floor(seconds / 3600)}h ago`;
+}
+
 /** A per-second amount (as the server counts) in the chosen unit, e.g. "3.2/t" or "64/s". */
 export function formatRate(perSecond: number, resource: Resource | null, unit: "t" | "s"): string {
   const value = unit === "t" ? perSecond / 20 : perSecond;

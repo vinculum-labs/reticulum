@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app, edit } from "../../lib/state.svelte";
-  import { KIND_HINT, KIND_LABEL, RESOURCE_UNIT } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate } from "../../lib/kinds";
   import type { DeviceNodeSettings, Edit, GraphNode, NodeSettings, Sheet, Wire } from "../../lib/types";
   import Field from "./Field.svelte";
   import FilterField from "./FilterField.svelte";
@@ -63,6 +63,20 @@
       {#if canEdit}<button class="btn btn-danger text-sm" onclick={remove}>Delete</button>{/if}
     </div>
     <p class="text-xs muted">{KIND_HINT[s.kind]}</p>
+  </div>
+
+  <div class="rounded-md border p-2 text-sm" style="border-color: var(--line)">
+    {#if (app.rates[node.id] ?? 0) > 0}
+      Moving {formatRate(app.rates[node.id], null, app.rateUnit)}
+    {:else if app.status[node.id]}
+      <span style="color: var(--warn)">Idle: {STATUS_LABEL[app.status[node.id]] ?? app.status[node.id]}</span>
+    {:else}
+      Idle
+    {/if}
+    <div class="text-xs muted">
+      Average {formatAverage(app.fiveMinutes[node.id] ?? 0, null, app.rateUnit)} over 5 min ·
+      {app.ticksSinceMoved[node.id] !== undefined ? `last moved ${formatAgo(app.ticksSinceMoved[node.id])}` : "never moved"}
+    </div>
   </div>
 
   <Field label="Label" hint={s.kind === "device" ? "Optional; the device's name is shown otherwise." : undefined}>

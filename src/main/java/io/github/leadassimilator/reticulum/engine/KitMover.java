@@ -89,19 +89,33 @@ final class KitMover {
         ServerLevel level = ctx.server().getLevel(first.sinkSettings().port().device().dimension());
         ItemPort to = ctx.runtime().itemPort(ctx.server(), ctx.network(), first.sinkSettings().port());
         if (to.isEmpty() || level == null) {
+            ctx.runtime().status(first.kit().id(), Status.TARGET_OFFLINE);
             return false;
         }
         Filters.Context context = new Filters.Context(level, to::contains, null);
 
+        UUID kitNode = first.kit().id();
         List<Take> takes = planExtraction(ctx, sheet, kit, lineFilters, routes, context);
-        if (takes == null || !withinRateLimits(ctx, takes) || !withinCaps(sheet, to, first.sinkSettings().caps(), takes, context)) {
+        if (takes == null) {
+            ctx.runtime().status(kitNode, Status.WAITING_FOR_PARTS);
+            return false;
+        }
+        if (!withinRateLimits(ctx, takes)) {
+            ctx.runtime().status(kitNode, Status.RATE_LIMITED);
+            return false;
+        }
+        if (!withinCaps(sheet, to, first.sinkSettings().caps(), takes, context)) {
+            ctx.runtime().status(kitNode, Status.CAP_REACHED);
             return false;
         }
         List<Put> puts = planInsertion(to, takes);
         if (puts == null || !verify(takes, puts)) {
+            ctx.runtime().status(kitNode, Status.NO_ROOM_FOR_KIT);
             return false;
         }
-        return commit(ctx, takes, puts);
+        boolean moved = commit(ctx, takes, puts);
+        ctx.runtime().status(kitNode, moved ? null : Status.NO_ROOM_FOR_KIT);
+        return moved;
     }
 
     // ---------------------------------------------------------------- step 1: plan the extraction

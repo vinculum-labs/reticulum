@@ -354,4 +354,42 @@ public final class EngineTests {
             check(helper, rig.count(0, Items.COBBLESTONE) + rig.count(1, Items.COBBLESTONE) + rig.count(2, Items.COBBLESTONE) == 32, "items duplicated or lost");
         });
     }
+
+    private static io.github.leadassimilator.reticulum.engine.Status status(Rig rig, Node node) {
+        return io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(rig.network().id()).statuses().get(node.id());
+    }
+
+    @GameTest(template = "empty")
+    public static void idleReasonSourceEmpty(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        Node source = rig.source(0, ResourceKind.ITEM, List.of(), 64);
+        rig.wire(source, rig.sink(1, ResourceKind.ITEM, List.of()));
+        helper.runAfterDelay(5, () -> {
+            check(helper, status(rig, source) == io.github.leadassimilator.reticulum.engine.Status.SOURCE_EMPTY,
+                    "expected source_empty, got " + status(rig, source));
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void idleReasonTargetFull(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 8));
+        Container sink = rig.container(1);
+        for (int slot = 0; slot < sink.getContainerSize(); slot++) {
+            sink.setItem(slot, new ItemStack(Items.DIRT, 64));
+        }
+        Node source = rig.source(0, ResourceKind.ITEM, List.of(), 64);
+        rig.wire(source, rig.sink(1, ResourceKind.ITEM, List.of()));
+        helper.runAfterDelay(5, () -> {
+            check(helper, status(rig, source) == io.github.leadassimilator.reticulum.engine.Status.TARGET_FULL,
+                    "expected target_full, got " + status(rig, source));
+            sink.setItem(0, ItemStack.EMPTY);
+            helper.runAfterDelay(20, () -> {
+                check(helper, status(rig, source) == null || rig.count(1, Items.COBBLESTONE) == 8,
+                        "status not cleared once items moved: " + status(rig, source));
+                helper.succeed();
+            });
+        });
+    }
 }

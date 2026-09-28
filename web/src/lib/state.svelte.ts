@@ -49,6 +49,12 @@ export const app = $state({
   sheetId: null as string | null,
   /** Amount moved in the last second, per node and wire id. */
   rates: {} as Record<string, number>,
+  /** Amount moved over the last 5 minutes, per node and wire id. */
+  fiveMinutes: {} as Record<string, number>,
+  /** Ticks since each node or wire last moved anything. */
+  ticksSinceMoved: {} as Record<string, number>,
+  /** Why each node moved nothing on its last attempt (absent while it moves). */
+  status: {} as Record<string, string>,
   selectedNodes: [] as string[],
   selectedEdges: [] as string[],
   selectedDevice: null as string | null,
@@ -107,7 +113,12 @@ async function onMessage(m: any): Promise<void> {
       if (!app.current && app.networks.length) await selectNetwork(app.networks[0].id);
       break;
     case "metrics":
-      if (m.network === app.current) app.rates = m.perSecond;
+      if (m.network === app.current) {
+        app.rates = m.perSecond;
+        app.fiveMinutes = m.fiveMinutes ?? {};
+        app.ticksSinceMoved = m.ticksSinceMoved ?? {};
+        app.status = m.status ?? {};
+      }
       break;
     case "removed":
       if (m.network === app.current) {
@@ -142,6 +153,9 @@ export async function selectNetwork(id: string): Promise<void> {
   app.current = id;
   history.replaceState(null, "", `#network=${id}`);
   app.rates = {};
+  app.fiveMinutes = {};
+  app.ticksSinceMoved = {};
+  app.status = {};
   app.selectedNodes = [];
   app.selectedEdges = [];
   app.selectedDevice = null;

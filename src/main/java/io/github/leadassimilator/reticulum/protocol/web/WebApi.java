@@ -458,6 +458,15 @@ public final class WebApi {
         JsonObject values = new JsonObject();
         metrics.lastSecond().forEach((id, value) -> values.addProperty(id.toString(), value));
         out.add("perSecond", values);
+        JsonObject fiveMinutes = new JsonObject();
+        metrics.lastFiveMinutes().forEach((id, value) -> fiveMinutes.addProperty(id.toString(), value));
+        out.add("fiveMinutes", fiveMinutes);
+        JsonObject idle = new JsonObject();
+        metrics.ticksSinceMoved(runtime.ticks()).forEach((id, value) -> idle.addProperty(id.toString(), value));
+        out.add("ticksSinceMoved", idle);
+        JsonObject statuses = new JsonObject();
+        runtime.statuses().forEach((id, status) -> statuses.addProperty(id.toString(), status.key()));
+        out.add("status", statuses);
         return out;
     }
 

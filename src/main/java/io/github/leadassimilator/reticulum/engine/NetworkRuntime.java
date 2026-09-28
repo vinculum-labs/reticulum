@@ -43,6 +43,8 @@ public final class NetworkRuntime {
     private final Map<UUID, Integer> backoff = new HashMap<>();
     private final Set<String> reportedErrors = new LinkedHashSet<>();
     private final Metrics metrics = new Metrics();
+    /** Why each node last moved nothing; absent once it moves again. Keyed by the node the editor shows. */
+    private final Map<UUID, Status> statuses = new HashMap<>();
     private long ticks;
 
     private record CacheKey(GlobalPos device, FaceKey face, ResourceKind resource) {
@@ -60,6 +62,19 @@ public final class NetworkRuntime {
 
     public Metrics metrics() {
         return metrics;
+    }
+
+    public Map<UUID, Status> statuses() {
+        return statuses;
+    }
+
+    /** Records the outcome of an attempt on a node: a reason it moved nothing, or null once it moved something. */
+    void status(UUID node, @Nullable Status status) {
+        if (status == null) {
+            statuses.remove(node);
+        } else {
+            statuses.put(node, status);
+        }
     }
 
     /** The compiled form of a sheet, if the engine has compiled it (sheets are compiled while the network runs). */
@@ -139,7 +154,7 @@ public final class NetworkRuntime {
     /** Records a delivery for metrics and charges the route's rate limits. */
     public void delivered(CompiledSheet.Route route, long amount) {
         consume(route.rateLimits(), amount);
-        metrics.record(route, amount);
+        metrics.record(route, amount, ticks);
     }
 
     public void consume(List<Node> rateLimits, long amount) {

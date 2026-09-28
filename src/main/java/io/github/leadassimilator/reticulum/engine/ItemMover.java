@@ -25,6 +25,11 @@ final class ItemMover {
 
     static void run(NetworkRuntime.Context ctx, CompiledSheet sheet) {
         if (Overflow.itemsFull(ctx.network())) {
+            for (CompiledSheet.Source source : sheet.sources()) {
+                if (source.resource() == ResourceKind.ITEM) {
+                    ctx.runtime().status(sheet.owner(source.node().id()), Status.OVERFLOW_FULL);
+                }
+            }
             return;
         }
         // Kits can gather their parts from several sources, so kit routes are grouped per kit across the sheet.
@@ -62,10 +67,13 @@ final class ItemMover {
 
     /** Returns how many items moved. */
     private static long operate(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, List<CompiledSheet.Route> routes) {
+        UUID owner = sheet.owner(source.node().id());
         ItemPort from = ctx.runtime().itemPort(ctx.server(), ctx.network(), source.settings().port());
         if (from.isEmpty()) {
+            ctx.runtime().status(owner, Status.DEVICE_OFFLINE);
             return 0;
         }
+        Status why = Status.SOURCE_EMPTY;
         ServerLevel level = ctx.server().getLevel(source.settings().port().device().dimension());
         Map<UUID, ItemPort> sinks = new HashMap<>();
         // 0 (or less) means one full stack of whatever moves first, like XNet's "stack" mode.
@@ -86,6 +94,9 @@ final class ItemMover {
                 long limit = oneStack && total == 0 ? stack.getMaxStackSize() : budget;
                 long available = Math.min(Math.min(stack.getCount(), limit),
                         from.limit(source.settings().keep(), sheet, stack, plain, true));
+                if (available <= 0) {
+                    why = Status.furthest(why, Status.KEEP_RULE);
+                }
                 for (CompiledSheet.Route route : routes) {
                     if (available <= 0) {
                         break;
@@ -93,19 +104,26 @@ final class ItemMover {
                     ItemPort to = sinks.computeIfAbsent(route.sink().id(),
                             id -> ctx.runtime().itemPort(ctx.server(), ctx.network(), route.sinkSettings().port()));
                     if (to.isEmpty()) {
+                        why = Status.furthest(why, Status.TARGET_OFFLINE);
                         continue;
                     }
                     Filters.Context context = new Filters.Context(level, to::contains, null);
                     if (!passes(route.gates(), stack, context)) {
+                        why = Status.furthest(why, Status.FILTERED_OUT);
                         continue;
                     }
-                    long amount = Math.min(available, ctx.runtime().available(route.rateLimits()));
-                    amount = Math.min(amount, to.limit(route.sinkSettings().caps(), sheet, stack, context, false));
+                    long rate = ctx.runtime().available(route.rateLimits());
+                    long room = to.limit(route.sinkSettings().caps(), sheet, stack, context, false);
+                    long amount = Math.min(available, Math.min(rate, room));
                     if (amount <= 0) {
+                        why = Status.furthest(why, room <= 0 ? Status.CAP_REACHED : Status.RATE_LIMITED);
                         continue;
                     }
                     int stackSize = stack.getMaxStackSize();
                     int moved = transfer(ctx, handler, slot, (int) Math.min(amount, Integer.MAX_VALUE), to);
+                    if (moved <= 0) {
+                        why = Status.furthest(why, Status.TARGET_FULL);
+                    }
                     if (moved > 0) {
                         if (oneStack && total == 0) {
                             budget = stackSize;
@@ -123,6 +141,7 @@ final class ItemMover {
                 }
             }
         }
+        ctx.runtime().status(owner, total > 0 ? null : why);
         return total;
     }
 

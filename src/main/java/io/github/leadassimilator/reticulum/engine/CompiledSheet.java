@@ -145,6 +145,11 @@ public final class CompiledSheet {
     /** Node ids of the sources and sinks a device node is made of, mapped back to the device node (for metrics). */
     private final Map<UUID, UUID> owners = new LinkedHashMap<>();
 
+    /** The node the editor shows for a node id: a device node for its internal sources and sinks, else itself. */
+    public UUID owner(UUID node) {
+        return owners.getOrDefault(node, node);
+    }
+
     private static UUID side(UUID device, String direction, int index) {
         return UUID.nameUUIDFromBytes((device + ":" + direction + ":" + index).getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }

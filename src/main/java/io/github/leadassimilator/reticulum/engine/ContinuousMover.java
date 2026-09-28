@@ -2,6 +2,7 @@ package io.github.leadassimilator.reticulum.engine;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.filter.Filters;
@@ -27,18 +28,24 @@ final class ContinuousMover {
                 continue;
             }
             if (source.resource() == ResourceKind.ENERGY) {
-                energy(ctx, source);
-            } else if (source.resource() == ResourceKind.FLUID && !Overflow.fluidsFull(ctx.network())) {
-                fluid(ctx, sheet, source);
+                energy(ctx, sheet, source);
+            } else if (source.resource() == ResourceKind.FLUID) {
+                if (Overflow.fluidsFull(ctx.network())) {
+                    ctx.runtime().status(sheet.owner(source.node().id()), Status.OVERFLOW_FULL);
+                } else {
+                    fluid(ctx, sheet, source);
+                }
             }
         }
     }
 
     // ---------------------------------------------------------------- energy
 
-    private static void energy(NetworkRuntime.Context ctx, CompiledSheet.Source source) {
+    private static void energy(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source) {
+        UUID owner = sheet.owner(source.node().id());
         List<IEnergyStorage> from = ctx.runtime().energy(ctx.server(), ctx.network(), source.settings().port());
         if (from.isEmpty()) {
+            ctx.runtime().status(owner, Status.DEVICE_OFFLINE);
             return;
         }
         long supply = 0;
@@ -52,6 +59,7 @@ final class ContinuousMover {
             supply = Math.min(supply, Math.max(0, stored - keep));
         }
         if (supply <= 0) {
+            ctx.runtime().status(owner, keep > 0 && stored > 0 ? Status.KEEP_RULE : Status.SOURCE_EMPTY);
             return;
         }
         List<CompiledSheet.Route> routes = ctx.runtime().ordered(source.routes());
@@ -77,16 +85,19 @@ final class ContinuousMover {
             }
         }
         long[] share = share(supply, demand, anyPriority(routes));
+        long total = 0;
         for (int i = 0; i < routes.size(); i++) {
             if (share[i] <= 0) {
                 continue;
             }
             long moved = moveEnergy(from, sinks.get(i), share[i]);
             if (moved > 0) {
+                total += moved;
                 ctx.runtime().delivered(routes.get(i), moved);
                 ctx.runtime().advance(routes.get(i));
             }
         }
+        ctx.runtime().status(owner, total > 0 ? null : Status.TARGET_FULL);
     }
 
     private static long moveEnergy(List<IEnergyStorage> from, List<IEnergyStorage> to, long amount) {
@@ -134,8 +145,10 @@ final class ContinuousMover {
     // ---------------------------------------------------------------- fluids
 
     private static void fluid(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source) {
+        UUID owner = sheet.owner(source.node().id());
         List<IFluidHandler> from = ctx.runtime().fluids(ctx.server(), ctx.network(), source.settings().port());
         if (from.isEmpty()) {
+            ctx.runtime().status(owner, Status.DEVICE_OFFLINE);
             return;
         }
         ServerLevel level = ctx.server().getLevel(source.settings().port().device().dimension());
@@ -149,12 +162,20 @@ final class ContinuousMover {
             }
         }
         List<CompiledSheet.Route> ordered = ctx.runtime().ordered(source.routes());
+        long total = 0;
+        Status why = Status.SOURCE_EMPTY;
         for (FluidStack kind : kinds) {
-            fluidKind(ctx, sheet, source, level, from, kind, ordered);
+            long moved = fluidKind(ctx, sheet, source, level, from, kind, ordered);
+            total += moved;
+            if (moved == 0) {
+                why = Status.furthest(why, Status.TARGET_FULL);
+            }
         }
+        ctx.runtime().status(owner, total > 0 ? null : why);
     }
 
-    private static void fluidKind(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, ServerLevel level,
+    /** Returns how much moved. */
+    private static long fluidKind(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, ServerLevel level,
             List<IFluidHandler> from, FluidStack kind, List<CompiledSheet.Route> ordered) {
         Filters.Context plain = Filters.Context.of(level);
         long supply = 0;
@@ -163,7 +184,7 @@ final class ContinuousMover {
         }
         supply = Math.min(supply, fluidLimit(sheet, source.settings().keep(), from, kind, plain, true));
         if (supply <= 0) {
-            return;
+            return 0;
         }
         List<CompiledSheet.Route> routes = new ArrayList<>();
         List<List<IFluidHandler>> sinks = new ArrayList<>();
@@ -191,16 +212,19 @@ final class ContinuousMover {
             demands.add(demand);
         }
         long[] share = share(supply, demands.stream().mapToLong(Long::longValue).toArray(), anyPriority(routes));
+        long total = 0;
         for (int i = 0; i < routes.size(); i++) {
             if (share[i] <= 0) {
                 continue;
             }
             long moved = moveFluid(ctx, from, sinks.get(i), kind, share[i]);
             if (moved > 0) {
+                total += moved;
                 ctx.runtime().delivered(routes.get(i), moved);
                 ctx.runtime().advance(routes.get(i));
             }
         }
+        return total;
     }
 
     private static long moveFluid(NetworkRuntime.Context ctx, List<IFluidHandler> from, List<IFluidHandler> to, FluidStack kind, long amount) {

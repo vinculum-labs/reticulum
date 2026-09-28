@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
   import type { NodeData } from "../../lib/graph";
-  import { KIND_LABEL, RESOURCE_VAR, formatRate, shortLabel, sideLabel, summary } from "../../lib/kinds";
+  import { KIND_LABEL, RESOURCE_VAR, STATUS_LABEL, formatAgo, formatAverage, formatRate, shortLabel, sideLabel, summary } from "../../lib/kinds";
   import { app, deviceName } from "../../lib/state.svelte";
   import DeviceIcon from "../DeviceIcon.svelte";
 
@@ -20,6 +20,15 @@
   const inputs = $derived(s.kind === "device" ? (s.inputs ?? []) : []);
   const outputs = $derived(s.kind === "device" ? (s.outputs ?? []) : []);
   const rows = $derived(Math.max(inputs.length, outputs.length, 1));
+  const idleTitle = $derived(
+    [
+      data.fiveMinutes > 0 ? `Average over 5 min: ${formatAverage(data.fiveMinutes, data.resource, app.rateUnit)}` : "Nothing moved in the last 5 min",
+      data.ticksSinceMoved !== undefined ? `Last moved ${formatAgo(data.ticksSinceMoved)}` : "Never moved",
+      data.status ? `Last attempt: ${STATUS_LABEL[data.status] ?? data.status}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  );
 
   // Color says what a pin carries; shape says which way: inputs are hollow rings, outputs filled dots.
   const inPin = (c: string) => `background: var(--panel); border: 2px solid ${c}`;
@@ -43,10 +52,16 @@
     {#if data.device}<DeviceIcon item={data.device.icon} size={16} />{/if}
     <div class="min-w-0 flex-1 leading-tight">
       <div class="truncate font-medium" style="font-size: 12px" title={title}>{title}</div>
-      <div class="truncate muted" style="font-size: 10px">
-        {#if data.rate > 0}<span class="tabular-nums" style="color: {color}">{formatRate(data.rate, data.resource, app.rateUnit)}</span>{:else}{KIND_LABEL[kind]}{/if}{offline
-          ? ` · ${data.device?.state}`
-          : ""}{disabled ? " · off" : ""}
+      <div class="truncate muted" style="font-size: 10px" title={idleTitle}>
+        {#if data.rate > 0}
+          <span class="tabular-nums" style="color: {color}">{formatRate(data.rate, data.resource, app.rateUnit)}</span>
+        {:else if data.status}
+          <span style="color: var(--warn)">{STATUS_LABEL[data.status] ?? data.status}</span>
+        {:else if data.fiveMinutes > 0}
+          <span class="tabular-nums">avg {formatAverage(data.fiveMinutes, data.resource, app.rateUnit)}</span>
+        {:else}
+          {KIND_LABEL[kind]}
+        {/if}{offline ? ` · ${data.device?.state}` : ""}{disabled ? " · off" : ""}
       </div>
     </div>
   </div>
