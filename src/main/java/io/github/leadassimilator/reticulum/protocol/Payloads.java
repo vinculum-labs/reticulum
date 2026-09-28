@@ -132,6 +132,70 @@ public final class Payloads {
         }
     }
 
+    // ---------------------------------------------------------------- linking wireless connectors
+
+    /** A network offered by the picker; {@code password} when the player must enter its password to join. */
+    public record NetworkChoice(java.util.UUID id, String name, String owner, boolean password) {
+        public static final StreamCodec<RegistryFriendlyByteBuf, NetworkChoice> STREAM_CODEC = StreamCodec.composite(
+                net.minecraft.core.UUIDUtil.STREAM_CODEC, NetworkChoice::id,
+                ByteBufCodecs.STRING_UTF8, NetworkChoice::name,
+                ByteBufCodecs.STRING_UTF8, NetworkChoice::owner,
+                ByteBufCodecs.BOOL, NetworkChoice::password,
+                NetworkChoice::new);
+    }
+
+    /** Opens the network picker, for the network tool (no connector) or for one connector. */
+    public record OpenNetworkPicker(java.util.Optional<BlockPos> connector, java.util.List<NetworkChoice> choices) implements CustomPacketPayload {
+        public static final Type<OpenNetworkPicker> TYPE = payloadType("open_network_picker");
+        public static final StreamCodec<RegistryFriendlyByteBuf, OpenNetworkPicker> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.optional(BlockPos.STREAM_CODEC), OpenNetworkPicker::connector,
+                NetworkChoice.STREAM_CODEC.apply(ByteBufCodecs.list(4096)), OpenNetworkPicker::choices,
+                OpenNetworkPicker::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record RequestNetworkPicker(java.util.Optional<BlockPos> connector) implements CustomPacketPayload {
+        public static final Type<RequestNetworkPicker> TYPE = payloadType("request_network_picker");
+        public static final StreamCodec<RegistryFriendlyByteBuf, RequestNetworkPicker> STREAM_CODEC =
+                ByteBufCodecs.optional(BlockPos.STREAM_CODEC).<RegistryFriendlyByteBuf>cast().map(RequestNetworkPicker::new, RequestNetworkPicker::connector);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** The picker's choice; {@code password} is only used to join a password network. */
+    public record PickNetwork(java.util.Optional<BlockPos> connector, java.util.UUID network, String password) implements CustomPacketPayload {
+        public static final Type<PickNetwork> TYPE = payloadType("pick_network");
+        public static final StreamCodec<RegistryFriendlyByteBuf, PickNetwork> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.optional(BlockPos.STREAM_CODEC), PickNetwork::connector,
+                net.minecraft.core.UUIDUtil.STREAM_CODEC, PickNetwork::network,
+                ByteBufCodecs.stringUtf8(Screens.MAX_NAME_LENGTH), PickNetwork::password,
+                PickNetwork::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** Sneak + scroll with the network tool: the next (1) or previous (-1) mode. */
+    public record CycleToolMode(int step) implements CustomPacketPayload {
+        public static final Type<CycleToolMode> TYPE = payloadType("cycle_tool_mode");
+        public static final StreamCodec<RegistryFriendlyByteBuf, CycleToolMode> STREAM_CODEC =
+                ByteBufCodecs.VAR_INT.<RegistryFriendlyByteBuf>cast().map(CycleToolMode::new, CycleToolMode::step);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     // ---------------------------------------------------------------- registration
 
     public static void register(RegisterPayloadHandlersEvent event) {
@@ -141,6 +205,14 @@ public final class Payloads {
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openBlockScreen(payload.view()));
         registrar.playToClient(OpenControllerScreen.TYPE, OpenControllerScreen.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openControllerScreen(payload.view()));
+        registrar.playToClient(OpenNetworkPicker.TYPE, OpenNetworkPicker.STREAM_CODEC,
+                (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openNetworkPicker(payload));
+        registrar.playToServer(RequestNetworkPicker.TYPE, RequestNetworkPicker.STREAM_CODEC,
+                (payload, context) -> server(context, player -> Linking.openPicker(player, payload.connector())));
+        registrar.playToServer(PickNetwork.TYPE, PickNetwork.STREAM_CODEC,
+                (payload, context) -> server(context, player -> Linking.pick(player, payload)));
+        registrar.playToServer(CycleToolMode.TYPE, CycleToolMode.STREAM_CODEC,
+                (payload, context) -> server(context, player -> Linking.cycleMode(player, payload.step())));
         registrar.playToClient(LookResponse.TYPE, LookResponse.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.LookHud.accept(payload.pos(), payload.lines()));
 

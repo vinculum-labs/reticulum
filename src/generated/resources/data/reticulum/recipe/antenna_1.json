@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "C": {
+      "item": "reticulum:cable"
+    },
+    "I": {
+      "tag": "c:ingots/iron"
+    },
+    "R": {
+      "tag": "c:dusts/redstone"
+    }
+  },
+  "pattern": [
+    " R ",
+    " I ",
+    "ICI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "reticulum:antenna_1"
+  }
+}

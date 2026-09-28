@@ -39,6 +39,12 @@
     </div>
   </div>
 
+  {#if device.state === "active" && device.outOfRange}
+    <p class="rounded-md border p-2 text-sm" style="border-color: var(--warn)">
+      Out of range: only wireless connectors reach this device, and the controller's antenna doesn't reach them. Install a better antenna
+      or run a cable to them.
+    </p>
+  {/if}
   {#if device.state !== "active"}
     <div class="rounded-md border p-2 text-sm" style="border-color: var(--warn)">
       {device.state === "orphaned" ? "No connector reaches this device any more." : "The block is gone."}

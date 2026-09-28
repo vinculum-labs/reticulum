@@ -3,7 +3,17 @@ package io.github.leadassimilator.reticulum.block;
 import com.mojang.serialization.MapCodec;
 
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
+import io.github.leadassimilator.reticulum.item.AntennaItem;
+import io.github.leadassimilator.reticulum.item.ConnectorItem;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
+import io.github.leadassimilator.reticulum.network.Network;
+import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.registry.ModDataComponents;
+import io.github.leadassimilator.reticulum.registry.ModItems;
+import io.github.leadassimilator.reticulum.security.Security;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Containers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
@@ -34,8 +44,73 @@ public class ControllerBlock extends NetworkBlock {
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
             InteractionHand hand, BlockHitResult hitResult) {
-        return stack.getItem() instanceof NetworkToolItem ? ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION
-                : ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        if (stack.getItem() instanceof NetworkToolItem) {
+            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (stack.getItem() instanceof AntennaItem antenna && !player.isShiftKeyDown()) {
+            if (player instanceof ServerPlayer serverPlayer) {
+                installAntenna(serverPlayer, level, pos, stack, antenna);
+            }
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        }
+        if (stack.getItem() instanceof ConnectorItem && !player.isShiftKeyDown()) {
+            if (player instanceof ServerPlayer serverPlayer) {
+                bindStack(serverPlayer, level, pos, stack);
+            }
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        }
+        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+    }
+
+    /** Puts the antenna in the controller, handing back the one it had. */
+    private static void installAntenna(ServerPlayer player, Level level, BlockPos pos, ItemStack stack, AntennaItem antenna) {
+        if (!(level.getBlockEntity(pos) instanceof ControllerBlockEntity controller)) {
+            return;
+        }
+        Network network = NetworkManager.network(player.server, controller.networkId());
+        if (network != null && !Security.canEdit(network, player)) {
+            player.displayClientMessage(Component.translatable("message.reticulum.no_edit_access"), true);
+            return;
+        }
+        if (controller.antennaTier() == antenna.tier()) {
+            player.displayClientMessage(Component.translatable("message.reticulum.antenna_same"), true);
+            return;
+        }
+        ItemStack old = ModItems.antenna(controller.antennaTier());
+        controller.setAntennaTier(antenna.tier());
+        stack.consume(1, player);
+        if (!old.isEmpty() && !player.getInventory().add(old)) {
+            player.drop(old, false);
+        }
+        if (network != null) {
+            NetworkManager.changed(player.server, network);
+        }
+        player.displayClientMessage(Component.translatable("message.reticulum.antenna_installed", AntennaItem.range(antenna.tier())), true);
+    }
+
+    /** Binds a whole stack of connectors to this network: placed where no cable decides, they join it wirelessly. */
+    private static void bindStack(ServerPlayer player, Level level, BlockPos pos, ItemStack stack) {
+        if (!(level.getBlockEntity(pos) instanceof ControllerBlockEntity controller)) {
+            return;
+        }
+        Network network = NetworkManager.network(player.server, controller.networkId());
+        if (network == null || !Security.canUse(network, player)) {
+            player.displayClientMessage(Component.translatable("message.reticulum.no_access", network == null ? "?" : network.name()), true);
+            return;
+        }
+        stack.set(ModDataComponents.NETWORK_ID.get(), network.id());
+        stack.set(ModDataComponents.NETWORK_NAME.get(), network.name());
+        player.displayClientMessage(Component.translatable("message.reticulum.stack_bound", stack.getCount(), network.name()), true);
+    }
+
+    /** The antenna comes out when the controller is broken. */
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof ControllerBlockEntity controller && controller.antennaTier() > 0) {
+            Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), ModItems.antenna(controller.antennaTier()));
+            controller.setAntennaTier(0);
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     @Override

@@ -9,6 +9,10 @@
   const canAdmin = $derived(snapshot.canAdmin);
 
   let password = $state("");
+
+  const ANTENNA = ["None: no wireless connectors", "Tier 1: 128 blocks, same dimension", "Tier 2: the whole dimension", "Tier 3: every dimension"];
+  const wireless = $derived(snapshot.connectors.filter((c) => c.reach === "wireless").length);
+  const outOfRange = $derived(snapshot.connectors.filter((c) => c.reach === "out_of_range").length);
   let newMember = $state("");
   let newRole = $state<Member["role"]>("user");
 
@@ -68,6 +72,14 @@
   {/if}
 
   <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+    <dt class="muted">Antenna</dt>
+    <dd title="Right-click the controller with an antenna to change it">{ANTENNA[snapshot.antenna ?? 0]}</dd>
+    <dt class="muted">Connectors</dt>
+    <dd>
+      {snapshot.connectors.length}{wireless ? `, ${wireless} wireless` : ""}{outOfRange
+        ? `, ${outOfRange} out of range`
+        : ""}
+    </dd>
     <dt class="muted">Owner</dt>
     <dd>{snapshot.owner || "none (open to everyone)"}</dd>
     <dt class="muted">Your role</dt>

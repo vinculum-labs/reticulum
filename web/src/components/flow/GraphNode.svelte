@@ -40,7 +40,7 @@
             ? s.name
             : KIND_LABEL[kind]),
   );
-  const offline = $derived(data.device && data.device.state !== "active");
+  const offline = $derived(data.device && (data.device.state !== "active" || data.device.outOfRange));
   const disabled = $derived(data.node.enabled === false);
 
   /** Labeled pin rows: a device's inputs and outputs, or a sub-sheet's pins. */
@@ -113,7 +113,7 @@
           <span class="tabular-nums">avg {formatAverage(data.fiveMinutes, data.resource, app.rateUnit)}</span>
         {:else}
           {KIND_LABEL[kind]}
-        {/if}{offline ? ` · ${data.device?.state}` : ""}{disabled ? " · off" : ""}
+        {/if}{offline ? ` · ${data.device?.outOfRange ? "out of range" : data.device?.state}` : ""}{disabled ? " · off" : ""}
       </div>
       {#if redstone}<div class="truncate" style="font-size: 10px; color: var(--c-signal)" title={redstone}>⚡ {redstone}</div>{/if}
     </div>

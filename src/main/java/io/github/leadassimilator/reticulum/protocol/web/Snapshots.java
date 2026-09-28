@@ -105,8 +105,13 @@ final class Snapshots {
 
         JsonArray devices = new JsonArray();
         for (DeviceRecord record : network.devices()) {
-            devices.add(device(server, record));
+            JsonObject device = device(server, record);
+            if (runtime.outOfRange(record.pos())) {
+                device.addProperty("outOfRange", true);
+            }
+            devices.add(device);
         }
+        out.addProperty("antenna", antennaTier(server, network));
         out.add("devices", devices);
 
         JsonArray connectors = new JsonArray();
@@ -120,6 +125,10 @@ final class Snapshots {
             JsonArray reached = new JsonArray();
             connector.devices().forEach(d -> reached.add(encode(server, GlobalPos.CODEC, d)));
             json.add("devices", reached);
+            NetworkRuntime.Reach reach = runtime.reach(connector.id());
+            if (reach != null) {
+                json.addProperty("reach", reach.key());
+            }
             connectors.add(json);
         }
         out.add("connectors", connectors);
@@ -193,6 +202,15 @@ final class Snapshots {
             }
         }
         return faces;
+    }
+
+    /** The controller's antenna tier, or 0 when it has none or isn't loaded. */
+    static int antennaTier(MinecraftServer server, Network network) {
+        GlobalPos controller = network.controller();
+        ServerLevel level = controller == null ? null : server.getLevel(controller.dimension());
+        return level != null && level.isLoaded(controller.pos())
+                && level.getBlockEntity(controller.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity c
+                ? c.antennaTier() : 0;
     }
 
     static boolean visible(Network network, net.minecraft.world.entity.player.Player player) {

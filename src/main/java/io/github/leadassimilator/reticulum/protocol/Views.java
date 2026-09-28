@@ -62,8 +62,9 @@ public final class Views {
     }
 
     /** Connector and cable screens share this view; cables have no connector name. */
+    /** {@code bindable}: a connector no cable joins, so its network is picked in its screen. */
     public record BlockView(BlockPos pos, boolean connector, String networkName, String defaultName, String customName,
-            List<SideView> sides, boolean canEdit) {
+            List<SideView> sides, boolean canEdit, boolean bindable) {
         public static final StreamCodec<RegistryFriendlyByteBuf, BlockView> STREAM_CODEC = StreamCodec.of(
                 (buf, v) -> {
                     buf.writeBlockPos(v.pos);
@@ -73,9 +74,10 @@ public final class Views {
                     buf.writeUtf(v.customName);
                     buf.writeCollection(v.sides, (b, s) -> SideView.STREAM_CODEC.encode((RegistryFriendlyByteBuf) b, s));
                     buf.writeBoolean(v.canEdit);
+                    buf.writeBoolean(v.bindable);
                 },
                 buf -> new BlockView(buf.readBlockPos(), buf.readBoolean(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                        buf.readList(b -> SideView.STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)), buf.readBoolean()));
+                        buf.readList(b -> SideView.STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)), buf.readBoolean(), buf.readBoolean()));
 
         public SideView side(Direction dir) {
             for (SideView s : sides) {
@@ -88,7 +90,7 @@ public final class Views {
     }
 
     public record ControllerView(BlockPos pos, java.util.UUID networkId, String networkName, String ownerName, AccessMode mode, boolean hasPassword,
-            int connectors, int devices, int orphans, boolean canEdit, boolean canAdmin) {
+            int connectors, int devices, int orphans, boolean canEdit, boolean canAdmin, int antenna) {
         public static final StreamCodec<RegistryFriendlyByteBuf, ControllerView> STREAM_CODEC = StreamCodec.of(
                 (buf, v) -> {
                     buf.writeBlockPos(v.pos);
@@ -102,9 +104,10 @@ public final class Views {
                     ByteBufCodecs.VAR_INT.encode(buf, v.orphans);
                     buf.writeBoolean(v.canEdit);
                     buf.writeBoolean(v.canAdmin);
+                    ByteBufCodecs.VAR_INT.encode(buf, v.antenna);
                 },
                 buf -> new ControllerView(buf.readBlockPos(), buf.readUUID(), buf.readUtf(), buf.readUtf(), AccessMode.STREAM_CODEC.decode(buf),
                         buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
-                        ByteBufCodecs.VAR_INT.decode(buf), buf.readBoolean(), buf.readBoolean()));
+                        ByteBufCodecs.VAR_INT.decode(buf), buf.readBoolean(), buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf)));
     }
 }

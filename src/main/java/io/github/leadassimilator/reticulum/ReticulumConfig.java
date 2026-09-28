@@ -17,6 +17,11 @@ public final class ReticulumConfig {
             .comment("How far (in blocks) a player may be from a block to change it through its screen.")
             .defineInRange("maxInteractDistance", 8, 1, 64);
 
+    public static final ModConfigSpec.IntValue ANTENNA_RANGE = BUILDER
+            .comment("How far (in blocks) from the controller a tier 1 antenna reaches wireless connectors, in the same dimension.",
+                    "Tier 2 reaches the whole dimension, tier 3 every dimension.")
+            .defineInRange("antennaRange", 128, 1, 30_000_000);
+
     public static final ModConfigSpec.IntValue ENERGY_PER_TICK = BUILDER
             .comment("Most FE one energy route moves per tick. Set above Mekanism's best cables by default.")
             .defineInRange("energyPerTick", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);

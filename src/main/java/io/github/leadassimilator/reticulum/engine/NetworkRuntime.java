@@ -12,14 +12,18 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.ReticulumConfig;
+import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.Redstone;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
+import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Network;
+import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
@@ -53,6 +57,27 @@ public final class NetworkRuntime {
     private final Set<UUID> sheetsOff = new java.util.HashSet<>();
     private boolean stopped = true;
     private long ticks;
+
+    /** How each connector reaches the controller. */
+    public enum Reach {
+        /** A cable path joins it to the controller. */
+        WIRED,
+        /** No cable joins it, but the controller's antenna reaches it. */
+        WIRELESS,
+        /** No cable joins it and the antenna doesn't reach it (or there is none): its devices are offline. */
+        OUT_OF_RANGE;
+
+        public String key() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
+    private long reachVersion = -1;
+    private long reachWorkedOut = Long.MIN_VALUE;
+    private int reachTier = -1;
+    private Map<UUID, Reach> reach = Map.of();
+    /** Devices that only out-of-range connectors reach. */
+    private Set<GlobalPos> unreachable = Set.of();
 
     private record CacheKey(GlobalPos device, FaceKey face, ResourceKind resource) {
     }
@@ -104,6 +129,7 @@ public final class NetworkRuntime {
             return;
         }
         stopped = false;
+        updateReach(server, network);
         List<CompiledSheet> sheets = new ArrayList<>();
         for (Sheet sheet : network.sheets()) {
             if (!network.runs(sheet)) {
@@ -152,6 +178,67 @@ public final class NetworkRuntime {
             signals.stop(server, network);
             stopped = true;
         }
+    }
+
+    // ---------------------------------------------------------------- wireless reach
+
+    /**
+     * Works out which connectors a cable joins to the controller and which the antenna must reach. Done again
+     * whenever cables change anywhere, and every 5 seconds for chunks loading and unloading.
+     */
+    private void updateReach(MinecraftServer server, Network network) {
+        GlobalPos controller = network.controller();
+        ServerLevel level = controller == null ? null : server.getLevel(controller.dimension());
+        if (level == null) {
+            return;
+        }
+        int tier = level.getBlockEntity(controller.pos()) instanceof ControllerBlockEntity c ? c.antennaTier() : 0;
+        if (reachVersion == Topology.version() && reachTier == tier && ticks - reachWorkedOut < 100) {
+            return;
+        }
+        reachVersion = Topology.version();
+        reachTier = tier;
+        reachWorkedOut = ticks;
+        Set<net.minecraft.core.BlockPos> wired = Topology.component(level, controller.pos(), null).blocks();
+        Map<UUID, Reach> found = new HashMap<>();
+        Set<GlobalPos> reached = new java.util.HashSet<>();
+        Set<GlobalPos> all = new java.util.HashSet<>();
+        for (ConnectorRecord connector : network.connectors()) {
+            Reach r = connector.pos().dimension().equals(controller.dimension()) && wired.contains(connector.pos().pos()) ? Reach.WIRED
+                    : inRange(tier, controller, connector.pos()) ? Reach.WIRELESS : Reach.OUT_OF_RANGE;
+            found.put(connector.id(), r);
+            all.addAll(connector.devices());
+            if (r != Reach.OUT_OF_RANGE) {
+                reached.addAll(connector.devices());
+            }
+        }
+        all.removeAll(reached);
+        reach = found;
+        unreachable = all;
+    }
+
+    /** Whether an antenna of this tier on the controller reaches a wireless connector. */
+    public static boolean inRange(int tier, GlobalPos controller, GlobalPos connector) {
+        boolean sameDimension = controller.dimension().equals(connector.dimension());
+        return switch (tier) {
+            case 0 -> false;
+            case 1 -> {
+                long range = ReticulumConfig.ANTENNA_RANGE.getAsInt();
+                yield sameDimension && controller.pos().distSqr(connector.pos()) <= range * range;
+            }
+            case 2 -> sameDimension;
+            default -> true;
+        };
+    }
+
+    /** How a connector reaches the controller, as of the last check (null before the network has run). */
+    @Nullable
+    public Reach reach(UUID connector) {
+        return reach.get(connector);
+    }
+
+    public boolean outOfRange(GlobalPos device) {
+        return unreachable.contains(device);
     }
 
     /** A sheet runs under its own redstone condition and those of every folder it is in. */
@@ -390,7 +477,8 @@ public final class NetworkRuntime {
         GlobalPos device = port.device();
         DeviceRecord record = network.device(device);
         ServerLevel level = server.getLevel(device.dimension());
-        if (record == null || record.state() != DeviceRecord.State.ACTIVE || level == null || !level.isLoaded(device.pos())) {
+        if (record == null || record.state() != DeviceRecord.State.ACTIVE || level == null || !level.isLoaded(device.pos())
+                || unreachable.contains(device)) {
             return List.of();
         }
         boolean auto = port.faces().isEmpty();

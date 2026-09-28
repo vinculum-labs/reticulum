@@ -18,6 +18,9 @@ public final class ModCreativeTabs {
                 output.accept(ModItems.CABLE.get());
                 output.accept(ModItems.CONNECTOR.get());
                 output.accept(ModItems.NETWORK_TOOL.get());
+                output.accept(ModItems.ANTENNA_1.get());
+                output.accept(ModItems.ANTENNA_2.get());
+                output.accept(ModItems.ANTENNA_3.get());
             })
             .build());
 

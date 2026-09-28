@@ -252,6 +252,8 @@ export interface Device {
   faceNames: Partial<Record<Face, string>>;
   resources?: Partial<Record<Resource, Face[]>>;
   loaded: boolean;
+  /** Only wireless connectors the antenna doesn't reach reach it: it counts as offline. */
+  outOfRange?: boolean;
 }
 
 export interface Connector {
@@ -259,6 +261,8 @@ export interface Connector {
   pos: GlobalPos;
   name?: string;
   devices: GlobalPos[];
+  /** How it reaches the controller: through cables, wirelessly, or not at all. */
+  reach?: "wired" | "wireless" | "out_of_range";
 }
 
 export interface NetworkSummary {
@@ -284,6 +288,8 @@ export interface Snapshot extends NetworkSummary {
   hasPassword: boolean;
   disabledFolders: string[];
   redstone?: Redstone;
+  /** Antenna upgrade in the controller, 0 (none) to 3. */
+  antenna?: number;
   /** Redstone conditions of folders, by folder path. */
   folderRedstone?: Record<string, Redstone>;
   /** Only sent to admins. */

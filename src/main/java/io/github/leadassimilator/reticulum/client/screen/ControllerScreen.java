@@ -111,8 +111,9 @@ public class ControllerScreen extends Screen {
         String owner = view.ownerName().isEmpty() ? "-" : view.ownerName();
         graphics.drawString(font, Component.translatable("screen.reticulum.owner", owner), left, y, 0xC0C0C0);
         graphics.drawString(font, Component.translatable("screen.reticulum.counts", view.connectors(), view.devices()), left, y + 12, 0xC0C0C0);
+        graphics.drawString(font, io.github.leadassimilator.reticulum.item.AntennaItem.range(view.antenna()), left, y + 24, 0xC0C0C0);
         if (view.orphans() > 0) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.orphans", view.orphans()), left, y + 24, 0xE0B040);
+            graphics.drawString(font, Component.translatable("screen.reticulum.orphans", view.orphans()), left, y + 36, 0xE0B040);
         }
     }
 

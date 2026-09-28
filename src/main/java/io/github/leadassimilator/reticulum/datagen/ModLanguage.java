@@ -112,5 +112,44 @@ public class ModLanguage extends LanguageProvider {
         add("reticulum.configuration.fluidPerTick", "Fluid per route per tick");
         add("reticulum.configuration.overflowItemStacks", "Overflow buffer item stacks");
         add("reticulum.configuration.overflowFluidBuckets", "Overflow buffer buckets per fluid");
+        add("reticulum.configuration.chemicalPerTick", "Chemical per route per tick");
+        add("reticulum.configuration.overflowChemicalBuckets", "Overflow buffer buckets per chemical");
+        add("reticulum.configuration.antennaRange", "Tier 1 antenna range");
+
+        // Wireless: antennas, binding connectors, the tool's Link mode and the network picker.
+        add(ModItems.ANTENNA_1.get(), "Antenna (Tier 1)");
+        add(ModItems.ANTENNA_2.get(), "Antenna (Tier 2)");
+        add(ModItems.ANTENNA_3.get(), "Antenna (Tier 3)");
+        add("tooltip.reticulum.antenna_none", "No antenna: no wireless connectors");
+        add("tooltip.reticulum.antenna_1", "Wireless range: %s blocks, same dimension");
+        add("tooltip.reticulum.antenna_2", "Wireless range: the whole dimension");
+        add("tooltip.reticulum.antenna_3", "Wireless range: every dimension");
+        add("tooltip.reticulum.antenna_use", "Right-click a controller to install it");
+        add("tooltip.reticulum.bound_to", "Bound to %s");
+        add("tooltip.reticulum.linked_to", "Network: %s");
+        add("tooltip.reticulum.tool_configure", "Right-click a joint to connect or disconnect it, or a device side to attach or detach it");
+        add("tooltip.reticulum.tool_link", "Sneak + right-click a controller or connector to copy its network; right-click a connector to bind it; right-click the air to pick a network");
+        add("tooltip.reticulum.tool_switch", "Sneak + scroll to switch mode");
+        add("tool.reticulum.mode.configure", "Configure");
+        add("tool.reticulum.mode.link", "Link");
+        add("message.reticulum.tool_mode", "Network tool: %s mode");
+        add("message.reticulum.tool_linked", "Network tool linked to %s");
+        add("message.reticulum.tool_cleared", "Network tool cleared");
+        add("message.reticulum.tool_empty", "Copy a network first: sneak + right-click a controller or connector, or right-click the air");
+        add("message.reticulum.not_a_connector", "Only connectors can be bound to a network");
+        add("message.reticulum.wired_connector", "A cable joins this connector, so the cable decides its network");
+        add("message.reticulum.already_bound", "Already on %s");
+        add("message.reticulum.bound", "Bound to %s");
+        add("message.reticulum.stack_bound", "Bound %s connector(s) to %s; place them where no cable joins them");
+        add("message.reticulum.network_gone_bound", "That network no longer exists");
+        add("message.reticulum.wrong_password", "Wrong password for %s");
+        add("message.reticulum.antenna_same", "That antenna is already installed");
+        add("message.reticulum.antenna_installed", "Antenna installed. %s");
+        add("screen.reticulum.pick_network", "Network…");
+        add("screen.reticulum.pick_network_tool", "Link the network tool to…");
+        add("screen.reticulum.pick_network_connector", "Bind this connector to…");
+        add("screen.reticulum.password_for", "Password for %s");
+        add("screen.reticulum.join", "Join");
+        add("screen.reticulum.no_networks", "No networks you can use");
     }
 }

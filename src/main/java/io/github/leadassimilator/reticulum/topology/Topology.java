@@ -52,6 +52,13 @@ public final class Topology {
     /** Upper bound on one flood fill, so a runaway structure can't stall the server. */
     private static final int MAX_COMPONENT_SIZE = 200_000;
 
+    /** Bumped whenever cables or connectors change anywhere, so the engine knows to work out wireless reach again. */
+    private static long version;
+
+    public static long version() {
+        return version;
+    }
+
     private Topology() {
     }
 
@@ -183,7 +190,9 @@ public final class Topology {
         }
         be.setRegistered();
 
+        version++;
         UUID own = be instanceof ControllerBlockEntity controller ? claimControllerNetwork(level, pos, controller, player) : null;
+        UUID bound = be instanceof ConnectorBlockEntity connector ? connector.takeItemNetworkId() : null;
 
         // The component behind each neighbor, as it was before this block arrived.
         Map<Direction, Section> sides = new EnumMap<>(Direction.class);
@@ -239,6 +248,17 @@ public final class Topology {
         }
         if (ambiguous && player != null) {
             player.displayClientMessage(Component.translatable("message.reticulum.ambiguous_placement"), true);
+        }
+        // A connector from a bound stack joins its network wirelessly, unless a cable already decided.
+        if (primary == null && !ambiguous && bound != null) {
+            Network network = NetworkManager.network(level.getServer(), bound);
+            if (network == null) {
+                message(player, Component.translatable("message.reticulum.network_gone_bound"));
+            } else if (player != null && !Security.canUse(network, player)) {
+                message(player, Component.translatable("message.reticulum.no_access", network.name()));
+            } else {
+                primary = network.id();
+            }
         }
 
         Section comp = component(level, pos, null);
@@ -358,6 +378,7 @@ public final class Topology {
     }
 
     public static void onRemoved(ServerLevel level, BlockPos pos, Removed removed) {
+        version++;
         Network network = NetworkManager.network(level.getServer(), removed.networkId());
         if (network != null) {
             if (removed.connectorId() != null) {
@@ -404,6 +425,44 @@ public final class Topology {
         }
     }
 
+    // ---------------------------------------------------------------- wireless
+
+    /** A connector joined to another network block; its cable decides its network, so it can't be bound. */
+    public static boolean isWired(ServerLevel level, BlockPos pos) {
+        for (Direction dir : Direction.values()) {
+            if (connected(level, pos, dir)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Binds a connector that no cable joins to a network, moving it off any network it was on. */
+    public static Component bindWireless(ServerLevel level, BlockPos pos, Network network, @Nullable ServerPlayer player) {
+        if (!(blockEntity(level, pos) instanceof ConnectorBlockEntity connector)) {
+            return Component.translatable("message.reticulum.not_a_connector");
+        }
+        if (isWired(level, pos)) {
+            return Component.translatable("message.reticulum.wired_connector");
+        }
+        if (player != null && !Security.canUse(network, player)) {
+            return Component.translatable("message.reticulum.no_access", network.name());
+        }
+        UUID old = networkOf(level, connector);
+        if (network.id().equals(old)) {
+            return Component.translatable("message.reticulum.already_bound", network.name());
+        }
+        Network oldNetwork = NetworkManager.network(level.getServer(), old);
+        if (oldNetwork != null) {
+            NetworkManager.removeConnector(level.getServer(), oldNetwork, connector.connectorId());
+        }
+        connector.setNetworkId(network.id());
+        rescanConnector(level, pos);
+        version++;
+        refreshAround(level, Set.of(pos));
+        return Component.translatable("message.reticulum.bound", network.name());
+    }
+
     // ---------------------------------------------------------------- connectors
 
     public static List<GlobalPos> scanDevices(ServerLevel level, BlockPos pos, ConnectorBlockEntity connector) {
@@ -441,6 +500,7 @@ public final class Topology {
      * instead. Returns the message to show the player.
      */
     public static Component toggle(ServerLevel level, BlockPos pos, Direction side, @Nullable ServerPlayer player) {
+        version++;
         NetworkBlockEntity a = blockEntity(level, pos);
         if (a == null) {
             return Component.empty();

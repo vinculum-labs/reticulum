@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.engine.CompiledSheet;
 import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
@@ -306,6 +307,59 @@ public final class EngineTests {
             CompiledSheet compiled = rig.compiled();
             check(helper, compiled != null && compiled.errors().stream().anyMatch(e -> e.contains("loop")), "loop not reported");
         });
+    }
+
+    // ---------------------------------------------------------------- wireless
+
+    @GameTest(template = "empty")
+    public static void wirelessConnectorNeedsAnAntenna(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL);
+        // A connector no cable joins, bound to the rig's network, with its own barrel.
+        BlockPos connector = new BlockPos(7, 1, 4);
+        BlockPos barrel = new BlockPos(7, 1, 5);
+        helper.setBlock(barrel, Blocks.BARREL);
+        place(helper, connector, ModBlocks.CONNECTOR.get(), null);
+        Topology.bindWireless(helper.getLevel(), helper.absolutePos(connector), rig.network(), null);
+        check(helper, rig.network().devices().size() == 2, "wireless connector's barrel isn't a device: " + rig.network().devices().size());
+        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
+        GlobalPos far = Devices.global(helper.getLevel(), helper.absolutePos(barrel));
+        rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sheet().add(Node.of(new NodeSettings.DeviceSettings(far,
+                List.of(new NodeSettings.Input(ResourceKind.ITEM, List.of(), Optional.empty(), List.of())), List.of()))));
+        Container target = (Container) helper.getBlockEntity(barrel);
+        helper.startSequence()
+                .thenExecuteAfter(20, () -> {
+                    check(helper, target.countItem(Items.COBBLESTONE) == 0, "items reached a wireless connector without an antenna");
+                    check(helper, rig.runtime().outOfRange(far), "device not reported out of range");
+                    ((ControllerBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 1))).setAntennaTier(1);
+                })
+                .thenWaitUntil(() -> check(helper, target.countItem(Items.COBBLESTONE) == 64, "items didn't move once the antenna was in"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void wiredConnectorCannotBeBound(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL);
+        Network other = NetworkManager.create(helper.getLevel().getServer(), null);
+        Topology.bindWireless(helper.getLevel(), helper.absolutePos(new BlockPos(3, 1, 1)), other, null);
+        check(helper, Topology.network(helper.getLevel(), helper.absolutePos(new BlockPos(3, 1, 1))) == rig.network(),
+                "a cable-joined connector was moved to another network");
+        NetworkManager.delete(helper.getLevel().getServer(), other);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void antennaTiersReach(GameTestHelper helper) {
+        var overworld = net.minecraft.world.level.Level.OVERWORLD;
+        var nether = net.minecraft.world.level.Level.NETHER;
+        GlobalPos controller = GlobalPos.of(overworld, BlockPos.ZERO);
+        GlobalPos near = GlobalPos.of(overworld, new BlockPos(100, 0, 0));
+        GlobalPos far = GlobalPos.of(overworld, new BlockPos(1000, 0, 0));
+        GlobalPos elsewhere = GlobalPos.of(nether, BlockPos.ZERO);
+        check(helper, !NetworkRuntime.inRange(0, controller, near), "no antenna reached");
+        check(helper, NetworkRuntime.inRange(1, controller, near) && !NetworkRuntime.inRange(1, controller, far), "tier 1 range wrong");
+        check(helper, NetworkRuntime.inRange(2, controller, far) && !NetworkRuntime.inRange(2, controller, elsewhere), "tier 2 range wrong");
+        check(helper, NetworkRuntime.inRange(3, controller, elsewhere), "tier 3 didn't reach another dimension");
+        helper.succeed();
     }
 
     @GameTest(template = "empty")

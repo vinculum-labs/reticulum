@@ -63,7 +63,8 @@ public final class Screens {
     private static Views.ControllerView controllerView(ServerPlayer player, BlockPos pos, Network network) {
         return new Views.ControllerView(pos, network.id(), network.name(), network.ownerName(), network.accessMode(), network.passwordHash() != null,
                 network.connectors().size(), network.devices().size(), NetworkManager.orphanCount(network),
-                Security.canEdit(network, player), Security.canAdmin(network, player));
+                Security.canEdit(network, player), Security.canAdmin(network, player),
+                player.serverLevel().getBlockEntity(pos) instanceof ControllerBlockEntity controller ? controller.antennaTier() : 0);
     }
 
     private static Views.BlockView blockView(ServerPlayer player, ServerLevel level, BlockPos pos, NetworkBlockEntity be, @Nullable Network network) {
@@ -81,7 +82,8 @@ public final class Screens {
             }
         }
         boolean canEdit = network == null || Security.canEdit(network, player);
-        return new Views.BlockView(pos, connector, network == null ? "" : network.name(), defaultName, customName, sides, canEdit);
+        return new Views.BlockView(pos, connector, network == null ? "" : network.name(), defaultName, customName, sides, canEdit,
+                connector && !Topology.isWired(level, pos));
     }
 
     private static Views.SideView sideView(ServerLevel level, BlockPos pos, NetworkBlockEntity be, Direction dir, @Nullable Network network) {

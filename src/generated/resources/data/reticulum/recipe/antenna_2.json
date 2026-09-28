@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "A": {
+      "item": "reticulum:antenna_1"
+    },
+    "E": {
+      "tag": "c:ender_pearls"
+    },
+    "G": {
+      "tag": "c:ingots/gold"
+    }
+  },
+  "pattern": [
+    " E ",
+    "GAG",
+    " G "
+  ],
+  "result": {
+    "count": 1,
+    "id": "reticulum:antenna_2"
+  }
+}

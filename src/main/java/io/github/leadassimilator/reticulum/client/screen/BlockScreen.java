@@ -66,8 +66,18 @@ public class BlockScreen extends Screen {
             addRow(side, y);
             y += ROW;
         }
-        addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
-                .bounds(width / 2 - 75, y + 8, 150, 20).build());
+        if (view.bindable()) {
+            // No cable decides this connector's network, so it is picked here (a wireless connector).
+            addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.pick_network"), b -> {
+                sendRenames();
+                PacketDistributor.sendToServer(new Payloads.RequestNetworkPicker(java.util.Optional.of(view.pos())));
+            }).bounds(width / 2 - 154, y + 8, 150, 20).build());
+            addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
+                    .bounds(width / 2 + 4, y + 8, 150, 20).build());
+        } else {
+            addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
+                    .bounds(width / 2 - 75, y + 8, 150, 20).build());
+        }
     }
 
     private void addRow(Views.SideView side, int y) {

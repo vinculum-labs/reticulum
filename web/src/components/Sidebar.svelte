@@ -208,7 +208,8 @@
           >
             <DeviceIcon item={d.icon} />
             <span class="min-w-0 flex-1 truncate" style={d.state !== "active" ? "color: var(--muted)" : ""}>{deviceName(d)}</span>
-            {#if d.state !== "active"}<span class="text-xs" style="color: var(--warn)">{d.state}</span>{/if}
+            {#if d.state !== "active"}<span class="text-xs" style="color: var(--warn)">{d.state}</span>
+            {:else if d.outOfRange}<span class="text-xs" style="color: var(--warn)" title="Only wireless connectors the antenna doesn't reach reach it">out of range</span>{/if}
           </button>
         </li>
       {:else}

@@ -42,5 +42,20 @@ public class ModRecipes extends RecipeProvider {
                 .define('I', Tags.Items.INGOTS_IRON).define('C', ModItems.CABLE.get()).define('S', ItemTags.PLANKS)
                 .unlockedBy("has_cable", has(ModItems.CABLE.get()))
                 .save(output);
+        ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, ModItems.ANTENNA_1.get())
+                .pattern(" R ").pattern(" I ").pattern("ICI")
+                .define('R', Tags.Items.DUSTS_REDSTONE).define('I', Tags.Items.INGOTS_IRON).define('C', ModItems.CABLE.get())
+                .unlockedBy("has_cable", has(ModItems.CABLE.get()))
+                .save(output);
+        ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, ModItems.ANTENNA_2.get())
+                .pattern(" E ").pattern("GAG").pattern(" G ")
+                .define('E', Tags.Items.ENDER_PEARLS).define('G', Tags.Items.INGOTS_GOLD).define('A', ModItems.ANTENNA_1.get())
+                .unlockedBy("has_antenna", has(ModItems.ANTENNA_1.get()))
+                .save(output);
+        ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, ModItems.ANTENNA_3.get())
+                .pattern(" E ").pattern("DAD").pattern(" D ")
+                .define('E', Items.ENDER_EYE).define('D', Tags.Items.GEMS_DIAMOND).define('A', ModItems.ANTENNA_2.get())
+                .unlockedBy("has_antenna", has(ModItems.ANTENNA_2.get()))
+                .save(output);
     }
 }

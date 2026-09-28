@@ -23,5 +23,6 @@ public class ReticulumClient {
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingIn event) -> WebBridge.onLoggedIn());
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> WebBridge.onLoggedOut());
         NeoForge.EVENT_BUS.addListener(WebBridge::onScreenOpening);
+        NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.ClientPayloadHandler::onScroll);
     }
 }
