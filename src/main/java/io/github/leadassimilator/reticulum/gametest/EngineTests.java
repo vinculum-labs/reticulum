@@ -560,21 +560,20 @@ public final class EngineTests {
     // ---------------------------------------------------------------- facades
 
     @GameTest(template = "empty")
-    public static void facadeRecipeTakesACableAndAFullBlock(GameTestHelper helper) {
-        var level = helper.getLevel();
-        var recipe = new io.github.leadassimilator.reticulum.item.FacadeRecipe(net.minecraft.world.item.crafting.CraftingBookCategory.MISC);
-        var good = net.minecraft.world.item.crafting.CraftingInput.of(2, 1, List.of(
-                new ItemStack(io.github.leadassimilator.reticulum.registry.ModItems.CABLE.get()), new ItemStack(Items.STONE_BRICKS)));
-        check(helper, recipe.matches(good, level), "cable + stone bricks didn't match");
-        ItemStack result = recipe.assemble(good, level.registryAccess());
-        check(helper, result.getCount() == 4 && io.github.leadassimilator.reticulum.item.FacadeItem.state(result) == Blocks.STONE_BRICKS.defaultBlockState(),
-                "wrong result " + result);
-        var torch = net.minecraft.world.item.crafting.CraftingInput.of(2, 1, List.of(
-                new ItemStack(io.github.leadassimilator.reticulum.registry.ModItems.CABLE.get()), new ItemStack(Items.TORCH)));
-        check(helper, !recipe.matches(torch, level), "a torch (not a full block) made a facade");
-        var chest = net.minecraft.world.item.crafting.CraftingInput.of(2, 1, List.of(
-                new ItemStack(io.github.leadassimilator.reticulum.registry.ModItems.CABLE.get()), new ItemStack(Items.CHEST)));
-        check(helper, !recipe.matches(chest, level), "a chest (block entity) made a facade");
+    public static void facadesPaintAWholeStackWithAnyFullBlock(GameTestHelper helper) {
+        ItemStack stack = new ItemStack(io.github.leadassimilator.reticulum.registry.ModItems.FACADE.get(), 64);
+        check(helper, io.github.leadassimilator.reticulum.item.FacadeItem.state(stack) == null, "a new facade isn't blank");
+        check(helper, io.github.leadassimilator.reticulum.item.FacadeItem.paint(stack, Blocks.STONE_BRICKS.defaultBlockState()), "stone bricks were refused");
+        check(helper, stack.getCount() == 64 && io.github.leadassimilator.reticulum.item.FacadeItem.state(stack) == Blocks.STONE_BRICKS.defaultBlockState(),
+                "the stack wasn't painted: " + stack);
+        var log = Blocks.OAK_LOG.defaultBlockState().setValue(net.minecraft.world.level.block.RotatedPillarBlock.AXIS, Direction.Axis.X);
+        check(helper, io.github.leadassimilator.reticulum.item.FacadeItem.paint(stack, log) && io.github.leadassimilator.reticulum.item.FacadeItem.state(stack) == log,
+                "a sideways log wasn't kept as it is");
+        check(helper, !io.github.leadassimilator.reticulum.item.FacadeItem.paint(stack, Blocks.TORCH.defaultBlockState()), "a torch (not a full block) was accepted");
+        check(helper, !io.github.leadassimilator.reticulum.item.FacadeItem.paint(stack, Blocks.CHEST.defaultBlockState()), "a chest (block entity) was accepted");
+        check(helper, io.github.leadassimilator.reticulum.item.FacadeItem.state(stack) == log, "a refused block changed the stack");
+        check(helper, io.github.leadassimilator.reticulum.item.FacadeItem.paint(stack, null) && io.github.leadassimilator.reticulum.item.FacadeItem.state(stack) == null,
+                "the stack wasn't made blank again");
         helper.succeed();
     }
 

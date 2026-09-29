@@ -117,6 +117,8 @@ dependencies {
     additionalRuntimeClasspath "io.netty:netty-codec-http:4.1.97.Final"
 
     // Look-at integrations: compiled against, never required at runtime.
+    compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
     compileOnly "maven.modrinth:jade:${jade_version}"
     compileOnly("mcjty.theoneprobe:theoneprobe:${top_version}") { transitive = false }
 

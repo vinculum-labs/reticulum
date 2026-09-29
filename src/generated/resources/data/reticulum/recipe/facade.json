@@ -1,4 +1,21 @@
 {
-  "type": "reticulum:facade",
-  "category": "misc"
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "C": {
+      "item": "reticulum:cable"
+    },
+    "N": {
+      "tag": "c:nuggets/iron"
+    }
+  },
+  "pattern": [
+    " N ",
+    "NCN",
+    " N "
+  ],
+  "result": {
+    "count": 8,
+    "id": "reticulum:facade"
+  }
 }

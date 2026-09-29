@@ -216,6 +216,17 @@ public class ModLanguage extends LanguageProvider {
         add(ModItems.FACADE.get(), "Facade");
         add("item.reticulum.facade_of", "Facade (%s)");
         add("tooltip.reticulum.facade", "Right-click a cable or connector to make it look like this block. Take it off with the network tool (Configure mode, sneak + right-click).");
+        add("tooltip.reticulum.facade_paint", "Right-click to choose any block for the whole stack; sneak + right-click a block to copy how it looks");
+        add("item.reticulum.facade_blank", "Blank Facade");
+        add("message.reticulum.facade_copied", "Facades now look like %s");
+        add("message.reticulum.not_facade_block", "%s can't be a facade: only full blocks without a block entity");
+        add("screen.reticulum.facade", "Facade");
+        add("screen.reticulum.facade_search", "Search blocks");
+        add("screen.reticulum.facade_blank", "Blank");
+        add("screen.reticulum.facade_none", "Blank");
+        add("screen.reticulum.facade_count", "%s in hand");
+        add("screen.reticulum.facade_no_match", "No block matches");
+        add("screen.reticulum.facade_hint", "Click a block, or drag one in from JEI. Sneak + right-click a block in the world to copy it exactly.");
         add("message.reticulum.facade_removed", "Facade taken off");
 
         // Identify

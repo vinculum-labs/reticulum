@@ -262,6 +262,22 @@ public final class Payloads {
         }
     }
 
+    /** The facade screen's pick for the facades in that hand: a block, or none to make them blank. */
+    public record PaintFacade(net.minecraft.world.InteractionHand hand, java.util.Optional<net.minecraft.world.level.block.Block> block)
+            implements CustomPacketPayload {
+        public static final Type<PaintFacade> TYPE = payloadType("paint_facade");
+        public static final StreamCodec<RegistryFriendlyByteBuf, PaintFacade> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.BOOL.map(main -> main ? net.minecraft.world.InteractionHand.MAIN_HAND : net.minecraft.world.InteractionHand.OFF_HAND,
+                        hand -> hand == net.minecraft.world.InteractionHand.MAIN_HAND), PaintFacade::hand,
+                ByteBufCodecs.optional(ByteBufCodecs.registry(net.minecraft.core.registries.Registries.BLOCK)), PaintFacade::block,
+                PaintFacade::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     // ---------------------------------------------------------------- registration
 
     public static void register(RegisterPayloadHandlersEvent event) {
@@ -283,6 +299,8 @@ public final class Payloads {
                 (payload, context) -> server(context, player -> Linking.openPicker(player, payload.connector())));
         registrar.playToServer(PickNetwork.TYPE, PickNetwork.STREAM_CODEC,
                 (payload, context) -> server(context, player -> Linking.pick(player, payload)));
+        registrar.playToServer(PaintFacade.TYPE, PaintFacade.STREAM_CODEC,
+                (payload, context) -> server(context, player -> io.github.leadassimilator.reticulum.item.FacadeItem.paint(player, payload)));
         registrar.playToServer(CycleToolMode.TYPE, CycleToolMode.STREAM_CODEC,
                 (payload, context) -> server(context, player -> Linking.cycleMode(player, payload.step())));
         registrar.playToClient(LookResponse.TYPE, LookResponse.STREAM_CODEC,

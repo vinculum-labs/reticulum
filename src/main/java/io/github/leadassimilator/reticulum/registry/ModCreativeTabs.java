@@ -21,7 +21,8 @@ public final class ModCreativeTabs {
                 output.accept(ModItems.ANTENNA_1.get());
                 output.accept(ModItems.ANTENNA_2.get());
                 output.accept(ModItems.ANTENNA_3.get());
-                // A few facades to show what they are; any full block can be made into one.
+                output.accept(ModItems.FACADE.get());
+                // A few painted facades to show what they are; any full block can be painted onto one.
                 output.accept(io.github.leadassimilator.reticulum.item.FacadeItem.of(net.minecraft.world.level.block.Blocks.STONE_BRICKS.defaultBlockState(), 1));
                 output.accept(io.github.leadassimilator.reticulum.item.FacadeItem.of(net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), 1));
                 output.accept(io.github.leadassimilator.reticulum.item.FacadeItem.of(net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState(), 1));
