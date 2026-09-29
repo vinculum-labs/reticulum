@@ -182,7 +182,7 @@ idea {
 node {
     // A pinned Node.js is downloaded for the build, so CI and fresh checkouts need nothing installed.
     download = true
-    version = '22.12.0'
+    version = '24.21.0'
     nodeProjectDir = file('web')
 }
 
