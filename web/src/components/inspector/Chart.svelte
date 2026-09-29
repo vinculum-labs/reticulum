@@ -1,10 +1,14 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import uPlot from "uplot";
   import "uplot/dist/uPlot.min.css";
   import { app, request } from "../../lib/state.svelte";
 
   let { item, unit }: { item: string; unit: string } = $props();
+
+  // The id as a value: `item` is passed as `node.id`, so reading it directly would re-run the effect below whenever
+  // the node object is replaced (every network update, e.g. after each move), rebuilding the chart for nothing.
+  const itemId = $derived(item);
 
   let host: HTMLDivElement | undefined = $state();
   let window_ = $state<"second" | "minute">("second");
@@ -19,7 +23,7 @@
     if (!host) return;
     let values: number[];
     try {
-      values = (await request("history", { item, window: window_ })).values;
+      values = (await request("history", { item: itemId, window: window_ })).values;
     } catch {
       return;
     }
@@ -50,14 +54,16 @@
     );
   }
 
+  // Rebuilt only for another item, window or unit; loading itself subscribes to nothing.
   $effect(() => {
+    void itemId;
     void window_;
     void app.rateUnit;
     plot?.destroy();
     plot = null;
-    load();
+    untrack(load);
     clearInterval(timer);
-    timer = setInterval(load, window_ === "second" ? 2000 : 30000);
+    timer = setInterval(() => untrack(load), window_ === "second" ? 2000 : 30000);
   });
 
   onDestroy(() => {
