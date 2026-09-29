@@ -12,6 +12,7 @@
     type Face,
     type GraphNode,
     type LogicOp,
+    type SplitMode,
     type NodeSettings,
     type Resource,
     type Sheet,
@@ -274,12 +275,45 @@
       />
     </Field>
   {:else if s.kind === "splitter"}
-    <Field label="Mode" hint="Round robin shares out (evenly for fluids, chemicals and energy); in order fills the first output before the next.">
-      <select value={s.mode ?? "round_robin"} disabled={!canEdit} onchange={(e) => settings({ mode: e.currentTarget.value as "round_robin" | "priority" })}>
+    <Field
+      label="Mode"
+      hint="Round robin shares out (evenly for fluids, chemicals and energy). In order fills the first output before the next. Weighted shares by the weights below. Nearest first fills the output whose device is closest to the source first."
+    >
+      <select value={s.mode ?? "round_robin"} disabled={!canEdit} onchange={(e) => settings({ mode: e.currentTarget.value as SplitMode })}>
         <option value="round_robin">Round robin</option>
         <option value="priority">In order (wire order)</option>
+        <option value="weighted">Weighted</option>
+        <option value="nearest">Nearest first</option>
       </select>
     </Field>
+    {#if s.mode === "weighted"}
+      {@const outs = (sheet.wires ?? [])
+        .filter((w) => w.from === node.id)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))}
+      <div class="flex flex-col gap-1">
+        <span class="text-xs font-medium muted">Weight of each output (wire order)</span>
+        {#each outs as wire, i (wire.id)}
+          {@const target = sheet.nodes?.find((n) => n.id === wire.to)}
+          <label class="flex items-center gap-2 text-sm">
+            <input
+              type="number"
+              min="0"
+              class="w-16"
+              value={s.weights?.[i] ?? 1}
+              disabled={!canEdit}
+              onchange={(e) => {
+                const weights = outs.map((_, j) => s.weights?.[j] ?? 1);
+                weights[i] = Math.max(0, Math.round(Number(e.currentTarget.value) || 0));
+                settings({ weights });
+              }}
+            />
+            <span class="truncate">→ {target ? (target.label || ("device" in target.settings ? deviceName(deviceAt(posKey(target.settings.device))) : KIND_LABEL[target.settings.kind])) : "?"}</span>
+          </label>
+        {:else}
+          <p class="text-xs muted">Wire the splitter's output to two or more nodes first.</p>
+        {/each}
+      </div>
+    {/if}
   {:else if s.kind === "kit"}
     <div class="flex flex-col gap-2">
       <span class="text-xs font-medium muted">Items in one kit (all move together, or none)</span>

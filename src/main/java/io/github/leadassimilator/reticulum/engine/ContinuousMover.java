@@ -92,7 +92,7 @@ final class ContinuousMover {
                 max -= accepted;
             }
         }
-        long[] share = share(supply, demand, anyPriority(routes));
+        long[] share = share(supply, demand, anyPriority(routes), weights(routes));
         long total = 0;
         for (int i = 0; i < routes.size(); i++) {
             if (share[i] <= 0) {
@@ -219,7 +219,7 @@ final class ContinuousMover {
             sinks.add(to);
             demands.add(demand);
         }
-        long[] share = share(supply, demands.stream().mapToLong(Long::longValue).toArray(), anyPriority(routes));
+        long[] share = share(supply, demands.stream().mapToLong(Long::longValue).toArray(), anyPriority(routes), weights(routes));
         long total = 0;
         for (int i = 0; i < routes.size(); i++) {
             if (share[i] <= 0) {
@@ -319,10 +319,11 @@ final class ContinuousMover {
 
     // ---------------------------------------------------------------- sharing
 
+    /** Filling in order: a priority or nearest-first splitter anywhere on the routes (they arrive already in that order). */
     static boolean anyPriority(List<CompiledSheet.Route> routes) {
         for (CompiledSheet.Route route : routes) {
             for (CompiledSheet.Branch branch : route.branches()) {
-                if (branch.mode() == NodeSettings.SplitMode.PRIORITY) {
+                if (branch.mode() == NodeSettings.SplitMode.PRIORITY || branch.mode() == NodeSettings.SplitMode.NEAREST) {
                     return true;
                 }
             }
@@ -330,11 +331,37 @@ final class ContinuousMover {
         return false;
     }
 
+    /** Each route's weight: the product of its weighted splitters' output weights (1 without any). */
+    static long[] weights(List<CompiledSheet.Route> routes) {
+        long[] weights = new long[routes.size()];
+        for (int i = 0; i < weights.length; i++) {
+            long weight = 1;
+            for (CompiledSheet.Branch branch : routes.get(i).branches()) {
+                if (branch.mode() == NodeSettings.SplitMode.WEIGHTED) {
+                    weight *= branch.weight();
+                }
+            }
+            weights[i] = weight;
+        }
+        return weights;
+    }
+
     /**
      * Splits {@code supply} over the demands. In order when {@code inOrder}; otherwise evenly, with any remainder
      * handed out one unit at a time and unused shares passed on to sinks that want more.
      */
     static long[] share(long supply, long[] demand, boolean inOrder) {
+        long[] even = new long[demand.length];
+        java.util.Arrays.fill(even, 1);
+        return share(supply, demand, inOrder, even);
+    }
+
+    /**
+     * Splits {@code supply} over the demands: in order when {@code inOrder}; otherwise in proportion to {@code weights}
+     * (all equal: evenly), with any remainder handed out one unit at a time and unused shares passed on to sinks that
+     * want more. A weight of 0 gets nothing.
+     */
+    static long[] share(long supply, long[] demand, boolean inOrder, long[] weights) {
         long[] share = new long[demand.length];
         if (inOrder) {
             for (int i = 0; i < demand.length && supply > 0; i++) {
@@ -344,29 +371,34 @@ final class ContinuousMover {
             return share;
         }
         while (supply > 0) {
-            int hungry = 0;
+            long hungryWeight = 0;
             for (int i = 0; i < demand.length; i++) {
-                if (share[i] < demand[i]) {
-                    hungry++;
+                if (share[i] < demand[i] && weights[i] > 0) {
+                    hungryWeight += weights[i];
                 }
             }
-            if (hungry == 0) {
+            if (hungryWeight == 0) {
                 break;
             }
-            long each = supply / hungry;
-            long extra = supply % hungry;
             long given = 0;
+            long left = supply;
             for (int i = 0; i < demand.length; i++) {
-                if (share[i] >= demand[i]) {
+                if (share[i] >= demand[i] || weights[i] <= 0) {
                     continue;
                 }
-                long portion = each + (extra > 0 ? 1 : 0);
-                if (extra > 0) {
-                    extra--;
-                }
+                long portion = (long) Math.floor((double) supply * weights[i] / hungryWeight);
                 long add = Math.min(portion, demand[i] - share[i]);
                 share[i] += add;
                 given += add;
+                left -= add;
+            }
+            // What rounding left over goes out one unit at a time, in order.
+            for (int i = 0; i < demand.length && left > 0 && given < supply; i++) {
+                if (share[i] < demand[i] && weights[i] > 0) {
+                    share[i]++;
+                    given++;
+                    left--;
+                }
             }
             if (given == 0) {
                 break;

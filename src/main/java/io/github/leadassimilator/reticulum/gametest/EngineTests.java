@@ -707,6 +707,33 @@ public final class EngineTests {
         });
     }
 
+    @GameTest(template = "empty")
+    public static void weightedSplitterSharesByWeight(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 8));
+        Node source = rig.source(0, ResourceKind.ITEM, List.of(), 1);
+        Node splitter = rig.node(new NodeSettings.SplitterSettings(NodeSettings.SplitMode.WEIGHTED, List.of(3, 1)));
+        rig.wire(source, splitter);
+        rig.sheet().connect(new Wire(UUID.randomUUID(), splitter.id(), 0, rig.sink(1, ResourceKind.ITEM, List.of()).id(), 0, 0));
+        rig.sheet().connect(new Wire(UUID.randomUUID(), splitter.id(), 0, rig.sink(2, ResourceKind.ITEM, List.of()).id(), 0, 1));
+        helper.succeedWhen(() -> check(helper, rig.count(1, Items.COBBLESTONE) == 6 && rig.count(2, Items.COBBLESTONE) == 2,
+                "expected 6/2 for weights 3:1, got " + rig.count(1, Items.COBBLESTONE) + "/" + rig.count(2, Items.COBBLESTONE)));
+    }
+
+    @GameTest(template = "empty")
+    public static void nearestSplitterFillsTheNearestFirst(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 16));
+        Node source = rig.source(0, ResourceKind.ITEM, List.of(), 16);
+        Node splitter = rig.node(new NodeSettings.SplitterSettings(NodeSettings.SplitMode.NEAREST));
+        rig.wire(source, splitter);
+        // The far barrel is wired first; nearest-first must still fill the near one.
+        rig.sheet().connect(new Wire(UUID.randomUUID(), splitter.id(), 0, rig.sink(3, ResourceKind.ITEM, List.of()).id(), 0, 0));
+        rig.sheet().connect(new Wire(UUID.randomUUID(), splitter.id(), 0, rig.sink(1, ResourceKind.ITEM, List.of()).id(), 0, 1));
+        helper.succeedWhen(() -> check(helper, rig.count(1, Items.COBBLESTONE) == 16 && rig.count(3, Items.COBBLESTONE) == 0,
+                "expected all 16 in the near barrel, got near " + rig.count(1, Items.COBBLESTONE) + ", far " + rig.count(3, Items.COBBLESTONE)));
+    }
+
     // ---------------------------------------------------------------- kits
 
     private static Node kit(Rig rig) {
@@ -811,7 +838,22 @@ public final class EngineTests {
         check(helper, share[0] == 10 && share[1] == 45 && share[2] == 45, "unused share not passed on " + java.util.Arrays.toString(share));
         share = shareFor(100, new long[] {60, 60}, true);
         check(helper, share[0] == 60 && share[1] == 40, "priority fill wrong " + java.util.Arrays.toString(share));
+        share = weightedShareFor(100, new long[] {100, 100}, new long[] {3, 1});
+        check(helper, share[0] == 75 && share[1] == 25, "weighted split wrong " + java.util.Arrays.toString(share));
+        share = weightedShareFor(100, new long[] {10, 100}, new long[] {3, 1});
+        check(helper, share[0] == 10 && share[1] == 90, "weighted split didn't pass the unused share on " + java.util.Arrays.toString(share));
         helper.succeed();
+    }
+
+    private static long[] weightedShareFor(long supply, long[] demand, long[] weights) {
+        try {
+            var method = Class.forName("io.github.leadassimilator.reticulum.engine.ContinuousMover")
+                    .getDeclaredMethod("share", long.class, long[].class, boolean.class, long[].class);
+            method.setAccessible(true);
+            return (long[]) method.invoke(null, supply, demand, false, weights);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static long[] shareFor(long supply, long[] demand, boolean inOrder) {

@@ -597,10 +597,32 @@ public final class NetworkRuntime {
         int[] key = new int[route.branches().size()];
         for (int i = 0; i < key.length; i++) {
             CompiledSheet.Branch branch = route.branches().get(i);
-            int offset = branch.mode() == NodeSettings.SplitMode.ROUND_ROBIN ? roundRobin.getOrDefault(branch.node(), 0) : 0;
-            key[i] = Math.floorMod(branch.index() - offset, branch.count());
+            key[i] = switch (branch.mode()) {
+                case ROUND_ROBIN -> Math.floorMod(branch.index() - roundRobin.getOrDefault(branch.node(), 0), branch.count());
+                case PRIORITY -> branch.index();
+                // Smooth weighted round robin: the output with the most credit (after this round's weights) goes first.
+                case WEIGHTED -> {
+                    double[] credit = credits.computeIfAbsent(branch.node(), k -> new double[branch.count()]);
+                    double next = (branch.index() < credit.length ? credit[branch.index()] : 0) + branch.weight();
+                    yield (int) Math.round(-next * 1000);
+                }
+                case NEAREST -> distance(route);
+            };
         }
         return key;
+    }
+
+    /** Weighted splitters' credit per output (smooth weighted round robin). */
+    private final Map<UUID, double[]> credits = new HashMap<>();
+
+    /** How far a route's sink device is from its source device, in blocks (another dimension counts as very far). */
+    private static int distance(CompiledSheet.Route route) {
+        GlobalPos a = route.sourceSettings().port().device();
+        GlobalPos b = route.sinkSettings().port().device();
+        if (!a.dimension().equals(b.dimension())) {
+            return Integer.MAX_VALUE / 2;
+        }
+        return (int) Math.min(Integer.MAX_VALUE / 2, Math.sqrt(a.pos().distSqr(b.pos())));
     }
 
     public List<CompiledSheet.Route> ordered(List<CompiledSheet.Route> routes) {
@@ -609,11 +631,21 @@ public final class NetworkRuntime {
         return sorted;
     }
 
-    /** After a delivery, every round-robin branch on the route moves on to the next output. */
+    /** After a delivery, every round-robin branch on the route moves on to the next output, and weighted ones settle their credit. */
     public void advance(CompiledSheet.Route route) {
         for (CompiledSheet.Branch branch : route.branches()) {
             if (branch.mode() == NodeSettings.SplitMode.ROUND_ROBIN) {
                 roundRobin.put(branch.node(), Math.floorMod(branch.index() + 1, branch.count()));
+            } else if (branch.mode() == NodeSettings.SplitMode.WEIGHTED) {
+                double[] credit = credits.computeIfAbsent(branch.node(), k -> new double[branch.count()]);
+                if (credit.length != branch.count()) {
+                    credit = new double[branch.count()];
+                    credits.put(branch.node(), credit);
+                }
+                for (int i = 0; i < credit.length; i++) {
+                    credit[i] += branch.weights()[i];
+                }
+                credit[branch.index()] -= branch.totalWeight();
             }
         }
     }

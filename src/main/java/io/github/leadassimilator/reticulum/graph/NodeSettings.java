@@ -173,7 +173,11 @@ public sealed interface NodeSettings {
         /** Rotate which output goes first, one operation at a time (items) or share evenly (continuous). */
         ROUND_ROBIN,
         /** Outputs in wire order: the first takes all it can before the next gets any. */
-        PRIORITY;
+        PRIORITY,
+        /** Shares in proportion to each output's weight (items: 3 and 1 go A, A, B, A...; continuous: split by weight). */
+        WEIGHTED,
+        /** The output whose device is nearest the source's device first, then the next nearest. */
+        NEAREST;
 
         public static final Codec<SplitMode> CODEC = StringRepresentable.fromEnum(SplitMode::values);
 
@@ -183,10 +187,20 @@ public sealed interface NodeSettings {
         }
     }
 
-    record SplitterSettings(SplitMode mode) implements NodeSettings {
+    /** {@code weights}: for WEIGHTED, one per output in wire order (missing ones count 1). */
+    record SplitterSettings(SplitMode mode, List<Integer> weights) implements NodeSettings {
         public static final MapCodec<SplitterSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                SplitMode.CODEC.optionalFieldOf("mode", SplitMode.ROUND_ROBIN).forGetter(SplitterSettings::mode)
+                SplitMode.CODEC.optionalFieldOf("mode", SplitMode.ROUND_ROBIN).forGetter(SplitterSettings::mode),
+                Codec.INT.listOf().optionalFieldOf("weights", List.of()).forGetter(SplitterSettings::weights)
         ).apply(i, SplitterSettings::new));
+
+        public SplitterSettings(SplitMode mode) {
+            this(mode, List.of());
+        }
+
+        public int weight(int output) {
+            return output < weights.size() ? Math.max(0, weights.get(output)) : 1;
+        }
 
         @Override
         public Kind kind() {

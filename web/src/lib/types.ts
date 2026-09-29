@@ -30,9 +30,13 @@ export interface RateLimitSettings {
   per_second: number;
 }
 
+export type SplitMode = "round_robin" | "priority" | "weighted" | "nearest";
+
 export interface SplitterSettings {
   kind: "splitter";
-  mode?: "round_robin" | "priority";
+  mode?: SplitMode;
+  /** For "weighted": one per output in wire order (missing ones count 1). */
+  weights?: number[];
 }
 
 export interface KitLine {

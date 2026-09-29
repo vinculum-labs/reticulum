@@ -103,7 +103,8 @@ final class ChemicalMover {
             sinks.add(to);
             demands.add(demand);
         }
-        long[] share = ContinuousMover.share(supply, demands.stream().mapToLong(Long::longValue).toArray(), ContinuousMover.anyPriority(routes));
+        long[] share = ContinuousMover.share(supply, demands.stream().mapToLong(Long::longValue).toArray(), ContinuousMover.anyPriority(routes),
+                ContinuousMover.weights(routes));
         long total = 0;
         for (int i = 0; i < routes.size(); i++) {
             if (share[i] <= 0) {

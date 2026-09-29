@@ -30,7 +30,19 @@ import io.github.leadassimilator.reticulum.network.Network;
  */
 public final class CompiledSheet {
     /** A choice made where several wires leave one output. */
-    public record Branch(UUID node, int index, int count, NodeSettings.SplitMode mode) {
+    /** {@code weights}: each output's weight, for WEIGHTED splitters (all 1 otherwise). */
+    public record Branch(UUID node, int index, int count, NodeSettings.SplitMode mode, int[] weights) {
+        public int weight() {
+            return weights[index];
+        }
+
+        public int totalWeight() {
+            int total = 0;
+            for (int w : weights) {
+                total += w;
+            }
+            return total;
+        }
     }
 
     /** One filter on the way, and whether the route took its reject output. */
@@ -674,10 +686,14 @@ public final class CompiledSheet {
     private void follow(Node source, Node from, List<Wire> wires, ResourceKind resource, Map<UUID, Node> nodes,
             Map<UUID, List<Wire>> outgoing, Map<UUID, Gate> gates, Walk walk, List<Route> routes) {
         NodeSettings.SplitMode mode = from.settings() instanceof NodeSettings.SplitterSettings s ? s.mode() : NodeSettings.SplitMode.ROUND_ROBIN;
+        int[] weights = new int[wires.size()];
+        for (int i = 0; i < weights.length; i++) {
+            weights[i] = from.settings() instanceof NodeSettings.SplitterSettings s && mode == NodeSettings.SplitMode.WEIGHTED ? s.weight(i) : 1;
+        }
         for (int i = 0; i < wires.size(); i++) {
             Walk next = walk.copy();
             if (wires.size() > 1) {
-                next.branches.add(new Branch(from.id(), i, wires.size(), mode));
+                next.branches.add(new Branch(from.id(), i, wires.size(), mode, weights));
             }
             next.wires.add(wires.get(i).id());
             walk(source, nodes.get(wires.get(i).to()), resource, nodes, outgoing, gates, next, routes);

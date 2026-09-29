@@ -27,7 +27,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   device: "A block that is fed through its inputs and emptied through its outputs",
   filter: "Sends matches one way and the rest another",
   rate_limit: "Caps how much passes per tick (or per second)",
-  splitter: "Shares between outputs, in turn or in order",
+  splitter: "Shares between outputs: in turn, in order, by weight, or nearest first",
   kit: "Moves a set of items all together or not at all",
   subsheet: "A copy of a sheet marked as a sub-sheet, used like one node",
   sheet_input: "Inside a sub-sheet: where resources come in (a pin on the left of the sub-sheet node)",
@@ -280,7 +280,13 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
     case "rate_limit":
       return unit === "t" ? `${Number((s.per_second / 20).toFixed(2))}/t` : `${s.per_second}/s`;
     case "splitter":
-      return s.mode === "priority" ? "in order" : "round robin";
+      return s.mode === "priority"
+        ? "in order"
+        : s.mode === "weighted"
+          ? `weighted ${(s.weights?.length ? s.weights : [1]).join(":")}`
+          : s.mode === "nearest"
+            ? "nearest first"
+            : "round robin";
     case "kit":
       return s.lines.map((l) => `${l.count}× ${l.filter || "anything"}`).join(" + ") + (s.max_kits && s.max_kits > 1 ? `, up to ${s.max_kits}` : "");
     case "subsheet":
