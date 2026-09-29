@@ -17,14 +17,14 @@
 {#if identifies.length}
   <span
     class="nodrag flex shrink-0 cursor-pointer items-center gap-0.5 rounded px-1"
-    style="font-size: 9px; font-weight: 600; border: 1px solid {hex(identifies[0].color)}; color: {hex(identifies[0].color)}"
+    style="height: 14px; font-size: 9px; font-weight: 600; line-height: 1; border: 1px solid {hex(identifies[0].color)}; color: {hex(identifies[0].color)}"
     role="button"
     tabindex="0"
     title={`Identified in the world: ${identifies.map((x) => (x.kind === "face" ? `${x.face} face` : "whole device")).join(", ")}. Click to turn off.`}
     onclick={off}
     onkeydown={(e) => (e.key === "Enter" || e.key === " ") && off(e)}
   >
-    {#each identifies as identify, i (i)}<span class="identify-dot" style="background: {hex(identify.color)}"></span>{/each}ID
+    {#each identifies as identify, i (i)}<span class="identify-dot" style="background: {hex(identify.color)}"></span>{/each}<span class="identify-text">ID</span>
   </span>
 {/if}
 
@@ -34,6 +34,12 @@
     height: 6px;
     border-radius: 50%;
     animation: identify-pulse 1.3s ease-in-out infinite;
+  }
+  /* Capitals sit above the baseline, so centering the line box leaves them low; nudge them up to the dots' center. */
+  .identify-text {
+    display: block;
+    line-height: 1;
+    transform: translateY(-0.5px);
   }
   @keyframes identify-pulse {
     50% {
