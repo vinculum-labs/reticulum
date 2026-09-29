@@ -99,6 +99,34 @@ public final class NetworkRuntime {
         return ticks;
     }
 
+    /** How long this network's last ticks took, in nanoseconds (a rolling window of the last 200). */
+    private final long[] tickTimes = new long[200];
+    private int tickTimeCount;
+
+    void recordTickTime(long nanos) {
+        tickTimes[tickTimeCount++ % tickTimes.length] = nanos;
+        lastTickTime = nanos;
+    }
+
+    private long lastTickTime;
+
+    /** How long the last tick took, in nanoseconds. */
+    public long lastTickTime() {
+        return lastTickTime;
+    }
+
+    /** Average and longest tick over the last 200 ticks (or fewer), in nanoseconds. */
+    public long[] tickTimeStats() {
+        int n = Math.min(tickTimeCount, tickTimes.length);
+        long sum = 0;
+        long max = 0;
+        for (int i = 0; i < n; i++) {
+            sum += tickTimes[i];
+            max = Math.max(max, tickTimes[i]);
+        }
+        return new long[] {n == 0 ? 0 : sum / n, max};
+    }
+
     public Metrics metrics() {
         return metrics;
     }

@@ -32,7 +32,10 @@ public final class NetworkTicker {
                 continue;
             }
             try {
-                runtime(network.id()).tick(server, network);
+                NetworkRuntime runtime = runtime(network.id());
+                long start = System.nanoTime();
+                runtime.tick(server, network);
+                runtime.recordTickTime(System.nanoTime() - start);
             } catch (RuntimeException e) {
                 // One broken network (or a misbehaving machine) must not take the server down.
                 Reticulum.LOGGER.error("Reticulum network {} ({}) failed this tick", network.name(), network.id(), e);
