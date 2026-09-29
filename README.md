@@ -40,6 +40,10 @@ The editor runs on your own computer, served by the game client, and only accept
 from the controller's screen. One link logs you in; it stays logged in for 90 days unless you
 turn that off in the client config.
 
+On Windows the editor opens inside the game window, using Edge's WebView2 (part of Windows). **Esc** closes whatever
+is open inside it, then the editor; **Open in browser** in its top bar moves it to your browser. Elsewhere, or with
+"Open the editor inside the game" turned off in the client config, it opens in your browser.
+
 ### Sheets, folders and sub-sheets
 
 A network has any number of **sheets**, each a flow chart. Sheets can sit in folders, and each sheet and folder can
