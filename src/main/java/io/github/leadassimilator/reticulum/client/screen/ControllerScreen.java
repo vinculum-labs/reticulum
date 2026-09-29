@@ -111,12 +111,12 @@ public class ControllerScreen extends Screen {
     private void initNetworkTab() {
         Button power = Button.builder(Component.translatable(view.enabled() ? "screen.reticulum.on" : "screen.reticulum.off"),
                 b -> send(Payloads.ControllerSwitch.NETWORK, java.util.Optional.empty(), view.enabled() ? 0 : 1))
-                .bounds(left + 90, top + 20, 60, 20).build();
+                .bounds(powerX(), top + 20, POWER_WIDTH, 20).build();
         power.active = view.canEdit();
         addRenderableWidget(power);
         Button redstone = Button.builder(Component.translatable("screen.reticulum.redstone." + view.redstoneMode().getSerializedName()),
                 b -> send(Payloads.ControllerSwitch.REDSTONE, java.util.Optional.empty(), view.redstoneMode().ordinal() + 1))
-                .bounds(left + WIDTH - 100, top + 20, 100, 20).build();
+                .bounds(redstoneX(), top + 20, left + WIDTH - redstoneX(), 20).build();
         redstone.active = view.canEdit();
         redstone.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("screen.reticulum.redstone_hint")));
         addRenderableWidget(redstone);
@@ -199,10 +199,25 @@ public class ControllerScreen extends Screen {
         }
     }
 
+    // The Network row, left to right: label, on/off button, label, redstone button; placed by the text widths.
+    private static final int POWER_WIDTH = 50;
+    private static final int GAP = 6;
+
+    private int powerX() {
+        return left + font.width(Component.translatable("screen.reticulum.network_switch")) + GAP;
+    }
+
+    private int redstoneLabelX() {
+        return powerX() + POWER_WIDTH + 2 * GAP;
+    }
+
+    private int redstoneX() {
+        return redstoneLabelX() + font.width(Component.translatable("screen.reticulum.redstone")) + GAP;
+    }
+
     private void renderNetworkTab(GuiGraphics graphics) {
         graphics.drawString(font, Component.translatable("screen.reticulum.network_switch"), left, top + 26, 0xE0E0E0);
-        graphics.drawString(font, Component.translatable("screen.reticulum.redstone"), left + WIDTH - 100 - 6 - font.width(Component.translatable("screen.reticulum.redstone")),
-                top + 26, 0xE0E0E0);
+        graphics.drawString(font, Component.translatable("screen.reticulum.redstone"), redstoneLabelX(), top + 26, 0xE0E0E0);
         Component status = Component.translatable(view.running() ? "screen.reticulum.running" : view.enabled() ? "screen.reticulum.stopped_redstone"
                 : "screen.reticulum.stopped_off");
         graphics.drawString(font, status, left, top + 46, view.running() ? 0x70E070 : 0xE0B040);
