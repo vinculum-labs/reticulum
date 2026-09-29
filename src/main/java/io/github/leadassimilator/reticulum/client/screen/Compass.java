@@ -59,20 +59,33 @@ final class Compass {
         }
         // Farthest first, so the directions towards the viewer draw on top.
         placed.sort(Comparator.comparingDouble((Placed p) -> -p.depth()));
+        // Nearly straight behind the view, a direction would pile up under the one pointing at the viewer: leave it out.
+        placed.removeIf(p -> p.depth() > 0.2f && Mth.sqrt(p.sx() * p.sx() + p.sy() * p.sy()) < 0.5f);
+        List<int[]> labels = new ArrayList<>();
         for (Placed p : placed) {
-            boolean away = p.depth() > 0.2f;
-            int alpha = away ? 0x70 : 0xFF;
-            int color = (alpha << 24) | p.axis().color();
-            // The spoke: a row of dots from the middle out to the label.
-            for (int i = 1; i <= 6; i++) {
-                int dx = Math.round(centerX + p.sx() * radius * i / 7f);
-                int dy = Math.round(centerY + p.sy() * radius * i / 7f);
-                graphics.fill(dx, dy, dx + 1, dy + 1, color);
-            }
-            int lx = Math.round(centerX + p.sx() * radius);
-            int ly = Math.round(centerY + p.sy() * radius);
-            graphics.drawString(font, p.axis().label(), lx - font.width(p.axis().label()) / 2, ly - 4, color, !away);
+            labels.add(new int[] {Math.round(centerX + p.sx() * radius), Math.round(centerY + p.sy() * radius)});
         }
-        graphics.fill(centerX - 1, centerY - 1, centerX + 1, centerY + 1, 0xFFFFFFFF);
+        boolean labelInMiddle = false;
+        for (int n = 0; n < placed.size(); n++) {
+            Placed p = placed.get(n);
+            float length = Mth.sqrt(p.sx() * p.sx() + p.sy() * p.sy());
+            boolean away = p.depth() > 0.2f;
+            int color = ((away ? 0x70 : 0xFF) << 24) | p.axis().color();
+            // The spoke: dots every 3 pixels from the middle, stopping short of its label and skipping any other label.
+            float reach = length * radius - 7;
+            for (float d = 3; d <= reach; d += 3) {
+                int dx = Math.round(centerX + p.sx() / length * d);
+                int dy = Math.round(centerY + p.sy() / length * d);
+                if (labels.stream().noneMatch(l -> Math.abs(l[0] - dx) <= 5 && Math.abs(l[1] - dy) <= 6)) {
+                    graphics.fill(dx, dy, dx + 1, dy + 1, color);
+                }
+            }
+            int[] at = labels.get(n);
+            labelInMiddle |= Math.abs(at[0] - centerX) <= 5 && Math.abs(at[1] - centerY) <= 6;
+            graphics.drawString(font, p.axis().label(), at[0] - font.width(p.axis().label()) / 2, at[1] - 4, color, !away);
+        }
+        if (!labelInMiddle) {
+            graphics.fill(centerX - 1, centerY - 1, centerX + 1, centerY + 1, 0xFFFFFFFF);
+        }
     }
 }
