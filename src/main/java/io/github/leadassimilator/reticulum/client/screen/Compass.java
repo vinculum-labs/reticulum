@@ -84,7 +84,8 @@ final class Compass {
             int ey = Math.round(centerY + p.sy() * radius);
             // A solid line from the middle, thicker when it comes towards the viewer, then the label on a small chip
             // so lines passing under it don't muddle the letter.
-            line(graphics, centerX, centerY, ex, ey, away ? 1 : 2, color);
+            // Lines are a little see-through (labels behind them still show); labels stay solid.
+            line(graphics, centerX, centerY, ex, ey, away ? 1 : 2, ((away ? 0x70 : 0xC0) << 24) | p.axis().color());
             int[] at = spots.get(p);
             String label = p.axis().label();
             int w = font.width(label);
@@ -104,13 +105,20 @@ final class Compass {
         return false;
     }
 
-    /** A straight line of the given thickness, pixel by pixel. */
+    /**
+     * A straight line, 1 or 2 pixels thick, touching each pixel once so see-through colors stay even (the second
+     * pixel sits beside the first, across the line's main direction).
+     */
     private static void line(GuiGraphics graphics, int x0, int y0, int x1, int y1, int thickness, int color) {
         int steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+        boolean steep = Math.abs(y1 - y0) > Math.abs(x1 - x0);
         for (int i = 0; i <= steps; i++) {
             int x = steps == 0 ? x0 : x0 + Math.round((x1 - x0) * i / (float) steps);
             int y = steps == 0 ? y0 : y0 + Math.round((y1 - y0) * i / (float) steps);
-            graphics.fill(x - thickness / 2, y - thickness / 2, x - thickness / 2 + thickness, y - thickness / 2 + thickness, color);
+            graphics.fill(x, y, x + 1, y + 1, color);
+            if (thickness > 1) {
+                graphics.fill(steep ? x + 1 : x, steep ? y : y + 1, steep ? x + 2 : x + 1, steep ? y + 1 : y + 2, color);
+            }
         }
     }
 }
