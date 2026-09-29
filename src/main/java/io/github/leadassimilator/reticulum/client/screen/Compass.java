@@ -57,35 +57,60 @@ final class Compass {
             float depth = a.x * fx + a.y * fy + a.z * fz;
             placed.add(new Placed(a, sx, sy, depth));
         }
-        // Farthest first, so the directions towards the viewer draw on top.
-        placed.sort(Comparator.comparingDouble((Placed p) -> -p.depth()));
-        // Nearly straight behind the view, a direction would pile up under the one pointing at the viewer: leave it out.
-        placed.removeIf(p -> p.depth() > 0.2f && Mth.sqrt(p.sx() * p.sx() + p.sy() * p.sy()) < 0.5f);
-        List<int[]> labels = new ArrayList<>();
+        // Where each label goes, nearest first: a label that would sit on a nearer one (looking straight along an
+        // axis puts both ends in the middle) moves aside so both stay readable.
+        placed.sort(Comparator.comparingDouble(Placed::depth));
+        java.util.Map<Placed, int[]> spots = new java.util.HashMap<>();
+        List<int[]> taken = new ArrayList<>();
         for (Placed p : placed) {
-            labels.add(new int[] {Math.round(centerX + p.sx() * radius), Math.round(centerY + p.sy() * radius)});
-        }
-        boolean labelInMiddle = false;
-        for (int n = 0; n < placed.size(); n++) {
-            Placed p = placed.get(n);
-            float length = Mth.sqrt(p.sx() * p.sx() + p.sy() * p.sy());
-            boolean away = p.depth() > 0.2f;
-            int color = ((away ? 0x70 : 0xFF) << 24) | p.axis().color();
-            // The spoke: dots every 3 pixels from the middle, stopping short of its label and skipping any other label.
-            float reach = length * radius - 7;
-            for (float d = 3; d <= reach; d += 3) {
-                int dx = Math.round(centerX + p.sx() / length * d);
-                int dy = Math.round(centerY + p.sy() / length * d);
-                if (labels.stream().noneMatch(l -> Math.abs(l[0] - dx) <= 5 && Math.abs(l[1] - dy) <= 6)) {
-                    graphics.fill(dx, dy, dx + 1, dy + 1, color);
+            int baseX = Math.round(centerX + p.sx() * radius);
+            int y = Math.round(centerY + p.sy() * radius);
+            int x = baseX;
+            for (int offset : new int[] {0, 10, -10, 20, -20}) {
+                x = baseX + offset;
+                if (!overlaps(taken, x, y)) {
+                    break;
                 }
             }
-            int[] at = labels.get(n);
-            labelInMiddle |= Math.abs(at[0] - centerX) <= 5 && Math.abs(at[1] - centerY) <= 6;
-            graphics.drawString(font, p.axis().label(), at[0] - font.width(p.axis().label()) / 2, at[1] - 4, color, !away);
+            spots.put(p, new int[] {x, y});
+            taken.add(new int[] {x, y});
         }
-        if (!labelInMiddle) {
-            graphics.fill(centerX - 1, centerY - 1, centerX + 1, centerY + 1, 0xFFFFFFFF);
+        // Then draw farthest first, so the directions towards the viewer draw on top of those pointing away.
+        placed.sort(Comparator.comparingDouble((Placed p) -> -p.depth()));
+        for (Placed p : placed) {
+            boolean away = p.depth() > 0.05f;
+            int color = ((away ? 0x90 : 0xFF) << 24) | p.axis().color();
+            int ex = Math.round(centerX + p.sx() * radius);
+            int ey = Math.round(centerY + p.sy() * radius);
+            // A solid line from the middle, thicker when it comes towards the viewer, then the label on a small chip
+            // so lines passing under it don't muddle the letter.
+            line(graphics, centerX, centerY, ex, ey, away ? 1 : 2, color);
+            int[] at = spots.get(p);
+            String label = p.axis().label();
+            int w = font.width(label);
+            graphics.fill(at[0] - w / 2 - 2, at[1] - 5, at[0] - w / 2 + w + 1, at[1] + 5, 0xB0000000);
+            graphics.drawString(font, label, at[0] - w / 2, at[1] - 4, color, false);
+        }
+        graphics.fill(centerX - 1, centerY - 1, centerX + 1, centerY + 1, 0xFFFFFFFF);
+    }
+
+    /** Whether a label chip at x, y would overlap one already placed. */
+    private static boolean overlaps(List<int[]> taken, int x, int y) {
+        for (int[] t : taken) {
+            if (Math.abs(t[0] - x) < 9 && Math.abs(t[1] - y) < 10) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** A straight line of the given thickness, pixel by pixel. */
+    private static void line(GuiGraphics graphics, int x0, int y0, int x1, int y1, int thickness, int color) {
+        int steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+        for (int i = 0; i <= steps; i++) {
+            int x = steps == 0 ? x0 : x0 + Math.round((x1 - x0) * i / (float) steps);
+            int y = steps == 0 ? y0 : y0 + Math.round((y1 - y0) * i / (float) steps);
+            graphics.fill(x - thickness / 2, y - thickness / 2, x - thickness / 2 + thickness, y - thickness / 2 + thickness, color);
         }
     }
 }
