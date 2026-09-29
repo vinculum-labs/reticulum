@@ -132,6 +132,7 @@ export function toFlow(
   activity: Activity,
   selected: Set<string>,
   unit: "t" | "s",
+  wireStyle: string = "default",
 ): { nodes: Node<NodeData>[]; edges: Edge[] } {
   const rates = activity.rates;
   const byKey = new Map(devices.map((d) => [posKey(d.pos), d]));
@@ -180,6 +181,7 @@ export function toFlow(
       target: w.to,
       sourceHandle: sourceHandle(byId.get(w.from), w.output ?? 0),
       targetHandle: targetHandle(byId.get(w.to), w.input ?? 0),
+      type: wireStyle,
       selected: selected.has(w.id),
       animated: rate > 0,
       label: rate > 0 ? formatRate(rate, resource, unit) : undefined,

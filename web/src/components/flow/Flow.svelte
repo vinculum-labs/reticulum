@@ -10,6 +10,7 @@
     Panel,
     useSvelteFlow,
     type Edge,
+    type ConnectionLineType,
     type Node,
     type Connection,
   } from "@xyflow/svelte";
@@ -46,7 +47,7 @@
     const selected = untrack(() => new Set([...app.selectedNodes, ...app.selectedEdges]));
     const unit = app.rateUnit;
     if (!s || dragging) return;
-    const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit);
+    const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle);
     rebuilding = true;
     // Unchanged nodes and wires keep their objects, so Svelte Flow skips them (it compares by identity) instead of
     // re-rendering and re-measuring the whole sheet on every metrics update.
@@ -97,6 +98,7 @@
       a.target === b.target &&
       a.sourceHandle === b.sourceHandle &&
       a.targetHandle === b.targetHandle &&
+      a.type === b.type &&
       !!a.selected === !!b.selected &&
       a.animated === b.animated &&
       a.label === b.label &&
@@ -294,6 +296,7 @@
   <SvelteFlow
     bind:nodes
     bind:edges
+    connectionLineType={app.wireStyle as ConnectionLineType}
     {nodeTypes}
     fitView
     minZoom={0.2}

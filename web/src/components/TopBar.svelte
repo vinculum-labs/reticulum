@@ -1,5 +1,18 @@
 <script lang="ts">
-  import { app, edit, selectNetwork, undo, redo, request, loadNetworks, toast, setRateUnit } from "../lib/state.svelte";
+  import {
+    app,
+    edit,
+    selectNetwork,
+    undo,
+    redo,
+    request,
+    loadNetworks,
+    toast,
+    setRateUnit,
+    setWireStyle,
+    WIRE_STYLE_LABEL,
+    type WireStyle,
+  } from "../lib/state.svelte";
 
   const snapshot = $derived(app.snapshot);
 
@@ -86,6 +99,14 @@
       onclick={() => setRateUnit(app.rateUnit === "t" ? "s" : "t")}
       title="Show rates per tick or per second">/{app.rateUnit}</button
     >
+    <select
+      class="text-sm"
+      value={app.wireStyle}
+      title="How wires are drawn between pins (remembered in this browser)"
+      onchange={(e) => setWireStyle(e.currentTarget.value as WireStyle)}
+    >
+      {#each Object.entries(WIRE_STYLE_LABEL) as [style, label] (style)}<option value={style}>Wires: {label}</option>{/each}
+    </select>
     <button class="btn" onclick={undo} disabled={app.undo.length === 0} title="Undo (Ctrl+Z)">Undo</button>
     <button class="btn" onclick={redo} disabled={app.redo.length === 0} title="Redo (Ctrl+Shift+Z)">Redo</button>
     {#if snapshot.role === "owner"}

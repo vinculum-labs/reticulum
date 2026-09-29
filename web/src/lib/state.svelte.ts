@@ -29,6 +29,36 @@ function storedRateUnit(): RateUnit {
   }
 }
 
+/** How wires are drawn between pins (Svelte Flow's edge types). */
+export type WireStyle = "default" | "smoothstep" | "step" | "straight" | "simplebezier";
+
+export const WIRE_STYLE_LABEL: Record<WireStyle, string> = {
+  default: "Curved",
+  smoothstep: "Rounded corners",
+  step: "Square corners",
+  straight: "Straight",
+  simplebezier: "Gentle curves",
+};
+
+function storedWireStyle(): WireStyle {
+  try {
+    const stored = localStorage.getItem("reticulum.wireStyle");
+    return stored && stored in WIRE_STYLE_LABEL ? (stored as WireStyle) : "default";
+  } catch {
+    return "default";
+  }
+}
+
+/** Remembered per browser, like the rate unit. */
+export function setWireStyle(style: WireStyle): void {
+  app.wireStyle = style;
+  try {
+    localStorage.setItem("reticulum.wireStyle", style);
+  } catch {
+    // Private windows and blocked storage: the choice lasts until the page closes.
+  }
+}
+
 export function setRateUnit(unit: RateUnit): void {
   app.rateUnit = unit;
   try {
@@ -41,6 +71,7 @@ export function setRateUnit(unit: RateUnit): void {
 export const app = $state({
   /** Rates are shown per tick by default, or per second. */
   rateUnit: storedRateUnit(),
+  wireStyle: storedWireStyle(),
   socketOpen: false,
   inWorld: false,
   player: "",
