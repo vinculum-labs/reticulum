@@ -43,10 +43,18 @@ public class ControllerScreen extends Screen {
         return view.pos();
     }
 
+    /** A fresh view from the server; what is being typed and not yet saved is kept. */
     public void update(Views.ControllerView view) {
+        String typedName = name != null && !name.getValue().equals(this.view.networkName()) ? name.getValue() : null;
+        String typedPassword = password == null ? "" : password.getValue();
+        AccessMode pickedMode = mode != this.view.mode() ? mode : view.mode();
         this.view = view;
-        this.mode = view.mode();
+        this.mode = pickedMode;
         rebuildWidgets();
+        if (typedName != null) {
+            name.setValue(typedName);
+        }
+        password.setValue(typedPassword);
     }
 
     @Override
@@ -54,10 +62,12 @@ public class ControllerScreen extends Screen {
         left = (width - WIDTH) / 2;
         top = Math.max(8, (height - 200) / 2);
         Button settingsTab = Button.builder(Component.translatable("screen.reticulum.tab_settings"), b -> {
+            save();
             networkTab = false;
             rebuildWidgets();
         }).bounds(left + WIDTH - 150, top - 4, 74, 16).build();
         Button networkTabButton = Button.builder(Component.translatable("screen.reticulum.tab_network"), b -> {
+            save();
             networkTab = true;
             rebuildWidgets();
         }).bounds(left + WIDTH - 74, top - 4, 74, 16).build();
@@ -96,11 +106,6 @@ public class ControllerScreen extends Screen {
             io.github.leadassimilator.reticulum.client.web.WebBridge.openEditor(view.networkId());
         }).bounds(left, top + 160, 120, 20).build());
 
-        Button save = Button.builder(Component.translatable("screen.reticulum.save"), b -> save())
-                .bounds(left + WIDTH - 80, top + 160, 80, 20).build();
-        save.active = view.canEdit() || view.canAdmin();
-        save.visible = !networkTab;
-        addRenderableWidget(save);
         if (networkTab) {
             name.visible = false;
             modeButton.visible = false;
@@ -169,8 +174,22 @@ public class ControllerScreen extends Screen {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
+    /** Sends the settings when they changed; called on Enter, on switching tabs and on closing (there is no Save button). */
     private void save() {
+        if (name == null || !(view.canEdit() || view.canAdmin())) {
+            return;
+        }
+        if (name.getValue().equals(view.networkName()) && mode == view.mode() && password.getValue().isEmpty()) {
+            return;
+        }
         PacketDistributor.sendToServer(new Payloads.ControllerSettings(view.pos(), name.getValue(), mode, password.getValue()));
+        password.setValue("");
+    }
+
+    @Override
+    public void onClose() {
+        save();
+        super.onClose();
     }
 
     @Override

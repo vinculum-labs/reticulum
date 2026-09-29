@@ -83,7 +83,6 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.editor_opened", "Opened the Reticulum editor in your browser: %s");
         add("message.reticulum.editor_focused", "Switched the open Reticulum editor to this network");
         add("message.reticulum.editor_link_hover", "Click to open the editor in your browser");
-        add("screen.reticulum.save", "Save");
 
         add("command.reticulum.unknown_network", "No network with that name or id");
         add("command.reticulum.no_access", "Access denied");
