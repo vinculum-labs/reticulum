@@ -81,9 +81,10 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     @Override
     public void onLoad() {
         super.onLoad();
-        // Blocks placed without a player (commands, structures, other mods) are connected up on the next tick.
-        if (!registered && level != null && !level.isClientSide) {
-            level.scheduleTick(worldPosition, getBlockState().getBlock(), 1);
+        // Blocks placed without a player (commands, structures, other mods) are connected up at the start of the next
+        // server tick. (A scheduled block tick would be lost when this runs while its chunk is still loading.)
+        if (!registered && level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            io.github.leadassimilator.reticulum.topology.Topology.queue(serverLevel, worldPosition);
         }
     }
 

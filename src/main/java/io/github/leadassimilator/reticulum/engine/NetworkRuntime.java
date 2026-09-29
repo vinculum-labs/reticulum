@@ -212,10 +212,10 @@ public final class NetworkRuntime {
         }
         int tier = level.getBlockEntity(controller.pos()) instanceof ControllerBlockEntity c ? c.antennaTier() : 0;
         rescanSomeConnectors(server, network);
-        if (reachVersion == Topology.version() && reachTier == tier) {
+        if (reachVersion == Topology.version(network.id()) && reachTier == tier) {
             return;
         }
-        reachVersion = Topology.version();
+        reachVersion = Topology.version(network.id());
         reachTier = tier;
         Set<net.minecraft.core.BlockPos> wired = Topology.component(level, controller.pos(), null).blocks();
         Map<UUID, Reach> found = new HashMap<>();

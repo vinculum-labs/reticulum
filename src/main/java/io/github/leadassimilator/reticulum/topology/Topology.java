@@ -52,18 +52,57 @@ public final class Topology {
     /** Upper bound on one flood fill, so a runaway structure can't stall the server. */
     private static final int MAX_COMPONENT_SIZE = 200_000;
 
-    /** Bumped whenever cables or connectors change anywhere, so the engine knows to work out wireless reach again. */
-    private static long version;
+    /**
+     * Per network, bumped whenever its cables, joints or connectors change (or a chunk holding them loads or unloads),
+     * so the engine knows to work out that network's wireless reach again.
+     */
+    private static final Map<UUID, Long> VERSIONS = new java.util.concurrent.ConcurrentHashMap<>();
 
-    public static long version() {
-        return version;
+    public static long version(UUID network) {
+        return VERSIONS.getOrDefault(network, 0L);
+    }
+
+    private static void touch(@Nullable UUID network) {
+        if (network != null) {
+            VERSIONS.merge(network, 1L, Long::sum);
+        }
+    }
+
+    /** Network blocks that appeared without a player and still need connecting up, per dimension. */
+    private static final Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, Set<BlockPos>> PENDING = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static void queue(ServerLevel level, BlockPos pos) {
+        PENDING.computeIfAbsent(level.dimension(), k -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(pos.immutable());
+    }
+
+    /** Connects up the queued blocks that are loaded and still not registered. */
+    public static void onServerTick(net.neoforged.neoforge.event.tick.ServerTickEvent.Pre event) {
+        if (PENDING.isEmpty()) {
+            return;
+        }
+        for (ServerLevel level : event.getServer().getAllLevels()) {
+            Set<BlockPos> queued = PENDING.remove(level.dimension());
+            if (queued == null) {
+                continue;
+            }
+            for (BlockPos pos : queued) {
+                if (level.isLoaded(pos)) {
+                    onPlaced(level, pos, null, null);
+                }
+            }
+        }
     }
 
     /** A chunk with cables, connectors or a controller in it loaded or unloaded: what joins what may have changed. */
     public static void onChunkChanged(net.neoforged.neoforge.event.level.ChunkEvent event) {
-        if (!event.getLevel().isClientSide() && event.getChunk() instanceof net.minecraft.world.level.chunk.LevelChunk chunk
-                && chunk.getBlockEntities().values().stream().anyMatch(be -> be instanceof NetworkBlockEntity)) {
-            version++;
+        if (!event.getLevel().isClientSide() && event.getChunk() instanceof net.minecraft.world.level.chunk.LevelChunk chunk) {
+            Set<UUID> networks = new HashSet<>();
+            for (var be : chunk.getBlockEntities().values()) {
+                if (be instanceof NetworkBlockEntity network && network.networkId() != null) {
+                    networks.add(network.networkId());
+                }
+            }
+            networks.forEach(Topology::touch);
         }
     }
 
@@ -198,7 +237,6 @@ public final class Topology {
         }
         be.setRegistered();
 
-        version++;
         UUID own = be instanceof ControllerBlockEntity controller ? claimControllerNetwork(level, pos, controller, player) : null;
         UUID bound = be instanceof ConnectorBlockEntity connector ? connector.takeItemNetworkId() : null;
 
@@ -270,7 +308,10 @@ public final class Topology {
         }
 
         Section comp = component(level, pos, null);
-        assign(level, comp, decideNetwork(level, comp, primary));
+        UUID decided = decideNetwork(level, comp, primary);
+        assign(level, comp, decided);
+        touch(decided);
+        comp.networks().forEach(Topology::touch);
         if (be instanceof ConnectorBlockEntity) {
             rescanConnector(level, pos);
         }
@@ -386,7 +427,7 @@ public final class Topology {
     }
 
     public static void onRemoved(ServerLevel level, BlockPos pos, Removed removed) {
-        version++;
+        touch(removed.networkId());
         Network network = NetworkManager.network(level.getServer(), removed.networkId());
         if (network != null) {
             if (removed.connectorId() != null) {
@@ -422,6 +463,8 @@ public final class Topology {
             if (Objects.equals(old, networkId)) {
                 continue;
             }
+            touch(old);
+            touch(networkId);
             be.setNetworkId(networkId);
             if (be instanceof ConnectorBlockEntity connector) {
                 Network oldNetwork = NetworkManager.network(level.getServer(), old);
@@ -466,7 +509,8 @@ public final class Topology {
         }
         connector.setNetworkId(network.id());
         rescanConnector(level, pos);
-        version++;
+        touch(old);
+        touch(network.id());
         refreshAround(level, Set.of(pos));
         return Component.translatable("message.reticulum.bound", network.name());
     }
@@ -511,13 +555,17 @@ public final class Topology {
      * instead. Returns the message to show the player.
      */
     public static Component toggle(ServerLevel level, BlockPos pos, Direction side, @Nullable ServerPlayer player) {
-        version++;
         NetworkBlockEntity a = blockEntity(level, pos);
         if (a == null) {
             return Component.empty();
         }
         BlockPos otherPos = pos.relative(side);
         NetworkBlockEntity b = blockEntity(level, otherPos);
+        // Whatever this changes happens now; the engine works out reach again on its next tick.
+        touch(networkOf(level, a));
+        if (b != null) {
+            touch(networkOf(level, b));
+        }
         if (b == null) {
             if (a instanceof ConnectorBlockEntity connector && Devices.isDevice(level, otherPos, side.getOpposite())) {
                 return toggleDevice(level, pos, connector, side, player);

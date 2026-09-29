@@ -265,6 +265,20 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty")
+    public static void blocksPlacedWithoutAPlayerJoinTheNetwork(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL);
+        // A connector set by a command or a structure: no player, no placement hook.
+        BlockPos connector = new BlockPos(4, 1, 1);
+        helper.setBlock(new BlockPos(4, 1, 2), Blocks.BARREL);
+        helper.setBlock(connector, ModBlocks.CONNECTOR.get());
+        GlobalPos barrel = Devices.global(helper.getLevel(), helper.absolutePos(new BlockPos(4, 1, 2)));
+        helper.succeedWhen(() -> {
+            check(helper, Topology.network(helper.getLevel(), helper.absolutePos(connector)) == rig.network(), "the connector didn't join the network");
+            check(helper, rig.network().device(barrel) != null, "its barrel isn't a device");
+        });
+    }
+
     @GameTest(template = "empty", timeoutTicks = 300)
     public static void connectorFindsDevicesItMissed(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL);

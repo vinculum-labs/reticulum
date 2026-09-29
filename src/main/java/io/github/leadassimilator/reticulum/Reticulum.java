@@ -60,6 +60,7 @@ public class Reticulum {
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.ChunkEvent.Load event) -> Topology.onChunkChanged(event));
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.ChunkEvent.Unload event) -> Topology.onChunkChanged(event));
         NeoForge.EVENT_BUS.addListener(PlacementRedirect::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(Topology::onServerTick);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerTick);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerStopped);
         NeoForge.EVENT_BUS.addListener(WebApi::onServerTick);
