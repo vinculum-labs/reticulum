@@ -152,10 +152,10 @@ public class ModLanguage extends LanguageProvider {
         add("tooltip.reticulum.antenna_1", "Wireless range: %s blocks, same dimension");
         add("tooltip.reticulum.antenna_2", "Wireless range: the whole dimension");
         add("tooltip.reticulum.antenna_3", "Wireless range: every dimension");
-        add("tooltip.reticulum.antenna_use", "Right-click a controller to install it");
+        add("tooltip.reticulum.antenna_use", "Right-click a controller to install it; take it out with the network tool (Configure mode, sneak + right-click)");
         add("tooltip.reticulum.bound_to", "Bound to %s");
         add("tooltip.reticulum.linked_to", "Network: %s");
-        add("tooltip.reticulum.tool_configure", "Right-click a joint to connect or disconnect it, or a device side to attach or detach it");
+        add("tooltip.reticulum.tool_configure", "Right-click a joint to connect or disconnect it, or a device side to attach or detach it. Sneak + right-click takes off a facade, or a controller's antenna");
         add("tooltip.reticulum.tool_link", "Sneak + right-click a controller or connector to copy its network; right-click a connector to bind it; right-click the air to pick a network");
         add("tooltip.reticulum.tool_switch", "Sneak + scroll to switch mode");
         add("tool.reticulum.mode.configure", "Configure");
@@ -172,6 +172,8 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.network_gone_bound", "That network no longer exists");
         add("message.reticulum.wrong_password", "Wrong password for %s");
         add("message.reticulum.antenna_same", "That antenna is already installed");
+        add("message.reticulum.antenna_removed", "Antenna removed: cabled connectors only");
+        add("message.reticulum.antenna_none_installed", "This controller has no antenna");
         add("message.reticulum.antenna_installed", "Antenna installed. %s");
         add("screen.reticulum.pick_network", "Network…");
         add("screen.reticulum.pick_network_tool", "Link the network tool to…");

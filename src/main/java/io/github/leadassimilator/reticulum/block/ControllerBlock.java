@@ -88,6 +88,31 @@ public class ControllerBlock extends NetworkBlock {
         player.displayClientMessage(Component.translatable("message.reticulum.antenna_installed", AntennaItem.range(antenna.tier())), true);
     }
 
+    /** Takes the antenna out (the network tool in Configure mode, sneaking), handing it back. */
+    public static void removeAntenna(ServerPlayer player, Level level, BlockPos pos) {
+        if (!(level.getBlockEntity(pos) instanceof ControllerBlockEntity controller)) {
+            return;
+        }
+        if (controller.antennaTier() == 0) {
+            player.displayClientMessage(Component.translatable("message.reticulum.antenna_none_installed"), true);
+            return;
+        }
+        Network network = NetworkManager.network(player.server, controller.networkId());
+        if (network != null && !Security.canEdit(network, player)) {
+            player.displayClientMessage(Component.translatable("message.reticulum.no_edit_access"), true);
+            return;
+        }
+        ItemStack old = ModItems.antenna(controller.antennaTier());
+        controller.setAntennaTier(0);
+        if (!player.getAbilities().instabuild && !player.getInventory().add(old)) {
+            player.drop(old, false);
+        }
+        if (network != null) {
+            NetworkManager.changed(player.server, network);
+        }
+        player.displayClientMessage(Component.translatable("message.reticulum.antenna_removed"), true);
+    }
+
     /** Binds a whole stack of connectors to this network: placed where no cable decides, they join it wirelessly. */
     private static void bindStack(ServerPlayer player, Level level, BlockPos pos, ItemStack stack) {
         if (!(level.getBlockEntity(pos) instanceof ControllerBlockEntity controller)) {
