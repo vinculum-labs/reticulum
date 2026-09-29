@@ -1,110 +1,107 @@
 <script lang="ts">
-  import { Panel, useStore, useSvelteFlow } from "@xyflow/svelte";
-
-  /**
-   * A minimap sized to the sheet's nodes only. The built-in one also fits the current view into its box, so it zooms
-   * in and out while you merely pan; here the scale only changes when the sheet does, and the view rectangle moves
-   * over it (cut off at the edges when it runs past them). Click or drag to pan there; scroll to zoom.
+  /*
+   * Svelte Flow's minimap (MIT, xyflow), with one change: it fits the nodes and the view when you zoom or the sheet
+   * changes, but not while you only pan. The original re-fits on every pan, so it zooms in and out as you drag the
+   * canvas around. Panning past what it shows lets the view rectangle run off its edge until the next zoom.
    */
+  import { untrack } from "svelte";
+  import { Panel, useStore } from "@xyflow/svelte";
+  import { XYMinimap, getBoundsOfRects, getInternalNodesBounds, nodeHasDimensions, type Rect } from "@xyflow/system";
+
   const WIDTH = 200;
   const HEIGHT = 150;
-  const PADDING = 40;
 
   const store = $derived(useStore());
-  const flow = useSvelteFlow();
-  let svg: SVGSVGElement | undefined = $state();
-  let dragging = false;
 
-  const rects = $derived(
-    store.nodes
-      .map((n) => store.nodeLookup.get(n.id))
-      .filter((n) => n && !n.hidden && n.measured.width && n.measured.height)
-      .map((n) => ({
-        id: n!.id,
-        selected: !!n!.selected,
-        x: n!.internals.positionAbsolute.x,
-        y: n!.internals.positionAbsolute.y,
-        width: n!.measured.width!,
-        height: n!.measured.height!,
-      })),
-  );
-
-  const view = $derived({
+  const viewBB = $derived({
     x: -store.viewport.x / store.viewport.zoom,
     y: -store.viewport.y / store.viewport.zoom,
     width: store.width / store.viewport.zoom,
     height: store.height / store.viewport.zoom,
   });
 
-  /** The sheet's extent (or the view, with no nodes), padded and grown to the minimap's shape. */
-  const box = $derived.by(() => {
-    let minX: number, minY: number, maxX: number, maxY: number;
-    if (rects.length) {
-      minX = Math.min(...rects.map((r) => r.x)) - PADDING;
-      minY = Math.min(...rects.map((r) => r.y)) - PADDING;
-      maxX = Math.max(...rects.map((r) => r.x + r.width)) + PADDING;
-      maxY = Math.max(...rects.map((r) => r.y + r.height)) + PADDING;
-    } else {
-      minX = view.x;
-      minY = view.y;
-      maxX = view.x + view.width;
-      maxY = view.y + view.height;
-    }
-    const scale = Math.max((maxX - minX) / WIDTH, (maxY - minY) / HEIGHT);
-    const width = WIDTH * scale;
-    const height = HEIGHT * scale;
-    return { x: (minX + maxX - width) / 2, y: (minY + maxY - height) / 2, width, height };
+  const nodeBounds = $derived.by((): Rect | null =>
+    store.nodes.some((n) => !n.hidden) ? getInternalNodesBounds(store.nodeLookup, { filter: (n) => !n.hidden }) : null,
+  );
+
+  /** What the minimap fits: set again when the zoom, the canvas size or the nodes change, not on a pan. */
+  let boundingRect = $state<Rect>({ x: 0, y: 0, width: 1, height: 1 });
+  $effect(() => {
+    const nodes = nodeBounds;
+    void store.viewport.zoom;
+    void store.width;
+    void store.height;
+    const view = untrack(() => viewBB);
+    boundingRect = nodes ? getBoundsOfRects(nodes, view) : view;
   });
 
-  /** Centers the canvas on the flow point under the pointer. */
-  function panTo(e: PointerEvent) {
-    const matrix = svg?.getScreenCTM();
-    if (!svg || !matrix) return;
-    const point = new DOMPoint(e.clientX, e.clientY).matrixTransform(matrix.inverse());
-    flow.setCenter(point.x, point.y, { zoom: store.viewport.zoom });
-  }
+  const viewScale = $derived(Math.max(boundingRect.width / WIDTH, boundingRect.height / HEIGHT));
+  const viewWidth = $derived(viewScale * WIDTH);
+  const viewHeight = $derived(viewScale * HEIGHT);
+  const offset = $derived(5 * viewScale);
+  const x = $derived(boundingRect.x - (viewWidth - boundingRect.width) / 2 - offset);
+  const y = $derived(boundingRect.y - (viewHeight - boundingRect.height) / 2 - offset);
+  const boxWidth = $derived(viewWidth + offset * 2);
+  const boxHeight = $derived(viewHeight + offset * 2);
 
-  function onpointerdown(e: PointerEvent) {
-    dragging = true;
-    svg?.setPointerCapture(e.pointerId);
-    panTo(e);
-  }
-
-  function onpointermove(e: PointerEvent) {
-    if (dragging) panTo(e);
-  }
-
-  function onpointerup(e: PointerEvent) {
-    dragging = false;
-    svg?.releasePointerCapture(e.pointerId);
-  }
-
-  function onwheel(e: WheelEvent) {
-    e.preventDefault();
-    if (e.deltaY < 0) flow.zoomIn();
-    else flow.zoomOut();
+  /** Dragging and scrolling on the minimap, exactly as the original does. */
+  function interactive(dom: SVGSVGElement) {
+    const minimap = XYMinimap({
+      domNode: dom,
+      panZoom: store.panZoom!,
+      getTransform: () => [store.viewport.x, store.viewport.y, store.viewport.zoom],
+      getViewScale: () => viewScale,
+    });
+    $effect(() => {
+      minimap.update({
+        translateExtent: store.translateExtent,
+        width: store.width,
+        height: store.height,
+        pannable: true,
+        zoomable: true,
+      });
+    });
+    return { destroy: () => minimap.destroy() };
   }
 </script>
 
-<Panel position="bottom-right" class="sheet-minimap">
-  <svg
-    bind:this={svg}
-    width={WIDTH}
-    height={HEIGHT}
-    viewBox="{box.x} {box.y} {box.width} {box.height}"
-    class="nowheel nopan nodrag"
-    role="img"
-    aria-label="Map of the sheet; click or drag to move there"
-    {onpointerdown}
-    {onpointermove}
-    {onpointerup}
-    {onwheel}
-  >
-    {#each rects as r (r.id)}
-      <rect x={r.x} y={r.y} width={r.width} height={r.height} rx="6" class="node" class:selected={r.selected} />
-    {/each}
-    <rect x={view.x} y={view.y} width={view.width} height={view.height} class="view" vector-effect="non-scaling-stroke" />
-  </svg>
+<Panel position="bottom-right" class="svelte-flow__minimap sheet-minimap">
+  {#if store.panZoom}
+    <svg
+      width={WIDTH}
+      height={HEIGHT}
+      viewBox="{x} {y} {boxWidth} {boxHeight}"
+      class="svelte-flow__minimap-svg"
+      role="img"
+      aria-label="Map of the sheet"
+      use:interactive
+    >
+      {#each store.nodes as userNode (userNode.id)}
+        {@const node = store.nodeLookup.get(userNode.id)}
+        {#if node && nodeHasDimensions(node) && !node.hidden}
+          <rect
+            class="svelte-flow__minimap-node"
+            class:selected={node.selected}
+            x={node.internals.positionAbsolute.x}
+            y={node.internals.positionAbsolute.y}
+            width={node.measured.width ?? node.width ?? 0}
+            height={node.measured.height ?? node.height ?? 0}
+            rx="5"
+            ry="5"
+          />
+        {/if}
+      {/each}
+      <!-- Everything but the view, dimmed; then the view's own outline. -->
+      <path
+        class="svelte-flow__minimap-mask"
+        d="M{x - offset},{y - offset}h{boxWidth + offset * 2}v{boxHeight + offset * 2}h{-boxWidth - offset * 2}z
+        M{viewBB.x},{viewBB.y}h{viewBB.width}v{viewBB.height}h{-viewBB.width}z"
+        fill-rule="evenodd"
+        pointer-events="none"
+      />
+      <rect x={viewBB.x} y={viewBB.y} width={viewBB.width} height={viewBB.height} class="view" vector-effect="non-scaling-stroke" pointer-events="none" />
+    </svg>
+  {/if}
 </Panel>
 
 <style>
@@ -114,20 +111,16 @@
     overflow: hidden;
     background: var(--panel);
     line-height: 0;
+    /* Theme colors instead of Svelte Flow's light defaults (a light-gray mask looked like a thick border in dark mode). */
+    --xy-minimap-mask-background-color: color-mix(in srgb, var(--panel-2) 70%, transparent);
+    --xy-minimap-mask-stroke-color: transparent;
+    --xy-minimap-node-background-color: color-mix(in srgb, var(--muted) 45%, transparent);
   }
-  svg {
-    display: block;
-    cursor: pointer;
-    touch-action: none;
-  }
-  .node {
-    fill: color-mix(in srgb, var(--muted) 45%, transparent);
-  }
-  .node.selected {
+  :global(.sheet-minimap .svelte-flow__minimap-node.selected) {
     fill: var(--accent);
   }
   .view {
-    fill: color-mix(in srgb, var(--accent) 10%, transparent);
+    fill: none;
     stroke: var(--accent);
     stroke-width: 1;
   }
