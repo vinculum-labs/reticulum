@@ -22,8 +22,8 @@ public interface MeLinker {
     /** Disconnects everything, e.g. when the network stops. */
     void clear();
 
-    /** Channel use of each ME port node, by node id. */
-    Map<UUID, Usage> usage(MinecraftServer server, Network network, Collection<CompiledSheet.MeLink> wanted);
+    /** Channel use of each ME pin, by pin ("node/out/0"). */
+    Map<String, Usage> usage(MinecraftServer server, Network network, Collection<CompiledSheet.MeLink> wanted);
 
     /**
      * {@code through}: channels going through this port (the AE2 machines behind it). {@code used} of {@code max}:

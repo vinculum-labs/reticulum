@@ -18,7 +18,7 @@
     signalOutput,
     summary,
   } from "../../lib/kinds";
-  import { app, deviceName, mePortName } from "../../lib/state.svelte";
+  import { app, deviceName } from "../../lib/state.svelte";
   import DeviceIcon from "../DeviceIcon.svelte";
 
   let { id, data, selected }: { id: string; data: NodeData; selected?: boolean } = $props();
@@ -31,12 +31,10 @@
   const kind = $derived(s.kind);
   const signal = $derived(isSignal(s.kind));
   const color = $derived(
-    signal ? "var(--c-signal)" : s.kind === "me_port" ? "var(--c-me)" : data.resource ? RESOURCE_VAR[data.resource] : "var(--muted)",
+    signal ? "var(--c-signal)" : data.resource ? RESOURCE_VAR[data.resource] : "var(--muted)",
   );
-  const connectorName = $derived(s.kind === "me_port" ? mePortName(s.connector, s.side) : "");
   const title = $derived(
     data.node.label ||
-      connectorName ||
       (data.device
         ? deviceName(data.device)
         : kind === "subsheet"
@@ -51,7 +49,7 @@
   /** Labeled pin rows: a device's inputs and outputs, or a sub-sheet's pins. */
   const leftRows = $derived<{ label: string; title: string; color: string }[]>(
     s.kind === "device"
-      ? (s.inputs ?? []).map((x) => ({ label: shortLabel(x), title: sideLabel(x), color: RESOURCE_VAR[x.resource] }))
+      ? (s.inputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/in/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource] }))
       : kind === "subsheet"
         ? (data.subsheet?.inputs ?? []).map((name) => ({ label: name, title: name, color }))
         : signal
@@ -60,7 +58,7 @@
   );
   const rightRows = $derived<{ label: string; title: string; color: string }[]>(
     s.kind === "device"
-      ? (s.outputs ?? []).map((x) => ({ label: shortLabel(x), title: sideLabel(x), color: RESOURCE_VAR[x.resource] }))
+      ? (s.outputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/out/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource] }))
       : kind === "subsheet"
         ? (data.subsheet?.outputs ?? []).map((name) => ({ label: name, title: name, color }))
         : signal && signalOutput(kind)
@@ -80,6 +78,13 @@
       .filter(Boolean)
       .join("\n"),
   );
+
+  /** A pin's label, with its live value for redstone ("redstone 15") and ME ("ME 1 ch · 4/8") pins. */
+  function pinLabel(side: { resource: import("../../lib/types").Resource; faces?: string[] }, key: string): string {
+    if (side.resource === "redstone") return `${shortLabel(side)} ${app.signals[key] ?? 0}`;
+    if (side.resource === "me") return `${shortLabel(side)} ${meUsageLabel(app.me[key])}`;
+    return shortLabel(side);
+  }
 
   // Color says what a pin carries; shape says which way: inputs are hollow rings, outputs filled dots.
   const inPin = (c: string) => `background: var(--panel); border: 2px solid ${c}`;
@@ -107,14 +112,7 @@
     <div class="min-w-0 flex-1 leading-tight">
       <div class="truncate font-medium" style="font-size: 12px" title={title}>{title}</div>
       <div class="truncate muted" style="font-size: 10px" title={signal ? summary(data.node, app.rateUnit) : idleTitle}>
-        {#if s.kind === "me_port"}
-          <span
-            class="tabular-nums"
-            style="color: {data.me && data.me.connected && data.me.used >= data.me.max ? 'var(--warn)' : color}"
-            title="Channels through this port · the fullest cable on the way to the ME controller (in use / most it carries)"
-            >{meUsageLabel(data.me)}</span
-          >
-        {:else if signal}
+        {#if signal}
           <span class="tabular-nums" style="color: {(data.signal ?? 0) > 0 ? color : 'var(--muted)'}">{data.signal ?? 0}</span>
           · {summary(data.node, app.rateUnit)}
         {:else if data.rate > 0}

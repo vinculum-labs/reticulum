@@ -46,8 +46,12 @@ final class Signals {
     private final Map<UUID, ArrayDeque<Long>> delays = new HashMap<>();
     /** Network signals published last tick; what Signal nodes and conditions read this tick. */
     private Map<String, Long> published = Map.of();
-    /** Redstone each connector currently gives out, per device it faces. */
-    private Map<GlobalPos, Integer> emitting = Map.of();
+    /** Redstone to give a device: on every face ({@code face} null) or on one face (the connector touching it). */
+    record Emit(GlobalPos device, @Nullable Direction face) {
+    }
+
+    /** Redstone the connectors currently give out, per device (and face). */
+    private Map<Emit, Integer> emitting = Map.of();
     /** Condition results worked out this tick, so every sheet in one folder sees the same pulse. */
     private final Map<String, Verdict> verdicts = new HashMap<>();
     /** Nodes switched off by redstone this tick, and nodes whose pulse fired this tick. */
@@ -162,7 +166,7 @@ final class Signals {
     /** Works out every signal node of the running sheets, then applies Redstone out nodes to the connectors. */
     void evaluate(NetworkRuntime.Context ctx, List<CompiledSheet> sheets) {
         Map<String, Long> publishing = new HashMap<>();
-        Map<GlobalPos, Integer> emit = new HashMap<>();
+        Map<Emit, Integer> emit = new HashMap<>();
         for (CompiledSheet sheet : sheets) {
             for (CompiledSheet.SignalNode node : sheet.signals()) {
                 values.put(node.node().id(), output(ctx, sheet, node, publishing, emit));
@@ -193,14 +197,31 @@ final class Signals {
     }
 
     private long output(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.SignalNode node, Map<String, Long> publishing,
-            Map<GlobalPos, Integer> emit) {
+            Map<Emit, Integer> emit) {
         UUID id = node.node().id();
         String key = id.toString();
         return switch (node.node().settings()) {
-            case NodeSettings.RedstoneInSettings in -> givenOut(ctx.server(), in.device(), in.face(), in.comparator());
+            case NodeSettings.RedstoneInSettings in -> {
+                if (in.comparator() || in.faces().isEmpty()) {
+                    yield givenOut(ctx.server(), in.device(), Optional.empty(), in.comparator());
+                }
+                int best = 0;
+                for (FaceKey face : in.faces()) {
+                    best = Math.max(best, givenOut(ctx.server(), in.device(), Optional.of(face), false));
+                }
+                yield best;
+            }
             case NodeSettings.RedstoneOutSettings out -> {
                 int level = (int) Math.max(0, Math.min(15, in(node, 0)));
-                emit.merge(out.device(), level, Math::max);
+                if (out.faces().isEmpty()) {
+                    emit.merge(new Emit(out.device(), null), level, Math::max);
+                } else {
+                    for (FaceKey face : out.faces()) {
+                        if (face.direction() != null) {
+                            emit.merge(new Emit(out.device(), face.direction()), level, Math::max);
+                        }
+                    }
+                }
                 yield level;
             }
             case NodeSettings.LevelSettings level -> count(ctx, sheet, level);
@@ -343,6 +364,7 @@ final class Signals {
                     }
                     yield total;
                 }
+                case REDSTONE, ME -> 0;
                 case CHEMICAL -> Mods.MEKANISM ? ChemicalMover.count(ctx, port, Filters.chemicals(expression, ctx.network().filters()), context) : 0;
             };
         } catch (FilterException e) {
@@ -353,12 +375,13 @@ final class Signals {
     // ---------------------------------------------------------------- redstone out
 
     /** Gives each connector's redstone to the devices it faces, touching only what changed. */
-    void applyEmissions(MinecraftServer server, Network network, Map<GlobalPos, Integer> emit) {
+    void applyEmissions(MinecraftServer server, Network network, Map<Emit, Integer> emit) {
         if (emit.isEmpty() && emitting.isEmpty()) {
             return;
         }
-        Set<GlobalPos> devices = new HashSet<>(emit.keySet());
-        devices.addAll(emitting.keySet());
+        Set<GlobalPos> devices = new HashSet<>();
+        emit.keySet().forEach(e -> devices.add(e.device()));
+        emitting.keySet().forEach(e -> devices.add(e.device()));
         for (ConnectorRecord connector : network.connectors()) {
             for (GlobalPos device : connector.devices()) {
                 if (!devices.contains(device) || !device.dimension().equals(connector.pos().dimension())) {
@@ -371,7 +394,10 @@ final class Signals {
                 }
                 Direction toward = Direction.fromDelta(device.pos().getX() - connector.pos().pos().getX(),
                         device.pos().getY() - connector.pos().pos().getY(), device.pos().getZ() - connector.pos().pos().getZ());
-                if (toward != null && be.setPower(toward, emit.getOrDefault(device, 0))) {
+                // The device's face touching this connector is the opposite of the way the connector faces it.
+                int power = toward == null ? 0 : Math.max(emit.getOrDefault(new Emit(device, null), 0),
+                        emit.getOrDefault(new Emit(device, toward.getOpposite()), 0));
+                if (toward != null && be.setPower(toward, power)) {
                     level.updateNeighborsAt(connector.pos().pos(), be.getBlockState().getBlock());
                 }
             }

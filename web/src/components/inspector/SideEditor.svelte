@@ -13,10 +13,13 @@
     return sides.length ? sides : faces;
   });
   const chosen = $derived(new Set(side.faces ?? []));
-  // Items, fluids and energy are always offered; chemicals only where a device has them (they need Mekanism).
+  // Items, fluids, energy and redstone are always offered; chemicals (Mekanism) and ME (AE2) only where the device has them.
   const choices = $derived.by(() => {
+    const offered = offeredResources(device?.resources);
     const list: Resource[] = ["item", "fluid", "energy"];
-    if (side.resource === "chemical" || offeredResources(device?.resources).includes("chemical")) list.push("chemical");
+    if (side.resource === "chemical" || offered.includes("chemical")) list.push("chemical");
+    list.push("redstone");
+    if (side.resource === "me" || offered.includes("me")) list.push("me");
     return list;
   });
 

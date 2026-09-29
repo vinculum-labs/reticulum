@@ -31,8 +31,10 @@ public sealed interface NodeSettings {
         SUBSHEET(SubSheetSettings.CODEC, false),
         SHEET_INPUT(SheetPinSettings.INPUT_CODEC, false),
         SHEET_OUTPUT(SheetPinSettings.OUTPUT_CODEC, false),
-        REDSTONE_IN(RedstoneInSettings.CODEC, true),
-        REDSTONE_OUT(RedstoneOutSettings.CODEC, true),
+        /** Engine-internal: a device's redstone output pin. Never saved or sent. */
+        REDSTONE_IN(null, true),
+        /** Engine-internal: a device's redstone input pin. Never saved or sent. */
+        REDSTONE_OUT(null, true),
         LEVEL(LevelSettings.CODEC, true),
         COMPARE(CompareSettings.CODEC, true),
         LOGIC(LogicSettings.CODEC, true),
@@ -43,7 +45,8 @@ public sealed interface NodeSettings {
         DELAY(DelaySettings.CODEC, true),
         PUBLISH(PublishSettings.CODEC, true),
         SIGNAL(SignalSettings.CODEC, true),
-        ME_PORT(MePortSettings.CODEC, false);
+        /** Engine-internal: a device's ME pin, resolved to the connector side it touches. Never saved or sent. */
+        ME_PORT(null, false);
 
         /** Only the kinds a sheet can hold; the engine-internal ones can't be read or written. */
         public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(() -> java.util.Arrays.stream(values())
@@ -201,9 +204,14 @@ public sealed interface NodeSettings {
         ).apply(i, Input::new));
     }
 
-    /** One way out of a device node; the same options as a source. */
+    /** One way out of a device node; the same options as a source. {@code comparator}: a redstone output reads the comparator value. */
     record Output(ResourceKind resource, List<FaceKey> faces, Optional<SlotRange> slots, List<Limit> keep, int perOperation, int interval,
-            int priority) {
+            int priority, boolean comparator) {
+        public Output(ResourceKind resource, List<FaceKey> faces, Optional<SlotRange> slots, List<Limit> keep, int perOperation, int interval,
+                int priority) {
+            this(resource, faces, slots, keep, perOperation, interval, priority, false);
+        }
+
         public static final Codec<Output> CODEC = RecordCodecBuilder.create(i -> i.group(
                 ResourceKind.CODEC.fieldOf("resource").forGetter(Output::resource),
                 FaceKey.CODEC.listOf().optionalFieldOf("faces", List.of()).forGetter(Output::faces),
@@ -211,7 +219,8 @@ public sealed interface NodeSettings {
                 Limit.CODEC.listOf().optionalFieldOf("keep", List.of()).forGetter(Output::keep),
                 Codec.INT.optionalFieldOf("per_operation", 0).forGetter(Output::perOperation),
                 Codec.INT.optionalFieldOf("interval", 0).forGetter(Output::interval),
-                Codec.INT.optionalFieldOf("priority", 0).forGetter(Output::priority)
+                Codec.INT.optionalFieldOf("priority", 0).forGetter(Output::priority),
+                Codec.BOOL.optionalFieldOf("comparator", false).forGetter(Output::comparator)
         ).apply(i, Output::new));
     }
 
@@ -287,26 +296,22 @@ public sealed interface NodeSettings {
     // Signal nodes pass integers along signal wires. Anything above 0 counts as on; nodes that answer yes or no
     // give 15 or 0, so their output can drive redstone directly.
 
-    /** Reads the redstone a device gives out of one face (or its strongest face), or its comparator value. */
-    record RedstoneInSettings(GlobalPos device, Optional<FaceKey> face, boolean comparator) implements NodeSettings {
-        public static final MapCodec<RedstoneInSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                GlobalPos.CODEC.fieldOf("device").forGetter(RedstoneInSettings::device),
-                FaceKey.CODEC.optionalFieldOf("face").forGetter(RedstoneInSettings::face),
-                Codec.BOOL.optionalFieldOf("comparator", false).forGetter(RedstoneInSettings::comparator)
-        ).apply(i, RedstoneInSettings::new));
-
+    /**
+     * Engine-internal form of a device's redstone output pin: the redstone the device gives out of its faces (any
+     * face when none are chosen: the strongest), or its comparator value.
+     */
+    record RedstoneInSettings(GlobalPos device, List<FaceKey> faces, boolean comparator) implements NodeSettings {
         @Override
         public Kind kind() {
             return Kind.REDSTONE_IN;
         }
     }
 
-    /** Every connector next to the device gives its input (0 to 15) to the device, on the side facing it. */
-    record RedstoneOutSettings(GlobalPos device) implements NodeSettings {
-        public static final MapCodec<RedstoneOutSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                GlobalPos.CODEC.fieldOf("device").forGetter(RedstoneOutSettings::device)
-        ).apply(i, RedstoneOutSettings::new));
-
+    /**
+     * Engine-internal form of a device's redstone input pin: the connectors touching the chosen faces (all of them
+     * when none are chosen) give the device the pin's input, 0 to 15.
+     */
+    record RedstoneOutSettings(GlobalPos device, List<FaceKey> faces) implements NodeSettings {
         @Override
         public Kind kind() {
             return Kind.REDSTONE_OUT;
@@ -467,15 +472,10 @@ public sealed interface NodeSettings {
     }
 
     /**
-     * One ME side of a connector (AE2): the side facing an AE2 cable or machine. A wire between two ME ports joins
-     * their AE2 networks through that link, 32 channels at most (8 with a smart cable), like AE2's own cables.
+     * Engine-internal form of a device's ME pin: the connector side touching that device face (AE2). A wire between
+     * two ME pins joins their AE2 networks, 32 channels at most (8 through a normal cable), like AE2's own cables.
      */
     record MePortSettings(UUID connector, net.minecraft.core.Direction side) implements NodeSettings {
-        public static final MapCodec<MePortSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Ids.UUID_CODEC.fieldOf("connector").forGetter(MePortSettings::connector),
-                net.minecraft.core.Direction.CODEC.fieldOf("side").forGetter(MePortSettings::side)
-        ).apply(i, MePortSettings::new));
-
         @Override
         public Kind kind() {
             return Kind.ME_PORT;

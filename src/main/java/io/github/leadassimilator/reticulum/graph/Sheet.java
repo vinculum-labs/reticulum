@@ -26,7 +26,7 @@ public final class Sheet {
             Codec.INT.optionalFieldOf("interval", DEFAULT_INTERVAL).forGetter(s -> s.interval),
             Codec.INT.optionalFieldOf("priority", 0).forGetter(s -> s.priority),
             Codec.BOOL.optionalFieldOf("subsheet", false).forGetter(s -> s.subsheet),
-            Node.CODEC.listOf().optionalFieldOf("nodes", List.of()).forGetter(s -> s.nodes),
+            Ids.lenientList(Node.CODEC, "node").optionalFieldOf("nodes", List.of()).forGetter(s -> s.nodes),
             Wire.CODEC.listOf().optionalFieldOf("wires", List.of()).forGetter(s -> s.wires),
             Redstone.CODEC.optionalFieldOf("redstone", Redstone.IGNORED).forGetter(s -> s.redstone)
     ).apply(i, Sheet::new));

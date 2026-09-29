@@ -1,6 +1,6 @@
 // What each node kind looks like and how it is summarized, plus defaults for new nodes.
 
-import type { Device, Face, GraphNode, NodeKind, NodeSettings, Redstone, Resource } from "./types";
+import type { Device, GraphNode, NodeKind, NodeSettings, Redstone, Resource } from "./types";
 
 export const KIND_LABEL: Record<NodeKind, string> = {
   device: "Device",
@@ -11,8 +11,6 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   subsheet: "Sub-sheet",
   sheet_input: "Sheet input",
   sheet_output: "Sheet output",
-  redstone_in: "Redstone in",
-  redstone_out: "Redstone out",
   level: "Level sensor",
   compare: "Compare",
   logic: "Logic",
@@ -23,7 +21,6 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   delay: "Delay",
   publish: "Publish",
   signal: "Network signal",
-  me_port: "ME port",
 };
 
 export const KIND_HINT: Record<NodeKind, string> = {
@@ -35,8 +32,6 @@ export const KIND_HINT: Record<NodeKind, string> = {
   subsheet: "A copy of a sheet marked as a sub-sheet, used like one node",
   sheet_input: "Inside a sub-sheet: where resources come in (a pin on the left of the sub-sheet node)",
   sheet_output: "Inside a sub-sheet: where resources go out (a pin on the right of the sub-sheet node)",
-  redstone_in: "The redstone a device gives out (or its comparator value)",
-  redstone_out: "Gives its input as redstone to a device, from the connectors next to it",
   level: "How much of a resource a device holds",
   compare: "15 when A compares true against B (or a number), else 0",
   logic: "AND, OR, NOT or XOR of every wire into it",
@@ -47,13 +42,10 @@ export const KIND_HINT: Record<NodeKind, string> = {
   delay: "Its input, some ticks later",
   publish: "Publishes its input under a name that any sheet can read",
   signal: "Reads a published network signal",
-  me_port: "One ME side of a connector; wire it to another ME port to join the two AE2 networks (32 channels)",
 };
 
 /** Signal nodes, in palette order. */
 export const SIGNAL_KINDS: NodeKind[] = [
-  "redstone_in",
-  "redstone_out",
   "level",
   "compare",
   "logic",
@@ -81,7 +73,6 @@ export function signalInputs(kind: NodeKind): string[] {
       return ["count", "reset"];
     case "timer":
       return ["run"];
-    case "redstone_out":
     case "logic":
     case "pulse":
     case "delay":
@@ -94,12 +85,12 @@ export function signalInputs(kind: NodeKind): string[] {
 
 /** Whether a signal node gives an output to wire on. */
 export function signalOutput(kind: NodeKind): boolean {
-  return kind !== "redstone_out" && kind !== "publish";
+  return kind !== "publish";
 }
 
 /** Kinds a signal wire can switch on and off through their gate (the pin on top). */
 export function gated(kind: NodeKind): boolean {
-  return !isSignal(kind) && kind !== "sheet_input" && kind !== "sheet_output" && kind !== "me_port";
+  return !isSignal(kind) && kind !== "sheet_input" && kind !== "sheet_output";
 }
 
 export const REDSTONE_MODE_LABEL: Record<string, string> = {
@@ -117,12 +108,24 @@ export function redstoneSummary(r: Redstone | undefined): string {
   return `redstone ${r.mode} · ${where}`;
 }
 
-export const RESOURCE_LABEL: Record<Resource, string> = { item: "Items", fluid: "Fluid", energy: "Energy", chemical: "Chemical" };
-export const RESOURCE_UNIT: Record<Resource, string> = { item: "items", fluid: "mB", energy: "FE", chemical: "mB" };
+export const RESOURCE_LABEL: Record<Resource, string> = {
+  item: "Items",
+  fluid: "Fluid",
+  energy: "Energy",
+  chemical: "Chemical",
+  redstone: "Redstone",
+  me: "ME (AE2)",
+};
+export const RESOURCE_UNIT: Record<Resource, string> = { item: "items", fluid: "mB", energy: "FE", chemical: "mB", redstone: "", me: "channels" };
+
+/** Resources that flow; redstone and ME pins carry signals and links instead. */
+export function moves(resource: Resource): boolean {
+  return resource !== "redstone" && resource !== "me";
+}
 
 /** The resources a device offers on some face, in palette order. */
 export function offeredResources(resources: Partial<Record<Resource, string[]>> | undefined): Resource[] {
-  return (["item", "fluid", "energy", "chemical"] as Resource[]).filter((r) => resources?.[r]?.length);
+  return (["item", "fluid", "energy", "chemical", "redstone", "me"] as Resource[]).filter((r) => resources?.[r]?.length);
 }
 
 /** CSS custom property holding the color for a resource's wires. */
@@ -131,6 +134,8 @@ export const RESOURCE_VAR: Record<Resource, string> = {
   fluid: "var(--c-fluid)",
   energy: "var(--c-energy)",
   chemical: "var(--c-chemical)",
+  redstone: "var(--c-signal)",
+  me: "var(--c-me)",
 };
 
 export function defaultSettings(
@@ -138,15 +143,8 @@ export function defaultSettings(
   device: Device | null,
   resource: Resource,
   subsheet?: string,
-  mePort?: { connector: string; side: Face },
 ): NodeSettings {
   switch (kind) {
-    case "me_port":
-      return { kind, connector: mePort!.connector, side: mePort!.side };
-    case "redstone_in":
-      return { kind, device: device!.pos };
-    case "redstone_out":
-      return { kind, device: device!.pos };
     case "level":
       return { kind, device: device!.pos, resource, filter: "" };
     case "compare":
@@ -252,7 +250,7 @@ export function sideLabel(side: { resource: Resource; faces?: string[] }): strin
 
 /** Compact label shown next to a handle: the resource, and the faces when they are chosen. */
 export function shortLabel(side: { resource: Resource; faces?: string[] }): string {
-  const name = side.resource === "item" ? "items" : side.resource;
+  const name = side.resource === "item" ? "items" : side.resource === "me" ? "ME" : side.resource;
   return side.faces?.length ? `${name} (${side.faces.map((f) => f[0].toUpperCase()).join("")})` : name;
 }
 
@@ -278,10 +276,6 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
     case "sheet_input":
     case "sheet_output":
       return s.name || "unnamed pin";
-    case "redstone_in":
-      return s.comparator ? "comparator value" : `signal${s.face ? ` · ${s.face}` : ""}`;
-    case "redstone_out":
-      return "to device";
     case "level":
       return `${RESOURCE_UNIT[s.resource]}${s.filter ? ` · ${s.filter}` : ""}`;
     case "compare":
@@ -301,8 +295,6 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
     case "publish":
     case "signal":
       return s.name ? `“${s.name}”` : "no name";
-    case "me_port":
-      return `${s.side} side`;
   }
 }
 

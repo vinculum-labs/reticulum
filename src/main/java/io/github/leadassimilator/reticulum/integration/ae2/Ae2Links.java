@@ -109,16 +109,16 @@ public final class Ae2Links implements MeLinker {
     }
 
     @Override
-    public Map<UUID, MeLinker.Usage> usage(MinecraftServer server, Network network, Collection<CompiledSheet.MeLink> wanted) {
-        Map<UUID, MeLinker.Usage> out = new HashMap<>();
+    public Map<String, MeLinker.Usage> usage(MinecraftServer server, Network network, Collection<CompiledSheet.MeLink> wanted) {
+        Map<String, MeLinker.Usage> out = new HashMap<>();
         for (CompiledSheet.MeLink link : wanted) {
-            put(out, link.nodeA(), endpoints(server, network, link.connectorA()), link.sideA());
-            put(out, link.nodeB(), endpoints(server, network, link.connectorB()), link.sideB());
+            put(out, link.pinA(), endpoints(server, network, link.connectorA()), link.sideA());
+            put(out, link.pinB(), endpoints(server, network, link.connectorB()), link.sideB());
         }
         return out;
     }
 
-    private static void put(Map<UUID, MeLinker.Usage> out, UUID port, @Nullable MeEndpoints endpoints, Direction side) {
+    private static void put(Map<String, MeLinker.Usage> out, String port, @Nullable MeEndpoints endpoints, Direction side) {
         MeLinker.Usage usage = endpoints == null ? null : endpoints.usage(side);
         if (usage != null) {
             out.put(port, usage);

@@ -21,6 +21,7 @@ import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.filter.FilterException;
 import io.github.leadassimilator.reticulum.filter.Filters;
+import io.github.leadassimilator.reticulum.engine.CompiledSheet;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
@@ -463,17 +464,13 @@ public final class WebApi {
         private static void checkPorts(Network network, Node node) throws RequestException {
             GlobalPos device = switch (node.settings()) {
                 case NodeSettings.DeviceSettings s -> s.device();
-                case NodeSettings.RedstoneInSettings s -> s.device();
-                case NodeSettings.RedstoneOutSettings s -> s.device();
                 case NodeSettings.LevelSettings s -> s.device();
                 default -> null;
             };
             if (device != null && network.device(device) == null) {
                 throw new RequestException("That block is not a device of this network");
             }
-            if (node.settings() instanceof NodeSettings.MePortSettings port && network.connector(port.connector()) == null) {
-                throw new RequestException("That connector is not on this network");
-            }
+
         }
     }
 
@@ -572,19 +569,26 @@ public final class WebApi {
         runtime.statuses().forEach((id, status) -> statuses.addProperty(id.toString(), status.key()));
         out.add("status", statuses);
         JsonObject signals = new JsonObject();
-        runtime.signalValues().forEach((id, value) -> signals.addProperty(id.toString(), value));
+        Map<UUID, String> pins = new HashMap<>();
+        for (Sheet sheet : network.sheets()) {
+            CompiledSheet compiled = runtime.compiledIfPresent(sheet.id());
+            if (compiled != null) {
+                pins.putAll(compiled.pinKeys());
+            }
+        }
+        runtime.signalValues().forEach((id, value) -> signals.addProperty(pins.getOrDefault(id, id.toString()), value));
         out.add("signals", signals);
         JsonObject named = new JsonObject();
         runtime.networkSignals().forEach(named::addProperty);
         out.add("networkSignals", named);
         JsonObject me = new JsonObject();
-        runtime.meUsage().forEach((id, usage) -> {
+        runtime.meUsage().forEach((pin, usage) -> {
             JsonObject port = new JsonObject();
             port.addProperty("connected", usage.connected());
             port.addProperty("through", usage.through());
             port.addProperty("used", usage.used());
             port.addProperty("max", usage.max());
-            me.add(id.toString(), port);
+            me.add(pin, port);
         });
         out.add("me", me);
         JsonArray sheetsOff = new JsonArray();

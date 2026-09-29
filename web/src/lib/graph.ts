@@ -2,6 +2,7 @@
 
 import type { Edge, Node } from "@xyflow/svelte";
 import type { Device, GraphNode, MeUsage, Resource, Sheet, Wire } from "./types";
+export type { MeUsage };
 import { GATE, pinName, posKey, sheetPins } from "./types";
 import { RESOURCE_VAR, formatRate, isSignal } from "./kinds";
 
@@ -20,10 +21,7 @@ export interface NodeData extends Record<string, unknown> {
   subsheet?: { sheet?: Sheet; inputs: string[]; outputs: string[] };
   /** For a signal node: its output as last reported. */
   signal?: number;
-  /** For an ME port: its channel use. */
-  me?: MeUsage;
-  /** For an ME port: the connector's name. */
-  connectorName?: string;
+
 }
 
 export interface Activity {
@@ -67,13 +65,20 @@ export function resources(sheet: Sheet): { wires: Map<string, Resource>; nodes: 
   };
   for (const n of sheet.nodes ?? []) {
     const s = n.settings;
-    if (s.kind === "device") (s.outputs ?? []).forEach((o, i) => emit(n.id, o.resource, i));
+    if (s.kind === "device") (s.outputs ?? []).forEach((o, i) => o.resource !== "redstone" && o.resource !== "me" && emit(n.id, o.resource, i));
   }
   while (queue.length) {
     const [id, resource] = queue.shift()!;
     emit(id, resource);
   }
   return { wires, nodes };
+}
+
+/** What a device node's input or output pin carries (null for other nodes). */
+export function pinResource(node: GraphNode | undefined, direction: "in" | "out", index: number): Resource | null {
+  const s = node?.settings;
+  if (s?.kind !== "device") return null;
+  return (direction === "in" ? s.inputs?.[index]?.resource : s.outputs?.[index]?.resource) ?? null;
 }
 
 /** Kinds whose inputs and outputs are numbered pins ("in:0", "out:1"). */
@@ -138,7 +143,6 @@ export function toFlow(
         status: activity.status[n.id],
         subsheet,
         signal: isSignal(s.kind) ? (activity.signals[n.id] ?? 0) : undefined,
-        me: s.kind === "me_port" ? activity.me[n.id] : undefined,
       },
     };
   });
@@ -147,10 +151,10 @@ export function toFlow(
     const rate = rates[w.id] ?? 0;
     const resource = kinds.wires.get(w.id) ?? null;
     const fromNode = byId.get(w.from);
-    const signal = isSignal(fromNode?.settings.kind);
-    const on = signal && (activity.signals[w.from] ?? 0) > 0;
-    const me = fromNode?.settings.kind === "me_port";
-    const color = signal ? "var(--c-signal)" : me ? "var(--c-me)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
+    const signal = isSignal(fromNode?.settings.kind) || pinResource(fromNode, "out", w.output ?? 0) === "redstone";
+    const on = signal && (activity.signals[isSignal(fromNode?.settings.kind) ? w.from : `${w.from}/out/${w.output ?? 0}`] ?? 0) > 0;
+    const pin = pinResource(fromNode, "out", w.output ?? 0);
+    const color = signal || pin === "redstone" ? "var(--c-signal)" : pin === "me" ? "var(--c-me)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
     return {
       id: w.id,
       source: w.from,

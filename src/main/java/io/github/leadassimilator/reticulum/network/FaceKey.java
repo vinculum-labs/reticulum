@@ -30,6 +30,10 @@ public enum FaceKey implements StringRepresentable {
         this.direction = direction;
     }
 
+    public static FaceKey of(Direction direction) {
+        return values()[direction.ordinal()];
+    }
+
     @Nullable
     public Direction direction() {
         return direction;

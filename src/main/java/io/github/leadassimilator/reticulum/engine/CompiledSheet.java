@@ -21,6 +21,7 @@ import net.minecraft.core.GlobalPos;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
+import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Network;
 
 /**
@@ -62,6 +63,9 @@ public final class CompiledSheet {
     private final Sheet sheet;
     private final int revision;
     private final int filtersHash;
+    /** Network revision when compiled; ME pins resolve to connectors, so sheets with them follow connector changes. */
+    private final int networkRevision;
+    private boolean followsConnectors;
     /** Revision of every sub-sheet pasted in, so a change to one recompiles the sheets using it. */
     private final Map<UUID, Integer> dependencies = new LinkedHashMap<>();
     private final List<Source> sources = new ArrayList<>();
@@ -70,20 +74,24 @@ public final class CompiledSheet {
     private final Map<String, Filters.FluidFilter> fluidLimitFilters = new LinkedHashMap<>();
     private final Map<String, Filters.ChemicalFilter> chemicalLimitFilters = new LinkedHashMap<>();
 
-    private CompiledSheet(Sheet sheet, int filtersHash) {
+    private CompiledSheet(Sheet sheet, int filtersHash, int networkRevision) {
+        this.networkRevision = networkRevision;
         this.sheet = sheet;
         this.revision = sheet.revision();
         this.filtersHash = filtersHash;
     }
 
     public static CompiledSheet compile(Sheet sheet, Network network) {
-        CompiledSheet compiled = new CompiledSheet(sheet, network.filters().hashCode());
+        CompiledSheet compiled = new CompiledSheet(sheet, network.filters().hashCode(), network.revision());
         compiled.build(network);
         return compiled;
     }
 
     public boolean isCurrent(Sheet sheet, Network network) {
         if (this.sheet != sheet || revision != sheet.revision() || filtersHash != network.filters().hashCode()) {
+            return false;
+        }
+        if (followsConnectors && networkRevision != network.revision()) {
             return false;
         }
         for (Map.Entry<UUID, Integer> dependency : dependencies.entrySet()) {
@@ -114,6 +122,7 @@ public final class CompiledSheet {
         List<Node> flatNodes = new ArrayList<>();
         List<Wire> flatWires = new ArrayList<>(sheet.wires());
         paste(network, sheet.nodes(), flatNodes, flatWires, List.of(sheet.id()));
+        pins(network, flatNodes, flatWires);
 
         Map<UUID, Node> nodes = new LinkedHashMap<>();
         Map<UUID, NodeSettings.DeviceSettings> devices = new LinkedHashMap<>();
@@ -177,10 +186,96 @@ public final class CompiledSheet {
         }
     }
 
+    // ---------------------------------------------------------------- redstone and ME pins
+
+    /** Pin nodes made from device pins, and the pin each stands for ("node/out/0"), so the editor can show their values. */
+    private final Map<UUID, String> pinKeys = new LinkedHashMap<>();
+
+    public Map<UUID, String> pinKeys() {
+        return pinKeys;
+    }
+
+    /**
+     * Turns device nodes' redstone and ME pins into the nodes the engine works with (a redstone output reads the
+     * device, a redstone input powers it, an ME pin is the connector side touching that face) and moves their wires
+     * onto them. Item, fluid, energy and chemical pins become sources and sinks later, in {@link #expand}.
+     */
+    private void pins(Network network, List<Node> flat, List<Wire> wires) {
+        Map<String, UUID> outs = new LinkedHashMap<>();
+        Map<String, UUID> ins = new LinkedHashMap<>();
+        List<Node> made = new ArrayList<>();
+        for (Node node : flat) {
+            if (!node.enabled() || !(node.settings() instanceof NodeSettings.DeviceSettings device)) {
+                continue;
+            }
+            for (int i = 0; i < device.outputs().size(); i++) {
+                NodeSettings.Output out = device.outputs().get(i);
+                NodeSettings settings = switch (out.resource()) {
+                    case REDSTONE -> new NodeSettings.RedstoneInSettings(device.device(), out.faces(), out.comparator());
+                    case ME -> mePort(network, node, device.device(), out.faces(), "output " + (i + 1));
+                    default -> null;
+                };
+                if (settings != null) {
+                    made.add(pin(node, side(node.id(), "out", i), settings, node.id() + "/out/" + i));
+                    outs.put(node.id() + ":" + i, side(node.id(), "out", i));
+                }
+            }
+            for (int i = 0; i < device.inputs().size(); i++) {
+                NodeSettings.Input in = device.inputs().get(i);
+                NodeSettings settings = switch (in.resource()) {
+                    case REDSTONE -> new NodeSettings.RedstoneOutSettings(device.device(), in.faces());
+                    case ME -> mePort(network, node, device.device(), in.faces(), "input " + (i + 1));
+                    default -> null;
+                };
+                if (settings != null) {
+                    made.add(pin(node, side(node.id(), "in", i), settings, node.id() + "/in/" + i));
+                    ins.put(node.id() + ":" + i, side(node.id(), "in", i));
+                }
+            }
+        }
+        if (made.isEmpty()) {
+            return;
+        }
+        flat.addAll(made);
+        for (int i = 0; i < wires.size(); i++) {
+            Wire w = wires.get(i);
+            UUID from = outs.get(w.from() + ":" + w.output());
+            UUID to = w.input() == Wire.GATE ? null : ins.get(w.to() + ":" + w.input());
+            if (from != null || to != null) {
+                wires.set(i, new Wire(w.id(), from != null ? from : w.from(), from != null ? Wire.MATCH : w.output(),
+                        to != null ? to : w.to(), to != null ? 0 : w.input(), w.order()));
+            }
+        }
+    }
+
+    private Node pin(Node device, UUID id, NodeSettings settings, String key) {
+        owners.put(id, device.id());
+        pinKeys.put(id, key);
+        return new Node(id, settings, device.label(), true, device.x(), device.y(), Redstone.IGNORED);
+    }
+
+    /** The connector side touching one of the given faces of the device (any face when none are chosen). */
+    @Nullable
+    private NodeSettings.MePortSettings mePort(Network network, Node node, GlobalPos device, List<FaceKey> faces, String which) {
+        followsConnectors = true;
+        for (io.github.leadassimilator.reticulum.network.ConnectorRecord connector : network.connectors()) {
+            if (!connector.devices().contains(device) || !connector.pos().dimension().equals(device.dimension())) {
+                continue;
+            }
+            Direction toConnector = Direction.fromDelta(connector.pos().pos().getX() - device.pos().getX(),
+                    connector.pos().pos().getY() - device.pos().getY(), connector.pos().pos().getZ() - device.pos().getZ());
+            if (toConnector != null && (faces.isEmpty() || faces.contains(FaceKey.of(toConnector)))) {
+                return new NodeSettings.MePortSettings(connector.id(), toConnector.getOpposite());
+            }
+        }
+        errors.add(describe(node) + ": " + which + " (ME) has no connector on " + (faces.isEmpty() ? "any face" : "that face"));
+        return null;
+    }
+
     // ---------------------------------------------------------------- ME links
 
-    /** An ME link wire between two ME ports (connector sides). */
-    public record MeLink(UUID nodeA, UUID connectorA, Direction sideA, UUID nodeB, UUID connectorB, Direction sideB) {
+    /** An ME link wire between two ME pins (connector sides); {@code pinA}/{@code pinB} name the pins ("node/out/0"). */
+    public record MeLink(String pinA, UUID connectorA, Direction sideA, String pinB, UUID connectorB, Direction sideB) {
     }
 
     private final List<MeLink> meLinks = new ArrayList<>();
@@ -206,10 +301,11 @@ public final class CompiledSheet {
             NodeSettings.MePortSettings a = ports.get(wire.from());
             NodeSettings.MePortSettings b = ports.get(wire.to());
             if (a != null && b != null) {
-                meLinks.add(new MeLink(wire.from(), a.connector(), a.side(), wire.to(), b.connector(), b.side()));
+                meLinks.add(new MeLink(pinKeys.getOrDefault(wire.from(), wire.from().toString()), a.connector(), a.side(),
+                        pinKeys.getOrDefault(wire.to(), wire.to().toString()), b.connector(), b.side()));
             } else if ((a != null || b != null) && wire.input() != Wire.GATE) {
                 Node other = byId.get(a != null ? wire.to() : wire.from());
-                errors.add((other == null ? "A node" : describe(other)) + ": ME ports only link to other ME ports");
+                errors.add((other == null ? "A node" : describe(other)) + ": ME pins only link to other ME pins");
             }
         }
         return ports.keySet();
@@ -464,6 +560,9 @@ public final class CompiledSheet {
     private void expand(Node node, NodeSettings.DeviceSettings device, Map<UUID, Node> nodes) {
         for (int i = 0; i < device.outputs().size(); i++) {
             NodeSettings.Output out = device.outputs().get(i);
+            if (!out.resource().moves()) {
+                continue;
+            }
             NodeSettings.Port port = new NodeSettings.Port(out.resource(), device.device(), out.faces(), out.slots());
             Node source = new Node(side(node.id(), "out", i),
                     new NodeSettings.SourceSettings(port, out.keep(), out.perOperation(), out.interval(), out.priority()),
@@ -473,6 +572,9 @@ public final class CompiledSheet {
         }
         for (int i = 0; i < device.inputs().size(); i++) {
             NodeSettings.Input in = device.inputs().get(i);
+            if (!in.resource().moves()) {
+                continue;
+            }
             NodeSettings.Port port = new NodeSettings.Port(in.resource(), device.device(), in.faces(), in.slots());
             Node sink = new Node(side(node.id(), "in", i), new NodeSettings.SinkSettings(port, in.caps()), node.label(), true, node.x(), node.y(),
                     Redstone.IGNORED);

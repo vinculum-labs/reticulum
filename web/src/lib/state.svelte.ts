@@ -280,15 +280,6 @@ export function deviceBeside(connectorId: string, side: string): Device | undefi
   return app.snapshot?.devices.find((d) => posKey(d.pos) === at);
 }
 
-/** An ME port's name: the device on that side of the connector, then the name of its face touching the connector (or the side). */
-export function mePortName(connectorId: string, side: string): string {
-  const c = app.snapshot?.connectors.find((x) => x.id === connectorId);
-  if (!c) return "Missing connector";
-  const device = deviceBeside(connectorId, side);
-  const base = device ? deviceName(device) : c.name || `Connector (${c.pos.pos.join(", ")})`;
-  const faceName = device?.faceNames?.[OPPOSITE[side]];
-  return `${base} › ${faceName || side}`;
-}
 
 /** Shows a device's names (and face names) in the inspector. */
 export function openDevice(device: Device) {

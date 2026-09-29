@@ -104,6 +104,30 @@ public final class EngineTests {
             return NetworkTicker.runtime(network.id());
         }
 
+        /** A device node with one redstone output: the redstone the device gives out. */
+        Node redstoneFrom(GlobalPos device) {
+            return node(new NodeSettings.DeviceSettings(device, List.of(),
+                    List.of(new NodeSettings.Output(ResourceKind.REDSTONE, List.of(), Optional.empty(), List.of(), 0, 0, 0))));
+        }
+
+        /** A device node with one redstone input: its connectors power it. */
+        Node redstoneTo(GlobalPos device) {
+            return node(new NodeSettings.DeviceSettings(device,
+                    List.of(new NodeSettings.Input(ResourceKind.REDSTONE, List.of(), Optional.empty(), List.of())), List.of()));
+        }
+
+        /** A device node with one ME output pin (any face touching a connector). */
+        Node meOut(GlobalPos device) {
+            return node(new NodeSettings.DeviceSettings(device, List.of(),
+                    List.of(new NodeSettings.Output(ResourceKind.ME, List.of(), Optional.empty(), List.of(), 0, 0, 0))));
+        }
+
+        /** A device node with one ME input pin. */
+        Node meIn(GlobalPos device) {
+            return node(new NodeSettings.DeviceSettings(device,
+                    List.of(new NodeSettings.Input(ResourceKind.ME, List.of(), Optional.empty(), List.of())), List.of()));
+        }
+
         CompiledSheet compiled() {
             return runtime().compiled(sheet, network);
         }
@@ -224,9 +248,9 @@ public final class EngineTests {
         // A barrel keeps the lever and the lamp apart, so only the network links them.
         Rig rig = rig(helper, Blocks.LEVER, Blocks.BARREL, Blocks.REDSTONE_LAMP);
         helper.setBlock(rig.devices().get(0), lever(true));
-        Node in = rig.node(new NodeSettings.RedstoneInSettings(rig.device(0), Optional.empty(), false));
+        Node in = rig.redstoneFrom(rig.device(0));
         Node not = rig.node(new NodeSettings.LogicSettings(NodeSettings.LogicOp.NOT));
-        Node out = rig.node(new NodeSettings.RedstoneOutSettings(rig.device(2)));
+        Node out = rig.redstoneTo(rig.device(2));
         rig.signal(in, not, 0);
         rig.signal(not, out, 0);
         BlockPos lamp = rig.devices().get(2);
@@ -258,7 +282,7 @@ public final class EngineTests {
         rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
         Node source = rig.source(0, ResourceKind.ITEM, List.of(), 64);
         rig.wire(source, rig.sink(1, ResourceKind.ITEM, List.of()));
-        rig.signal(rig.node(new NodeSettings.RedstoneInSettings(rig.device(2), Optional.empty(), false)), source, Wire.GATE);
+        rig.signal(rig.redstoneFrom(rig.device(2)), source, Wire.GATE);
         helper.startSequence()
                 .thenExecuteAfter(20, () -> {
                     check(helper, rig.count(1, Items.COBBLESTONE) == 0, "items moved through a closed gate");
@@ -369,10 +393,8 @@ public final class EngineTests {
         Rig rig = rig(helper, Ae2TestSupport.block("controller"), Blocks.BARREL, Ae2TestSupport.block("interface"));
         BlockPos controller = helper.absolutePos(rig.devices().get(0));
         BlockPos iface = helper.absolutePos(rig.devices().get(2));
-        java.util.function.Function<Integer, UUID> connector = x -> rig.network().connectors().stream()
-                .filter(c -> c.pos().pos().equals(helper.absolutePos(new BlockPos(x, 1, 1)))).findFirst().orElseThrow().id();
-        Node a = rig.node(new NodeSettings.MePortSettings(connector.apply(3), Direction.SOUTH));
-        Node b = rig.node(new NodeSettings.MePortSettings(connector.apply(5), Direction.SOUTH));
+        Node a = rig.meOut(rig.device(0));
+        Node b = rig.meIn(rig.device(2));
         Wire[] link = new Wire[1];
         helper.startSequence()
                 .thenExecuteAfter(10, () -> {
@@ -402,10 +424,8 @@ public final class EngineTests {
         Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", second, Direction.NORTH);
         // A storage bus with no cable north of the first connector, placed by clicking the connector's north face.
         Ae2TestSupport.use(helper.getLevel(), "storage_bus", first, Direction.NORTH);
-        java.util.function.Function<BlockPos, UUID> connector = pos -> rig.network().connectors().stream()
-                .filter(c -> c.pos().pos().equals(pos)).findFirst().orElseThrow().id();
-        Node a = rig.node(new NodeSettings.MePortSettings(connector.apply(first), Direction.SOUTH));
-        Node b = rig.node(new NodeSettings.MePortSettings(connector.apply(second), Direction.NORTH));
+        Node a = rig.meOut(rig.device(0));
+        Node b = rig.meIn(Devices.global(helper.getLevel(), second.north()));
         rig.sheet().connect(Wire.of(a, b));
         helper.succeedWhen(() -> {
             var sides = io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration.sides(helper.getLevel(), first);
@@ -415,7 +435,7 @@ public final class EngineTests {
             check(helper, helper.getLevel().getBlockState(first).getValue(
                     io.github.leadassimilator.reticulum.block.ConnectorBlock.LINKS.get(Direction.NORTH)) != io.github.leadassimilator.reticulum.block.Link.DEVICE,
                     "the connector shows a plug towards a storage bus with no cable");
-            var usage = rig.runtime().meUsage().get(b.id());
+            var usage = rig.runtime().meUsage().get(b.id() + "/in/0");
             check(helper, usage != null && usage.max() == 8, "the glass cable side shows " + usage + " instead of x/8");
         });
     }
@@ -438,14 +458,12 @@ public final class EngineTests {
         // shortbus: a glass cable holding a storage bus, whose channel comes through the link.
         Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", shortbus, Direction.NORTH);
         Ae2TestSupport.use(helper.getLevel(), "storage_bus", shortbus.north(), Direction.UP);
-        java.util.function.Function<BlockPos, UUID> connector = pos -> rig.network().connectors().stream()
-                .filter(c -> c.pos().pos().equals(pos)).findFirst().orElseThrow().id();
-        Node a = rig.node(new NodeSettings.MePortSettings(connector.apply(ae2c), Direction.NORTH));
-        Node b = rig.node(new NodeSettings.MePortSettings(connector.apply(shortbus), Direction.NORTH));
+        Node a = rig.meOut(Devices.global(helper.getLevel(), ae2c.north()));
+        Node b = rig.meIn(Devices.global(helper.getLevel(), shortbus.north()));
         rig.sheet().connect(Wire.of(a, b));
         helper.succeedWhen(() -> {
-            var ae2cUsage = rig.runtime().meUsage().get(a.id());
-            var shortbusUsage = rig.runtime().meUsage().get(b.id());
+            var ae2cUsage = rig.runtime().meUsage().get(a.id() + "/out/0");
+            var shortbusUsage = rig.runtime().meUsage().get(b.id() + "/in/0");
             check(helper, ae2cUsage != null && ae2cUsage.used() == 3 && ae2cUsage.max() == 8 && ae2cUsage.through() == 1,
                     "ae2c shows " + ae2cUsage + ", not 1 through and 3/8");
             check(helper, shortbusUsage != null && shortbusUsage.used() == 3 && shortbusUsage.max() == 8 && shortbusUsage.through() == 1,
@@ -484,6 +502,17 @@ public final class EngineTests {
         check(helper, NetworkRuntime.inRange(1, controller, near) && !NetworkRuntime.inRange(1, controller, far), "tier 1 range wrong");
         check(helper, NetworkRuntime.inRange(2, controller, far) && !NetworkRuntime.inRange(2, controller, elsewhere), "tier 2 range wrong");
         check(helper, NetworkRuntime.inRange(3, controller, elsewhere), "tier 3 didn't reach another dimension");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void sheetsLeaveOutNodesThatNoLongerLoad(GameTestHelper helper) {
+        String json = "{\"id\":\"" + UUID.randomUUID() + "\",\"name\":\"old\",\"nodes\":["
+                + "{\"id\":\"" + UUID.randomUUID() + "\",\"settings\":{\"kind\":\"me_port\"}},"
+                + "{\"id\":\"" + UUID.randomUUID() + "\",\"settings\":{\"kind\":\"filter\",\"expression\":\"\"}}]}";
+        Sheet sheet = Sheet.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, com.google.gson.JsonParser.parseString(json)).getOrThrow();
+        check(helper, sheet.nodes().size() == 1 && sheet.nodes().getFirst().kind() == NodeSettings.Kind.FILTER,
+                "expected only the filter to load, got " + sheet.nodes());
         helper.succeed();
     }
 

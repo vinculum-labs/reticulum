@@ -1,7 +1,8 @@
 // Shapes of the JSON the server sends and accepts. They mirror the Java codecs (Sheet, Node, NodeSettings, Wire);
 // optional fields are left out by the server when they hold their default value.
 
-export type Resource = "item" | "fluid" | "energy" | "chemical";
+/** What a device pin carries: resources that flow, redstone signals, or an ME (AE2) link. */
+export type Resource = "item" | "fluid" | "energy" | "chemical" | "redstone" | "me";
 export type Face = "down" | "up" | "north" | "south" | "west" | "east" | "unsided";
 export const FACES: Face[] = ["up", "down", "north", "south", "west", "east", "unsided"];
 export const SIDES: Face[] = ["up", "down", "north", "south", "west", "east"];
@@ -69,6 +70,8 @@ export interface DeviceOutput {
   per_operation?: number;
   interval?: number;
   priority?: number;
+  /** A redstone output: read the comparator value instead of the redstone signal. */
+  comparator?: boolean;
 }
 
 /** A block that is both fed and emptied: numbered inputs (left) and outputs (right). */
@@ -93,19 +96,6 @@ export interface SheetPinSettings {
 
 // Signal nodes pass integers along signal wires; above 0 counts as on, and yes/no answers are 15 or 0.
 
-/** Reads the redstone a device gives out of one face (or its strongest face), or its comparator value. */
-export interface RedstoneInSettings {
-  kind: "redstone_in";
-  device: GlobalPos;
-  face?: Face;
-  comparator?: boolean;
-}
-
-/** Every connector next to the device gives its input (0 to 15) to it, on the side facing it. */
-export interface RedstoneOutSettings {
-  kind: "redstone_out";
-  device: GlobalPos;
-}
 
 /** How much of a resource a device holds, counting what matches the filter. */
 export interface LevelSettings {
@@ -166,8 +156,6 @@ export interface SignalSettings {
 }
 
 export type SignalNodeSettings =
-  | RedstoneInSettings
-  | RedstoneOutSettings
   | LevelSettings
   | CompareSettings
   | LogicSettings
@@ -179,15 +167,8 @@ export type SignalNodeSettings =
   | PublishSettings
   | SignalSettings;
 
-/** One ME side of a connector (AE2); a wire to another ME port joins the two AE2 networks. */
-export interface MePortSettings {
-  kind: "me_port";
-  connector: string;
-  side: Face;
-}
 
 export type NodeSettings =
-  | MePortSettings
   | FilterSettings
   | RateLimitSettings
   | SplitterSettings

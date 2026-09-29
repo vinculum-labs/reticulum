@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { app, deviceAt, deviceBeside, deviceName, edit, mePortName, openDevice } from "../../lib/state.svelte";
-  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, meUsageLabel, RESOURCE_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate, isSignal } from "../../lib/kinds";
+  import { app, deviceAt, deviceName, edit, openDevice } from "../../lib/state.svelte";
+  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate, isSignal } from "../../lib/kinds";
   import {
     SIDES,
     posKey,
@@ -31,7 +31,7 @@
   const signal = $derived(isSignal(s.kind));
   /** The device the node points at, whose names (and face names) can be edited. */
   const namedDevice = $derived(
-    s.kind === "me_port" ? deviceBeside(s.connector, s.side) : "device" in s ? deviceAt(posKey(s.device)) : undefined,
+    "device" in s ? deviceAt(posKey(s.device)) : undefined,
   );
   const devices = $derived(app.snapshot?.devices ?? []);
   const names = $derived.by(() => {
@@ -132,48 +132,7 @@
     On
   </label>
 
-  {#if s.kind === "me_port"}
-    {@const connectors = (app.snapshot?.connectors ?? []).filter((c) => (c.me ?? []).length || c.id === s.connector)}
-    {@const current = connectors.find((c) => c.id === s.connector)}
-    <Field label="ME side" hint="Every connector side facing an AE2 cable or machine, named after what is there.">
-      <select
-        value={`${s.connector}|${s.side}`}
-        disabled={!canEdit}
-        onchange={(e) => {
-          const [connector, side] = e.currentTarget.value.split("|");
-          settings({ connector, side: side as Face });
-        }}
-      >
-        {#if !current?.me?.includes(s.side)}<option value={`${s.connector}|${s.side}`}>{mePortName(s.connector, s.side)} (gone)</option>{/if}
-        {#each connectors.flatMap((c) => (c.me ?? []).map((side) => ({ connector: c.id, side }))) as port}
-          <option value={`${port.connector}|${port.side}`}>{mePortName(port.connector, port.side)}</option>
-        {/each}
-      </select>
-    </Field>
-    {@const usage = app.me[node.id]}
-    <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-      {#if usage?.connected}
-        <dt class="muted">Through this port</dt>
-        <dd class="tabular-nums">{usage.through} channel{usage.through === 1 ? "" : "s"}</dd>
-        <dt class="muted">Fullest cable</dt>
-        <dd class="tabular-nums" style={usage.used >= usage.max ? "color: var(--warn)" : ""}>
-          {usage.used} of {usage.max} in use{usage.used >= usage.max ? " (full)" : ""}
-        </dd>
-      {:else}
-        <dt class="muted">Channels</dt>
-        <dd>{meUsageLabel(usage)}</dd>
-      {/if}
-    </dl>
-    <p class="text-sm">
-      <span class="block text-xs muted">
-        Wire this port to another ME port to join their AE2 networks. The fullest cable is the one with the least room left on
-        the way to the ME controller, which every machine behind this port shares. A link carries 32 channels at most; for more,
-        use more sides and link each pair.
-      </span>
-    </p>
-  {/if}
-
-  {#if !signal && s.kind !== "sheet_input" && s.kind !== "sheet_output" && s.kind !== "me_port"}
+  {#if !signal && s.kind !== "sheet_input" && s.kind !== "sheet_output"}
     <RedstoneEditor
       value={node.redstone}
       disabled={!canEdit}
@@ -182,26 +141,15 @@
     />
   {/if}
 
-  {#if s.kind === "redstone_in" || s.kind === "redstone_out" || s.kind === "level"}
-    <Field label="Device" hint={s.kind === "redstone_out" ? "Every connector next to it gives it the signal, on the side facing it." : undefined}>
+  {#if s.kind === "level"}
+    <Field label="Device">
       <DevicePicker {devices} value={s.device} disabled={!canEdit} onchange={(d) => settings({ device: d.pos })} />
     </Field>
   {/if}
-  {#if s.kind === "redstone_in"}
-    <Field label="Face" hint="The signal the device gives out of that face; any face takes the strongest.">
-      <select value={s.face ?? ""} disabled={!canEdit || s.comparator} onchange={(e) => settings({ face: (e.currentTarget.value || undefined) as Face | undefined })}>
-        <option value="">Any face</option>
-        {#each SIDES as f}<option value={f}>{f}</option>{/each}
-      </select>
-    </Field>
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" checked={s.comparator === true} disabled={!canEdit} onchange={(e) => settings({ comparator: e.currentTarget.checked })} />
-      Comparator value instead (how full it is, and the like)
-    </label>
-  {:else if s.kind === "level"}
+  {#if s.kind === "level"}
     <Field label="Resource">
       <select value={s.resource} disabled={!canEdit} onchange={(e) => settings({ resource: e.currentTarget.value as Resource })}>
-        {#each Object.entries(RESOURCE_LABEL) as [key, label]}<option value={key}>{label}</option>{/each}
+        {#each Object.entries(RESOURCE_LABEL).filter(([key]) => moves(key as Resource)) as [key, label]}<option value={key}>{label}</option>{/each}
       </select>
     </Field>
     {#if s.resource !== "energy"}
@@ -350,5 +298,5 @@
     </div>
   {/if}
 
-  {#if !signal && s.kind !== "me_port"}<Chart item={node.id} {unit} />{/if}
+  {#if !signal}<Chart item={node.id} {unit} />{/if}
 </div>

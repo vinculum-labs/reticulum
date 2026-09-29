@@ -11,7 +11,7 @@
     type Connection,
   } from "@xyflow/svelte";
   import { app, currentSheet, deviceAt, edit, toast, uuid } from "../../lib/state.svelte";
-  import { handleIndex, toFlow, type NodeData } from "../../lib/graph";
+  import { handleIndex, pinResource, toFlow, type NodeData } from "../../lib/graph";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Wire } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
@@ -67,13 +67,13 @@
     const to = nodeOf(c.target);
     if (!from || !to || c.source === c.target) return false;
     const pin = (k: string) => k === "sheet_input" || k === "sheet_output";
-    if (from.settings.kind === "me_port" || to.settings.kind === "me_port") {
-      return from.settings.kind === "me_port" && to.settings.kind === "me_port" && c.targetHandle !== "gate";
-    }
-    const fromSignal = isSignal(from.settings.kind);
-    if (c.targetHandle === "gate") return fromSignal || pin(from.settings.kind);
+    // What each end carries: a device pin's resource, "signal" for signal nodes, "flow" for routing nodes.
+    const fromPin = pinResource(from, "out", handleIndex(c.sourceHandle));
+    const toPin = c.targetHandle === "gate" ? "signal" : pinResource(to, "in", handleIndex(c.targetHandle));
+    const kindOf = (node: GraphNode, p: Resource | null | "signal") =>
+      p === "redstone" || p === "signal" ? "signal" : p === "me" ? "me" : p ? "flow" : isSignal(node.settings.kind) ? "signal" : "flow";
     if (pin(from.settings.kind) || pin(to.settings.kind)) return true;
-    return fromSignal === isSignal(to.settings.kind);
+    return kindOf(from, fromPin) === kindOf(to, toPin);
   }
 
   async function connect(c: Connection) {
@@ -125,7 +125,7 @@
 
   async function addNode(kind: NodeKind, at: { x: number; y: number }, device: Device | null = null) {
     if (!sheet) return;
-    const needsDevice = kind === "device" || kind === "redstone_in" || kind === "redstone_out" || kind === "level";
+    const needsDevice = kind === "device" || kind === "level";
     if (needsDevice && !device) {
       device = (app.selectedDevice && deviceAt(app.selectedDevice)) || app.snapshot?.devices.find((d) => d.state === "active") || null;
       if (!device) {
@@ -138,14 +138,9 @@
       toast("Mark another sheet as a sub-sheet first (in its settings).");
       return;
     }
-    const mePort = kind === "me_port" ? mePorts[0] : undefined;
-    if (kind === "me_port" && !mePort) {
-      toast("No connector has an ME side: put a connector next to an AE2 cable or machine.");
-      return;
-    }
     const node: GraphNode = {
       id: uuid(),
-      settings: defaultSettings(kind, device, device ? offered(device) : "item", subsheet, mePort),
+      settings: defaultSettings(kind, device, device ? offered(device) : "item", subsheet),
       x: Math.round(at.x),
       y: Math.round(at.y),
     };
@@ -179,9 +174,6 @@
     addNode("device", { x: p.x - 70, y: p.y - 17 }, device);
   }
 
-  /** Every connector side with an ME endpoint (AE2 installed and an AE2 block next to it). */
-  const mePorts = $derived((app.snapshot?.connectors ?? []).flatMap((c) => (c.me ?? []).map((side) => ({ connector: c.id, side }))));
-
   /** Sheets that can be placed here as sub-sheets: marked as one, and not this sheet. */
   const subsheets = $derived((app.snapshot?.sheets ?? []).filter((x) => x.subsheet && x.id !== sheet?.id));
   const palette = $derived<NodeKind[]>([
@@ -192,7 +184,6 @@
     "kit",
     ...(subsheets.length ? (["subsheet"] as NodeKind[]) : []),
     ...(sheet?.subsheet ? (["sheet_input", "sheet_output"] as NodeKind[]) : []),
-    ...(mePorts.length ? (["me_port"] as NodeKind[]) : []),
   ]);
 
   function addSignal(e: Event & { currentTarget: HTMLSelectElement }) {

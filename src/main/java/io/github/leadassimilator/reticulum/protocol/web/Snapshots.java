@@ -103,9 +103,39 @@ final class Snapshots {
         }
         out.add("sheets", sheets);
 
+        // Faces touching a connector carry redstone; faces touching a connector's ME side are ME pins.
+        Map<GlobalPos, java.util.Set<FaceKey>> redstone = new java.util.HashMap<>();
+        Map<GlobalPos, java.util.Set<FaceKey>> meFacesOf = new java.util.HashMap<>();
+        for (ConnectorRecord connector : network.connectors()) {
+            BlockPos at = connector.pos().pos();
+            for (GlobalPos device : connector.devices()) {
+                net.minecraft.core.Direction toConnector = net.minecraft.core.Direction.fromDelta(at.getX() - device.pos().getX(),
+                        at.getY() - device.pos().getY(), at.getZ() - device.pos().getZ());
+                if (toConnector != null) {
+                    redstone.computeIfAbsent(device, k -> java.util.EnumSet.noneOf(FaceKey.class)).add(FaceKey.of(toConnector));
+                }
+            }
+            ServerLevel connectorLevel = Mods.AE2 ? server.getLevel(connector.pos().dimension()) : null;
+            if (connectorLevel != null && connectorLevel.isLoaded(at)) {
+                for (net.minecraft.core.Direction side : io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration.sides(connectorLevel, at)) {
+                    meFacesOf.computeIfAbsent(GlobalPos.of(connector.pos().dimension(), at.relative(side)), k -> java.util.EnumSet.noneOf(FaceKey.class))
+                            .add(FaceKey.of(side.getOpposite()));
+                }
+            }
+        }
         JsonArray devices = new JsonArray();
         for (DeviceRecord record : network.devices()) {
             JsonObject device = device(server, record);
+            if (device.get("resources") instanceof JsonObject resources) {
+                JsonArray redstoneFaces = new JsonArray();
+                redstone.getOrDefault(record.pos(), java.util.Set.of()).forEach(f -> redstoneFaces.add(f.getSerializedName()));
+                resources.add(ResourceKind.REDSTONE.getSerializedName(), redstoneFaces);
+                JsonArray meFaces = new JsonArray();
+                meFacesOf.getOrDefault(record.pos(), java.util.Set.of()).forEach(f -> meFaces.add(f.getSerializedName()));
+                if (!meFaces.isEmpty()) {
+                    resources.add(ResourceKind.ME.getSerializedName(), meFaces);
+                }
+            }
             if (runtime.outOfRange(record.pos())) {
                 device.addProperty("outOfRange", true);
             }
