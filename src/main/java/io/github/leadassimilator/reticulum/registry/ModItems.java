@@ -20,6 +20,8 @@ public final class ModItems {
             () -> new ControllerItem(ModBlocks.CONTROLLER.get(), new Item.Properties()));
     public static final DeferredItem<NetworkToolItem> NETWORK_TOOL = ITEMS.register("network_tool",
             () -> new NetworkToolItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<io.github.leadassimilator.reticulum.item.FacadeItem> FACADE = ITEMS.register("facade",
+            () -> new io.github.leadassimilator.reticulum.item.FacadeItem(new Item.Properties()));
     public static final DeferredItem<AntennaItem> ANTENNA_1 = ITEMS.register("antenna_1", () -> new AntennaItem(1, new Item.Properties().stacksTo(1)));
     public static final DeferredItem<AntennaItem> ANTENNA_2 = ITEMS.register("antenna_2", () -> new AntennaItem(2, new Item.Properties().stacksTo(1)));
     public static final DeferredItem<AntennaItem> ANTENNA_3 = ITEMS.register("antenna_3", () -> new AntennaItem(3, new Item.Properties().stacksTo(1)));

@@ -519,6 +519,50 @@ public final class EngineTests {
         });
     }
 
+    // ---------------------------------------------------------------- facades
+
+    @GameTest(template = "empty")
+    public static void facadeRecipeTakesACableAndAFullBlock(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var recipe = new io.github.leadassimilator.reticulum.item.FacadeRecipe(net.minecraft.world.item.crafting.CraftingBookCategory.MISC);
+        var good = net.minecraft.world.item.crafting.CraftingInput.of(2, 1, List.of(
+                new ItemStack(io.github.leadassimilator.reticulum.registry.ModItems.CABLE.get()), new ItemStack(Items.STONE_BRICKS)));
+        check(helper, recipe.matches(good, level), "cable + stone bricks didn't match");
+        ItemStack result = recipe.assemble(good, level.registryAccess());
+        check(helper, result.getCount() == 4 && io.github.leadassimilator.reticulum.item.FacadeItem.state(result) == Blocks.STONE_BRICKS.defaultBlockState(),
+                "wrong result " + result);
+        var torch = net.minecraft.world.item.crafting.CraftingInput.of(2, 1, List.of(
+                new ItemStack(io.github.leadassimilator.reticulum.registry.ModItems.CABLE.get()), new ItemStack(Items.TORCH)));
+        check(helper, !recipe.matches(torch, level), "a torch (not a full block) made a facade");
+        var chest = net.minecraft.world.item.crafting.CraftingInput.of(2, 1, List.of(
+                new ItemStack(io.github.leadassimilator.reticulum.registry.ModItems.CABLE.get()), new ItemStack(Items.CHEST)));
+        check(helper, !recipe.matches(chest, level), "a chest (block entity) made a facade");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void facadedConnectorStillReachesItsDevice(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        BlockPos connector = helper.absolutePos(new BlockPos(3, 1, 1));
+        var be = (io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity) helper.getLevel().getBlockEntity(connector);
+        be.setFacade(Blocks.STONE_BRICKS.defaultBlockState());
+        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 16));
+        rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
+        var state = helper.getLevel().getBlockState(connector);
+        check(helper, state.getSoundType(helper.getLevel(), connector, null) == Blocks.STONE_BRICKS.defaultBlockState().getSoundType(),
+                "the facade doesn't sound like stone bricks");
+        check(helper, state.getBlock().hidesNeighborFace(helper.getLevel(), connector, state, Blocks.STONE.defaultBlockState(), Direction.UP),
+                "a stone brick facade doesn't hide the face next to it");
+        helper.succeedWhen(() -> {
+            check(helper, rig.count(1, Items.COBBLESTONE) == 16, "items didn't move through a facaded connector");
+            // Breaking the connector drops its facade.
+            helper.getLevel().destroyBlock(connector, false);
+            var drops = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(connector).inflate(1.5));
+            check(helper, drops.stream().anyMatch(e -> io.github.leadassimilator.reticulum.item.FacadeItem.state(e.getItem()) == Blocks.STONE_BRICKS.defaultBlockState()),
+                    "no facade dropped when the connector broke");
+        });
+    }
+
     // ---------------------------------------------------------------- power
 
     /** Switches the whole server to the balanced power preset, so it runs in a batch of its own and switches it back. */

@@ -10,7 +10,13 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.client.model.data.ModelData;
+import net.neoforged.neoforge.client.model.data.ModelProperty;
 
 /**
  * Shared state of cables, connectors and controllers: the network this block belongs to and which of its
@@ -26,6 +32,12 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     private int autoDisconnects;
     /** Whether topology has processed this block since it was placed. */
     private boolean registered;
+    /** The block a cable or connector looks like (a facade), or null for its own look. */
+    @Nullable
+    private BlockState facade;
+
+    /** Model data key the client model reads the facade from. */
+    public static final ModelProperty<BlockState> FACADE = new ModelProperty<>();
 
     protected NetworkBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -74,6 +86,75 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    @Nullable
+    public BlockState facade() {
+        return facade;
+    }
+
+    /** Sets or clears the facade and tells clients, which draw the block as the facade from then on. */
+    public void setFacade(@Nullable BlockState facade) {
+        this.facade = facade;
+        setChanged();
+        if (level != null && !level.isClientSide) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+            // Light and sound come from the facade, so neighbors may need to look again.
+            level.getLightEngine().checkBlock(worldPosition);
+        }
+    }
+
+    @Override
+    public ModelData getModelData() {
+        return facade == null ? ModelData.EMPTY : ModelData.builder().with(FACADE, facade).build();
+    }
+
+    // Clients only need the facade.
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        CompoundTag tag = new CompoundTag();
+        if (facade != null) {
+            tag.put("facade", NbtUtils.writeBlockState(facade));
+        }
+        return tag;
+    }
+
+    @Override
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
+        readFacade(tag, registries);
+        clientFacadeChanged();
+    }
+
+    @Override
+    public void onDataPacket(net.minecraft.network.Connection connection, ClientboundBlockEntityDataPacket packet, HolderLookup.Provider registries) {
+        readFacade(packet.getTag(), registries);
+        clientFacadeChanged();
+    }
+
+    private void readFacade(CompoundTag tag, HolderLookup.Provider registries) {
+        facade = tag.contains("facade") ? NbtUtils.readBlockState(registries.lookupOrThrow(Registries.BLOCK), tag.getCompound("facade")) : null;
+    }
+
+    /** On the client: draw the block again with its new look, and keep track of it for the network tool's X-ray. */
+    private void clientFacadeChanged() {
+        if (level != null && level.isClientSide) {
+            requestModelDataUpdate();
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL_IMMEDIATE);
+            io.github.leadassimilator.reticulum.client.FacadeXray.track(worldPosition, facade != null);
+        }
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        if (level != null && level.isClientSide) {
+            io.github.leadassimilator.reticulum.client.FacadeXray.track(worldPosition, false);
+        }
+    }
+
     protected static int bit(Direction side) {
         return 1 << side.get3DDataValue();
     }
@@ -95,6 +176,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         manualDisconnects = tag.getByte("disconnected");
         autoDisconnects = tag.getByte("auto_disconnected");
         registered = tag.getBoolean("registered");
+        readFacade(tag, registries);
     }
 
     @Override
@@ -106,5 +188,8 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         tag.putByte("disconnected", (byte) manualDisconnects);
         tag.putByte("auto_disconnected", (byte) autoDisconnects);
         tag.putBoolean("registered", registered);
+        if (facade != null) {
+            tag.put("facade", NbtUtils.writeBlockState(facade));
+        }
     }
 }

@@ -184,6 +184,12 @@ public class ModLanguage extends LanguageProvider {
         add("reticulum.configuration.costCrossDimension", "Cost per wireless connector in another dimension (FE/t)");
         add("reticulum.configuration.costPerOperation", "Cost per item operation (FE)");
 
+        // Facades
+        add(ModItems.FACADE.get(), "Facade");
+        add("item.reticulum.facade_of", "Facade (%s)");
+        add("tooltip.reticulum.facade", "Right-click a cable or connector to make it look like this block. Take it off with the network tool (Configure mode, sneak + right-click).");
+        add("message.reticulum.facade_removed", "Facade taken off");
+
         // Identify
         add("tool.reticulum.mode.identify", "Identify");
         add("tooltip.reticulum.tool_identify", "Right-click a connector or device to light it up (or off); sneak + right-click lights one face of a device");

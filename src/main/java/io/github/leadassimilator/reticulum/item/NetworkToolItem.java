@@ -95,6 +95,8 @@ public class NetworkToolItem extends Item {
         if (context.getLevel() instanceof ServerLevel level && context.getPlayer() instanceof ServerPlayer player) {
             if (mode(context.getItemInHand()) == ToolMode.LINK) {
                 link(level, player, context.getClickedPos(), context.getItemInHand());
+            } else if (player.isShiftKeyDown() && LinkedBlock.removeFacade(level, context.getClickedPos(), player)) {
+                player.displayClientMessage(Component.translatable("message.reticulum.facade_removed"), true);
             } else {
                 Direction side = targetSide(player, level.getBlockState(context.getClickedPos()), context.getClickedPos(),
                         context.getClickedFace(), 1.0f);

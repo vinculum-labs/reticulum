@@ -21,6 +21,9 @@ public class ModRecipes extends RecipeProvider {
 
     @Override
     protected void buildRecipes(RecipeOutput output) {
+        // A cable and any full block make four facades of that block.
+        net.minecraft.data.recipes.SpecialRecipeBuilder.special(io.github.leadassimilator.reticulum.item.FacadeRecipe::new)
+                .save(output, net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(io.github.leadassimilator.reticulum.Reticulum.MODID, "facade").toString());
         ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, ModItems.CABLE.get(), 16)
                 .pattern("NNN").pattern("RGR").pattern("NNN")
                 .define('N', Tags.Items.NUGGETS_IRON).define('R', Tags.Items.DUSTS_REDSTONE).define('G', Tags.Items.GLASS_PANES)

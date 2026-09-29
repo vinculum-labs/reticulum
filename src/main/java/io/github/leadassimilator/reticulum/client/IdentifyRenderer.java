@@ -40,7 +40,7 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
  */
 public final class IdentifyRenderer {
     /** Lines that ignore depth, so they show through walls. */
-    private static final RenderType LINES_THROUGH_WALLS = RenderType.create("reticulum_identify_lines", DefaultVertexFormat.POSITION_COLOR_NORMAL,
+    static final RenderType LINES_THROUGH_WALLS = RenderType.create("reticulum_identify_lines", DefaultVertexFormat.POSITION_COLOR_NORMAL,
             VertexFormat.Mode.LINES, 1536, false, false, RenderType.CompositeState.builder()
                     .setShaderState(RenderStateShard.RENDERTYPE_LINES_SHADER)
                     .setLineState(new RenderStateShard.LineStateShard(OptionalDouble.of(2.5)))

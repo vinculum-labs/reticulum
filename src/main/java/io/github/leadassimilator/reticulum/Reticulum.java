@@ -40,6 +40,7 @@ public class Reticulum {
         ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
         ModDataComponents.COMPONENTS.register(modEventBus);
         ModCreativeTabs.TABS.register(modEventBus);
+        io.github.leadassimilator.reticulum.registry.ModRecipes.SERIALIZERS.register(modEventBus);
 
         modEventBus.addListener(Payloads::register);
         modEventBus.addListener(DataGenerators::gatherData);

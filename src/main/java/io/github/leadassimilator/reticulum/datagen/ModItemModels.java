@@ -17,6 +17,7 @@ public class ModItemModels extends ItemModelProvider {
         withExistingParent(ModItems.CONNECTOR.getId().getPath(), modLoc("block/connector_inventory"));
         withExistingParent(ModItems.CONTROLLER.getId().getPath(), modLoc("block/controller"));
         basicItem(ModItems.NETWORK_TOOL.get());
+        basicItem(ModItems.FACADE.get());
         basicItem(ModItems.ANTENNA_1.get());
         basicItem(ModItems.ANTENNA_2.get());
         basicItem(ModItems.ANTENNA_3.get());

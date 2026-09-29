@@ -18,6 +18,9 @@ public class ReticulumClient {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT, ReticulumClientConfig.SPEC);
         modEventBus.addListener(LookHud::registerLayer);
+        modEventBus.addListener(io.github.leadassimilator.reticulum.client.FacadeModel::wrap);
+        NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.FacadeXray::onRenderLevel);
+        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> io.github.leadassimilator.reticulum.client.FacadeXray.clear());
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::registerLayer);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::onRenderLevel);
         // Leaving a world forgets what was lit there.
