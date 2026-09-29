@@ -20,6 +20,13 @@ public final class ReticulumClientConfig {
                     "falling back to a free one for that run if it is taken.")
             .defineInRange("webPort", 0, 0, 65535);
 
+    public static final ModConfigSpec.BooleanValue REMEMBER_LOGIN = BUILDER
+            .comment("Keep the web editor logged in across game and browser restarts (for 90 days), so bookmarks and open pages",
+                    "keep working. The secret is kept in reticulum-web.json next to this file. Set to false for a new secret each",
+                    "time the game starts and a login that ends when the browser closes; you then open the editor from the game",
+                    "each session. Takes effect the next time the game starts.")
+            .define("rememberLogin", true);
+
     public static final ModConfigSpec.BooleanValue KEEP_RUNNING_WHILE_EDITING = BUILDER
             .comment("While the web editor is open in a browser, don't pause the game when its window loses focus, so",
                     "singleplayer worlds keep running and the editor shows live throughput. Pressing Esc still pauses.")

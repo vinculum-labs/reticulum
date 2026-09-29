@@ -70,6 +70,7 @@
   "reticulum.configuration.overflowFluidBuckets": "Overflow buffer buckets per fluid",
   "reticulum.configuration.overflowItemStacks": "Overflow buffer item stacks",
   "reticulum.configuration.protectPrivateBlocks": "Protect private network blocks",
+  "reticulum.configuration.rememberLogin": "Stay logged in to the web editor",
   "reticulum.configuration.section.reticulum.client.toml": "Reticulum (client)",
   "reticulum.configuration.section.reticulum.client.toml.title": "Reticulum (client)",
   "reticulum.configuration.section.reticulum.server.toml": "Reticulum",

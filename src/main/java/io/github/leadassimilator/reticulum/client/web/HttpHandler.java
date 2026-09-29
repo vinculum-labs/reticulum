@@ -121,8 +121,11 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         DefaultCookie cookie = new DefaultCookie(COOKIE, WebBridge.token());
         cookie.setHttpOnly(true);
         cookie.setPath("/");
-        // Kept across browser and game restarts (the secret is kept too), so bookmarks and open pages keep working.
-        cookie.setMaxAge(90L * 24 * 60 * 60);
+        // Kept across browser and game restarts (the secret is kept too), so bookmarks and open pages keep working;
+        // unless the player chose a login per session, which ends when the browser closes.
+        if (io.github.leadassimilator.reticulum.ReticulumClientConfig.REMEMBER_LOGIN.getAsBoolean()) {
+            cookie.setMaxAge(90L * 24 * 60 * 60);
+        }
         cookie.setSameSite(CookieHeaderNames.SameSite.Strict);
         FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.FOUND);
         response.headers().set(HttpHeaderNames.LOCATION, uri.path());

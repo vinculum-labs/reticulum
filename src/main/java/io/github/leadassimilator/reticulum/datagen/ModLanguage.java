@@ -108,6 +108,7 @@ public class ModLanguage extends LanguageProvider {
         add("reticulum.configuration.webAddress", "Web editor address");
         add("reticulum.configuration.webPort", "Web editor port");
         add("reticulum.configuration.keepRunningWhileEditing", "Keep running while the editor is open");
+        add("reticulum.configuration.rememberLogin", "Stay logged in to the web editor");
         add("reticulum.configuration.energyPerTick", "Energy per route per tick");
         add("reticulum.configuration.fluidPerTick", "Fluid per route per tick");
         add("reticulum.configuration.overflowItemStacks", "Overflow buffer item stacks");

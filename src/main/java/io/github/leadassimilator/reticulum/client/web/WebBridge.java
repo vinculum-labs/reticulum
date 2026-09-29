@@ -119,14 +119,20 @@ public final class WebBridge {
             stop();
         }
         JsonObject state = loadState();
-        if (state.has("secret") && state.get("secret").getAsString().matches("[0-9a-f]{64}")) {
+        boolean remember = ReticulumClientConfig.REMEMBER_LOGIN.getAsBoolean();
+        if (remember && state.has("secret") && state.get("secret").getAsString().matches("[0-9a-f]{64}")) {
             token = state.get("secret").getAsString();
         } else {
             byte[] bytes = new byte[32];
             RANDOM.nextBytes(bytes);
             token = HexFormat.of().formatHex(bytes);
-            state.addProperty("secret", token);
-            saveState(state);
+            if (remember) {
+                state.addProperty("secret", token);
+                saveState(state);
+            } else if (state.remove("secret") != null) {
+                // Not remembering any more: don't leave the old secret lying around.
+                saveState(state);
+            }
         }
         // Ports to try in order: the configured one, or the remembered one and the default; then any free port.
         List<Integer> ports = new ArrayList<>();
