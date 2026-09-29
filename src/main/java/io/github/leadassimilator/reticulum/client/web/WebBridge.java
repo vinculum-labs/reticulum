@@ -388,7 +388,12 @@ public final class WebBridge {
         }
     }
 
+    /**
+     * Joining a world starts the editor's server right away (not on the first Open editor), so bookmarked or open
+     * pages connect as soon as there is something to edit. It keeps running after leaving, for the next world.
+     */
     public static void onLoggedIn() {
+        start();
         broadcast("{\"type\":\"connected\"}");
     }
 
