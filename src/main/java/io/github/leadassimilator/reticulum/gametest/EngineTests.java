@@ -581,6 +581,23 @@ public final class EngineTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void reorderingWiresChangesBranchOrder(GameTestHelper helper) {
+        var sheet = new io.github.leadassimilator.reticulum.graph.Sheet(java.util.UUID.randomUUID(), "t");
+        java.util.UUID splitter = java.util.UUID.randomUUID();
+        java.util.List<java.util.UUID> ids = new java.util.ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            java.util.UUID wire = java.util.UUID.randomUUID();
+            ids.add(wire);
+            sheet.connect(new io.github.leadassimilator.reticulum.graph.Wire(wire, splitter, 0, java.util.UUID.randomUUID(), 0, i));
+        }
+        sheet.orderWires(java.util.List.of(ids.get(2), ids.get(0), ids.get(1)));
+        java.util.Map<java.util.UUID, Integer> order = new java.util.HashMap<>();
+        sheet.wires().forEach(w -> order.put(w.id(), w.order()));
+        check(helper, order.get(ids.get(2)) == 0 && order.get(ids.get(0)) == 1 && order.get(ids.get(1)) == 2, "wrong order " + order);
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------- saving
 
     @GameTest(template = "empty")
