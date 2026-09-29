@@ -1,8 +1,8 @@
 <script lang="ts">
   import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
   import Lightbulb from "@lucide/svelte/icons/lightbulb";
-  import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
+  import Stop from "@lucide/svelte/icons/square";
   import Redo from "@lucide/svelte/icons/redo-2";
   import Settings from "@lucide/svelte/icons/settings";
   import Trash from "@lucide/svelte/icons/trash";
@@ -44,7 +44,7 @@
     }
     if (running) return { icon: Play, color: "var(--good)", title: "Running" };
     if (enabled) return { icon: Unplug, color: "var(--warn)", title: "No controller loaded: the controller's chunk isn't loaded, so nothing runs" };
-    return { icon: Pause, color: "var(--muted)", title: "Off: switched off with the On checkbox" };
+    return { icon: Stop, color: "var(--muted)", title: "Off: switched off with the On checkbox" };
   }
 
   /** How long the saving dot stays once lit, so a quick save shows as a calm blip instead of a flicker. */
