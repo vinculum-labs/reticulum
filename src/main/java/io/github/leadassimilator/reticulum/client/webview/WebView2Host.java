@@ -122,6 +122,13 @@ public final class WebView2Host {
         }
     }
 
+    /** Gives the keyboard to the game window (clicking the bar above the view), so the game's keys work there. */
+    public static void focusGame() {
+        if (Platform.isWindows()) {
+            User32.INSTANCE.SetFocus(gameWindow());
+        }
+    }
+
     /** Closes the browser for good (leaving the world, or the game closing). */
     public static void close() {
         if (state == State.READY) {

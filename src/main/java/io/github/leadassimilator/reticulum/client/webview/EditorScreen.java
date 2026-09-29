@@ -69,6 +69,13 @@ public class EditorScreen extends Screen {
         graphics.drawString(font, title, 6, (BAR - font.lineHeight) / 2 + 1, 0xE3E7EF);
     }
 
+    /** A click on the bar takes the keyboard back from the view, so Esc there closes the editor. */
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        WebView2Host.focusGame();
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
     @Override
     public void removed() {
         WebView2Host.hide();
