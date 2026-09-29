@@ -2,7 +2,7 @@
 // replaces what is shown. Undo and redo send the inverse edits recorded with each change.
 
 import { Connection } from "./protocol";
-import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face } from "./types";
+import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face, Identify } from "./types";
 import { posKey } from "./types";
 
 export interface Toast {
@@ -67,7 +67,7 @@ export const app = $state({
   selectedEdges: [] as string[],
   selectedDevice: null as string | null,
   /** A panel shown in place of the inspector ("network" = network settings). */
-  panel: null as "network" | null,
+  panel: null as "network" | "identified" | null,
   busy: 0,
   toasts: [] as Toast[],
   undo: [] as Change[],
@@ -287,6 +287,30 @@ export function openDevice(device: Device) {
   app.selectedNodes = [];
   app.selectedEdges = [];
   app.panel = null;
+}
+
+function sameIdentify(a: Identify, b: Identify): boolean {
+  return (
+    a.kind === b.kind &&
+    (a.connector ?? "") === (b.connector ?? "") &&
+    (a.device ? posKey(a.device) : "") === (b.device ? posKey(b.device) : "") &&
+    (a.face ?? "") === (b.face ?? "")
+  );
+}
+
+/** Whether a connector, device or face is lit up in the world. */
+export function isIdentified(target: Identify): boolean {
+  return (app.snapshot?.identified ?? []).some((x) => sameIdentify(x, target));
+}
+
+/** Lights a connector, device or face up in the world (or turns it off); a color picks its color. */
+export function setIdentify(target: Identify, on: boolean, color?: number) {
+  const { label: _label, color: _color, ...bare } = target;
+  return edit([{ type: "identify", ...bare, ...(color !== undefined ? { color } : {}), on }], [{ type: "identify", ...bare, on: !on }], on ? "identify" : "stop identifying");
+}
+
+export function toggleIdentify(target: Identify) {
+  return setIdentify(target, !isIdentified(target));
 }
 
 export function deviceName(device: Device | undefined): string {

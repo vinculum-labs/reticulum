@@ -9,6 +9,9 @@ import io.github.leadassimilator.reticulum.block.LinkedBlock;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.network.Devices;
+import io.github.leadassimilator.reticulum.network.Identifies;
+import io.github.leadassimilator.reticulum.network.Identify;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.protocol.Linking;
@@ -19,6 +22,7 @@ import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -42,6 +46,8 @@ import net.minecraft.world.phys.Vec3;
  * <li>Link (like an AE2 memory card): sneak + right-click a controller or connector to copy its network; right-click
  * a connector to bind it to that network; right-click the air to pick a network, sneak + right-click the air to
  * clear. Only connectors no cable joins can be bound: a cable decides the network of what it joins.</li>
+ * <li>Identify: right-click a connector or device to light it up (or off again); sneak + right-click lights just the
+ * clicked face of a device.</li>
  * </ul>
  */
 public class NetworkToolItem extends Item {
@@ -69,6 +75,18 @@ public class NetworkToolItem extends Item {
         tooltip.add(Component.translatable("tooltip.reticulum.tool_switch").withStyle(ChatFormatting.DARK_GRAY));
     }
 
+    /** Identify mode acts before the block does, so clicking a chest or machine lights it up instead of opening it. */
+    @Override
+    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
+        if (mode(stack) != ToolMode.IDENTIFY) {
+            return InteractionResult.PASS;
+        }
+        if (context.getLevel() instanceof ServerLevel level && context.getPlayer() instanceof ServerPlayer player) {
+            identify(level, player, context.getClickedPos(), context.getClickedFace());
+        }
+        return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
+    }
+
     @Override
     public InteractionResult useOn(UseOnContext context) {
         if (!(context.getLevel().getBlockEntity(context.getClickedPos()) instanceof NetworkBlockEntity)) {
@@ -84,6 +102,38 @@ public class NetworkToolItem extends Item {
             }
         }
         return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
+    }
+
+    /** Identify mode: a connector lights up itself; any other block lights up as a device (sneak: just the clicked face). */
+    private static void identify(ServerLevel level, ServerPlayer player, BlockPos pos, Direction face) {
+        if (Topology.blockEntity(level, pos) instanceof ConnectorBlockEntity connector) {
+            Network network = Topology.network(level, pos);
+            if (network == null || !Security.canUse(network, player)) {
+                player.displayClientMessage(Component.translatable(network == null ? "message.reticulum.no_network" : "message.reticulum.no_access",
+                        network == null ? "" : network.name()), true);
+                return;
+            }
+            boolean on = Identifies.toggle(level.getServer(), network, Identify.connector(connector.connectorId(), 0));
+            player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified",
+                    Component.translatable("screen.reticulum.connector")), true);
+            return;
+        }
+        GlobalPos device = Devices.global(level, pos);
+        Network found = null;
+        for (Network network : NetworkManager.data(level.getServer()).networks()) {
+            if (network.device(device) != null && Security.canUse(network, player)) {
+                found = network;
+                break;
+            }
+        }
+        if (found == null) {
+            player.displayClientMessage(Component.translatable("message.reticulum.not_a_device_of_yours"), true);
+            return;
+        }
+        Identify target = Identifies.deviceOrFace(device, player.isShiftKeyDown() ? face : null);
+        boolean on = Identifies.toggle(level.getServer(), found, target);
+        String name = Identifies.deviceName(level.getServer(), found, device) + (player.isShiftKeyDown() ? " › " + face.getSerializedName() : "");
+        player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", name), true);
     }
 
     private static void link(ServerLevel level, ServerPlayer player, BlockPos pos, ItemStack tool) {

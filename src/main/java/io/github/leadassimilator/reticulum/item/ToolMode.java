@@ -14,7 +14,9 @@ public enum ToolMode implements StringRepresentable {
     /** Connect or disconnect joints, attach or detach devices. */
     CONFIGURE,
     /** Copy a network (sneak + right-click a controller or connector) and bind connectors to it (right-click). */
-    LINK;
+    LINK,
+    /** Light up a connector or device (right-click), or one face of a device (sneak + right-click), to find it again. */
+    IDENTIFY;
 
     public static final Codec<ToolMode> CODEC = StringRepresentable.fromEnum(ToolMode::values);
     public static final StreamCodec<ByteBuf, ToolMode> STREAM_CODEC = ByteBufCodecs.idMapper(i -> values()[i], ToolMode::ordinal);

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, edit, deviceName } from "../../lib/state.svelte";
+  import { app, edit, deviceName, isIdentified, toggleIdentify } from "../../lib/state.svelte";
   import { RESOURCE_LABEL } from "../../lib/kinds";
   import { FACES, type Device, type Face, type Resource } from "../../lib/types";
   import DeviceIcon from "../DeviceIcon.svelte";
@@ -33,10 +33,17 @@
 <div class="flex flex-col gap-3">
   <div class="flex items-center gap-2">
     <DeviceIcon item={device.icon} size={32} />
-    <div class="min-w-0">
+    <div class="min-w-0 flex-1">
       <h2 class="truncate text-base font-semibold">{deviceName(device)}</h2>
       <p class="truncate text-xs muted">{device.block} · {device.pos.pos.join(", ")}</p>
     </div>
+    <button
+      class="btn text-sm"
+      style={isIdentified({ kind: "device", device: device.pos }) ? "border-color: var(--warn); color: var(--warn)" : ""}
+      disabled={!canEdit}
+      title="Light it up in the world until turned off"
+      onclick={() => toggleIdentify({ kind: "device", device: device.pos })}>ID</button
+    >
   </div>
 
   {#if device.state === "active" && device.outOfRange}
@@ -60,10 +67,19 @@
   <div class="flex flex-col gap-1">
     <span class="text-xs font-medium muted">Face names</span>
     {#each FACES as face}
-      <label class="grid grid-cols-[4.5rem_1fr] items-center gap-2 text-sm">
+      <div class="grid grid-cols-[4.5rem_1fr_auto] items-center gap-2 text-sm">
         <span class="muted">{face}</span>
         <input value={device.faceNames[face] ?? ""} placeholder="—" disabled={!canEdit} onchange={(e) => renameFace(face, e.currentTarget.value)} />
-      </label>
+        {#if face !== "unsided"}
+          <button
+            class="btn px-1.5 text-xs"
+            style={isIdentified({ kind: "face", device: device.pos, face }) ? "border-color: var(--warn); color: var(--warn)" : ""}
+            disabled={!canEdit}
+            title="Light this face up in the world until turned off"
+            onclick={() => toggleIdentify({ kind: "face", device: device.pos, face })}>ID</button
+          >
+        {:else}<span></span>{/if}
+      </div>
     {/each}
   </div>
 

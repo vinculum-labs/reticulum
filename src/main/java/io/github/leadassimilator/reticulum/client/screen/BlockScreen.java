@@ -59,6 +59,11 @@ public class BlockScreen extends Screen {
             connectorNameEditable = view.canEdit() && !view.networkName().isEmpty();
             connectorName.setEditable(connectorNameEditable);
             addRenderableWidget(connectorName);
+            if (!view.networkName().isEmpty()) {
+                // Shrink the name box to make room for the connector's own ID button.
+                connectorName.setWidth(connectorName.getWidth() - 26);
+                addRenderableWidget(idButton(left + WIDTH - 22, y - 1, view.identified(), java.util.Optional.empty(), java.util.Optional.empty()));
+            }
             y += 26;
         }
         rowsTop = y;
@@ -99,7 +104,11 @@ public class BlockScreen extends Screen {
                 toggle.active = view.canEdit();
                 addRenderableWidget(toggle);
                 Button faces = Button.builder(Component.translatable("screen.reticulum.faces"), b -> openFaces(side.side()))
-                        .bounds(x + 216, y - 1, WIDTH - 80 - 216, 20).build();
+                        .bounds(x + 216, y - 1, WIDTH - 80 - 216 - 24, 20).build();
+                if (!view.networkName().isEmpty() && side.enabled()) {
+                    addRenderableWidget(idButton(left + WIDTH - 22, y - 1, side.deviceIdentified(), java.util.Optional.of(side.side()),
+                            java.util.Optional.empty()));
+                }
                 faces.active = side.enabled() && !view.networkName().isEmpty();
                 addRenderableWidget(faces);
             }
@@ -112,6 +121,16 @@ public class BlockScreen extends Screen {
             case NONE -> {
             }
         }
+    }
+
+    /** A small ID toggle: lights up the connector, a device or a face in the world until switched off. */
+    Button idButton(int x, int y, boolean on, java.util.Optional<Direction> side, java.util.Optional<io.github.leadassimilator.reticulum.network.FaceKey> face) {
+        Button button = Button.builder(Component.literal(on ? "§eID" : "ID"), b -> {
+            sendRenames();
+            PacketDistributor.sendToServer(new Payloads.ToggleIdentify(view.pos(), side, face));
+        }).bounds(x, y, 22, 20).build();
+        button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable(on ? "screen.reticulum.identify_off" : "screen.reticulum.identify_on")));
+        return button;
     }
 
     private void toggle(Direction side) {

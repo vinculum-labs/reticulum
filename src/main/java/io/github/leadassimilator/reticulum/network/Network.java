@@ -40,7 +40,8 @@ public final class Network {
             Sheet.CODEC.listOf().optionalFieldOf("sheets", List.of()).forGetter(n -> List.copyOf(n.sheets)),
             Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("filters", Map.of()).forGetter(n -> n.filters),
             OverflowBuffer.CODEC.optionalFieldOf("overflow", new OverflowBuffer()).forGetter(n -> n.overflow),
-            Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("signal_memory", Map.of()).forGetter(n -> n.signalMemory)
+            Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("signal_memory", Map.of()).forGetter(n -> n.signalMemory),
+            Ids.lenientList(Identify.CODEC, "identify").optionalFieldOf("identified", List.of()).forGetter(n -> List.copyOf(n.identified))
     ).apply(i, Network::new));
 
     private final UUID id;
@@ -64,6 +65,8 @@ public final class Network {
     private OverflowBuffer overflow = new OverflowBuffer();
     /** What latches and counters remember (by node id), so they survive restarts. */
     private final Map<String, Long> signalMemory = new LinkedHashMap<>();
+    /** What is lit up to be found, shared with everyone who can view the network. */
+    private final List<Identify> identified = new ArrayList<>();
     /** Bumped on every change; not saved. The web protocol sends a new snapshot when it moves. */
     private int revision;
 
@@ -77,7 +80,8 @@ public final class Network {
 
     private Network(UUID id, String name, Optional<UUID> owner, String ownerName, AccessMode accessMode, Optional<String> passwordHash,
             List<Member> members, Optional<GlobalPos> controller, List<ConnectorRecord> connectors, List<DeviceRecord> devices,
-            Switches switches, List<Sheet> sheets, Map<String, String> filters, OverflowBuffer overflow, Map<String, Long> signalMemory) {
+            Switches switches, List<Sheet> sheets, Map<String, String> filters, OverflowBuffer overflow, Map<String, Long> signalMemory,
+            List<Identify> identified) {
         this(id, name, owner.orElse(null), ownerName, accessMode);
         this.passwordHash = passwordHash.orElse(null);
         members.forEach(m -> this.members.put(m.id(), m));
@@ -89,6 +93,7 @@ public final class Network {
         this.filters.putAll(filters);
         this.overflow = overflow;
         this.signalMemory.putAll(signalMemory);
+        this.identified.addAll(identified);
     }
 
     public UUID id() {
@@ -188,6 +193,10 @@ public final class Network {
 
     public Switches switches() {
         return switches;
+    }
+
+    public List<Identify> identified() {
+        return identified;
     }
 
     public Map<String, Long> signalMemory() {

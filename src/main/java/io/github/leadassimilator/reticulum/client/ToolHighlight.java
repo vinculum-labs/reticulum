@@ -31,8 +31,8 @@ public final class ToolHighlight {
         if (!(held instanceof NetworkToolItem) && !(held instanceof net.minecraft.world.item.BlockItem)) {
             return;
         }
-        // Link mode acts on whole blocks, not on one joint.
-        if (held instanceof NetworkToolItem && NetworkToolItem.mode(mc.player.getMainHandItem()) == io.github.leadassimilator.reticulum.item.ToolMode.LINK) {
+        // Link and Identify modes act on whole blocks, not on one joint.
+        if (held instanceof NetworkToolItem && NetworkToolItem.mode(mc.player.getMainHandItem()) != io.github.leadassimilator.reticulum.item.ToolMode.CONFIGURE) {
             return;
         }
         BlockPos pos = event.getTarget().getBlockPos();

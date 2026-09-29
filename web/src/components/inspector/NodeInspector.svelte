@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, deviceAt, deviceName, edit, openDevice } from "../../lib/state.svelte";
+  import { app, deviceAt, deviceName, edit, isIdentified, openDevice, toggleIdentify } from "../../lib/state.svelte";
   import { KIND_HINT, KIND_LABEL, OP_SYMBOL, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate, isSignal } from "../../lib/kinds";
   import {
     SIDES,
@@ -113,9 +113,18 @@
   </div>
 
   {#if namedDevice}
-    <button class="btn self-start text-sm" onclick={() => openDevice(namedDevice)} title="Rename the device and its faces">
-      Names of “{deviceName(namedDevice)}”…
-    </button>
+    <div class="flex gap-2">
+      <button class="btn text-sm" onclick={() => openDevice(namedDevice)} title="Rename the device and its faces">
+        Names of “{deviceName(namedDevice)}”…
+      </button>
+      <button
+        class="btn text-sm"
+        style={isIdentified({ kind: "device", device: namedDevice.pos }) ? "border-color: var(--warn); color: var(--warn)" : ""}
+        disabled={!canEdit}
+        title="Light the device up in the world until turned off"
+        onclick={() => toggleIdentify({ kind: "device", device: namedDevice.pos })}>ID</button
+      >
+    </div>
   {/if}
 
   <Field label="Label" hint={s.kind === "device" ? "Optional; the device's name is shown otherwise." : undefined}>

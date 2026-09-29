@@ -53,7 +53,10 @@ public class DeviceFacesScreen extends Screen {
         Views.SideView device = view.side(side);
         int y = top + 30;
         for (FaceKey face : FaceKey.values()) {
-            EditBox box = new SeeThroughTextBox(font, left + 80, y, WIDTH - 80, 18, Component.translatable("screen.reticulum.face." + face.getSerializedName()));
+            EditBox box = new SeeThroughTextBox(font, left + 80, y, WIDTH - 80 - 26, 18, Component.translatable("screen.reticulum.face." + face.getSerializedName()));
+            if (face.direction() != null) {
+                addRenderableWidget(parent.idButton(left + WIDTH - 22, y - 1, device.faceIdentified(face), java.util.Optional.of(side), java.util.Optional.of(face)));
+            }
             box.setMaxLength(64);
             box.setValue(device.faceName(face));
             box.setHint(Component.translatable("screen.reticulum.face." + face.getSerializedName()));

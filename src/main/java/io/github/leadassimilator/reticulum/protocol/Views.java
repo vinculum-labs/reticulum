@@ -36,7 +36,10 @@ public final class Views {
      * (empty string = no custom name).
      */
     public record SideView(Direction side, SideKind kind, JointView joint, boolean enabled, ItemStack icon,
-            String defaultName, String customName, List<String> faceNames) {
+            String defaultName, String customName, List<String> faceNames, int identified) {
+        /** Bit in {@code identified} for the whole device; the other bits are faces, by {@link FaceKey} ordinal. */
+        public static final int DEVICE_BIT = 1 << 7;
+
         public static final StreamCodec<RegistryFriendlyByteBuf, SideView> STREAM_CODEC = StreamCodec.of(
                 (buf, v) -> {
                     Direction.STREAM_CODEC.encode(buf, v.side);
@@ -47,10 +50,19 @@ public final class Views {
                     buf.writeUtf(v.defaultName);
                     buf.writeUtf(v.customName);
                     buf.writeCollection(v.faceNames, (b, s) -> b.writeUtf(s));
+                    buf.writeVarInt(v.identified);
                 },
                 buf -> new SideView(Direction.STREAM_CODEC.decode(buf), buf.readEnum(SideKind.class), buf.readEnum(JointView.class),
                         buf.readBoolean(), ItemStack.OPTIONAL_STREAM_CODEC.decode(buf), buf.readUtf(), buf.readUtf(),
-                        buf.readList(b -> b.readUtf())));
+                        buf.readList(b -> b.readUtf()), buf.readVarInt()));
+
+        public boolean deviceIdentified() {
+            return (identified & DEVICE_BIT) != 0;
+        }
+
+        public boolean faceIdentified(FaceKey face) {
+            return (identified & (1 << face.ordinal())) != 0;
+        }
 
         public String faceName(FaceKey face) {
             return face.ordinal() < faceNames.size() ? faceNames.get(face.ordinal()) : "";
@@ -64,7 +76,7 @@ public final class Views {
     /** Connector and cable screens share this view; cables have no connector name. */
     /** {@code bindable}: a connector no cable joins, so its network is picked in its screen. */
     public record BlockView(BlockPos pos, boolean connector, String networkName, String defaultName, String customName,
-            List<SideView> sides, boolean canEdit, boolean bindable) {
+            List<SideView> sides, boolean canEdit, boolean bindable, boolean identified) {
         public static final StreamCodec<RegistryFriendlyByteBuf, BlockView> STREAM_CODEC = StreamCodec.of(
                 (buf, v) -> {
                     buf.writeBlockPos(v.pos);
@@ -75,9 +87,11 @@ public final class Views {
                     buf.writeCollection(v.sides, (b, s) -> SideView.STREAM_CODEC.encode((RegistryFriendlyByteBuf) b, s));
                     buf.writeBoolean(v.canEdit);
                     buf.writeBoolean(v.bindable);
+                    buf.writeBoolean(v.identified);
                 },
                 buf -> new BlockView(buf.readBlockPos(), buf.readBoolean(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                        buf.readList(b -> SideView.STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)), buf.readBoolean(), buf.readBoolean()));
+                        buf.readList(b -> SideView.STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)), buf.readBoolean(), buf.readBoolean(),
+                        buf.readBoolean()));
 
         public SideView side(Direction dir) {
             for (SideView s : sides) {

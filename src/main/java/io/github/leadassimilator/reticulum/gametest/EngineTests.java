@@ -519,6 +519,31 @@ public final class EngineTests {
         });
     }
 
+    // ---------------------------------------------------------------- identify
+
+    @GameTest(template = "empty")
+    public static void identifyLightsDevicesAndFacesForViewers(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL);
+        var server = helper.getLevel().getServer();
+        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());
+        GlobalPos barrel = rig.device(0);
+        rig.network().device(barrel).setFaceName(io.github.leadassimilator.reticulum.network.FaceKey.NORTH, "Intake");
+        var device = io.github.leadassimilator.reticulum.network.Identify.device(barrel, 0);
+        var face = io.github.leadassimilator.reticulum.network.Identify.face(barrel, io.github.leadassimilator.reticulum.network.FaceKey.NORTH, 0);
+        check(helper, io.github.leadassimilator.reticulum.network.Identifies.toggle(server, rig.network(), device), "device didn't light up");
+        check(helper, io.github.leadassimilator.reticulum.network.Identifies.toggle(server, rig.network(), face), "face didn't light up");
+        var markers = io.github.leadassimilator.reticulum.network.Identifies.markersFor(player);
+        check(helper, markers.stream().anyMatch(m -> m.pos().equals(barrel) && m.face().isEmpty()), "no marker for the device: " + markers);
+        check(helper, markers.stream().anyMatch(m -> m.pos().equals(barrel) && m.face().equals(Optional.of(Direction.NORTH)) && m.label().endsWith("› Intake")),
+                "no named marker for the face: " + markers);
+        check(helper, markers.stream().map(m -> m.color()).distinct().count() == 2, "the two identifies share a color");
+        check(helper, !io.github.leadassimilator.reticulum.network.Identifies.toggle(server, rig.network(), device), "device didn't turn off");
+        io.github.leadassimilator.reticulum.network.Identifies.clear(server, rig.network());
+        check(helper, io.github.leadassimilator.reticulum.network.Identifies.markersFor(player).stream().noneMatch(m -> m.pos().equals(barrel)),
+                "still lit after clearing");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void antennaTiersReach(GameTestHelper helper) {
         var overworld = net.minecraft.world.level.Level.OVERWORLD;

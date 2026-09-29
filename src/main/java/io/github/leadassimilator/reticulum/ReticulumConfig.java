@@ -26,6 +26,10 @@ public final class ReticulumConfig {
             .comment("AE power (AE/t) each ME endpoint (a connector side facing AE2) draws from its AE2 network.")
             .defineInRange("meEndpointPower", 1.0, 0.0, 1000.0);
 
+    public static final ModConfigSpec.IntValue IDENTIFY_AUTO_OFF_MINUTES = BUILDER
+            .comment("Minutes after which an identify turns itself off. 0 (the default) keeps it on until someone turns it off.")
+            .defineInRange("identifyAutoOffMinutes", 0, 0, 100_000);
+
     public static final ModConfigSpec.IntValue ENERGY_PER_TICK = BUILDER
             .comment("Most FE one energy route moves per tick. Set above Mekanism's best cables by default.")
             .defineInRange("energyPerTick", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);

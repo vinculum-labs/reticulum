@@ -152,5 +152,17 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.password_for", "Password for %s");
         add("screen.reticulum.join", "Join");
         add("screen.reticulum.no_networks", "No networks you can use");
+
+        // Identify
+        add("tool.reticulum.mode.identify", "Identify");
+        add("tooltip.reticulum.tool_identify", "Right-click a connector or device to light it up (or off); sneak + right-click lights one face of a device");
+        add("message.reticulum.identified", "Lit up %s");
+        add("message.reticulum.unidentified", "Stopped lighting up %s");
+        add("message.reticulum.not_a_device_of_yours", "That block isn't a device of a network you can use");
+        add("screen.reticulum.identify_on", "Light it up in the world until turned off");
+        add("screen.reticulum.identify_off", "Stop lighting it up");
+        add("reticulum.configuration.identifyThroughWalls", "Show identified blocks through walls");
+        add("reticulum.configuration.identifyBeamDistance", "Identify beam distance");
+        add("reticulum.configuration.identifyAutoOffMinutes", "Identify auto-off (minutes, 0 = never)");
     }
 }

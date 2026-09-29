@@ -27,6 +27,14 @@ public final class ReticulumClientConfig {
                     "each session. Takes effect the next time the game starts.")
             .define("rememberLogin", true);
 
+    public static final ModConfigSpec.BooleanValue IDENTIFY_THROUGH_WALLS = BUILDER
+            .comment("Draw identified blocks through walls, so they can be found behind other blocks.")
+            .define("identifyThroughWalls", true);
+
+    public static final ModConfigSpec.IntValue IDENTIFY_BEAM_DISTANCE = BUILDER
+            .comment("Beyond this many blocks, an identified block also gets a beam up to the sky, to find it from far away.")
+            .defineInRange("identifyBeamDistance", 32, 0, 100_000);
+
     public static final ModConfigSpec.BooleanValue KEEP_RUNNING_WHILE_EDITING = BUILDER
             .comment("While the web editor is open in a browser, don't pause the game when its window loses focus, so",
                     "singleplayer worlds keep running and the editor shows live throughput. Pressing Esc still pauses.")

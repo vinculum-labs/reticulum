@@ -72,6 +72,13 @@ final class Snapshots {
         network.disabledFolders().forEach(disabledFolders::add);
         out.add("disabledFolders", disabledFolders);
         out.add("redstone", encode(server, Redstone.CODEC, network.switches().redstone()));
+        JsonArray identified = new JsonArray();
+        for (io.github.leadassimilator.reticulum.network.Identify identify : network.identified()) {
+            JsonObject json = encode(server, io.github.leadassimilator.reticulum.network.Identify.CODEC, identify).getAsJsonObject();
+            json.addProperty("label", label(server, network, identify));
+            identified.add(json);
+        }
+        out.add("identified", identified);
         JsonObject folderRedstone = new JsonObject();
         network.switches().folderRedstone().forEach((folder, redstone) -> folderRedstone.add(folder, encode(server, Redstone.CODEC, redstone)));
         out.add("folderRedstone", folderRedstone);
@@ -243,6 +250,20 @@ final class Snapshots {
             }
         }
         return faces;
+    }
+
+    /** The name shown for an identify in the editor's Identified panel. */
+    private static String label(MinecraftServer server, Network network, io.github.leadassimilator.reticulum.network.Identify identify) {
+        return switch (identify.kind()) {
+            case CONNECTOR -> identify.connector().map(network::connector)
+                    .map(c -> c.name() != null ? c.name() : "Connector (" + c.pos().pos().toShortString() + ")").orElse("Missing connector");
+            case DEVICE -> identify.device().map(pos -> io.github.leadassimilator.reticulum.network.Identifies.deviceName(server, network, pos)).orElse("?");
+            case FACE -> identify.device().map(pos -> io.github.leadassimilator.reticulum.network.Identifies.deviceName(server, network, pos)).orElse("?")
+                    + " › " + identify.face().map(f -> {
+                        DeviceRecord record = identify.device().map(network::device).orElse(null);
+                        return record != null && record.faceName(f) != null ? record.faceName(f) : f.getSerializedName();
+                    }).orElse("?");
+        };
     }
 
     /** The controller's antenna tier, or 0 when it has none or isn't loaded. */

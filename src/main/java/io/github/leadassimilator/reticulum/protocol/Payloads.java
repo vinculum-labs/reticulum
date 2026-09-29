@@ -132,6 +132,48 @@ public final class Payloads {
         }
     }
 
+    // ---------------------------------------------------------------- identify
+
+    /** Something to light up in the world: a block (or one face of it), its color and the name to show above it. */
+    public record IdentifyMarker(net.minecraft.core.GlobalPos pos, java.util.Optional<Direction> face, int color, String label) {
+        public static final StreamCodec<RegistryFriendlyByteBuf, IdentifyMarker> STREAM_CODEC = StreamCodec.composite(
+                net.minecraft.core.GlobalPos.STREAM_CODEC, IdentifyMarker::pos,
+                ByteBufCodecs.optional(Direction.STREAM_CODEC), IdentifyMarker::face,
+                ByteBufCodecs.INT, IdentifyMarker::color,
+                ByteBufCodecs.stringUtf8(256), IdentifyMarker::label,
+                IdentifyMarker::new);
+    }
+
+    /** Everything the player should see lit up; replaces what the client had. */
+    public record IdentifyMarkers(java.util.List<IdentifyMarker> markers) implements CustomPacketPayload {
+        public static final Type<IdentifyMarkers> TYPE = payloadType("identify_markers");
+        public static final StreamCodec<RegistryFriendlyByteBuf, IdentifyMarkers> STREAM_CODEC =
+                IdentifyMarker.STREAM_CODEC.apply(ByteBufCodecs.list(4096)).map(IdentifyMarkers::new, IdentifyMarkers::markers);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * From the connector screens: identify the connector itself (no side), the device on a side, or one face of that
+     * device.
+     */
+    public record ToggleIdentify(BlockPos pos, java.util.Optional<Direction> side, java.util.Optional<FaceKey> face) implements CustomPacketPayload {
+        public static final Type<ToggleIdentify> TYPE = payloadType("toggle_identify");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ToggleIdentify> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, ToggleIdentify::pos,
+                ByteBufCodecs.optional(Direction.STREAM_CODEC), ToggleIdentify::side,
+                ByteBufCodecs.optional(FaceKey.STREAM_CODEC.<RegistryFriendlyByteBuf>cast()), ToggleIdentify::face,
+                ToggleIdentify::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     // ---------------------------------------------------------------- linking wireless connectors
 
     /** A network offered by the picker; {@code password} when the player must enter its password to join. */
@@ -205,6 +247,10 @@ public final class Payloads {
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openBlockScreen(payload.view()));
         registrar.playToClient(OpenControllerScreen.TYPE, OpenControllerScreen.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openControllerScreen(payload.view()));
+        registrar.playToClient(IdentifyMarkers.TYPE, IdentifyMarkers.STREAM_CODEC,
+                (payload, context) -> io.github.leadassimilator.reticulum.client.IdentifyRenderer.accept(payload.markers()));
+        registrar.playToServer(ToggleIdentify.TYPE, ToggleIdentify.STREAM_CODEC,
+                (payload, context) -> server(context, player -> Screens.toggleIdentify(player, payload)));
         registrar.playToClient(OpenNetworkPicker.TYPE, OpenNetworkPicker.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openNetworkPicker(payload));
         registrar.playToServer(RequestNetworkPicker.TYPE, RequestNetworkPicker.STREAM_CODEC,

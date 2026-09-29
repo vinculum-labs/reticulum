@@ -13,6 +13,8 @@ import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.FaceKey;
+import io.github.leadassimilator.reticulum.network.Identifies;
+import io.github.leadassimilator.reticulum.network.Identify;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.security.AccessMode;
@@ -34,6 +36,30 @@ public final class Screens {
     public static final int MAX_NAME_LENGTH = 64;
 
     private Screens() {
+    }
+
+    /** The ID buttons in the connector screens: the connector itself, the device on a side, or one face of it. */
+    public static void toggleIdentify(ServerPlayer player, Payloads.ToggleIdentify payload) {
+        ServerLevel level = player.serverLevel();
+        BlockPos pos = payload.pos();
+        double max = ReticulumConfig.MAX_INTERACT_DISTANCE.getAsInt();
+        if (player.position().distanceToSqr(Vec3.atCenterOf(pos)) > max * max
+                || !(Topology.blockEntity(level, pos) instanceof ConnectorBlockEntity connector)) {
+            return;
+        }
+        Network network = NetworkManager.network(level.getServer(), Topology.networkOf(level, connector));
+        if (network == null || !Security.canUse(network, player)) {
+            return;
+        }
+        Identify target;
+        if (payload.side().isEmpty()) {
+            target = Identify.connector(connector.connectorId(), 0);
+        } else {
+            GlobalPos device = Devices.global(level, pos.relative(payload.side().get()));
+            target = payload.face().isPresent() ? Identify.face(device, payload.face().get(), 0) : Identify.device(device, 0);
+        }
+        Identifies.toggle(level.getServer(), network, target);
+        open(player, pos);
     }
 
     public static void open(ServerPlayer player, BlockPos pos) {
@@ -82,8 +108,10 @@ public final class Screens {
             }
         }
         boolean canEdit = network == null || Security.canEdit(network, player);
+        boolean identified = network != null && be instanceof ConnectorBlockEntity c2
+                && Identifies.isOn(network, Identify.connector(c2.connectorId(), 0));
         return new Views.BlockView(pos, connector, network == null ? "" : network.name(), defaultName, customName, sides, canEdit,
-                connector && !Topology.isWired(level, pos));
+                connector && !Topology.isWired(level, pos), identified);
     }
 
     private static Views.SideView sideView(ServerLevel level, BlockPos pos, NetworkBlockEntity be, Direction dir, @Nullable Network network) {
@@ -96,7 +124,7 @@ public final class Screens {
                 case CONFLICT -> Views.JointView.CONFLICT;
             };
             return new Views.SideView(dir, Views.SideKind.JOINT, view, true, Devices.icon(level, next),
-                    level.getBlockState(next).getBlock().getName().getString(), "", List.of());
+                    level.getBlockState(next).getBlock().getName().getString(), "", List.of(), 0);
         }
         if (be instanceof ConnectorBlockEntity connector && Devices.isDevice(level, next, dir.getOpposite())) {
             DeviceRecord record = network == null ? null : network.device(Devices.global(level, next));
@@ -105,11 +133,23 @@ public final class Screens {
                 String name = record == null ? null : record.faceName(face);
                 faces.add(name == null ? "" : name);
             }
+            int identified = 0;
+            if (network != null) {
+                GlobalPos device = Devices.global(level, next);
+                if (Identifies.isOn(network, Identify.device(device, 0))) {
+                    identified |= Views.SideView.DEVICE_BIT;
+                }
+                for (FaceKey face : FaceKey.values()) {
+                    if (Identifies.isOn(network, Identify.face(device, face, 0))) {
+                        identified |= 1 << face.ordinal();
+                    }
+                }
+            }
             return new Views.SideView(dir, Views.SideKind.DEVICE, Views.JointView.DISCONNECTED, connector.isDeviceEnabled(dir),
                     Devices.icon(level, next), Devices.defaultName(level, next),
-                    record == null || record.name() == null ? "" : record.name(), faces);
+                    record == null || record.name() == null ? "" : record.name(), faces, identified);
         }
-        return new Views.SideView(dir, Views.SideKind.NONE, Views.JointView.DISCONNECTED, false, ItemStack.EMPTY, "", "", List.of());
+        return new Views.SideView(dir, Views.SideKind.NONE, Views.JointView.DISCONNECTED, false, ItemStack.EMPTY, "", "", List.of(), 0);
     }
 
     /** Answers the built-in HUD. Limited to blocks the player could plausibly be looking at. */

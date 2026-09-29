@@ -391,6 +391,12 @@ public final class WebApi {
                     network.sheets().forEach(Sheet::touch);
                 }
                 case "setNetworkEnabled" -> network.setEnabled(edit.get("enabled").getAsBoolean());
+                case "identify" -> {
+                    io.github.leadassimilator.reticulum.network.Identify target = decode(server,
+                            io.github.leadassimilator.reticulum.network.Identify.CODEC, edit, "identify");
+                    io.github.leadassimilator.reticulum.network.Identifies.set(server, network, target, edit.get("on").getAsBoolean());
+                }
+                case "clearIdentify" -> io.github.leadassimilator.reticulum.network.Identifies.clear(server, network);
                 case "setNetworkRedstone" -> network.switches().setRedstone(decode(server, Redstone.CODEC, edit.get("redstone"), "redstone"));
                 case "setFolderRedstone" -> {
                     String folder = Sheet.normalizeFolder(string(edit, "folder"));

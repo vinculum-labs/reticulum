@@ -62,6 +62,8 @@ public class Reticulum {
         NeoForge.EVENT_BUS.addListener(PlacementRedirect::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(Topology::onServerTick);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerTick);
+        NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.network.Identifies::onServerTick);
+        NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.network.Identifies::onLogin);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerStopped);
         NeoForge.EVENT_BUS.addListener(WebApi::onServerTick);
         NeoForge.EVENT_BUS.addListener(WebApi::onLogout);

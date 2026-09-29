@@ -45,6 +45,12 @@
     <span class="text-sm muted">{snapshot.running ? "Running" : snapshot.enabled ? "No controller loaded" : "Off"}</span>
     <button
       class="btn"
+      style={app.panel === "identified" ? "border-color: var(--accent); color: var(--accent)" : ""}
+      onclick={() => (app.panel = app.panel === "identified" ? null : "identified")}
+      title="What is lit up in the world">Identified{app.snapshot?.identified?.length ? ` (${app.snapshot.identified.length})` : ""}</button
+    >
+    <button
+      class="btn"
       style={app.panel === "network" ? "border-color: var(--accent); color: var(--accent)" : ""}
       onclick={() => (app.panel = app.panel === "network" ? null : "network")}
       title="Name, access, password and members">Settings</button
