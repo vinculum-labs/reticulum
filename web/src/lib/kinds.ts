@@ -44,7 +44,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   receive: "Receives a transmitted signal by name",
 };
 
-/** Signal nodes, in palette order. */
+/** Redstone (signal) nodes, in the order of the toolbar's Redstone menu. */
 export const SIGNAL_KINDS: NodeKind[] = [
   "level",
   "compare",

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AddMenu from "./AddMenu.svelte";
   import {
     SvelteFlow,
     Background,
@@ -186,12 +187,6 @@
     ...(sheet?.subsheet ? (["sheet_input", "sheet_output"] as NodeKind[]) : []),
   ]);
 
-  function addSignal(e: Event & { currentTarget: HTMLSelectElement }) {
-    const kind = e.currentTarget.value as NodeKind;
-    e.currentTarget.value = "";
-    if (kind) addNode(kind, viewCenter());
-  }
-
   /** Double-click a sub-sheet node to open the sheet it copies. */
   function nodeClick({ node, event }: { node: Node<NodeData>; event: MouseEvent | TouchEvent }) {
     const s = node.data.node.settings;
@@ -253,10 +248,7 @@
           {#each palette as kind}
             <button class="btn text-sm" title={KIND_HINT[kind]} onclick={() => addNode(kind, viewCenter())}>+ {KIND_LABEL[kind]}</button>
           {/each}
-          <select class="text-sm" title="Redstone and signal nodes" value="" onchange={addSignal} style="color: var(--c-signal)">
-            <option value="" disabled>+ Signal…</option>
-            {#each SIGNAL_KINDS as kind}<option value={kind} title={KIND_HINT[kind]}>{KIND_LABEL[kind]}</option>{/each}
-          </select>
+          <AddMenu label="Redstone" kinds={SIGNAL_KINDS} color="var(--c-signal)" onpick={(kind) => addNode(kind, viewCenter())} />
           <button class="btn text-sm" title="Lay the sheet out left to right" disabled={tidying || !sheet?.nodes?.length} onclick={tidy}>Tidy up</button>
         </div>
       </Panel>
