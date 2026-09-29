@@ -167,6 +167,15 @@ export function toFlow(
     };
   });
   const byId = new Map((sheet.nodes ?? []).map((n) => [n.id, n]));
+  // Each splitter's branches numbered in the engine's order (by order, then id), shown on their wires.
+  const branchNumber = new Map<string, number>();
+  for (const n of sheet.nodes ?? []) {
+    if (n.settings.kind !== "splitter") continue;
+    (sheet.wires ?? [])
+      .filter((w) => w.from === n.id)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .forEach((w, i) => branchNumber.set(w.id, i + 1));
+  }
   const edges: Edge[] = (sheet.wires ?? []).map((w) => {
     const rate = rates[w.id] ?? 0;
     const resource = kinds.wires.get(w.id) ?? null;
@@ -184,7 +193,7 @@ export function toFlow(
       type: wireStyle,
       selected: selected.has(w.id),
       animated: rate > 0,
-      label: rate > 0 ? formatRate(rate, resource, unit) : undefined,
+      label: [branchNumber.get(w.id), rate > 0 ? formatRate(rate, resource, unit) : undefined].filter((x) => x !== undefined).join(" · ") || undefined,
       style: signal
         ? `stroke: ${color}; stroke-width: ${on ? 2.5 : 1.5}px; stroke-dasharray: ${on ? "none" : "4 3"}; opacity: ${on ? 1 : 0.7}`
         : `stroke: ${fromNode?.settings.kind === "filter" && w.output === 1 ? "var(--bad)" : color}; stroke-width: ${rate > 0 ? 2.5 : 1.5}px`,

@@ -82,6 +82,32 @@
     save({ ...node, settings: { ...node.settings, ...patch } as NodeSettings });
   }
 
+  /** A splitter's outgoing wires in branch order (the engine's order: by order, then id). */
+  function splitterOutputs(): Wire[] {
+    return (sheet.wires ?? [])
+      .filter((w) => w.from === node.id)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  }
+
+  /** Swaps a branch with its neighbor; a weighted splitter's weights move with their branches. */
+  function moveOutput(index: number, step: number) {
+    const outs = splitterOutputs();
+    const other = index + step;
+    if (other < 0 || other >= outs.length || node.settings.kind !== "splitter") return;
+    const ids = outs.map((w) => w.id);
+    [ids[index], ids[other]] = [ids[other], ids[index]];
+    const edits: Edit[] = [{ type: "orderWires", sheet: sheet.id, wires: ids }];
+    const undo: Edit[] = [{ type: "orderWires", sheet: sheet.id, wires: outs.map((w) => w.id) }];
+    const weights = node.settings.weights;
+    if (weights?.length) {
+      const next = outs.map((_, j) => weights[j] ?? 1);
+      [next[index], next[other]] = [next[other], next[index]];
+      edits.push({ type: "updateNode", sheet: sheet.id, node: { ...node, settings: { ...node.settings, weights: next } } });
+      undo.push({ type: "updateNode", sheet: sheet.id, node });
+    }
+    edit(edits, undo, "reorder outputs");
+  }
+
   function remove() {
     const wires = (sheet.wires ?? []).filter((w) => w.from === node.id || w.to === node.id);
     app.selectedNodes = [];
@@ -293,28 +319,28 @@
   {:else if s.kind === "splitter"}
     <Field
       label="Mode"
-      hint="Round robin shares out (evenly for fluids, chemicals and energy). In order fills the first output before the next. Weighted shares by the weights below. Nearest first fills the output whose device is closest to the source first."
+      hint="Each wire from the splitter's output is one branch. Round robin takes turns (fluids, chemicals and energy split evenly). In order fills the first branch before the next. Weighted shares by the weights below. Nearest first fills the branch whose device is closest to the source first. A branch that can't take anything is skipped."
     >
       <select value={s.mode ?? "round_robin"} disabled={!canEdit} onchange={(e) => settings({ mode: e.currentTarget.value as SplitMode })}>
         <option value="round_robin">Round robin</option>
-        <option value="priority">In order (wire order)</option>
+        <option value="priority">In order</option>
         <option value="weighted">Weighted</option>
         <option value="nearest">Nearest first</option>
       </select>
     </Field>
-    {#if s.mode === "weighted"}
-      {@const outs = (sheet.wires ?? [])
-        .filter((w) => w.from === node.id)
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))}
-      <div class="flex flex-col gap-1">
-        <span class="text-xs font-medium muted">Weight of each output (wire order)</span>
-        {#each outs as wire, i (wire.id)}
-          {@const target = sheet.nodes?.find((n) => n.id === wire.to)}
-          <label class="flex items-center gap-2 text-sm">
+    <!-- The branches in order: "in order" fills them top down, weights go with them, and ↑/↓ reorder them. -->
+    {@const outs = splitterOutputs()}
+    <div class="flex flex-col gap-1">
+      <span class="text-xs font-medium muted">Outputs, in order{s.mode === "weighted" ? " (weight of each)" : ""}</span>
+      {#each outs as wire, i (wire.id)}
+        {@const target = sheet.nodes?.find((n) => n.id === wire.to)}
+        <div class="flex items-center gap-1 text-sm">
+          <span class="w-5 shrink-0 text-right tabular-nums muted">{i + 1}.</span>
+          {#if s.mode === "weighted"}
             <input
               type="number"
               min="0"
-              class="w-16"
+              class="w-14 shrink-0"
               value={s.weights?.[i] ?? 1}
               disabled={!canEdit}
               onchange={(e) => {
@@ -323,13 +349,15 @@
                 settings({ weights });
               }}
             />
-            <span class="truncate">→ {target ? (target.label || ("device" in target.settings ? deviceName(deviceAt(posKey(target.settings.device))) : KIND_LABEL[target.settings.kind])) : "?"}</span>
-          </label>
-        {:else}
-          <p class="text-xs muted">Wire the splitter's output to two or more nodes first.</p>
-        {/each}
-      </div>
-    {/if}
+          {/if}
+          <span class="min-w-0 flex-1 truncate">→ {target ? (target.label || ("device" in target.settings ? deviceName(deviceAt(posKey(target.settings.device))) : KIND_LABEL[target.settings.kind])) : "?"}</span>
+          <button class="btn shrink-0 px-1.5 text-xs" disabled={!canEdit || i === 0} title="Earlier" aria-label="Move up" onclick={() => moveOutput(i, -1)}>↑</button>
+          <button class="btn shrink-0 px-1.5 text-xs" disabled={!canEdit || i === outs.length - 1} title="Later" aria-label="Move down" onclick={() => moveOutput(i, 1)}>↓</button>
+        </div>
+      {:else}
+        <p class="text-xs muted">Wire the splitter's output to two or more nodes; each wire is one branch.</p>
+      {/each}
+    </div>
   {:else if s.kind === "kit"}
     <div class="flex flex-col gap-2">
       <span class="text-xs font-medium muted">Items in one kit (all move together, or none)</span>

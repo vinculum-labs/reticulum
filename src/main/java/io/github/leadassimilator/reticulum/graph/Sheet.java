@@ -203,6 +203,16 @@ public final class Sheet {
         return wire;
     }
 
+    /** Puts these wires (a splitter's branches, say) in this order; the rest keep theirs. */
+    public void orderWires(List<UUID> ids) {
+        for (int i = 0; i < ids.size(); i++) {
+            UUID id = ids.get(i);
+            int order = i;
+            wires.replaceAll(w -> w.id().equals(id) ? new Wire(w.id(), w.from(), w.output(), w.to(), w.input(), order) : w);
+        }
+        touch();
+    }
+
     public void disconnect(UUID wireId) {
         wires.removeIf(w -> w.id().equals(wireId));
         touch();

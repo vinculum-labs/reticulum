@@ -1,5 +1,6 @@
 package io.github.leadassimilator.reticulum.protocol.web;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -395,6 +396,18 @@ public final class WebApi {
                     return new com.google.gson.JsonPrimitive(wire.id().toString());
                 }
                 case "disconnect" -> sheet(network, edit).disconnect(uuid(edit, "wire"));
+                case "orderWires" -> {
+                    // A splitter's branches in a new order ("in order" and weights follow it).
+                    List<UUID> ids = new ArrayList<>();
+                    for (JsonElement id : edit.getAsJsonArray("wires")) {
+                        try {
+                            ids.add(UUID.fromString(id.getAsString()));
+                        } catch (IllegalArgumentException e) {
+                            throw new RequestException("'wires' holds something that isn't an id");
+                        }
+                    }
+                    sheet(network, edit).orderWires(ids);
+                }
                 case "renameDevice" -> device(server, network, edit).setName(edit.has("name") ? edit.get("name").getAsString() : null);
                 case "renameFace" -> {
                     FaceKey face = decode(server, FaceKey.CODEC, edit.get("face"), "face");
