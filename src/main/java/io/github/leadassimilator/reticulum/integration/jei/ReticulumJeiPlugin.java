@@ -56,12 +56,12 @@ public class ReticulumJeiPlugin implements IModPlugin {
 
             @Override
             public int screenWidth() {
-                return screen.width;
+                return FacadeScreen.screenWidth();
             }
 
             @Override
             public int screenHeight() {
-                return screen.height;
+                return FacadeScreen.screenHeight();
             }
         });
         registration.addGhostIngredientHandler(FacadeScreen.class, new IGhostIngredientHandler<>() {

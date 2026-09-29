@@ -36,7 +36,10 @@ public class FacadeScreen extends Screen {
     private static final int ROWS = 6;
     private static final int CELL = 18;
     private static final int WIDTH = COLUMNS * CELL + 16;
-    private static final int HEIGHT = 200;
+    private static final int GRID_TOP = 64;
+    private static final int SCROLLBAR_X = 8 + COLUMNS * CELL + 1;
+    private static final int SCROLLBAR_WIDTH = 5;
+    private static final int TRACK_HEIGHT = ROWS * CELL - 1;
 
     /** Every item whose block can be a facade; worked out once, as it looks at every block. */
     @Nullable
@@ -47,8 +50,7 @@ public class FacadeScreen extends Screen {
     private List<Item> shown;
     private EditBox search;
     private int scroll;
-    private int left;
-    private int top;
+    private boolean draggingBar;
 
     public static void open(InteractionHand hand) {
         Minecraft.getInstance().setScreen(new FacadeScreen(hand));
@@ -84,10 +86,53 @@ public class FacadeScreen extends Screen {
         return allCandidates;
     }
 
+    // ---------------------------------------------------------------- layout
+
+    /*
+     * Worked out from the window rather than this screen's size: JEI asks for the layout before the screen is laid
+     * out, while its size is still 0, and ignores the screen if the answer is invalid then.
+     */
+
+    public static int screenWidth() {
+        return Minecraft.getInstance().getWindow().getGuiScaledWidth();
+    }
+
+    public static int screenHeight() {
+        return Minecraft.getInstance().getWindow().getGuiScaledHeight();
+    }
+
+    public static int guiWidth() {
+        return WIDTH;
+    }
+
+    /** The panel's height: the grid, then the hint wrapped to the panel's width. */
+    public static int guiHeight() {
+        Minecraft mc = Minecraft.getInstance();
+        int hintLines = mc.font.split(Component.translatable("screen.reticulum.facade_hint"), WIDTH - 16).size();
+        return GRID_TOP + TRACK_HEIGHT + 7 + hintLines * mc.font.lineHeight + 6;
+    }
+
+    public int guiLeft() {
+        return (screenWidth() - WIDTH) / 2;
+    }
+
+    public int guiTop() {
+        return Math.max(4, (screenHeight() - guiHeight()) / 2);
+    }
+
+    private int gridTop() {
+        return guiTop() + GRID_TOP;
+    }
+
+    /** Where a JEI ingredient can be dropped: the preview and the block grid. */
+    public Rect2i dropArea() {
+        return new Rect2i(guiLeft(), guiTop() + 14, WIDTH, guiHeight() - 14);
+    }
+
     @Override
     protected void init() {
-        left = (width - WIDTH) / 2;
-        top = Math.max(4, (height - HEIGHT) / 2);
+        int left = guiLeft();
+        int top = guiTop();
         String query = search == null ? "" : search.getValue();
         search = new EditBox(font, left + 8, top + 42, WIDTH - 16, 16, Component.translatable("screen.reticulum.facade_search"));
         search.setHint(Component.translatable("screen.reticulum.facade_search").withStyle(s -> s.withColor(0x808080)));
@@ -121,31 +166,6 @@ public class FacadeScreen extends Screen {
         onClose();
     }
 
-    /** Where a JEI ingredient can be dropped: the block grid and the preview. */
-    public Rect2i dropArea() {
-        return new Rect2i(left, top + 14, WIDTH, HEIGHT - 14);
-    }
-
-    public int guiLeft() {
-        return left;
-    }
-
-    public int guiTop() {
-        return top;
-    }
-
-    public static int guiWidth() {
-        return WIDTH;
-    }
-
-    public static int guiHeight() {
-        return HEIGHT;
-    }
-
-    private int gridTop() {
-        return top + 64;
-    }
-
     @Override
     public void tick() {
         if (!(held().getItem() instanceof FacadeItem)) {
@@ -153,9 +173,20 @@ public class FacadeScreen extends Screen {
         }
     }
 
+    // ---------------------------------------------------------------- drawing
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        graphics.fill(guiLeft(), guiTop(), guiLeft() + WIDTH, guiTop() + guiHeight(), 0xE0101010);
+        graphics.renderOutline(guiLeft(), guiTop(), WIDTH, guiHeight(), 0xFF505050);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
+        int left = guiLeft();
+        int top = guiTop();
         graphics.drawString(font, title, left + 8, top + 6, 0xFFFFFF);
         // What it looks like now.
         ItemStack held = held();
@@ -180,37 +211,48 @@ public class FacadeScreen extends Screen {
             }
             Item item = shown.get(index);
             graphics.renderItem(new ItemStack(item), x, y);
-            if (mouseX >= x && mouseX < x + CELL - 1 && mouseY >= y && mouseY < y + CELL - 1) {
+            if (!draggingBar && mouseX >= x && mouseX < x + CELL - 1 && mouseY >= y && mouseY < y + CELL - 1) {
                 graphics.fill(x, y, x + CELL - 1, y + CELL - 1, 0x80FFFFFF);
                 hovered = item;
             }
         }
-        int maxScroll = maxScroll();
-        if (maxScroll > 0) {
-            int trackHeight = ROWS * CELL - 1;
-            int barHeight = Math.max(8, trackHeight * ROWS / (maxScroll + ROWS));
-            int barY = y0 + (trackHeight - barHeight) * scroll / maxScroll;
-            graphics.fill(left + WIDTH - 6, barY, left + WIDTH - 3, barY + barHeight, 0xFFA0A0A0);
+        if (maxScroll() > 0) {
+            int x = left + SCROLLBAR_X;
+            graphics.fill(x, y0, x + SCROLLBAR_WIDTH, y0 + TRACK_HEIGHT, 0xFF202020);
+            int barY = barY();
+            boolean hot = draggingBar || mouseX >= x && mouseX < x + SCROLLBAR_WIDTH && mouseY >= barY && mouseY < barY + barHeight();
+            graphics.fill(x, barY, x + SCROLLBAR_WIDTH, barY + barHeight(), hot ? 0xFFE0E0E0 : 0xFFA0A0A0);
         }
         if (shown.isEmpty()) {
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.facade_no_match"), left + WIDTH / 2, y0 + 40, 0xA0A0A0);
         }
-        graphics.drawWordWrap(font, Component.translatable("screen.reticulum.facade_hint"), left + 8, y0 + ROWS * CELL + 6, WIDTH - 16, 0xA0A0A0);
+        graphics.drawWordWrap(font, Component.translatable("screen.reticulum.facade_hint"), left + 8, y0 + TRACK_HEIGHT + 7, WIDTH - 16, 0xA0A0A0);
         if (hovered != null) {
             graphics.renderTooltip(font, new ItemStack(hovered), mouseX, mouseY);
         }
     }
 
-    @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(graphics, mouseX, mouseY, partialTick);
-        graphics.fill(left, top, left + WIDTH, top + HEIGHT, 0xE0101010);
-        graphics.renderOutline(left, top, WIDTH, HEIGHT, 0xFF505050);
-    }
+    // ---------------------------------------------------------------- scrolling
 
     private int maxScroll() {
         int rows = (shown.size() + COLUMNS - 1) / COLUMNS;
         return Math.max(0, rows - ROWS);
+    }
+
+    private int barHeight() {
+        return Math.max(8, TRACK_HEIGHT * ROWS / (maxScroll() + ROWS));
+    }
+
+    private int barY() {
+        int maxScroll = maxScroll();
+        return gridTop() + (maxScroll == 0 ? 0 : (TRACK_HEIGHT - barHeight()) * scroll / maxScroll);
+    }
+
+    /** Scrolls so the bar's middle follows the mouse. */
+    private void dragBarTo(double mouseY) {
+        double travel = TRACK_HEIGHT - barHeight();
+        double fraction = travel <= 0 ? 0 : (mouseY - gridTop() - barHeight() / 2.0) / travel;
+        scroll = (int) Math.round(Math.max(0, Math.min(1, fraction)) * maxScroll());
     }
 
     @Override
@@ -221,6 +263,13 @@ public class FacadeScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        int left = guiLeft();
+        if (button == 0 && maxScroll() > 0 && mouseX >= left + SCROLLBAR_X && mouseX < left + SCROLLBAR_X + SCROLLBAR_WIDTH
+                && mouseY >= gridTop() && mouseY < gridTop() + TRACK_HEIGHT) {
+            draggingBar = true;
+            dragBarTo(mouseY);
+            return true;
+        }
         int column = (int) Math.floor((mouseX - left - 8) / CELL);
         int row = (int) Math.floor((mouseY - gridTop()) / CELL);
         if (column >= 0 && column < COLUMNS && row >= 0 && row < ROWS) {
@@ -231,6 +280,24 @@ public class FacadeScreen extends Screen {
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (draggingBar) {
+            dragBarTo(mouseY);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (draggingBar && button == 0) {
+            draggingBar = false;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
