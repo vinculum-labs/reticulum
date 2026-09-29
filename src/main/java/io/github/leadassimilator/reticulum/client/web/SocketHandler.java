@@ -67,9 +67,8 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
                     // Esc at the root of the in-game editor: hide it (the page stays loaded for next time).
                     mc.setScreen(null);
                 } else {
-                    // F11 in the in-game editor, done as the game does it.
-                    mc.getWindow().toggleFullScreen();
-                    mc.options.fullscreen().set(mc.getWindow().isFullscreen());
+                    // F11 in the in-game editor.
+                    io.github.leadassimilator.reticulum.client.webview.EditorScreen.toggleFullscreen();
                 }
             });
             JsonObject done = new JsonObject();

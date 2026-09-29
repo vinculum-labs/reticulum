@@ -25,6 +25,15 @@ public class EditorScreen extends Screen {
     }
 
     /** WebView2 couldn't start: close this and use the browser, as before. */
+    /** F11 inside the editor: fullscreen (borderless while the editor is up) or back to a normal window. */
+    public static void toggleFullscreen() {
+        if (Borderless.active()) {
+            Borderless.leave(false);
+        } else if (!Minecraft.getInstance().getWindow().isFullscreen()) {
+            Borderless.enterFromWindowed();
+        }
+    }
+
     static void fallBackToBrowser() {
         if (Minecraft.getInstance().screen instanceof EditorScreen) {
             Minecraft.getInstance().setScreen(null);
@@ -47,9 +56,18 @@ public class EditorScreen extends Screen {
         }).bounds(width - 62 - 104, 2, 100, BAR - 4).build());
         var window = Minecraft.getInstance().getWindow();
         if (window.isFullscreen()) {
-            // Exclusive fullscreen draws past Windows' compositor, so a child window never shows, and taking focus
-            // for it minimizes the game. Wait for windowed mode (F11 here reaches the game) or the browser.
+            // Exclusive fullscreen draws past Windows' compositor, so the view can't show over it: switch to a
+            // borderless window covering the monitor instead (done next tick, not in the middle of laying out). If
+            // we were borderless already, the game's own F11 (pressed on the bar) asked for a normal window.
             WebView2Host.hide();
+            Minecraft.getInstance().execute(() -> {
+                if (Borderless.active()) {
+                    window.toggleFullScreen();
+                    Borderless.leave(false);
+                } else {
+                    Borderless.enterFromFullscreen();
+                }
+            });
             return;
         }
         // The view covers the window below the bar, in window pixels.
@@ -63,11 +81,7 @@ public class EditorScreen extends Screen {
         // Only the bar shows; the web view covers everything below it.
         graphics.fill(0, 0, width, BAR, 0xFF1A1E26);
         graphics.fill(0, BAR - 1, width, BAR, 0xFF2F3542);
-        if (Minecraft.getInstance().getWindow().isFullscreen()) {
-            graphics.fill(0, BAR, width, height, 0xFF12151B);
-            graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen"), width / 2, height / 2 - 6, 0xE3E7EF);
-            graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen_hint"), width / 2, height / 2 + 6, 0xA0A0A0);
-        } else if (!WebView2Host.shown()) {
+        if (!WebView2Host.shown() || Minecraft.getInstance().getWindow().isFullscreen()) {
             graphics.fill(0, BAR, width, height, 0xFF12151B);
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_loading"), width / 2, height / 2, 0xA0A0A0);
         }
@@ -89,6 +103,8 @@ public class EditorScreen extends Screen {
     @Override
     public void removed() {
         WebView2Host.hide();
+        // Back to exclusive fullscreen if the editor had swapped it for borderless.
+        Borderless.leave(true);
     }
 
     @Override

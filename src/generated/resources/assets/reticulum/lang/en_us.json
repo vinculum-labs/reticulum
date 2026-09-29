@@ -146,8 +146,6 @@
   "screen.reticulum.editor": "Reticulum editor",
   "screen.reticulum.editor_browser": "Open in browser",
   "screen.reticulum.editor_close": "Close",
-  "screen.reticulum.editor_fullscreen": "The editor can't show over fullscreen",
-  "screen.reticulum.editor_fullscreen_hint": "Press F11 for windowed mode, or use Open in browser",
   "screen.reticulum.editor_loading": "Starting the editor…",
   "screen.reticulum.empty_side": "-",
   "screen.reticulum.facade": "Facade",
