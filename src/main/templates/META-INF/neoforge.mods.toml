@@ -49,5 +49,45 @@ config="${mod_id}.mixins.json"
     ordering="NONE"
     side="BOTH"
 
+# Optional integrations. Each works without the others; a version outside its range is refused at startup with a clear
+# message instead of crashing later. The lower bounds are the APIs these integrations are built against.
+
+# Chemicals as one type (gases, infusion types, pigments and slurries unified) arrived in Mekanism 10.7.
+[[dependencies.${mod_id}]]
+    modId="mekanism"
+    type="optional"
+    versionRange="[10.7,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="ae2"
+    type="optional"
+    versionRange="[19.0,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="jei"
+    type="optional"
+    versionRange="[19.0,)"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.${mod_id}]]
+    modId="jade"
+    type="optional"
+    versionRange="[15.0,)"
+    ordering="NONE"
+    side="BOTH"
+
+# The One Probe's versions ("1.21_neo-12.0.8-10") don't compare cleanly as a range, so any version is accepted.
+[[dependencies.${mod_id}]]
+    modId="theoneprobe"
+    type="optional"
+    versionRange="*"
+    ordering="NONE"
+    side="BOTH"
+
 #[features.${mod_id}]
 #openGLVersion="[3.2,)"
