@@ -2,6 +2,7 @@
   import { app, edit, deviceName, toast } from "../lib/state.svelte";
   import { posKey, type Sheet } from "../lib/types";
   import DeviceIcon from "./DeviceIcon.svelte";
+  import IdentifyBadge from "./IdentifyBadge.svelte";
   import FilterField from "./inspector/FilterField.svelte";
 
   const snapshot = $derived(app.snapshot!);
@@ -228,6 +229,7 @@
           >
             <DeviceIcon item={d.icon} />
             <span class="min-w-0 flex-1 truncate" style={d.state !== "active" ? "color: var(--muted)" : ""}>{deviceName(d)}</span>
+            <IdentifyBadge device={d} />
             {#if d.state !== "active"}<span class="text-xs" style="color: var(--warn)">{d.state}</span>
             {:else if d.outOfRange}<span class="text-xs" style="color: var(--warn)" title="Only wireless connectors the antenna doesn't reach reach it">out of range</span>{/if}
           </button>

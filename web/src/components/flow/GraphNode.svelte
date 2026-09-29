@@ -20,6 +20,7 @@
   } from "../../lib/kinds";
   import { app, deviceName } from "../../lib/state.svelte";
   import DeviceIcon from "../DeviceIcon.svelte";
+  import IdentifyBadge from "../IdentifyBadge.svelte";
 
   let { id, data, selected }: { id: string; data: NodeData; selected?: boolean } = $props();
   const updateInternals = useUpdateNodeInternals();
@@ -127,6 +128,7 @@
       </div>
       {#if redstone}<div class="truncate" style="font-size: 10px; color: var(--c-signal)" title={redstone}>⚡ {redstone}</div>{/if}
     </div>
+    {#if data.device}<IdentifyBadge device={data.device} />{/if}
   </div>
   {#if pinned}
     <div class="grid grid-cols-2 gap-2" style="height: {rows * ROW}px; font-size: 10px">

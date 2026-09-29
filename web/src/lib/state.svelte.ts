@@ -309,6 +309,12 @@ export function isIdentified(target: Identify): boolean {
   return (app.snapshot?.identified ?? []).some((x) => sameIdentify(x, target));
 }
 
+/** Every identify on a device or one of its faces. */
+export function deviceIdentifies(device: Device): Identify[] {
+  const key = posKey(device.pos);
+  return (app.snapshot?.identified ?? []).filter((x) => x.kind !== "connector" && x.device && posKey(x.device) === key);
+}
+
 /** Lights a connector, device or face up in the world (or turns it off); a color picks its color. */
 export function setIdentify(target: Identify, on: boolean, color?: number) {
   const { label: _label, color: _color, ...bare } = target;
