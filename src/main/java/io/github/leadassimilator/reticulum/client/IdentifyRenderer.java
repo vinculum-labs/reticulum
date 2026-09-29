@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.OptionalDouble;
 
 import org.joml.Matrix4f;
+import org.lwjgl.opengl.GL11;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -49,7 +52,7 @@ public final class IdentifyRenderer {
                     .setOutputState(RenderStateShard.ITEM_ENTITY_TARGET)
                     .setWriteMaskState(RenderStateShard.COLOR_WRITE)
                     .setCullState(RenderStateShard.NO_CULL)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
+                    .setDepthTestState(States.NO_DEPTH)
                     .createCompositeState(false));
     /** Translucent quads that ignore depth, for a highlighted face. */
     private static final RenderType QUADS_THROUGH_WALLS = RenderType.create("reticulum_identify_quads", DefaultVertexFormat.POSITION_COLOR,
@@ -57,9 +60,39 @@ public final class IdentifyRenderer {
                     .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
                     .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
                     .setCullState(RenderStateShard.NO_CULL)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
+                    .setDepthTestState(States.NO_DEPTH)
                     .setWriteMaskState(RenderStateShard.COLOR_WRITE)
                     .createCompositeState(false));
+
+    /** Only subclasses may name some render state classes. Never instantiated. */
+    private abstract static class States extends RenderType {
+        /**
+         * Depth testing really off. Vanilla's NO_DEPTH_TEST leaves whatever state came before it, which during level
+         * rendering is usually on, so lines under a surface (a box's bottom edges on the ground) were hidden.
+         */
+        static final DepthTestStateShard NO_DEPTH = new DepthTestStateShard("reticulum_no_depth", GL11.GL_ALWAYS) {
+            private boolean wasEnabled;
+
+            @Override
+            public void setupRenderState() {
+                wasEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+                RenderSystem.disableDepthTest();
+            }
+
+            @Override
+            public void clearRenderState() {
+                if (wasEnabled) {
+                    RenderSystem.enableDepthTest();
+                }
+            }
+        };
+
+        private States() {
+            super("", DefaultVertexFormat.POSITION, VertexFormat.Mode.QUADS, 0, false, false, () -> {
+            }, () -> {
+            });
+        }
+    }
 
     private static List<Payloads.IdentifyMarker> markers = List.of();
 
