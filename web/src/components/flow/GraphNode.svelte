@@ -71,10 +71,15 @@
   const redstone = $derived(redstoneSummary(data.node.redstone));
   const HEADER = $derived(BASE_HEADER + (redstone ? 13 : 0));
   const rows = $derived(Math.max(leftRows.length, rightRows.length, 1));
+  /**
+   * Hovering this card. "Last moved … ago" counts up every second on every node, so it is read only while its tooltip
+   * can show: tied to it always, every card would redraw once a second on an idle network.
+   */
+  let hovered = $state(false);
   const idleTitle = $derived(
     [
       data.fiveMinutes > 0 ? `Average over 5 min: ${formatAverage(data.fiveMinutes, data.resource, app.rateUnit)}` : "Nothing moved in the last 5 min",
-      data.ticksSinceMoved !== undefined ? `Last moved ${formatAgo(data.ticksSinceMoved)}` : "Never moved",
+      !hovered ? "" : app.ticksSinceMoved[id] !== undefined ? `Last moved ${formatAgo(app.ticksSinceMoved[id])}` : "Never moved",
       data.status ? `Last attempt: ${STATUS_LABEL[data.status] ?? data.status}` : "",
     ]
       .filter(Boolean)
@@ -121,7 +126,14 @@
     {/if}
     <div class="min-w-0 flex-1 leading-tight">
       <div class="truncate font-medium" style="font-size: 12px" title={title}>{title}</div>
-      <div class="truncate muted" style="font-size: 10px" title={signal ? summary(data.node, app.rateUnit) : idleTitle}>
+      <div
+        class="truncate muted"
+        style="font-size: 10px"
+        title={signal ? summary(data.node, app.rateUnit) : idleTitle}
+        role="note"
+        onpointerenter={() => (hovered = true)}
+        onpointerleave={() => (hovered = false)}
+      >
         {#if signal}
           <span class="tabular-nums" style="color: {(data.signal ?? 0) > 0 ? color : 'var(--muted)'}">{data.signal ?? 0}</span>
           · {summary(data.node, app.rateUnit)}

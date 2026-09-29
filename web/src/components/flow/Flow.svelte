@@ -38,7 +38,6 @@
     const activity = {
       rates: app.rates,
       fiveMinutes: app.fiveMinutes,
-      ticksSinceMoved: app.ticksSinceMoved,
       status: app.status,
       signals: app.signals,
       me: app.me,

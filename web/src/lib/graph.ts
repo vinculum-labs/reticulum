@@ -13,8 +13,6 @@ export interface NodeData extends Record<string, unknown> {
   rate: number;
   /** Moved over the last 5 minutes. */
   fiveMinutes: number;
-  /** Ticks since it last moved, if it ever did. */
-  ticksSinceMoved?: number;
   /** Why it moved nothing on its last attempt. */
   status?: string;
   /** For a sub-sheet node: the sheet it copies and its pin names. */
@@ -27,7 +25,6 @@ export interface NodeData extends Record<string, unknown> {
 export interface Activity {
   rates: Record<string, number>;
   fiveMinutes: Record<string, number>;
-  ticksSinceMoved: Record<string, number>;
   status: Record<string, string>;
   signals: Record<string, number>;
   me: Record<string, MeUsage>;
@@ -162,7 +159,6 @@ export function toFlow(
         resource: kinds.nodes.get(n.id) ?? null,
         rate: rates[n.id] ?? 0,
         fiveMinutes: activity.fiveMinutes[n.id] ?? 0,
-        ticksSinceMoved: activity.ticksSinceMoved[n.id],
         status: activity.status[n.id],
         subsheet,
         signal: isSignal(s.kind) ? (activity.signals[n.id] ?? 0) : undefined,
