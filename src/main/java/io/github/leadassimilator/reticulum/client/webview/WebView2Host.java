@@ -228,6 +228,8 @@ public final class WebView2Host {
 
     /** Brings the view in line with what was asked for: page, bounds, visibility and focus. */
     private static void apply() {
+        // GLFW rebuilds the window's style when it enters or leaves fullscreen, dropping WS_CLIPCHILDREN.
+        clipChildren();
         if (pendingUrl != null) {
             call(webview, WV_NAVIGATE, new WString(pendingUrl));
             pendingUrl = null;
