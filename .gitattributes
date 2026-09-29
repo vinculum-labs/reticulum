@@ -1,2 +1,13 @@
-src/generated/**/.cache/* text eol=lf
-src/generated/**/*.json text eol=lf
+# Line endings: LF in the repository and in working copies on every system, so diffs stay clean between Windows,
+# macOS and Linux whatever each editor writes. Windows batch files keep CRLF, which cmd.exe needs.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never touched as text.
+*.png binary
+*.jpg binary
+*.jar binary
+*.dll binary
+*.nbt binary
+*.ogg binary
