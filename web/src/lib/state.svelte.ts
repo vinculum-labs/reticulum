@@ -29,12 +29,11 @@ function storedRateUnit(): RateUnit {
   }
 }
 
-/** How wires are drawn between pins (Svelte Flow's edge types). */
-export type WireStyle = "default" | "smoothstep" | "step" | "straight" | "simplebezier";
+/** How wires are drawn between pins: Svelte Flow's built-in edge types. */
+export type WireStyle = "default" | "smoothstep" | "step" | "straight";
 
 export const WIRE_STYLE_LABEL: Record<WireStyle, string> = {
   default: "Curved",
-  simplebezier: "Gentle",
   smoothstep: "Rounded",
   step: "Square",
   straight: "Straight",
