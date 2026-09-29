@@ -128,16 +128,9 @@ async function onMessage(m: any): Promise<void> {
       break;
     case "metrics":
       if (m.network === app.current) {
-        app.rates = m.perSecond;
-        app.fiveMinutes = m.fiveMinutes ?? {};
-        app.ticksSinceMoved = m.ticksSinceMoved ?? {};
-        app.status = m.status ?? {};
-        app.signals = m.signals ?? {};
-        app.networkSignals = m.networkSignals ?? {};
-        app.sheetsOff = m.sheetsOff ?? [];
-        app.me = m.me ?? {};
-        app.power = m.power ?? null;
-        app.tick = m.tick ?? null;
+        // Held while a node is being dragged, so the drag isn't interrupted by redraws; the latest is applied on drop.
+        if (holdingMetrics) pendingMetrics = m;
+        else applyMetrics(m);
       }
       break;
     case "removed":
@@ -148,6 +141,42 @@ async function onMessage(m: any): Promise<void> {
       }
       await loadNetworks(null);
       break;
+  }
+}
+
+let holdingMetrics = false;
+let pendingMetrics: any = null;
+
+/** Holds metrics updates (while dragging) or releases them, applying the newest one held. */
+export function holdMetrics(hold: boolean) {
+  holdingMetrics = hold;
+  if (!hold && pendingMetrics) {
+    const m = pendingMetrics;
+    pendingMetrics = null;
+    if (m.network === app.current) applyMetrics(m);
+  }
+}
+
+/** Replaces a piece of state only when its contents changed, so what reads it doesn't redo its work for nothing. */
+function changed(current: unknown, next: unknown): boolean {
+  return current !== next && JSON.stringify(current) !== JSON.stringify(next);
+}
+
+function applyMetrics(m: any) {
+  const next = {
+    rates: m.perSecond ?? {},
+    fiveMinutes: m.fiveMinutes ?? {},
+    ticksSinceMoved: m.ticksSinceMoved ?? {},
+    status: m.status ?? {},
+    signals: m.signals ?? {},
+    networkSignals: m.networkSignals ?? {},
+    sheetsOff: m.sheetsOff ?? [],
+    me: m.me ?? {},
+    power: m.power ?? null,
+    tick: m.tick ?? null,
+  };
+  for (const key of Object.keys(next) as (keyof typeof next)[]) {
+    if (changed(app[key], next[key])) (app as any)[key] = next[key];
   }
 }
 

@@ -13,7 +13,7 @@
     type Node,
     type Connection,
   } from "@xyflow/svelte";
-  import { app, currentSheet, deviceAt, edit, toast, uuid } from "../../lib/state.svelte";
+  import { app, currentSheet, deviceAt, edit, toast, uuid, holdMetrics } from "../../lib/state.svelte";
   import { handleIndex, pinResource, toFlow, type NodeData } from "../../lib/graph";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Wire } from "../../lib/types";
@@ -178,13 +178,19 @@
 
   async function dragStop({ nodes: moved }: { nodes: Node[] }) {
     dragging = false;
-    if (!sheet || moved.length === 0) return;
+    if (!sheet || moved.length === 0) {
+      holdMetrics(false);
+      return;
+    }
     const positions = moved.map((n) => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) }));
     const before = moved.map((n) => {
       const node = nodeOf(n.id);
       return { id: n.id, x: node?.x ?? 0, y: node?.y ?? 0 };
     });
     await edit([{ type: "moveNodes", sheet: sheet.id, positions }], [{ type: "moveNodes", sheet: sheet.id, positions: before }], "move");
+    // Only now: held metrics applied before the move is saved would rebuild the canvas from the old positions, and
+    // the node would jump back for a moment.
+    holdMetrics(false);
   }
 
   function offered(device: Device): Resource {
@@ -301,7 +307,10 @@
     onconnect={connect}
     isValidConnection={validConnection}
     ondelete={remove}
-    onnodedragstart={() => (dragging = true)}
+    onnodedragstart={() => {
+      dragging = true;
+      holdMetrics(true);
+    }}
     onnodedragstop={dragStop}
     onnodeclick={nodeClick}
     proOptions={{ hideAttribution: true }}
