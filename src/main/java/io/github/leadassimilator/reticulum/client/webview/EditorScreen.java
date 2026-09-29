@@ -57,7 +57,7 @@ public class EditorScreen extends Screen {
         // Only the bar shows; the web view covers everything below it.
         graphics.fill(0, 0, width, BAR, 0xFF1A1E26);
         graphics.fill(0, BAR - 1, width, BAR, 0xFF2F3542);
-        if (!WebView2Host.ready()) {
+        if (!WebView2Host.shown()) {
             graphics.fill(0, BAR, width, height, 0xFF12151B);
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_loading"), width / 2, height / 2, 0xA0A0A0);
         }

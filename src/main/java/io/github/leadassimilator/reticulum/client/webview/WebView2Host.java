@@ -52,6 +52,7 @@ public final class WebView2Host {
     private static final int CTL_GET_CORE_WEBVIEW2 = 25;
     // ICoreWebView2
     private static final int WV_NAVIGATE = 5;
+    private static final int WV_ADD_NAVIGATION_COMPLETED = 15;
 
     private enum State { NONE, CREATING, READY, FAILED }
 
@@ -66,6 +67,11 @@ public final class WebView2Host {
     @Nullable
     private static String pendingUrl;
     private static boolean visible;
+    /**
+     * Whether the page has finished its first load. Until then the view stays hidden and the game draws a placeholder:
+     * shown earlier, it flashes the game through (nothing painted yet) and then WebView2's own default background.
+     */
+    private static boolean loaded;
     private static int[] bounds = {0, 0, 1, 1};
 
     // COM callback objects, kept reachable for as long as native code may call them.
@@ -73,6 +79,8 @@ public final class WebView2Host {
     private static ComHandler environmentHandler;
     @SuppressWarnings("unused")
     private static ComHandler controllerHandler;
+    @SuppressWarnings("unused")
+    private static ComHandler navigationHandler;
 
     private WebView2Host() {
     }
@@ -84,6 +92,11 @@ public final class WebView2Host {
 
     public static boolean ready() {
         return state == State.READY;
+    }
+
+    /** Ready and the page has loaded, so the view is on screen when asked to be. */
+    public static boolean shown() {
+        return state == State.READY && loaded;
     }
 
     /** Shows the view over the game at these window pixels, loading {@code url} (null keeps the current page). */
@@ -139,6 +152,7 @@ public final class WebView2Host {
         environment = null;
         state = State.NONE;
         visible = false;
+        loaded = false;
     }
 
     // ---------------------------------------------------------------- creation
@@ -156,14 +170,14 @@ public final class WebView2Host {
             Path gameDir = Minecraft.getInstance().gameDirectory.toPath().toAbsolutePath().normalize().resolve("reticulum");
             Path profile = Files.createDirectories(gameDir.resolve("webview2-profile"));
             NativeLibrary loader = NativeLibrary.getInstance(extractLoader(gameDir.resolve("webview2")).toString());
-            environmentHandler = new ComHandler((self, result, created) -> {
+            environmentHandler = new ComHandler((Completed) (self, result, created) -> {
                 if (result < 0 || created == null) {
                     fail("creating the WebView2 environment", result);
                     return S_OK;
                 }
                 addRef(created);
                 environment = created;
-                controllerHandler = new ComHandler((self2, result2, made) -> {
+                controllerHandler = new ComHandler((Completed) (self2, result2, made) -> {
                     onController(result2, made);
                     return S_OK;
                 });
@@ -196,6 +210,14 @@ public final class WebView2Host {
         PointerByReference core = new PointerByReference();
         call(controller, CTL_GET_CORE_WEBVIEW2, core);
         webview = core.getValue();
+        navigationHandler = new ComHandler((Event) (self, sender, args) -> {
+            if (!loaded) {
+                loaded = true;
+                apply();
+            }
+            return S_OK;
+        });
+        call(webview, WV_ADD_NAVIGATION_COMPLETED, navigationHandler.pointer(), new Memory(8));
         state = State.READY;
         apply();
     }
@@ -207,8 +229,8 @@ public final class WebView2Host {
             pendingUrl = null;
         }
         call(controller, CTL_PUT_BOUNDS, rect());
-        call(controller, CTL_PUT_IS_VISIBLE, visible ? 1 : 0);
-        if (visible) {
+        call(controller, CTL_PUT_IS_VISIBLE, visible && loaded ? 1 : 0);
+        if (visible && loaded) {
             // COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC
             call(controller, CTL_MOVE_FOCUS, 0);
         }
@@ -295,6 +317,11 @@ public final class WebView2Host {
         int invoke(Pointer self, int result, Pointer created);
     }
 
+    /** The Invoke of a WebView2 event handler: (this, sender, event args). */
+    interface Event extends Callback {
+        int invoke(Pointer self, Pointer sender, Pointer args);
+    }
+
     interface QueryInterface extends Callback {
         int invoke(Pointer self, Pointer iid, Pointer out);
     }
@@ -316,9 +343,9 @@ public final class WebView2Host {
         };
         private final RefCount addRef = self -> 1;
         private final RefCount release = self -> 1;
-        private final Completed invoke;
+        private final Callback invoke;
 
-        ComHandler(Completed invoke) {
+        ComHandler(Callback invoke) {
             this.invoke = invoke;
             vtable.setPointer(0, CallbackReference.getFunctionPointer(queryInterface));
             vtable.setPointer(Native.POINTER_SIZE, CallbackReference.getFunctionPointer(addRef));
