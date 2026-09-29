@@ -1,7 +1,7 @@
 <script lang="ts">
   import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
   import Lightbulb from "@lucide/svelte/icons/lightbulb";
-  import Play from "@lucide/svelte/icons/play";
+  import Play from "@lucide/svelte/icons/circle-play";
   import Stop from "@lucide/svelte/icons/circle-stop";
   import Redo from "@lucide/svelte/icons/redo-2";
   import Settings from "@lucide/svelte/icons/settings";
