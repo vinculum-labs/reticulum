@@ -257,6 +257,13 @@ public final class WebApi {
             MinecraftServer server = player.server;
             String type = string(edit, "type");
             switch (type) {
+                case "importSheet" -> {
+                    // A sheet pasted as JSON (from another world, say): new ids, the same devices by position.
+                    Sheet pasted = decode(server, Sheet.CODEC, edit.get("sheet"), "sheet");
+                    Sheet sheet = pasted.copyWithNewIds(pasted.name());
+                    network.sheets().add(sheet);
+                    return new com.google.gson.JsonPrimitive(sheet.id().toString());
+                }
                 case "createSheet" -> {
                     Sheet sheet = new Sheet(UUID.randomUUID(), string(edit, "name"));
                     network.sheets().add(sheet);

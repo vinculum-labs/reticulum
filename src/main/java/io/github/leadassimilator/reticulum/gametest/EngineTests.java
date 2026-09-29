@@ -519,6 +519,22 @@ public final class EngineTests {
         });
     }
 
+    @GameTest(template = "empty")
+    public static void importedSheetsGetNewIdsAndKeepTheirWires(GameTestHelper helper) {
+        Sheet sheet = new Sheet(UUID.randomUUID(), "exported");
+        Node a = sheet.add(Node.of(new NodeSettings.FilterSettings("iron_ingot")));
+        Node b = sheet.add(Node.of(new NodeSettings.RateLimitSettings(20)));
+        sheet.connect(new Wire(UUID.randomUUID(), a.id(), Wire.REJECT, b.id(), 0, 0));
+        String json = Sheet.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, sheet).getOrThrow().toString();
+        Sheet pasted = Sheet.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, com.google.gson.JsonParser.parseString(json)).getOrThrow();
+        Sheet copy = pasted.copyWithNewIds(pasted.name());
+        check(helper, !copy.id().equals(sheet.id()) && copy.nodes().size() == 2 && copy.wires().size() == 1, "copy lost parts");
+        check(helper, copy.nodes().stream().noneMatch(n -> n.id().equals(a.id()) || n.id().equals(b.id())), "nodes kept their old ids");
+        Wire wire = copy.wires().getFirst();
+        check(helper, copy.node(wire.from()) != null && copy.node(wire.to()) != null && wire.output() == Wire.REJECT, "wire not remapped onto the new nodes");
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------- orphans
 
     @GameTest(template = "empty")

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, edit } from "../../lib/state.svelte";
+  import { app, edit, toast } from "../../lib/state.svelte";
   import type { Sheet } from "../../lib/types";
   import Field from "./Field.svelte";
   import RedstoneEditor from "./RedstoneEditor.svelte";
@@ -9,6 +9,16 @@
   const snapshot = $derived(app.snapshot!);
   const canEdit = $derived(snapshot.canEdit);
   const orphans = $derived(snapshot.devices.filter((d) => d.state !== "active").length);
+
+  async function copyJson() {
+    const { errors: _errors, ...plain } = sheet;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(plain, null, 2));
+      toast("Copied. Paste it into “Import sheet…” here or in another world.", "info");
+    } catch {
+      toast("Couldn't reach the clipboard.");
+    }
+  }
 
   function update(patch: Record<string, unknown>, before: Record<string, unknown>, label: string) {
     edit([{ type: "updateSheet", sheet: sheet.id, ...patch }], [{ type: "updateSheet", sheet: sheet.id, ...before }], label);
@@ -91,6 +101,7 @@
       <span class="block text-xs muted">It stops running on its own; other sheets place it as a node. Add Sheet input and Sheet output nodes for its pins.</span>
     </span>
   </label>
+  <button class="btn self-start text-sm" onclick={copyJson} title="To paste into “Import sheet…” here or in another world">Copy as JSON</button>
   {#if sheet.errors?.length}
     <div class="rounded-md border p-2 text-sm" style="border-color: var(--bad)">
       {#each sheet.errors as error}<div>{error}</div>{/each}

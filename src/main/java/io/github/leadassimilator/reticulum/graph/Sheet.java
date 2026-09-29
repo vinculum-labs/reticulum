@@ -71,6 +71,32 @@ public final class Sheet {
         return name;
     }
 
+    /**
+     * A copy of a sheet (e.g. pasted from another world) with new ids for itself, its nodes and its wires, so it can
+     * sit beside the original. Device references stay as they are.
+     */
+    public Sheet copyWithNewIds(String name) {
+        Sheet copy = new Sheet(UUID.randomUUID(), name);
+        copy.setFolder(folder);
+        copy.setEnabled(enabled);
+        copy.setInterval(interval);
+        copy.priority = priority;
+        copy.setSubsheet(subsheet);
+        copy.setRedstone(redstone);
+        java.util.Map<UUID, UUID> ids = new java.util.HashMap<>();
+        for (Node node : nodes) {
+            UUID id = UUID.randomUUID();
+            ids.put(node.id(), id);
+            copy.add(node.withId(id));
+        }
+        for (Wire wire : wires) {
+            if (ids.containsKey(wire.from()) && ids.containsKey(wire.to())) {
+                copy.connect(new Wire(UUID.randomUUID(), ids.get(wire.from()), wire.output(), ids.get(wire.to()), wire.input(), wire.order()));
+            }
+        }
+        return copy;
+    }
+
     public void setName(String name) {
         this.name = name;
         touch();

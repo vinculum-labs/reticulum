@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, edit, deviceName } from "../lib/state.svelte";
+  import { app, edit, deviceName, toast } from "../lib/state.svelte";
   import { posKey, type Sheet } from "../lib/types";
   import DeviceIcon from "./DeviceIcon.svelte";
   import FilterField from "./inspector/FilterField.svelte";
@@ -27,6 +27,24 @@
     newSheet = "";
     const results = await edit([{ type: "createSheet", name }]);
     if (results?.[0]) app.sheetId = results[0] as string;
+  }
+
+  /** Pastes a sheet copied with "Copy as JSON" (from this or another world) as a new sheet. */
+  async function importSheet() {
+    const text = prompt("Paste a sheet copied with “Copy as JSON”:");
+    if (!text?.trim()) return;
+    let sheet: unknown;
+    try {
+      sheet = JSON.parse(text);
+    } catch {
+      toast("That isn't a copied sheet (not JSON).");
+      return;
+    }
+    const results = await edit([{ type: "importSheet", sheet }]);
+    if (results?.[0]) {
+      app.sheetId = results[0] as string;
+      toast("Imported. Devices from another world show as offline until you pick local ones for them.", "info");
+    }
   }
 
   function renameSheet(sheet: Sheet, name: string) {
@@ -183,6 +201,7 @@
         <input class="flex-1" placeholder="New sheet" bind:value={newSheet} />
         <button class="btn" type="submit">Add</button>
       </form>
+      <button class="btn mt-2 text-sm" onclick={importSheet} title="Paste a sheet copied with “Copy as JSON”">Import sheet…</button>
     {/if}
   </section>
 
