@@ -95,6 +95,20 @@ public class ModLanguage extends LanguageProvider {
         add("lookat.reticulum.face", "Face: %s");
         add("lookat.reticulum.state.orphaned", "Orphaned: no connector reaches it");
         add("lookat.reticulum.state.missing", "Missing");
+        add("lookat.reticulum.reach.wired", "Cabled to the controller");
+        add("lookat.reticulum.reach.wireless", "Wireless: in the antenna's reach");
+        add("lookat.reticulum.reach.out_of_range", "Wireless: out of the antenna's reach");
+        add("lookat.reticulum.device_out_of_range", "Offline: its connector is out of the antenna's reach");
+        add("lookat.reticulum.redstone_out", "Redstone out: %s");
+        add("lookat.reticulum.redstone_in", "Redstone from the network: %s");
+        add("lookat.reticulum.identified", "Identified");
+        add("lookat.reticulum.identifies", "Identified: %s");
+        add("lookat.reticulum.antenna_none", "No antenna: cabled connectors only");
+        add("lookat.reticulum.antenna_1", "Antenna reach: %s blocks");
+        add("lookat.reticulum.antenna_2", "Antenna reach: this dimension");
+        add("lookat.reticulum.antenna_3", "Antenna reach: every dimension");
+        add("lookat.reticulum.power", "Energy: %s / %s FE");
+        add("lookat.reticulum.no_power", "No power: %s / %s FE");
         add("config.jade.plugin_reticulum.network_info", "Reticulum network info");
 
         add("reticulum.configuration.title", "Reticulum");
