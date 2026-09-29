@@ -59,12 +59,12 @@ public final class FacadeItemModel extends BakedModelWrapper<BakedModel> {
             if (FacadeItem.state(stack) == null) {
                 return false;
             }
-            // Half size (4x4 GUI pixels, still sharp at larger GUI scales) and partly see-through over the block.
+            // Three-quarter size (6x6 GUI pixels, still sharp at larger GUI scales) and half see-through over the block.
             graphics.pose().pushPose();
             graphics.pose().translate(x, y, 200);
-            graphics.pose().scale(0.5f, 0.5f, 1f);
+            graphics.pose().scale(0.75f, 0.75f, 1f);
             com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-            graphics.setColor(1f, 1f, 1f, 0.7f);
+            graphics.setColor(1f, 1f, 1f, 0.5f);
             graphics.blit(BADGE, 0, 0, 0, 0, 8, 8, 8, 8);
             graphics.setColor(1f, 1f, 1f, 1f);
             com.mojang.blaze3d.systems.RenderSystem.disableBlend();
