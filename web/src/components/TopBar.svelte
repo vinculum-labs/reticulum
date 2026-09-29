@@ -16,6 +16,22 @@
     }
   }
   const power = $derived(app.power ?? app.snapshot?.power);
+
+  /** How long the saving dot stays once lit, so a quick save shows as a calm blip instead of a flicker. */
+  const SAVING_MIN_MS = 1000;
+  let saving = $state(false);
+  let savingSince = 0;
+  let savingTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => {
+    if (app.busy > 0) {
+      clearTimeout(savingTimer);
+      if (!saving) savingSince = Date.now();
+      saving = true;
+    } else if (saving) {
+      clearTimeout(savingTimer);
+      savingTimer = setTimeout(() => (saving = false), Math.max(0, savingSince + SAVING_MIN_MS - Date.now()));
+    }
+  });
 </script>
 
 <header class="flex items-center gap-3 border-b px-3 py-2" style="background: var(--panel); border-color: var(--line)">
@@ -78,8 +94,8 @@
   {/if}
   <!-- Saving shows as a dot beside the connection status rather than replacing it: changing that text's length
        (on every node move) shifted every button in the bar. -->
-  <span class="flex shrink-0 items-center gap-1.5 text-sm muted" title={app.busy > 0 ? "Saving…" : "Connection to the game"}>
-    <span class="saving-dot" class:on={app.busy > 0}></span>
+  <span class="flex shrink-0 items-center gap-1.5 text-sm muted" title={saving ? "Saving…" : "Connection to the game"}>
+    <span class="saving-dot" class:on={saving}></span>
     {app.inWorld ? app.player : app.socketOpen ? "Not in a world" : "Offline"}
   </span>
 </header>
@@ -91,7 +107,7 @@
     border-radius: 50%;
     background: var(--accent);
     opacity: 0;
-    transition: opacity 150ms;
+    transition: opacity 400ms;
   }
   .saving-dot.on {
     opacity: 1;
