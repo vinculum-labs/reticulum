@@ -276,7 +276,7 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
       return `${ins} input${ins === 1 ? "" : "s"}, ${outs} output${outs === 1 ? "" : "s"}`;
     }
     case "filter":
-      return s.expression || "matches everything";
+      return s.expression || "anything";
     case "rate_limit":
       return unit === "t" ? `${Number((s.per_second / 20).toFixed(2))}/t` : `${s.per_second}/s`;
     case "splitter":

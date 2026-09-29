@@ -165,10 +165,14 @@
       </div>
     </div>
   {:else if kind === "filter"}
-    <div class="truncate px-1.5 pt-0.5 muted" style="font-size: 10px" title={summary(data.node, app.rateUnit)}>{summary(data.node, app.rateUnit)}</div>
-    <div class="flex flex-col text-right" style="font-size: 10px">
-      <div class="pr-2" style="height: {ROW}px; line-height: {ROW}px; color: var(--good)">match</div>
-      <div class="pr-2" style="height: {ROW}px; line-height: {ROW}px; color: var(--bad)">other</div>
+    <!-- The filter beside its two outputs (up to two lines, the rest in the tooltip), so they start right under the
+         header instead of a row further down. -->
+    <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2" style="font-size: 10px">
+      <div class="filter-text muted pl-1.5" style="grid-row: span 2; padding-top: 3px" title={summary(data.node, app.rateUnit)}>
+        {summary(data.node, app.rateUnit)}
+      </div>
+      <div class="pr-2 text-right" style="height: {ROW}px; line-height: {ROW}px; color: var(--good)">match</div>
+      <div class="pr-2 text-right" style="height: {ROW}px; line-height: {ROW}px; color: var(--bad)">other</div>
     </div>
   {:else if kind !== "sheet_input" && kind !== "sheet_output"}
     <div class="truncate px-1.5 py-0.5 muted" style="font-size: 10px" title={summary(data.node, app.rateUnit)}>{summary(data.node, app.rateUnit)}</div>
@@ -191,10 +195,21 @@
     <Handle type="target" position={Position.Left} id="in" style={inPin(color)} />
   {/if}
   {#if kind === "filter"}
-    <!-- Aligned with the "match" and "other" rows under the summary line (16px). -->
-    <Handle type="source" position={Position.Right} id="match" style="top: {HEADER + 16 + ROW / 2}px; {outPin('var(--good)')}" />
-    <Handle type="source" position={Position.Right} id="reject" style="top: {HEADER + 16 + ROW + ROW / 2}px; {outPin('var(--bad)')}" />
+    <!-- Aligned with the "match" and "other" rows right under the header. -->
+    <Handle type="source" position={Position.Right} id="match" style="top: {HEADER + ROW / 2}px; {outPin('var(--good)')}" />
+    <Handle type="source" position={Position.Right} id="reject" style="top: {HEADER + ROW + ROW / 2}px; {outPin('var(--bad)')}" />
   {:else if kind !== "sheet_output"}
     <Handle type="source" position={Position.Right} id="out" style={outPin(color)} />
   {/if}
 {/if}
+
+<style>
+  .filter-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
+</style>
