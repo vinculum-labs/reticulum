@@ -152,6 +152,11 @@ img.icon {
   --xy-edge-stroke-selected: var(--accent);
   --xy-connectionline-stroke: var(--accent);
   --xy-minimap-background-color: var(--panel);
+  /* Theme colors instead of Svelte Flow's light-gray defaults: outside the view is dimmed only slightly, nodes are
+     soft blocks, and the view itself gets a thin accent outline (the mask's stroke; see maskStrokeWidth). */
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--bg) 75%, transparent);
+  --xy-minimap-mask-stroke-color: var(--accent);
+  --xy-minimap-node-background-color: color-mix(in srgb, var(--muted) 40%, var(--panel));
   --xy-controls-button-background-color: var(--panel);
   --xy-controls-button-background-color-hover: var(--panel-2);
   --xy-controls-button-color: var(--ink);
@@ -176,4 +181,11 @@ img.icon {
 .svelte-flow .svelte-flow__handle {
   width: 10px;
   height: 10px;
+}
+
+/* A thin, even frame around the minimap. */
+.svelte-flow__minimap {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
 }
