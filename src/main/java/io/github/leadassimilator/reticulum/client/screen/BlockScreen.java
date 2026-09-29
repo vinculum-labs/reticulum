@@ -52,7 +52,7 @@ public class BlockScreen extends Screen {
         int top = Math.max(8, (height - (6 * ROW + 90)) / 2);
         int y = top + 24;
         if (view.connector()) {
-            connectorName = new EditBox(font, left + 90, y, WIDTH - 90, 18, Component.translatable("screen.reticulum.connector_name"));
+            connectorName = new SeeThroughTextBox(font, left + 90, y, WIDTH - 90, 18, Component.translatable("screen.reticulum.connector_name"));
             connectorName.setMaxLength(64);
             connectorName.setValue(view.customName());
             connectorName.setHint(Component.literal(view.defaultName()));
@@ -84,7 +84,7 @@ public class BlockScreen extends Screen {
         int x = left + 80;
         switch (side.kind()) {
             case DEVICE -> {
-                EditBox name = new EditBox(font, x, y, 150, 18, Component.translatable("screen.reticulum.device_name"));
+                EditBox name = new SeeThroughTextBox(font, x, y, 150, 18, Component.translatable("screen.reticulum.device_name"));
                 name.setMaxLength(64);
                 name.setValue(side.customName());
                 name.setHint(Component.literal(side.defaultName()));
@@ -179,6 +179,7 @@ public class BlockScreen extends Screen {
         }
         io.github.leadassimilator.reticulum.client.ScreenHighlight.set(highlight, null);
         super.render(graphics, mouseX, mouseY, partialTick);
+        Compass.render(graphics, font, width - 40, 40, 24);
         int top = rowsTop - (view.connector() ? 50 : 24);
         graphics.drawString(font, title, left, top, 0xFFFFFF);
         Component network = view.networkName().isEmpty()

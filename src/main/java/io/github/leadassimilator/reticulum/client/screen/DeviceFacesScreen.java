@@ -53,7 +53,7 @@ public class DeviceFacesScreen extends Screen {
         Views.SideView device = view.side(side);
         int y = top + 30;
         for (FaceKey face : FaceKey.values()) {
-            EditBox box = new EditBox(font, left + 80, y, WIDTH - 80, 18, Component.translatable("screen.reticulum.face." + face.getSerializedName()));
+            EditBox box = new SeeThroughTextBox(font, left + 80, y, WIDTH - 80, 18, Component.translatable("screen.reticulum.face." + face.getSerializedName()));
             box.setMaxLength(64);
             box.setValue(device.faceName(face));
             box.setHint(Component.translatable("screen.reticulum.face." + face.getSerializedName()));
@@ -118,6 +118,7 @@ public class DeviceFacesScreen extends Screen {
         }
         io.github.leadassimilator.reticulum.client.ScreenHighlight.set(devicePos, focusedFace);
         super.render(graphics, mouseX, mouseY, partialTick);
+        Compass.render(graphics, font, width - 40, 40, 24);
         Views.SideView device = view.side(side);
         graphics.drawString(font, title, left, top, 0xFFFFFF);
         if (!device.icon().isEmpty()) {
