@@ -581,6 +581,27 @@ public final class EngineTests {
         helper.succeed();
     }
 
+    // ---------------------------------------------------------------- saving
+
+    @GameTest(template = "empty")
+    public static void networksLoadedWithoutSettingsDontShareThem(GameTestHelper helper) {
+        // Two networks saved with no switches or overflow of their own (all defaults), then loaded.
+        var ops = net.minecraft.nbt.NbtOps.INSTANCE;
+        java.util.function.Function<String, io.github.leadassimilator.reticulum.network.Network> load = name -> {
+            net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+            tag.putString("id", java.util.UUID.randomUUID().toString());
+            tag.putString("name", name);
+            return io.github.leadassimilator.reticulum.network.Network.CODEC.parse(ops, tag).getOrThrow();
+        };
+        var a = load.apply("A");
+        var b = load.apply("B");
+        a.setEnabled(false);
+        check(helper, b.enabled(), "switching network A off switched B off too");
+        check(helper, a.switches() != b.switches(), "the two networks share one switches object");
+        check(helper, a.overflow() != b.overflow(), "the two networks share one overflow buffer");
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------- editor
 
     @GameTest(template = "empty")

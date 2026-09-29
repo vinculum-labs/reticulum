@@ -36,10 +36,12 @@ public final class Network {
             GlobalPos.CODEC.optionalFieldOf("controller").forGetter(n -> Optional.ofNullable(n.controller)),
             ConnectorRecord.CODEC.listOf().optionalFieldOf("connectors", List.of()).forGetter(n -> List.copyOf(n.connectors.values())),
             DeviceRecord.CODEC.listOf().optionalFieldOf("devices", List.of()).forGetter(n -> List.copyOf(n.devices.values())),
-            Switches.CODEC.optionalFieldOf("switches", new Switches()).forGetter(n -> n.switches),
+            // No default object here: one made once would be shared by every network saved without its own (switch
+            // one off and all of them went off). Each gets a fresh one in the constructor instead.
+            Switches.CODEC.optionalFieldOf("switches").forGetter(n -> Optional.of(n.switches)),
             Sheet.CODEC.listOf().optionalFieldOf("sheets", List.of()).forGetter(n -> List.copyOf(n.sheets)),
             Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("filters", Map.of()).forGetter(n -> n.filters),
-            OverflowBuffer.CODEC.optionalFieldOf("overflow", new OverflowBuffer()).forGetter(n -> n.overflow),
+            OverflowBuffer.CODEC.optionalFieldOf("overflow").forGetter(n -> Optional.of(n.overflow)),
             Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("signal_memory", Map.of()).forGetter(n -> n.signalMemory),
             Ids.lenientList(Identify.CODEC, "identify").optionalFieldOf("identified", List.of()).forGetter(n -> List.copyOf(n.identified))
     ).apply(i, Network::new));
@@ -80,7 +82,7 @@ public final class Network {
 
     private Network(UUID id, String name, Optional<UUID> owner, String ownerName, AccessMode accessMode, Optional<String> passwordHash,
             List<Member> members, Optional<GlobalPos> controller, List<ConnectorRecord> connectors, List<DeviceRecord> devices,
-            Switches switches, List<Sheet> sheets, Map<String, String> filters, OverflowBuffer overflow, Map<String, Long> signalMemory,
+            Optional<Switches> switches, List<Sheet> sheets, Map<String, String> filters, Optional<OverflowBuffer> overflow, Map<String, Long> signalMemory,
             List<Identify> identified) {
         this(id, name, owner.orElse(null), ownerName, accessMode);
         this.passwordHash = passwordHash.orElse(null);
@@ -88,10 +90,10 @@ public final class Network {
         this.controller = controller.orElse(null);
         connectors.forEach(c -> this.connectors.put(c.id(), c));
         devices.forEach(d -> this.devices.put(d.pos(), d));
-        this.switches = switches;
+        this.switches = switches.orElseGet(Switches::new);
         this.sheets.addAll(sheets);
         this.filters.putAll(filters);
-        this.overflow = overflow;
+        this.overflow = overflow.orElseGet(OverflowBuffer::new);
         this.signalMemory.putAll(signalMemory);
         this.identified.addAll(identified);
     }
