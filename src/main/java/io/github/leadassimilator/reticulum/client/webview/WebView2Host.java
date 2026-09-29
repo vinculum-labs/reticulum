@@ -144,7 +144,10 @@ public final class WebView2Host {
                 throw new IllegalStateException("CoInitializeEx failed: 0x" + Integer.toHexString(hr));
             }
             clipChildren();
-            Path gameDir = Minecraft.getInstance().gameDirectory.toPath().resolve("reticulum");
+            // Absolute: the game folder can be relative ("." in development), and WebView2 would then look for its
+            // folders beside javaw.exe, where it can't write.
+            Path gameDir = Minecraft.getInstance().gameDirectory.toPath().toAbsolutePath().normalize().resolve("reticulum");
+            Path profile = Files.createDirectories(gameDir.resolve("webview2-profile"));
             NativeLibrary loader = NativeLibrary.getInstance(extractLoader(gameDir.resolve("webview2")).toString());
             environmentHandler = new ComHandler((self, result, created) -> {
                 if (result < 0 || created == null) {
@@ -165,7 +168,7 @@ public final class WebView2Host {
             });
             Function createEnvironment = loader.getFunction("CreateCoreWebView2EnvironmentWithOptions");
             // The profile (cookies, so the editor stays logged in) lives in the game folder, not beside javaw.exe.
-            int r = createEnvironment.invokeInt(new Object[] {null, new WString(gameDir.resolve("webview2-profile").toString()), null,
+            int r = createEnvironment.invokeInt(new Object[] {null, new WString(profile.toString()), null,
                     environmentHandler.pointer()});
             if (r < 0) {
                 fail("starting WebView2 (is the WebView2 runtime installed?)", r);
