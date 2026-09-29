@@ -5,6 +5,10 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public final class ReticulumConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
+    static {
+        BUILDER.push("security");
+    }
+
     public static final ModConfigSpec.BooleanValue PROTECT_PRIVATE_BLOCKS = BUILDER
             .comment("Only members may break cables, connectors and controllers of Private networks.")
             .define("protectPrivateBlocks", true);
@@ -17,18 +21,26 @@ public final class ReticulumConfig {
             .comment("How far (in blocks) a player may be from a block to change it through its screen.")
             .defineInRange("maxInteractDistance", 8, 1, 64);
 
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER.push("wireless");
+    }
+
     public static final ModConfigSpec.IntValue ANTENNA_RANGE = BUILDER
             .comment("How far (in blocks) from the controller a tier 1 antenna reaches wireless connectors, in the same dimension.",
                     "Tier 2 reaches the whole dimension, tier 3 every dimension.")
             .defineInRange("antennaRange", 128, 1, 30_000_000);
 
-    public static final ModConfigSpec.DoubleValue ME_ENDPOINT_POWER = BUILDER
-            .comment("AE power (AE/t) each ME endpoint (a connector side facing AE2) draws from its AE2 network.")
-            .defineInRange("meEndpointPower", 1.0, 0.0, 1000.0);
+    static {
+        BUILDER.pop();
+    }
 
-    public static final ModConfigSpec.IntValue IDENTIFY_AUTO_OFF_MINUTES = BUILDER
-            .comment("Minutes after which an identify turns itself off. 0 (the default) keeps it on until someone turns it off.")
-            .defineInRange("identifyAutoOffMinutes", 0, 0, 100_000);
+    static {
+        BUILDER.push("power");
+    }
 
     public static final ModConfigSpec.EnumValue<io.github.leadassimilator.reticulum.engine.Power.Preset> POWER_PRESET = BUILDER
             .comment("What networks cost to run. FREE (the default): nothing. BALANCED: 10 FE/t per network, 2 FE/t per connector,",
@@ -58,6 +70,14 @@ public final class ReticulumConfig {
         return BUILDER.comment(comment).defineInRange(key, balanced, 0, 1_000_000);
     }
 
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER.push("throughput");
+    }
+
     public static final ModConfigSpec.IntValue ENERGY_PER_TICK = BUILDER
             .comment("Most FE one energy route moves per tick. Set above Mekanism's best cables by default.")
             .defineInRange("energyPerTick", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);
@@ -81,6 +101,34 @@ public final class ReticulumConfig {
     public static final ModConfigSpec.IntValue OVERFLOW_CHEMICAL_BUCKETS = BUILDER
             .comment("Buckets per chemical a network's overflow buffer holds before chemical flows pause.")
             .defineInRange("overflowChemicalBuckets", 16, 1, 1_000_000);
+
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER.push("identify");
+    }
+
+    public static final ModConfigSpec.IntValue IDENTIFY_AUTO_OFF_MINUTES = BUILDER
+            .comment("Minutes after which an identify turns itself off. 0 (the default) keeps it on until someone turns it off.")
+            .defineInRange("identifyAutoOffMinutes", 0, 0, 100_000);
+
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER.push("ae2");
+    }
+
+    public static final ModConfigSpec.DoubleValue ME_ENDPOINT_POWER = BUILDER
+            .comment("AE power (AE/t) each ME endpoint (a connector side facing AE2) draws from its AE2 network.")
+            .defineInRange("meEndpointPower", 1.0, 0.0, 1000.0);
+
+    static {
+        BUILDER.pop();
+    }
 
     static final ModConfigSpec SPEC = BUILDER.build();
 

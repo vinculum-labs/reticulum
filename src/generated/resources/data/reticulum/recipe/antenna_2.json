@@ -5,16 +5,19 @@
     "A": {
       "item": "reticulum:antenna_1"
     },
+    "D": {
+      "tag": "c:gems/diamond"
+    },
     "E": {
       "tag": "c:ender_pearls"
     },
     "G": {
-      "tag": "c:ingots/gold"
+      "tag": "c:storage_blocks/gold"
     }
   },
   "pattern": [
     " E ",
-    "GAG",
+    "DAD",
     " G "
   ],
   "result": {

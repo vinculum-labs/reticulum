@@ -11,6 +11,12 @@ public class ModLanguage extends LanguageProvider {
         super(output, Reticulum.MODID, "en_us");
     }
 
+    /** A config section's name and screen title. */
+    private void section(String key, String name) {
+        add("reticulum.configuration." + key, name);
+        add("reticulum.configuration." + key + ".title", name);
+    }
+
     @Override
     protected void addTranslations() {
         add("itemGroup.reticulum", "Reticulum");
@@ -130,6 +136,14 @@ public class ModLanguage extends LanguageProvider {
         add("reticulum.configuration.chemicalPerTick", "Chemical per route per tick");
         add("reticulum.configuration.overflowChemicalBuckets", "Overflow buffer buckets per chemical");
         add("reticulum.configuration.antennaRange", "Tier 1 antenna range");
+        add("reticulum.configuration.meEndpointPower", "AE power per ME endpoint (AE/t)");
+        section("security", "Security");
+        section("wireless", "Wireless");
+        section("power", "Power");
+        section("throughput", "Throughput and overflow");
+        section("identify", "Identify");
+        section("ae2", "Applied Energistics 2");
+        section("webEditor", "Web editor");
 
         // Wireless: antennas, binding connectors, the tool's Link mode and the network picker.
         add(ModItems.ANTENNA_1.get(), "Antenna (Tier 1)");

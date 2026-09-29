@@ -13,7 +13,10 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.common.Tags;
 
-/** Placeholder recipes so the mod is playable in survival; balancing comes in phase 6. */
+/**
+ * Recipes. Cables and connectors are cheap early-game iron and redstone; the controller needs a diamond; each antenna
+ * tier costs more, since tier 2 reaches the whole dimension and tier 3 every dimension.
+ */
 public class ModRecipes extends RecipeProvider {
     public ModRecipes(PackOutput output, CompletableFuture<HolderLookup.Provider> registries) {
         super(output, registries);
@@ -51,13 +54,15 @@ public class ModRecipes extends RecipeProvider {
                 .unlockedBy("has_cable", has(ModItems.CABLE.get()))
                 .save(output);
         ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, ModItems.ANTENNA_2.get())
-                .pattern(" E ").pattern("GAG").pattern(" G ")
-                .define('E', Tags.Items.ENDER_PEARLS).define('G', Tags.Items.INGOTS_GOLD).define('A', ModItems.ANTENNA_1.get())
+                .pattern(" E ").pattern("DAD").pattern(" G ")
+                .define('E', Tags.Items.ENDER_PEARLS).define('D', Tags.Items.GEMS_DIAMOND).define('G', Tags.Items.STORAGE_BLOCKS_GOLD)
+                .define('A', ModItems.ANTENNA_1.get())
                 .unlockedBy("has_antenna", has(ModItems.ANTENNA_1.get()))
                 .save(output);
         ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, ModItems.ANTENNA_3.get())
-                .pattern(" E ").pattern("DAD").pattern(" D ")
-                .define('E', Items.ENDER_EYE).define('D', Tags.Items.GEMS_DIAMOND).define('A', ModItems.ANTENNA_2.get())
+                .pattern(" E ").pattern("OAO").pattern(" N ")
+                .define('E', Items.ENDER_EYE).define('O', Items.CRYING_OBSIDIAN).define('N', Tags.Items.INGOTS_NETHERITE)
+                .define('A', ModItems.ANTENNA_2.get())
                 .unlockedBy("has_antenna", has(ModItems.ANTENNA_2.get()))
                 .save(output);
     }

@@ -5,17 +5,20 @@
     "A": {
       "item": "reticulum:antenna_2"
     },
-    "D": {
-      "tag": "c:gems/diamond"
-    },
     "E": {
       "item": "minecraft:ender_eye"
+    },
+    "N": {
+      "tag": "c:ingots/netherite"
+    },
+    "O": {
+      "item": "minecraft:crying_obsidian"
     }
   },
   "pattern": [
     " E ",
-    "DAD",
-    " D "
+    "OAO",
+    " N "
   ],
   "result": {
     "count": 1,

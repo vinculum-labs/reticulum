@@ -6,6 +6,10 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public final class ReticulumClientConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
+    static {
+        BUILDER.push("webEditor");
+    }
+
     public static final ModConfigSpec.ConfigValue<String> WEB_ADDRESS = BUILDER
             .comment("Address the web editor listens on. The default, 127.0.0.1, only accepts this computer.",
                     "WARNING: anything else (a LAN address, or 0.0.0.0 / :: for every interface) lets other machines reach",
@@ -27,6 +31,19 @@ public final class ReticulumClientConfig {
                     "each session. Takes effect the next time the game starts.")
             .define("rememberLogin", true);
 
+    public static final ModConfigSpec.BooleanValue KEEP_RUNNING_WHILE_EDITING = BUILDER
+            .comment("While the web editor is open in a browser, don't pause the game when its window loses focus, so",
+                    "singleplayer worlds keep running and the editor shows live throughput. Pressing Esc still pauses.")
+            .define("keepRunningWhileEditing", true);
+
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER.push("identify");
+    }
+
     public static final ModConfigSpec.BooleanValue IDENTIFY_THROUGH_WALLS = BUILDER
             .comment("Draw identified blocks through walls, so they can be found behind other blocks.")
             .define("identifyThroughWalls", true);
@@ -35,10 +52,9 @@ public final class ReticulumClientConfig {
             .comment("Beyond this many blocks, an identified block also gets a beam up to the sky, to find it from far away.")
             .defineInRange("identifyBeamDistance", 32, 0, 100_000);
 
-    public static final ModConfigSpec.BooleanValue KEEP_RUNNING_WHILE_EDITING = BUILDER
-            .comment("While the web editor is open in a browser, don't pause the game when its window loses focus, so",
-                    "singleplayer worlds keep running and the editor shows live throughput. Pressing Esc still pauses.")
-            .define("keepRunningWhileEditing", true);
+    static {
+        BUILDER.pop();
+    }
 
     static final ModConfigSpec SPEC = BUILDER.build();
 
