@@ -122,7 +122,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         // Kept across browser and game restarts (the secret is kept too), so bookmarks and open pages keep working.
-        cookie.setMaxAge(30L * 24 * 60 * 60);
+        cookie.setMaxAge(90L * 24 * 60 * 60);
         cookie.setSameSite(CookieHeaderNames.SameSite.Strict);
         FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.FOUND);
         response.headers().set(HttpHeaderNames.LOCATION, uri.path());
