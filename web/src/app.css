@@ -151,6 +151,7 @@ img.icon {
   --xy-edge-stroke: var(--muted);
   --xy-edge-stroke-selected: var(--accent);
   --xy-connectionline-stroke: var(--accent);
+  --xy-minimap-background-color: var(--panel);
   --xy-controls-button-background-color: var(--panel);
   --xy-controls-button-background-color-hover: var(--panel-2);
   --xy-controls-button-color: var(--ink);
