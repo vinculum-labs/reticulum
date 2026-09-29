@@ -16,12 +16,8 @@
   const device = $derived(app.selectedDevice ? deviceAt(app.selectedDevice) : undefined);
 </script>
 
-<!-- A fixed width that nothing inside may widen (no sideways scrolling), with room kept for the scrollbar so its
-     coming and going (content growing while you drag a node, say) doesn't shift everything sideways. -->
-<aside
-  class="flex w-80 shrink-0 flex-col overflow-x-hidden overflow-y-auto border-l p-3"
-  style="background: var(--panel); border-color: var(--line); scrollbar-gutter: stable"
->
+<!-- A fixed width that nothing inside may widen: no sideways scrolling. -->
+<aside class="flex w-80 shrink-0 flex-col overflow-x-hidden overflow-y-auto border-l p-3" style="background: var(--panel); border-color: var(--line)">
   {#if app.panel === "network" && app.snapshot}
     <NetworkSettings />
   {:else if app.panel === "identified" && app.snapshot}

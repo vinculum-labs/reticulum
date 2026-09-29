@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { KIND_ICON, SparklesIcon } from "../../lib/icons";
   import AddMenu from "./AddMenu.svelte";
   import {
@@ -42,17 +43,48 @@
       signals: app.signals,
       me: app.me,
     };
-    const selected = new Set([...app.selectedNodes, ...app.selectedEdges]);
+    // The selection is carried into the rebuilt nodes but isn't a reason to rebuild: the canvas already shows it.
+    const selected = untrack(() => new Set([...app.selectedNodes, ...app.selectedEdges]));
     const unit = app.rateUnit;
     if (!s || dragging) return;
     const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit);
+    rebuilding = true;
     nodes = built.nodes;
     edges = built.edges;
+    queueMicrotask(() => (rebuilding = false));
   });
 
+  // Selections made here in code (a node just added, a device picked) shown on the canvas without a rebuild;
+  // nodes are only replaced when their highlight actually differs.
+  $effect(() => {
+    const selected = new Set([...app.selectedNodes, ...app.selectedEdges]);
+    untrack(() => {
+      if (nodes.some((n) => !!n.selected !== selected.has(n.id))) {
+        nodes = nodes.map((n) => (!!n.selected === selected.has(n.id) ? n : { ...n, selected: selected.has(n.id) }));
+      }
+      if (edges.some((e) => !!e.selected !== selected.has(e.id))) {
+        edges = edges.map((e) => (!!e.selected === selected.has(e.id) ? e : { ...e, selected: selected.has(e.id) }));
+      }
+    });
+  });
+
+  /** Set while new nodes are being handed to the canvas, which may report the selection as empty meanwhile. */
+  let rebuilding = false;
+
+  function sameIds(a: string[], b: string[]): boolean {
+    return a.length === b.length && a.every((id, i) => id === b[i]);
+  }
+
+  /**
+   * Only real changes count: the canvas reports the selection again whenever its nodes are rebuilt (every network
+   * update), and a fresh but equal list, or a passing empty one mid-rebuild, would remount the side panel.
+   */
   function selectionChange({ nodes: n, edges: e }: { nodes: Node[]; edges: Edge[] }) {
-    app.selectedNodes = n.map((x) => x.id);
-    app.selectedEdges = e.map((x) => x.id);
+    const nodeIds = n.map((x) => x.id);
+    const edgeIds = e.map((x) => x.id);
+    if (rebuilding && nodeIds.length === 0 && edgeIds.length === 0) return;
+    if (!sameIds(nodeIds, app.selectedNodes)) app.selectedNodes = nodeIds;
+    if (!sameIds(edgeIds, app.selectedEdges)) app.selectedEdges = edgeIds;
     if (n.length || e.length) app.selectedDevice = null;
   }
 
