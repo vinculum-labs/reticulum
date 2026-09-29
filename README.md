@@ -60,7 +60,7 @@ exist show as offline until you pick local ones for them.
 | **Kit** | Moves a set of items all together or not at all (a recipe's worth, for example). |
 | **Level sensor** | How much of a resource a device holds. |
 | **Compare, Logic, Timer, Pulse, Latch, Counter, Delay** | Redstone-style logic on signals of 0–15. |
-| **Publish / Network signal** | Share a signal by name between sheets. |
+| **Transmitter / Receiver** | Send a signal by name from one sheet and pick it up on any other (or in a redstone condition). |
 
 ### Filters
 

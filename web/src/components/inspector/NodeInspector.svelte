@@ -45,7 +45,7 @@
   const names = $derived.by(() => {
     const found = new Set<string>(Object.keys(app.networkSignals));
     for (const sheet of app.snapshot?.sheets ?? []) {
-      for (const n of sheet.nodes ?? []) if (n.settings.kind === "publish" && n.settings.name) found.add(n.settings.name);
+      for (const n of sheet.nodes ?? []) if (n.settings.kind === "transmit" && n.settings.name) found.add(n.settings.name);
     }
     return [...found].sort();
   });
@@ -209,12 +209,12 @@
     </Field>
   {:else if s.kind === "latch" || s.kind === "counter"}
     <p class="text-xs muted">It remembers its value across restarts. Its output follows one tick after its inputs.</p>
-  {:else if s.kind === "publish" || s.kind === "signal"}
+  {:else if s.kind === "transmit" || s.kind === "receive"}
     <Field
       label="Signal name"
-      hint={s.kind === "publish"
-        ? "Any sheet can read it with a Network signal node, and redstone conditions can use it. With several publishers, the highest wins."
-        : "Reads the value published on the previous tick."}
+      hint={s.kind === "transmit"
+        ? "Any sheet can pick it up with a Receiver node, and redstone conditions can use it. With several transmitters on one name, the highest wins."
+        : "Receives the value transmitted on the previous tick."}
     >
       <input value={s.name ?? ""} disabled={!canEdit} list="reticulum-signal-names" placeholder="e.g. Furnaces full" onchange={(e) => settings({ name: e.currentTarget.value.trim() })} />
       <datalist id="reticulum-signal-names">{#each names as name}<option value={name}></option>{/each}</datalist>

@@ -338,12 +338,12 @@ public final class EngineTests {
     }
 
     @GameTest(template = "empty")
-    public static void counterPublishesAndDelayLoopCompiles(GameTestHelper helper) {
+    public static void counterTransmitsAndDelayLoopCompiles(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL);
         Node timer = rig.node(new NodeSettings.TimerSettings(2));
         Node counter = rig.node(new NodeSettings.CounterSettings());
         Node compare = rig.node(new NodeSettings.CompareSettings(NodeSettings.CompareOp.GE, 3));
-        Node publish = rig.node(new NodeSettings.PublishSettings("done"));
+        Node publish = rig.node(new NodeSettings.TransmitSettings("done"));
         rig.signal(timer, counter, 0);
         rig.signal(counter, compare, 0);
         rig.signal(compare, publish, 0);
@@ -355,7 +355,7 @@ public final class EngineTests {
         helper.succeedWhen(() -> {
             check(helper, rig.compiled().errors().isEmpty(),
                     "errors: " + rig.compiled().errors());
-            check(helper, rig.runtime().networkSignals().getOrDefault("done", 0L) == 15, "counter didn't reach 3 and publish");
+            check(helper, rig.runtime().networkSignals().getOrDefault("done", 0L) == 15, "counter didn't reach 3 and transmit");
         });
     }
 

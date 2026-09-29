@@ -23,12 +23,12 @@
   const devices = $derived(app.snapshot?.devices ?? []);
   const connectors = $derived(app.snapshot?.connectors ?? []);
 
-  /** Names published anywhere on the network, plus names seen live. */
+  /** Names transmitted anywhere on the network, plus names seen live. */
   const signalNames = $derived.by(() => {
     const names = new Set<string>(Object.keys(app.networkSignals));
     for (const sheet of app.snapshot?.sheets ?? []) {
       for (const node of sheet.nodes ?? []) {
-        if (node.settings.kind === "publish" && node.settings.name) names.add(node.settings.name);
+        if (node.settings.kind === "transmit" && node.settings.name) names.add(node.settings.name);
       }
     }
     return [...names].sort();
@@ -94,7 +94,7 @@
         </select>
       </Field>
     {:else if source === "signal"}
-      <Field label="Signal name" hint="Published by a Publish node on any sheet.">
+      <Field label="Signal name" hint="Transmitted by a Transmitter node on any sheet.">
         <input value={value?.signal ?? ""} {disabled} list={listId} placeholder="e.g. Furnaces full" onchange={(e) => set({ signal: e.currentTarget.value.trim() })} />
         <datalist id={listId}>{#each signalNames as name}<option value={name}></option>{/each}</datalist>
       </Field>

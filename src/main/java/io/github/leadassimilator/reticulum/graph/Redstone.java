@@ -65,7 +65,7 @@ public record Redstone(Mode mode, Source source, Optional<GlobalPos> device, Opt
         CONNECTOR,
         /** The signal a device gives out of one face (or its strongest face). */
         FACE,
-        /** A named network signal published by a Publish node on any sheet. */
+        /** A named network signal transmitted by a Transmitter node on any sheet. */
         SIGNAL;
 
         public static final Codec<Source> CODEC = StringRepresentable.fromEnum(Source::values);

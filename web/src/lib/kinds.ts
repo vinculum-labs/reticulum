@@ -19,8 +19,8 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   latch: "Latch",
   counter: "Counter",
   delay: "Delay",
-  publish: "Publish",
-  signal: "Network signal",
+  transmit: "Transmitter",
+  receive: "Receiver",
 };
 
 export const KIND_HINT: Record<NodeKind, string> = {
@@ -40,8 +40,8 @@ export const KIND_HINT: Record<NodeKind, string> = {
   latch: "Set turns it on, reset turns it off; it remembers in between",
   counter: "Counts each time its input turns on; reset sets it back to 0",
   delay: "Its input, some ticks later",
-  publish: "Publishes its input under a name that any sheet can read",
-  signal: "Reads a published network signal",
+  transmit: "Transmits its input under a name that any sheet can receive",
+  receive: "Receives a transmitted signal by name",
 };
 
 /** Signal nodes, in palette order. */
@@ -54,8 +54,8 @@ export const SIGNAL_KINDS: NodeKind[] = [
   "latch",
   "counter",
   "delay",
-  "publish",
-  "signal",
+  "transmit",
+  "receive",
 ];
 
 export function isSignal(kind: NodeKind | undefined): boolean {
@@ -76,7 +76,7 @@ export function signalInputs(kind: NodeKind): string[] {
     case "logic":
     case "pulse":
     case "delay":
-    case "publish":
+    case "transmit":
       return ["in"];
     default:
       return [];
@@ -85,7 +85,7 @@ export function signalInputs(kind: NodeKind): string[] {
 
 /** Whether a signal node gives an output to wire on. */
 export function signalOutput(kind: NodeKind): boolean {
-  return kind !== "publish";
+  return kind !== "transmit";
 }
 
 /** Kinds a signal wire can switch on and off through their gate (the pin on top). */
@@ -163,8 +163,8 @@ export function defaultSettings(
       return { kind };
     case "delay":
       return { kind, ticks: 1 };
-    case "publish":
-    case "signal":
+    case "transmit":
+    case "receive":
       return { kind, name: "" };
     case "subsheet":
       return { kind, sheet: subsheet ?? "" };
@@ -310,8 +310,8 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
       return "count / reset";
     case "delay":
       return `${s.ticks ?? 1} tick${(s.ticks ?? 1) === 1 ? "" : "s"} late`;
-    case "publish":
-    case "signal":
+    case "transmit":
+    case "receive":
       return s.name ? `“${s.name}”` : "no name";
   }
 }

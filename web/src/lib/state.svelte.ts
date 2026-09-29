@@ -57,7 +57,7 @@ export const app = $state({
   status: {} as Record<string, string>,
   /** Each signal node's output as of the last metrics update. */
   signals: {} as Record<string, number>,
-  /** Published network signals, by name. */
+  /** Transmitted network signals, by name. */
   networkSignals: {} as Record<string, number>,
   /** Sheets their redstone condition currently switches off. */
   sheetsOff: [] as string[],

@@ -43,8 +43,8 @@ public sealed interface NodeSettings {
         LATCH(LatchSettings.CODEC, true),
         COUNTER(CounterSettings.CODEC, true),
         DELAY(DelaySettings.CODEC, true),
-        PUBLISH(PublishSettings.CODEC, true),
-        SIGNAL(SignalSettings.CODEC, true),
+        TRANSMIT(TransmitSettings.CODEC, true),
+        RECEIVE(ReceiveSettings.CODEC, true),
         /** Engine-internal: a device's ME pin, resolved to the connector side it touches. Never saved or sent. */
         ME_PORT(null, false);
 
@@ -484,27 +484,27 @@ public sealed interface NodeSettings {
         }
     }
 
-    /** Publishes its input as a named network signal that any sheet (or redstone condition) can read. */
-    record PublishSettings(String name) implements NodeSettings {
-        public static final MapCodec<PublishSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Codec.STRING.optionalFieldOf("name", "").forGetter(PublishSettings::name)
-        ).apply(i, PublishSettings::new));
+    /** Transmitter: sends its input as a named network signal that any sheet (or redstone condition) can receive. */
+    record TransmitSettings(String name) implements NodeSettings {
+        public static final MapCodec<TransmitSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.STRING.optionalFieldOf("name", "").forGetter(TransmitSettings::name)
+        ).apply(i, TransmitSettings::new));
 
         @Override
         public Kind kind() {
-            return Kind.PUBLISH;
+            return Kind.TRANSMIT;
         }
     }
 
-    /** Reads a named network signal (as published on the previous tick). */
-    record SignalSettings(String name) implements NodeSettings {
-        public static final MapCodec<SignalSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Codec.STRING.optionalFieldOf("name", "").forGetter(SignalSettings::name)
-        ).apply(i, SignalSettings::new));
+    /** Receiver: reads a named network signal (as transmitted on the previous tick). */
+    record ReceiveSettings(String name) implements NodeSettings {
+        public static final MapCodec<ReceiveSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.STRING.optionalFieldOf("name", "").forGetter(ReceiveSettings::name)
+        ).apply(i, ReceiveSettings::new));
 
         @Override
         public Kind kind() {
-            return Kind.SIGNAL;
+            return Kind.RECEIVE;
         }
     }
 

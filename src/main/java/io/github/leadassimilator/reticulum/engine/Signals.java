@@ -44,7 +44,7 @@ final class Signals {
     private final Map<String, Boolean> wasOn = new HashMap<>();
     private final Map<UUID, Integer> pulseLeft = new HashMap<>();
     private final Map<UUID, ArrayDeque<Long>> delays = new HashMap<>();
-    /** Network signals published last tick; what Signal nodes and conditions read this tick. */
+    /** Network signals transmitted last tick; what Receiver nodes and conditions read this tick. */
     private Map<String, Long> published = Map.of();
     /** Redstone to give a device: on every face ({@code face} null) or on one face (the connector touching it). */
     record Emit(GlobalPos device, @Nullable Direction face) {
@@ -260,14 +260,14 @@ final class Signals {
                 ArrayDeque<Long> queue = delays.get(id);
                 yield queue != null && queue.size() >= Math.max(1, delay.ticks()) ? queue.peekFirst() : 0;
             }
-            case NodeSettings.PublishSettings publish -> {
+            case NodeSettings.TransmitSettings transmit -> {
                 long value = in(node, 0);
-                if (!publish.name().isBlank()) {
-                    publishing.merge(publish.name(), value, Math::max);
+                if (!transmit.name().isBlank()) {
+                    publishing.merge(transmit.name(), value, Math::max);
                 }
                 yield value;
             }
-            case NodeSettings.SignalSettings signal -> published.getOrDefault(signal.name(), 0L);
+            case NodeSettings.ReceiveSettings receive -> published.getOrDefault(receive.name(), 0L);
             // Sheet pins pass signals through a sub-sheet's edge.
             default -> {
                 long best = 0;

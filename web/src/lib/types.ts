@@ -149,13 +149,15 @@ export interface DelaySettings {
   ticks?: number;
 }
 
-export interface PublishSettings {
-  kind: "publish";
+/** Transmits its input as a named network signal. */
+export interface TransmitSettings {
+  kind: "transmit";
   name?: string;
 }
 
-export interface SignalSettings {
-  kind: "signal";
+/** Receives a named network signal. */
+export interface ReceiveSettings {
+  kind: "receive";
   name?: string;
 }
 
@@ -168,8 +170,8 @@ export type SignalNodeSettings =
   | LatchSettings
   | CounterSettings
   | DelaySettings
-  | PublishSettings
-  | SignalSettings;
+  | TransmitSettings
+  | ReceiveSettings;
 
 
 export type NodeSettings =
