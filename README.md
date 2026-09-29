@@ -64,6 +64,10 @@ exist show as offline until you pick local ones for them.
 
 ### Filters
 
+Every filter box has a **Pick…** button that opens a browser of every item, fluid and chemical in the game, or of
+what a device holds right now. Double-click something to add it, or pick one of its tags or its mod instead;
+alt-click or right-click excludes. The text stays editable.
+
 Filters are short text expressions:
 
 ```
