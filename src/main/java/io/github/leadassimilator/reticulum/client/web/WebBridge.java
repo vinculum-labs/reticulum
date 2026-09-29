@@ -284,8 +284,8 @@ public final class WebBridge {
     // ---------------------------------------------------------------- opening the editor
 
     /**
-     * Shows the editor on a network. If a browser page is already connected it just switches tabs there; otherwise
-     * the browser is opened. The link is also put in chat for players who prefer to open it themselves.
+     * Shows the editor on a network: inside the game on Windows (when enabled and WebView2 works), else in the
+     * browser. If a page is already connected it just switches to the network there.
      */
     public static void openEditor(@Nullable UUID network) {
         start();
@@ -293,17 +293,52 @@ public final class WebBridge {
             return;
         }
         focus = network;
-        if (!SOCKETS.isEmpty()) {
-            JsonObject message = new JsonObject();
-            message.addProperty("type", "focus");
-            if (network != null) {
-                message.addProperty("network", network.toString());
+        if (io.github.leadassimilator.reticulum.ReticulumClientConfig.EDITOR_IN_GAME.getAsBoolean()
+                && io.github.leadassimilator.reticulum.client.webview.WebView2Host.supported()) {
+            if (io.github.leadassimilator.reticulum.client.webview.WebView2Host.ready()) {
+                // The page is loaded (hidden); show it again, on this network.
+                broadcastFocus(network);
+                io.github.leadassimilator.reticulum.client.webview.EditorScreen.open(null);
+            } else {
+                io.github.leadassimilator.reticulum.client.webview.EditorScreen.open(editorUrl(network));
             }
-            broadcast(message.toString());
+            return;
+        }
+        openInBrowser();
+    }
+
+    /** The one-time login link for the editor, opening on a network. */
+    private static String editorUrl(@Nullable UUID network) {
+        return baseUrl + "/?token=" + token + (network == null ? "" : "#network=" + network);
+    }
+
+    private static void broadcastFocus(@Nullable UUID network) {
+        JsonObject message = new JsonObject();
+        message.addProperty("type", "focus");
+        if (network != null) {
+            message.addProperty("network", network.toString());
+        }
+        broadcast(message.toString());
+    }
+
+    /**
+     * Shows the editor in the browser, on the network last asked for. If a browser page is already connected it just
+     * switches tabs there; otherwise the browser is opened. The link is also put in chat for players who prefer to
+     * open it themselves.
+     */
+    public static void openInBrowser() {
+        start();
+        if (server == null) {
+            return;
+        }
+        UUID network = focus;
+        // A connected page (unless it's the in-game one, which can't tell us apart from a browser tab) just switches.
+        if (!SOCKETS.isEmpty() && !io.github.leadassimilator.reticulum.client.webview.WebView2Host.ready()) {
+            broadcastFocus(network);
             chat(Component.translatable("message.reticulum.editor_focused"));
             return;
         }
-        String url = baseUrl + "/?token=" + token + (network == null ? "" : "#network=" + network);
+        String url = editorUrl(network);
         Util.getPlatform().openUri(url);
         chat(Component.translatable("message.reticulum.editor_opened", Component.literal("[" + url.substring(0, url.indexOf("?")) + "]")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withUnderlined(true)

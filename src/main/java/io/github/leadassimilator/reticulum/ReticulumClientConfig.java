@@ -31,6 +31,11 @@ public final class ReticulumClientConfig {
                     "each session. Takes effect the next time the game starts.")
             .define("rememberLogin", true);
 
+    public static final ModConfigSpec.BooleanValue EDITOR_IN_GAME = BUILDER
+            .comment("On Windows, open the editor inside the game window (with Edge's WebView2, part of Windows) instead of the",
+                    "browser. Falls back to the browser when WebView2 isn't available. Has no effect on other systems.")
+            .define("editorInGame", true);
+
     public static final ModConfigSpec.BooleanValue KEEP_RUNNING_WHILE_EDITING = BUILDER
             .comment("While the web editor is open in a browser, don't pause the game when its window loses focus, so",
                     "singleplayer worlds keep running and the editor shows live throughput. Pressing Esc still pauses.")
