@@ -133,6 +133,8 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.editor_close", "Close");
         add("screen.reticulum.editor_browser", "Open in browser");
         add("screen.reticulum.editor_loading", "Starting the editor…");
+        add("screen.reticulum.editor_fullscreen", "The editor can't show over fullscreen");
+        add("screen.reticulum.editor_fullscreen_hint", "Press F11 for windowed mode, or use Open in browser");
         add("reticulum.configuration.energyPerTick", "Energy per route per tick");
         add("reticulum.configuration.fluidPerTick", "Fluid per route per tick");
         add("reticulum.configuration.overflowItemStacks", "Overflow buffer item stacks");

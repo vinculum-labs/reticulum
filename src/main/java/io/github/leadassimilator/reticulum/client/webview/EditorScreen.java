@@ -45,8 +45,14 @@ public class EditorScreen extends Screen {
             onClose();
             WebBridge.openInBrowser();
         }).bounds(width - 62 - 104, 2, 100, BAR - 4).build());
-        // The view covers the window below the bar, in window pixels.
         var window = Minecraft.getInstance().getWindow();
+        if (window.isFullscreen()) {
+            // Exclusive fullscreen draws past Windows' compositor, so a child window never shows, and taking focus
+            // for it minimizes the game. Wait for windowed mode (F11 here reaches the game) or the browser.
+            WebView2Host.hide();
+            return;
+        }
+        // The view covers the window below the bar, in window pixels.
         int barPixels = (int) Math.ceil(BAR * window.getGuiScale());
         WebView2Host.show(url, 0, barPixels, window.getWidth(), window.getHeight() - barPixels);
         url = null;
@@ -57,7 +63,11 @@ public class EditorScreen extends Screen {
         // Only the bar shows; the web view covers everything below it.
         graphics.fill(0, 0, width, BAR, 0xFF1A1E26);
         graphics.fill(0, BAR - 1, width, BAR, 0xFF2F3542);
-        if (!WebView2Host.shown()) {
+        if (Minecraft.getInstance().getWindow().isFullscreen()) {
+            graphics.fill(0, BAR, width, height, 0xFF12151B);
+            graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen"), width / 2, height / 2 - 6, 0xE3E7EF);
+            graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen_hint"), width / 2, height / 2 + 6, 0xA0A0A0);
+        } else if (!WebView2Host.shown()) {
             graphics.fill(0, BAR, width, height, 0xFF12151B);
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_loading"), width / 2, height / 2, 0xA0A0A0);
         }
