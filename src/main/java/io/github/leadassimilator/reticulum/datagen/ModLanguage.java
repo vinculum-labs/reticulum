@@ -225,7 +225,8 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.facade_none", "Blank");
         add("screen.reticulum.facade_count", "%s in hand");
         add("screen.reticulum.facade_no_match", "No block matches");
-        add("screen.reticulum.facade_hint", "Click a block, or drag one in from JEI. Sneak + right-click a block in the world to copy it exactly.");
+        add("screen.reticulum.facade_hint", "Click a block to paint the stack. Sneak + right-click a block in the world to copy it exactly.");
+        add("screen.reticulum.facade_hint_jei", "Click a block to paint the stack, or drag one from JEI onto the box above. Sneak + right-click a block in the world to copy it exactly.");
         add("message.reticulum.facade_removed", "Facade taken off");
 
         // Identify

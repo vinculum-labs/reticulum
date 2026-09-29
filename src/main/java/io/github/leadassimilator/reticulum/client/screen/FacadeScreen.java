@@ -40,6 +40,11 @@ public class FacadeScreen extends Screen {
     private static final int SCROLLBAR_X = 8 + COLUMNS * CELL + 1;
     private static final int SCROLLBAR_WIDTH = 5;
     private static final int TRACK_HEIGHT = ROWS * CELL - 1;
+    /** The framed preview (icon, name, count) in the top left; it is also where JEI drops go. */
+    private static final int PREVIEW_X = 8;
+    private static final int PREVIEW_Y = 17;
+    private static final int PREVIEW_WIDTH = WIDTH - 16 - 50 - 4;
+    private static final int PREVIEW_HEIGHT = 20;
 
     /** Every item whose block can be a facade; worked out once, as it looks at every block. */
     @Nullable
@@ -105,10 +110,15 @@ public class FacadeScreen extends Screen {
         return WIDTH;
     }
 
+    /** The hint under the grid; JEI is only mentioned when it is installed. */
+    private static Component hint() {
+        return Component.translatable(net.neoforged.fml.ModList.get().isLoaded("jei") ? "screen.reticulum.facade_hint_jei" : "screen.reticulum.facade_hint");
+    }
+
     /** The panel's height: the grid, then the hint wrapped to the panel's width. */
     public static int guiHeight() {
         Minecraft mc = Minecraft.getInstance();
-        int hintLines = mc.font.split(Component.translatable("screen.reticulum.facade_hint"), WIDTH - 16).size();
+        int hintLines = mc.font.split(hint(), WIDTH - 16).size();
         return GRID_TOP + TRACK_HEIGHT + 7 + hintLines * mc.font.lineHeight + 6;
     }
 
@@ -124,9 +134,9 @@ public class FacadeScreen extends Screen {
         return guiTop() + GRID_TOP;
     }
 
-    /** Where a JEI ingredient can be dropped: the preview and the block grid. */
+    /** Where a JEI ingredient can be dropped: the framed preview. */
     public Rect2i dropArea() {
-        return new Rect2i(guiLeft(), guiTop() + 14, WIDTH, guiHeight() - 14);
+        return new Rect2i(guiLeft() + PREVIEW_X, guiTop() + PREVIEW_Y, PREVIEW_WIDTH, PREVIEW_HEIGHT);
     }
 
     @Override
@@ -141,7 +151,7 @@ public class FacadeScreen extends Screen {
         addRenderableWidget(search);
         setInitialFocus(search);
         addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.facade_blank"), b -> choose(null))
-                .bounds(left + WIDTH - 58, top + 18, 50, 18).build());
+                .bounds(left + WIDTH - 58, top + PREVIEW_Y, 50, PREVIEW_HEIGHT).build());
         filter(query);
     }
 
@@ -188,16 +198,20 @@ public class FacadeScreen extends Screen {
         int left = guiLeft();
         int top = guiTop();
         graphics.drawString(font, title, left + 8, top + 6, 0xFFFFFF);
-        // What it looks like now.
+        // What it looks like now, framed; blocks dragged from JEI are dropped here.
         ItemStack held = held();
         BlockState state = FacadeItem.state(held);
-        graphics.fill(left + 8, top + 18, left + 26, top + 36, 0xFF202020);
+        int px = left + PREVIEW_X;
+        int py = top + PREVIEW_Y;
+        graphics.fill(px, py, px + PREVIEW_WIDTH, py + PREVIEW_HEIGHT, 0xFF202020);
+        graphics.renderOutline(px, py, PREVIEW_WIDTH, PREVIEW_HEIGHT, 0xFF707070);
         if (state != null) {
-            graphics.renderItem(new ItemStack(state.getBlock()), left + 9, top + 19);
+            graphics.renderItem(new ItemStack(state.getBlock()), px + 2, py + 2);
         }
         Component name = state == null ? Component.translatable("screen.reticulum.facade_none") : state.getBlock().getName();
-        graphics.drawString(font, name, left + 32, top + 19, 0xFFFFFF);
-        graphics.drawString(font, Component.translatable("screen.reticulum.facade_count", held.getCount()), left + 32, top + 28, 0xA0A0A0);
+        int textWidth = PREVIEW_WIDTH - 24;
+        graphics.drawString(font, font.substrByWidth(name, textWidth).getString(), px + 21, py + 2, 0xFFFFFF);
+        graphics.drawString(font, Component.translatable("screen.reticulum.facade_count", held.getCount()), px + 21, py + 11, 0xA0A0A0);
         // The blocks to pick from.
         int y0 = gridTop();
         Item hovered = null;
@@ -226,7 +240,7 @@ public class FacadeScreen extends Screen {
         if (shown.isEmpty()) {
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.facade_no_match"), left + WIDTH / 2, y0 + 40, 0xA0A0A0);
         }
-        graphics.drawWordWrap(font, Component.translatable("screen.reticulum.facade_hint"), left + 8, y0 + TRACK_HEIGHT + 7, WIDTH - 16, 0xA0A0A0);
+        graphics.drawWordWrap(font, hint(), left + 8, y0 + TRACK_HEIGHT + 7, WIDTH - 16, 0xA0A0A0);
         if (hovered != null) {
             graphics.renderTooltip(font, new ItemStack(hovered), mouseX, mouseY);
         }
