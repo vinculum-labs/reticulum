@@ -369,6 +369,13 @@ public final class WebApi {
                     FaceKey face = decode(server, FaceKey.CODEC, edit.get("face"), "face");
                     device(server, network, edit).setFaceName(face, edit.has("name") ? edit.get("name").getAsString() : null);
                 }
+                case "relinkDevice" -> {
+                    GlobalPos from = decode(server, GlobalPos.CODEC, edit.get("from"), "from");
+                    GlobalPos to = decode(server, GlobalPos.CODEC, edit.get("to"), "to");
+                    if (!NetworkManager.relinkDevice(server, network, from, to)) {
+                        throw new RequestException("Only an orphaned or missing device can be moved onto another device of this network");
+                    }
+                }
                 case "deleteOrphan" -> {
                     GlobalPos pos = decode(server, GlobalPos.CODEC, edit.get("device"), "device");
                     if (!NetworkManager.deleteOrphan(server, network, pos)) {
@@ -598,6 +605,11 @@ public final class WebApi {
         });
         out.add("me", me);
         out.add("power", powerJson(runtime.powerState(server, network)));
+        long[] tick = runtime.tickTimeStats();
+        JsonObject tickJson = new JsonObject();
+        tickJson.addProperty("average", tick[0] / 1e6);
+        tickJson.addProperty("longest", tick[1] / 1e6);
+        out.add("tick", tickJson);
         JsonArray sheetsOff = new JsonArray();
         runtime.sheetsOff().forEach(id -> sheetsOff.add(id.toString()));
         out.add("sheetsOff", sheetsOff);

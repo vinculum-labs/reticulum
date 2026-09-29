@@ -133,6 +133,43 @@ public final class NetworkManager {
     }
 
     /** True when the network holds nothing a player made: no sheets, devices, connectors, filters or overflow. */
+    /**
+     * Moves an orphaned or missing device's names, face names, identifies and every flow reference onto another
+     * device (a machine moved or replaced), then forgets the old record. Returns false when either isn't suitable.
+     */
+    public static boolean relinkDevice(MinecraftServer server, Network network, GlobalPos from, GlobalPos to) {
+        DeviceRecord old = network.device(from);
+        DeviceRecord target = network.device(to);
+        if (old == null || target == null || from.equals(to) || old.state() == DeviceRecord.State.ACTIVE) {
+            return false;
+        }
+        if (old.name() != null) {
+            target.setName(old.name());
+        }
+        old.faceNames().forEach(target::setFaceName);
+        for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
+            for (io.github.leadassimilator.reticulum.graph.Node node : List.copyOf(sheet.nodes())) {
+                io.github.leadassimilator.reticulum.graph.NodeSettings moved = switch (node.settings()) {
+                    case io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings d when d.device().equals(from) ->
+                            new io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings(to, d.inputs(), d.outputs());
+                    case io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings l when l.device().equals(from) ->
+                            new io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings(l.resource(), to, l.faces(), l.filter());
+                    default -> null;
+                };
+                if (moved != null) {
+                    sheet.replace(new io.github.leadassimilator.reticulum.graph.Node(node.id(), moved, node.label(), node.enabled(), node.x(), node.y(),
+                            node.redstone()));
+                }
+            }
+        }
+        network.identified().replaceAll(identify -> identify.device().filter(from::equals).isPresent()
+                ? new Identify(identify.kind(), identify.connector(), java.util.Optional.of(to), identify.face(), identify.color(), identify.since())
+                : identify);
+        network.deviceMap().remove(from);
+        changed(server, network);
+        return true;
+    }
+
     public static boolean isEmpty(Network network) {
         return network.sheets().isEmpty() && network.devices().isEmpty() && network.connectors().isEmpty()
                 && network.filters().isEmpty() && network.overflow().isEmpty();

@@ -69,7 +69,9 @@ export const app = $state({
   selectedEdges: [] as string[],
   selectedDevice: null as string | null,
   /** A panel shown in place of the inspector ("network" = network settings). */
-  panel: null as "network" | "identified" | null,
+  panel: null as "network" | "identified" | "dashboard" | null,
+  /** How long the network's ticks take, in ms (last 200 ticks). */
+  tick: null as { average: number; longest: number } | null,
   busy: 0,
   toasts: [] as Toast[],
   undo: [] as Change[],
@@ -135,6 +137,7 @@ async function onMessage(m: any): Promise<void> {
         app.sheetsOff = m.sheetsOff ?? [];
         app.me = m.me ?? {};
         app.power = m.power ?? null;
+        app.tick = m.tick ?? null;
       }
       break;
     case "removed":

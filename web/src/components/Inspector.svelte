@@ -6,6 +6,7 @@
   import SheetInspector from "./inspector/SheetInspector.svelte";
   import NetworkSettings from "./inspector/NetworkSettings.svelte";
   import IdentifiedPanel from "./inspector/IdentifiedPanel.svelte";
+  import Dashboard from "./inspector/Dashboard.svelte";
 
   const sheet = $derived(currentSheet());
   const node = $derived(app.selectedNodes.length === 1 ? sheet?.nodes?.find((n) => n.id === app.selectedNodes[0]) : undefined);
@@ -20,6 +21,8 @@
     <NetworkSettings />
   {:else if app.panel === "identified" && app.snapshot}
     <IdentifiedPanel />
+  {:else if app.panel === "dashboard" && app.snapshot}
+    <Dashboard />
   {:else if node && sheet}
     {#key node.id}
       <NodeInspector {node} {sheet} />

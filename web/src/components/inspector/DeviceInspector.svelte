@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app, edit, deviceName, isIdentified, toggleIdentify } from "../../lib/state.svelte";
   import { RESOURCE_LABEL } from "../../lib/kinds";
-  import { FACES, type Device, type Face, type Resource } from "../../lib/types";
+  import { FACES, posKey, type Device, type Face, type Resource } from "../../lib/types";
   import DeviceIcon from "../DeviceIcon.svelte";
   import Field from "./Field.svelte";
 
@@ -20,6 +20,13 @@
     const before = device.faceNames[face] ?? null;
     if (value === before) return;
     edit([{ type: "renameFace", device: device.pos, face, name: value }], [{ type: "renameFace", device: device.pos, face, name: before }], "rename face");
+  }
+
+  function relink(key: string) {
+    const target = app.snapshot?.devices.find((d) => posKey(d.pos) === key);
+    if (!target || !confirm(`Move the names and every flow of "${deviceName(device)}" onto "${deviceName(target)}"?`)) return;
+    app.selectedDevice = key;
+    edit([{ type: "relinkDevice", from: device.pos, to: target.pos }]);
   }
 
   function deleteOrphan() {
@@ -56,7 +63,20 @@
     <div class="rounded-md border p-2 text-sm" style="border-color: var(--warn)">
       {device.state === "orphaned" ? "No connector reaches this device any more." : "The block is gone."}
       It is kept because it has a name{canEdit ? "; forget it when you no longer need it." : "."}
-      {#if canEdit}<button class="btn btn-danger mt-2 text-sm" onclick={deleteOrphan}>Forget device</button>{/if}
+      {#if canEdit}
+        <div class="mt-2 flex flex-col gap-2">
+          <label class="flex flex-col gap-1">
+            <span class="text-xs muted">Moved or replaced it? Move its names and every flow onto the new block:</span>
+            <select value="" onchange={(e) => relink(e.currentTarget.value)}>
+              <option value="" disabled>Choose the new block…</option>
+              {#each (app.snapshot?.devices ?? []).filter((d) => d.state === "active") as d (posKey(d.pos))}
+                <option value={posKey(d.pos)}>{deviceName(d)}</option>
+              {/each}
+            </select>
+          </label>
+          <button class="btn btn-danger self-start text-sm" onclick={deleteOrphan}>Forget device</button>
+        </div>
+      {/if}
     </div>
   {/if}
 

@@ -49,6 +49,12 @@
     {/if}
     <button
       class="btn"
+      style={app.panel === "dashboard" ? "border-color: var(--accent); color: var(--accent)" : ""}
+      onclick={() => (app.panel = app.panel === "dashboard" ? null : "dashboard")}
+      title="Busiest and waiting flows, what is switched off, tick cost and the overflow buffer">Dashboard</button
+    >
+    <button
+      class="btn"
       style={app.panel === "identified" ? "border-color: var(--accent); color: var(--accent)" : ""}
       onclick={() => (app.panel = app.panel === "identified" ? null : "identified")}
       title="What is lit up in the world">Identified{app.snapshot?.identified?.length ? ` (${app.snapshot.identified.length})` : ""}</button

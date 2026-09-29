@@ -519,6 +519,28 @@ public final class EngineTests {
         });
     }
 
+    // ---------------------------------------------------------------- orphans
+
+    @GameTest(template = "empty")
+    public static void relinkMovesAMissingDevicesNamesAndFlows(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        GlobalPos old = rig.device(0);
+        GlobalPos replacement = rig.device(1);
+        rig.network().device(old).setName("Crusher");
+        Node node = rig.source(0, ResourceKind.ITEM, List.of(), 64);
+        // The named barrel is broken: its record stays (it has a name) and goes missing.
+        helper.setBlock(rig.devices().get(0), Blocks.AIR);
+        helper.succeedWhen(() -> {
+            var record = rig.network().device(old);
+            check(helper, record != null && record.state() != io.github.leadassimilator.reticulum.network.DeviceRecord.State.ACTIVE, "old record not missing yet");
+            check(helper, NetworkManager.relinkDevice(helper.getLevel().getServer(), rig.network(), old, replacement), "relink refused");
+            check(helper, "Crusher".equals(rig.network().device(replacement).name()), "name didn't move");
+            check(helper, rig.network().device(old) == null, "old record still there");
+            var moved = rig.sheet().node(node.id()).settings();
+            check(helper, moved instanceof NodeSettings.DeviceSettings d && d.device().equals(replacement), "flow still points at the old block");
+        });
+    }
+
     // ---------------------------------------------------------------- facades
 
     @GameTest(template = "empty")
