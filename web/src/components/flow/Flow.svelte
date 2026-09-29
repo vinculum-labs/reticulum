@@ -362,4 +362,13 @@
     color: inherit;
     font: inherit;
   }
+  /* No ring of its own when focused; the whole button shows focus instead (still visible for keyboard users). */
+  .wire-style:focus,
+  .wire-style:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+  :global(label.btn:has(.wire-style:focus-visible)) {
+    border-color: var(--accent);
+  }
 </style>
