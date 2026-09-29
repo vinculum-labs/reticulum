@@ -115,7 +115,7 @@
     <button
       class="btn"
       onclick={() => setRateUnit(app.rateUnit === "t" ? "s" : "t")}
-      title="Show rates per tick or per second">/{app.rateUnit}</button
+      title={app.rateUnit === "t" ? "Rates per tick (t); click for per second" : "Rates per second (s); click for per tick"}>{app.rateUnit}</button
     >
     <button class="btn px-2" onclick={undo} disabled={app.undo.length === 0} title="Undo (Ctrl+Z)" aria-label="Undo"><Undo size={16} /></button>
     <button class="btn px-2" onclick={redo} disabled={app.redo.length === 0} title="Redo (Ctrl+Shift+Z)" aria-label="Redo"><Redo size={16} /></button>
