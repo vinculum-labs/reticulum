@@ -557,6 +557,24 @@ public final class EngineTests {
         });
     }
 
+    // ---------------------------------------------------------------- editor
+
+    @GameTest(template = "empty")
+    public static void deviceContentsListsWhatABlockHolds(GameTestHelper helper) {
+        BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
+        helper.getLevel().setBlock(pos, Blocks.BARREL.defaultBlockState(), 3);
+        var barrel = (net.minecraft.world.level.block.entity.BarrelBlockEntity) helper.getLevel().getBlockEntity(pos);
+        barrel.setItem(0, new ItemStack(Items.COBBLESTONE, 40));
+        barrel.setItem(1, new ItemStack(Items.COBBLESTONE, 24));
+        barrel.setItem(2, new ItemStack(Items.IRON_INGOT, 3));
+        var entries = io.github.leadassimilator.reticulum.protocol.web.DeviceContents.read(helper.getLevel(), pos, "item").getAsJsonArray("entries");
+        java.util.Map<String, Long> found = new java.util.HashMap<>();
+        entries.forEach(e -> found.put(e.getAsJsonObject().get("id").getAsString(), e.getAsJsonObject().get("amount").getAsLong()));
+        // Every side shows the same inventory; each item still counts once.
+        check(helper, found.equals(java.util.Map.of("minecraft:cobblestone", 64L, "minecraft:iron_ingot", 3L)), "wrong contents " + found);
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------- facades
 
     @GameTest(template = "empty")

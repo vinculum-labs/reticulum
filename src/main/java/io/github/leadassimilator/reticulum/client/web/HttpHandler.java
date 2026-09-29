@@ -76,7 +76,13 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         if (path.equals("/ws")) {
             upgrade(ctx, request);
         } else if (path.startsWith("/icon/item/")) {
-            icon(ctx, request, path.substring("/icon/item/".length()));
+            icon(ctx, request, path.substring("/icon/item/".length()), IconRenderer::item);
+        } else if (path.startsWith("/icon/fluid/")) {
+            icon(ctx, request, path.substring("/icon/fluid/".length()), IconRenderer::fluid);
+        } else if (path.startsWith("/icon/chemical/")) {
+            icon(ctx, request, path.substring("/icon/chemical/".length()), IconRenderer::chemical);
+        } else if (path.equals("/catalog.json")) {
+            catalog(ctx, request);
         } else {
             file(ctx, request, path);
         }
@@ -157,7 +163,24 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         });
     }
 
-    private static void icon(ChannelHandlerContext ctx, FullHttpRequest request, String rest) {
+    /** Every item, fluid and chemical with its name and tags, for the filter picker. */
+    private static void catalog(ChannelHandlerContext ctx, FullHttpRequest request) {
+        FullHttpRequest retained = request.retainedDuplicate();
+        Catalog.build().whenComplete((json, error) -> ctx.executor().execute(() -> {
+            try {
+                if (error != null || json == null) {
+                    respond(ctx, retained, HttpResponseStatus.INTERNAL_SERVER_ERROR, "text/plain", bytes("Catalog failed"));
+                } else {
+                    respond(ctx, retained, HttpResponseStatus.OK, "application/json; charset=utf-8", json);
+                }
+            } finally {
+                retained.release();
+            }
+        }));
+    }
+
+    private static void icon(ChannelHandlerContext ctx, FullHttpRequest request, String rest,
+            java.util.function.Function<ResourceLocation, java.util.concurrent.CompletableFuture<byte[]>> renderer) {
         String name = rest.endsWith(".png") ? rest.substring(0, rest.length() - 4) : rest;
         int slash = name.indexOf('/');
         ResourceLocation id = slash < 0 ? null : ResourceLocation.tryBuild(name.substring(0, slash), name.substring(slash + 1));
@@ -166,7 +189,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             return;
         }
         FullHttpRequest retained = request.retainedDuplicate();
-        IconRenderer.item(id).whenComplete((png, error) -> ctx.executor().execute(() -> {
+        renderer.apply(id).whenComplete((png, error) -> ctx.executor().execute(() -> {
             try {
                 if (error != null || png == null) {
                     respond(ctx, retained, HttpResponseStatus.INTERNAL_SERVER_ERROR, "text/plain", bytes("Icon failed"));

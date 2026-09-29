@@ -22,10 +22,17 @@
   import RedstoneEditor from "./RedstoneEditor.svelte";
   import Field from "./Field.svelte";
   import FilterField from "./FilterField.svelte";
+  import type { CatalogKind } from "../../lib/catalog";
+  import { resources, upstreamDevices } from "../../lib/graph";
   import DeviceNodeEditor from "./DeviceNodeEditor.svelte";
   import Chart from "./Chart.svelte";
 
   let { node, sheet }: { node: GraphNode; sheet: Sheet } = $props();
+
+  /** The filter picker's list for a resource; resources without one (energy) fall back to items. */
+  function pickerKind(resource: Resource | undefined): CatalogKind {
+    return resource === "fluid" || resource === "chemical" ? resource : "item";
+  }
 
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
   const s = $derived(node.settings);
@@ -164,7 +171,7 @@
     </Field>
     {#if s.resource !== "energy"}
       <Field label="Count only" hint="A filter; empty counts everything.">
-        <FilterField value={s.filter ?? ""} disabled={!canEdit} onchange={(filter) => settings({ filter })} />
+        <FilterField value={s.filter ?? ""} disabled={!canEdit} kind={pickerKind(s.resource)} devices={[s.device]} onchange={(filter) => settings({ filter })} />
       </Field>
     {/if}
   {:else if s.kind === "compare"}
@@ -243,7 +250,13 @@
 
   {#if s.kind === "filter"}
     <Field label="Filter" hint="Matches go out the green handle, everything else out the red one.">
-      <FilterField value={s.expression} disabled={!canEdit} onchange={(expression) => settings({ expression })} />
+      <FilterField
+        value={s.expression}
+        disabled={!canEdit}
+        kind={pickerKind(resources(sheet).nodes.get(node.id))}
+        devices={upstreamDevices(sheet, node.id)}
+        onchange={(expression) => settings({ expression })}
+      />
     </Field>
     <details class="text-xs muted">
       <summary class="cursor-pointer">Filter syntax</summary>
@@ -329,7 +342,7 @@
           />
           <span class="pt-1 muted">×</span>
           <div class="min-w-0 flex-1">
-            <FilterField value={line.filter} disabled={!canEdit} placeholder="e.g. iron_ingot" onchange={(v) => settings({ lines: s.lines.map((l, j) => (j === i ? { ...l, filter: v } : l)) })} />
+            <FilterField value={line.filter} disabled={!canEdit} placeholder="e.g. iron_ingot" kind="item" devices={upstreamDevices(sheet, node.id)} onchange={(v) => settings({ lines: s.lines.map((l, j) => (j === i ? { ...l, filter: v } : l)) })} />
           </div>
           <button class="pt-1 text-sm muted" disabled={!canEdit || s.lines.length === 1} onclick={() => settings({ lines: s.lines.filter((_, j) => j !== i) })}>✕</button>
         </div>

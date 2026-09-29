@@ -1,7 +1,7 @@
 // Turns a sheet into Svelte Flow nodes and edges.
 
 import type { Edge, Node } from "@xyflow/svelte";
-import type { Device, GraphNode, MeUsage, Resource, Sheet, Wire } from "./types";
+import type { Device, GlobalPos, GraphNode, MeUsage, Resource, Sheet, Wire } from "./types";
 export type { MeUsage };
 import { GATE, pinName, posKey, sheetPins } from "./types";
 import { RESOURCE_VAR, formatRate, isSignal } from "./kinds";
@@ -31,6 +31,29 @@ export interface Activity {
   status: Record<string, string>;
   signals: Record<string, number>;
   me: Record<string, MeUsage>;
+}
+
+/** The devices whose outputs reach a node through the sheet's wires (not gate wires), nearest first. */
+export function upstreamDevices(sheet: Sheet, nodeId: string): GlobalPos[] {
+  const byId = new Map((sheet.nodes ?? []).map((n) => [n.id, n]));
+  const found: GlobalPos[] = [];
+  const seen = new Set<string>([nodeId]);
+  let frontier = [nodeId];
+  while (frontier.length) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      for (const w of sheet.wires ?? []) {
+        if (w.to !== id || (w.input ?? 0) === GATE || seen.has(w.from)) continue;
+        seen.add(w.from);
+        const from = byId.get(w.from);
+        if (!from) continue;
+        if (from.settings.kind === "device") found.push(from.settings.device);
+        else next.push(from.id);
+      }
+    }
+    frontier = next;
+  }
+  return found;
 }
 
 /**

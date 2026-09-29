@@ -48,6 +48,31 @@ public final class MekanismChemicals {
                 .orElse(null);
     }
 
+    /** What chemicals a block holds, by id, for the editor's filter picker (the largest amount any one side shows). */
+    public static void collect(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos pos, java.util.Map<ResourceLocation, Long> totals) {
+        java.util.Set<IChemicalHandler> handlers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        IChemicalHandler unsided = level.getCapability(CAPABILITY, pos, null);
+        if (unsided != null) {
+            handlers.add(unsided);
+        }
+        for (Direction side : Direction.values()) {
+            IChemicalHandler handler = level.getCapability(CAPABILITY, pos, side);
+            if (handler != null) {
+                handlers.add(handler);
+            }
+        }
+        for (IChemicalHandler handler : handlers) {
+            java.util.Map<ResourceLocation, Long> one = new java.util.LinkedHashMap<>();
+            for (int tank = 0; tank < handler.getChemicalTanks(); tank++) {
+                ChemicalStack stack = handler.getChemicalInTank(tank);
+                if (!stack.isEmpty()) {
+                    one.merge(id(stack), stack.getAmount(), Long::sum);
+                }
+            }
+            one.forEach((id, amount) -> totals.merge(id, amount, Math::max));
+        }
+    }
+
     // ---------------------------------------------------------------- filters
 
     private static Filters.ChemicalFilter compile(FilterExpr expr) throws FilterException {

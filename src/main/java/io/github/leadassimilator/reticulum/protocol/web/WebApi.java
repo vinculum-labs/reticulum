@@ -187,12 +187,36 @@ public final class WebApi {
                 out.add("values", array);
                 yield out;
             }
+            case "deviceContents" -> {
+                Network network = viewable(player, request);
+                GlobalPos device = decode(server, GlobalPos.CODEC, request.get("device"), "device");
+                if (network.device(device) == null) {
+                    throw new RequestException("That device isn't on " + network.name());
+                }
+                net.minecraft.server.level.ServerLevel level = server.getLevel(device.dimension());
+                JsonObject out = level == null ? new JsonObject() : DeviceContents.read(level, device.pos(), string(request, "resource"));
+                if (!out.has("entries")) {
+                    out.add("entries", new JsonArray());
+                }
+                JsonObject response = ok(id);
+                response.add("entries", out.get("entries"));
+                yield response;
+            }
             case "checkFilter" -> {
                 Network network = viewable(player, request);
                 String expression = string(request, "expression");
                 JsonObject out = ok(id);
                 try {
-                    Filters.items(expression, network.filters());
+                    // Checked as a filter for the resource it is for (items when not said), since some terms only apply to one.
+                    switch (request.has("resource") ? request.get("resource").getAsString() : "item") {
+                        case "fluid" -> Filters.fluids(expression, network.filters());
+                        case "chemical" -> {
+                            if (io.github.leadassimilator.reticulum.integration.Mods.MEKANISM) {
+                                Filters.chemicals(expression, network.filters());
+                            }
+                        }
+                        default -> Filters.items(expression, network.filters());
+                    }
                     out.addProperty("valid", true);
                 } catch (FilterException e) {
                     out.addProperty("valid", false);

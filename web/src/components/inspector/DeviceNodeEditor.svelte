@@ -71,7 +71,7 @@
         {:else if input.resource === "me"}
           <p class="text-xs muted">Wire an ME output of another device here to join the two AE2 networks through the connectors touching these faces.</p>
         {:else}
-          <LimitsEditor limits={input.caps ?? []} keep={false} resource={input.resource} {disabled} onchange={(caps) => setInput(i, { ...input, caps })} />
+          <LimitsEditor limits={input.caps ?? []} keep={false} resource={input.resource} device={settings.device} {disabled} onchange={(caps) => setInput(i, { ...input, caps })} />
         {/if}
       </div>
     </details>
@@ -106,7 +106,7 @@
           </p>
         {:else}
           <AmountEditor settings={output} sheetInterval={sheet.interval ?? 10} {disabled} onchange={(patch) => setOutput(i, { ...output, ...patch })} />
-          <LimitsEditor limits={output.keep ?? []} keep={true} resource={output.resource} {disabled} onchange={(keep) => setOutput(i, { ...output, keep })} />
+          <LimitsEditor limits={output.keep ?? []} keep={true} resource={output.resource} device={settings.device} {disabled} onchange={(keep) => setOutput(i, { ...output, keep })} />
         {/if}
       </div>
     </details>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Limit, Resource, Scope } from "../../lib/types";
+  import type { GlobalPos, Limit, Resource, Scope } from "../../lib/types";
   import { RESOURCE_UNIT } from "../../lib/kinds";
   import FilterField from "./FilterField.svelte";
 
@@ -7,9 +7,10 @@
     limits,
     keep,
     resource,
+    device,
     disabled,
     onchange,
-  }: { limits: Limit[]; keep: boolean; resource: Resource; disabled: boolean; onchange: (limits: Limit[]) => void } = $props();
+  }: { limits: Limit[]; keep: boolean; resource: Resource; device?: GlobalPos; disabled: boolean; onchange: (limits: Limit[]) => void } = $props();
 
   const unit = $derived(RESOURCE_UNIT[resource]);
   const scopes: { value: Scope; label: string }[] = [
@@ -45,7 +46,13 @@
         <button class="ml-auto text-sm muted" {disabled} onclick={() => onchange(limits.filter((_, j) => j !== i))} title="Remove">✕</button>
       </div>
       {#if resource !== "energy"}
-        <FilterField value={limit.filter ?? ""} {disabled} placeholder="applies to everything" onchange={(v) => set(i, { filter: v })} />
+        <FilterField
+          value={limit.filter ?? ""}
+          {disabled}
+          placeholder="applies to everything"
+          kind={resource === "fluid" || resource === "chemical" ? resource : "item"}
+          devices={device ? [device] : []}
+          onchange={(v) => set(i, { filter: v })} />
       {/if}
     </div>
   {/each}
