@@ -178,3 +178,5 @@ The web editor lives in `web/` (Svelte 5 and Vite). The dev client serves it str
 ## License
 
 MIT — see [LICENSE](LICENSE). Copyright © LeadAssimilator.
+
+The web editor uses icons from [Lucide](https://lucide.dev) (ISC license).

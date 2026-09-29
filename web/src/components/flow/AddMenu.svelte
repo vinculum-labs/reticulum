@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { KIND_ICON, ZapIcon } from "../../lib/icons";
   import { KIND_HINT, KIND_LABEL } from "../../lib/kinds";
   import type { NodeKind } from "../../lib/types";
 
@@ -45,8 +46,8 @@
 <svelte:window {onpointerdown} />
 
 <div class="relative" bind:this={root}>
-  <button class="btn text-sm" style={color ? `color: ${color}` : ""} aria-haspopup="menu" aria-expanded={open} onclick={toggle} {onkeydown}>
-    + {label} <span class="text-xs">▾</span>
+  <button class="btn flex items-center gap-1 text-sm" style={color ? `color: ${color}` : ""} aria-haspopup="menu" aria-expanded={open} onclick={toggle} {onkeydown}>
+    <ZapIcon size={14} />{label} <span class="text-xs">▾</span>
   </button>
   {#if open}
     <div
@@ -55,15 +56,19 @@
       role="menu"
     >
       {#each kinds as kind, i (kind)}
+        {@const Icon = KIND_ICON[kind]}
         <button
-          class="menu-item flex flex-col items-start px-3 py-1 text-left"
+          class="menu-item flex items-start gap-2 px-3 py-1 text-left"
           class:active={i === active}
           role="menuitem"
           onpointerenter={() => (active = i)}
           onclick={() => pick(kind)}
         >
-          <span class="font-medium">{KIND_LABEL[kind]}</span>
-          <span class="text-xs muted">{KIND_HINT[kind]}</span>
+          <span class="mt-0.5 shrink-0" style={color ? `color: ${color}` : ""}><Icon size={16} /></span>
+          <span class="flex flex-col">
+            <span class="font-medium">{KIND_LABEL[kind]}</span>
+            <span class="text-xs muted">{KIND_HINT[kind]}</span>
+          </span>
         </button>
       {/each}
     </div>

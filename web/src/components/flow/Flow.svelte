@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { KIND_ICON, SparklesIcon } from "../../lib/icons";
   import AddMenu from "./AddMenu.svelte";
   import {
     SvelteFlow,
@@ -246,10 +247,15 @@
       <Panel position="top-left">
         <div class="flex flex-wrap gap-1 rounded-lg border p-1" style="background: var(--panel); border-color: var(--line)">
           {#each palette as kind}
-            <button class="btn text-sm" title={KIND_HINT[kind]} onclick={() => addNode(kind, viewCenter())}>+ {KIND_LABEL[kind]}</button>
+            {@const Icon = KIND_ICON[kind]}
+            <button class="btn flex items-center gap-1 text-sm" title={KIND_HINT[kind]} onclick={() => addNode(kind, viewCenter())}>
+              <Icon size={14} />{KIND_LABEL[kind]}
+            </button>
           {/each}
           <AddMenu label="Redstone" kinds={SIGNAL_KINDS} color="var(--c-signal)" onpick={(kind) => addNode(kind, viewCenter())} />
-          <button class="btn text-sm" title="Lay the sheet out left to right" disabled={tidying || !sheet?.nodes?.length} onclick={tidy}>Tidy up</button>
+          <button class="btn flex items-center gap-1 text-sm" title="Lay the sheet out left to right" disabled={tidying || !sheet?.nodes?.length} onclick={tidy}>
+            <SparklesIcon size={14} />Tidy up
+          </button>
         </div>
       </Panel>
     {/if}
