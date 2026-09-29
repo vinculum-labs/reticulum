@@ -19,6 +19,7 @@ public class ReticulumClient {
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT, ReticulumClientConfig.SPEC);
         modEventBus.addListener(LookHud::registerLayer);
         NeoForge.EVENT_BUS.addListener(ToolHighlight::onRenderHighlight);
+        NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.ScreenHighlight::onRenderLevel);
         NeoForge.EVENT_BUS.addListener(LookHud::onClientTick);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingIn event) -> WebBridge.onLoggedIn());
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> WebBridge.onLoggedOut());

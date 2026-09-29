@@ -100,8 +100,23 @@ public class DeviceFacesScreen extends Screen {
         minecraft.setScreen(parent);
     }
 
+    /** Dims the world instead of blurring it, so the highlighted face stays visible. */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        renderTransparentBackground(graphics);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // The device stays outlined; the face whose name box has focus is filled in (unsided: the whole device).
+        BlockPos devicePos = view.pos().relative(side);
+        Direction focusedFace = null;
+        for (Map.Entry<FaceKey, EditBox> entry : faces.entrySet()) {
+            if (getFocused() == entry.getValue()) {
+                focusedFace = entry.getKey().direction();
+            }
+        }
+        io.github.leadassimilator.reticulum.client.ScreenHighlight.set(devicePos, focusedFace);
         super.render(graphics, mouseX, mouseY, partialTick);
         Views.SideView device = view.side(side);
         graphics.drawString(font, title, left, top, 0xFFFFFF);

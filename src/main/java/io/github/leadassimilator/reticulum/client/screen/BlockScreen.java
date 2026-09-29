@@ -159,8 +159,25 @@ public class BlockScreen extends Screen {
         super.onClose();
     }
 
+    /** Dims the world instead of blurring it, so the highlighted block stays visible. */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        renderTransparentBackground(graphics);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // Show in the world what the focused name box names: the connector itself, or the device on that side.
+        BlockPos highlight = null;
+        if (getFocused() != null && getFocused() == connectorName) {
+            highlight = view.pos();
+        }
+        for (Map.Entry<Direction, EditBox> entry : deviceNames.entrySet()) {
+            if (getFocused() == entry.getValue()) {
+                highlight = view.pos().relative(entry.getKey());
+            }
+        }
+        io.github.leadassimilator.reticulum.client.ScreenHighlight.set(highlight, null);
         super.render(graphics, mouseX, mouseY, partialTick);
         int top = rowsTop - (view.connector() ? 50 : 24);
         graphics.drawString(font, title, left, top, 0xFFFFFF);
