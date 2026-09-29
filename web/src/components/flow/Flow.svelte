@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { KIND_ICON, SparklesIcon } from "../../lib/icons";
+  import { KIND_ICON, SparklesIcon, SplineIcon } from "../../lib/icons";
   import AddMenu from "./AddMenu.svelte";
   import {
     SvelteFlow,
@@ -14,7 +14,7 @@
     type Node,
     type Connection,
   } from "@xyflow/svelte";
-  import { app, currentSheet, deviceAt, edit, toast, uuid, holdMetrics } from "../../lib/state.svelte";
+  import { app, currentSheet, deviceAt, edit, toast, uuid, holdMetrics, setWireStyle, WIRE_STYLE_LABEL, type WireStyle } from "../../lib/state.svelte";
   import { handleIndex, pinResource, toFlow, type NodeData } from "../../lib/graph";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Wire } from "../../lib/types";
@@ -330,6 +330,13 @@
             </button>
           {/each}
           <AddMenu label="Redstone" kinds={SIGNAL_KINDS} color="var(--c-signal)" onpick={(kind) => addNode(kind, viewCenter())} />
+          <!-- Wire style: a canvas setting, remembered in this browser. -->
+          <label class="btn flex items-center gap-1 text-sm" title="How wires are drawn between pins (remembered in this browser)">
+            <SplineIcon size={14} />
+            <select class="wire-style" value={app.wireStyle} onchange={(e) => setWireStyle(e.currentTarget.value as WireStyle)} aria-label="Wire style">
+              {#each Object.entries(WIRE_STYLE_LABEL) as [style, label] (style)}<option value={style}>{label}</option>{/each}
+            </select>
+          </label>
           <button class="btn flex items-center gap-1 text-sm" title="Lay the sheet out left to right" disabled={tidying || !sheet?.nodes?.length} onclick={tidy}>
             <SparklesIcon size={14} />Tidy up
           </button>
@@ -345,3 +352,14 @@
     {/if}
   </SvelteFlow>
 </div>
+
+<style>
+  /* The wire style picker sits inside a toolbar button: no box of its own. */
+  .wire-style {
+    border: none;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+  }
+</style>

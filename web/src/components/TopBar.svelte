@@ -1,5 +1,11 @@
 <script lang="ts">
+  import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
+  import Lightbulb from "@lucide/svelte/icons/lightbulb";
   import Play from "@lucide/svelte/icons/play";
+  import Redo from "@lucide/svelte/icons/redo-2";
+  import Settings from "@lucide/svelte/icons/settings";
+  import Trash from "@lucide/svelte/icons/trash";
+  import Undo from "@lucide/svelte/icons/undo-2";
   import PowerOff from "@lucide/svelte/icons/power-off";
   import Unplug from "@lucide/svelte/icons/unplug";
   import ZapOff from "@lucide/svelte/icons/zap-off";
@@ -13,9 +19,6 @@
     loadNetworks,
     toast,
     setRateUnit,
-    setWireStyle,
-    WIRE_STYLE_LABEL,
-    type WireStyle,
   } from "../lib/state.svelte";
 
   const snapshot = $derived(app.snapshot);
@@ -92,40 +95,32 @@
       <status.icon size={16} />
     </span>
     <button
-      class="btn"
+      class="btn flex items-center gap-1"
       style={app.panel === "dashboard" ? "border-color: var(--accent); color: var(--accent)" : ""}
       onclick={() => (app.panel = app.panel === "dashboard" ? null : "dashboard")}
-      title="Busiest and waiting flows, what is switched off, tick cost and the overflow buffer">Dashboard</button
+      title="Busiest and waiting flows, what is switched off, tick cost and the overflow buffer"><LayoutDashboard size={14} />Dashboard</button
     >
     <button
-      class="btn"
+      class="btn flex items-center gap-1"
       style={app.panel === "identified" ? "border-color: var(--accent); color: var(--accent)" : ""}
       onclick={() => (app.panel = app.panel === "identified" ? null : "identified")}
-      title="What is lit up in the world">Identified{app.snapshot?.identified?.length ? ` (${app.snapshot.identified.length})` : ""}</button
+      title="What is lit up in the world"><Lightbulb size={14} />Identified{app.snapshot?.identified?.length ? ` (${app.snapshot.identified.length})` : ""}</button
     >
     <button
-      class="btn"
+      class="btn flex items-center gap-1"
       style={app.panel === "network" ? "border-color: var(--accent); color: var(--accent)" : ""}
       onclick={() => (app.panel = app.panel === "network" ? null : "network")}
-      title="Name, access, password and members">Settings</button
+      title="Name, access, password and members"><Settings size={14} />Settings</button
     >
     <button
       class="btn"
       onclick={() => setRateUnit(app.rateUnit === "t" ? "s" : "t")}
       title="Show rates per tick or per second">/{app.rateUnit}</button
     >
-    <select
-      class="text-sm"
-      value={app.wireStyle}
-      title="How wires are drawn between pins (remembered in this browser)"
-      onchange={(e) => setWireStyle(e.currentTarget.value as WireStyle)}
-    >
-      {#each Object.entries(WIRE_STYLE_LABEL) as [style, label] (style)}<option value={style}>Wires: {label}</option>{/each}
-    </select>
-    <button class="btn" onclick={undo} disabled={app.undo.length === 0} title="Undo (Ctrl+Z)">Undo</button>
-    <button class="btn" onclick={redo} disabled={app.redo.length === 0} title="Redo (Ctrl+Shift+Z)">Redo</button>
+    <button class="btn px-2" onclick={undo} disabled={app.undo.length === 0} title="Undo (Ctrl+Z)" aria-label="Undo"><Undo size={16} /></button>
+    <button class="btn px-2" onclick={redo} disabled={app.redo.length === 0} title="Redo (Ctrl+Shift+Z)" aria-label="Redo"><Redo size={16} /></button>
     {#if snapshot.role === "owner"}
-      <button class="btn btn-danger" onclick={deleteNetwork}>Delete network</button>
+      <button class="btn btn-danger px-2" onclick={deleteNetwork} title="Delete this network" aria-label="Delete network"><Trash size={16} /></button>
     {/if}
   {/if}
   <!-- Saving shows as a dot beside the connection status rather than replacing it: changing that text's length

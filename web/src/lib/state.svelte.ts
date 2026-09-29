@@ -34,10 +34,10 @@ export type WireStyle = "default" | "smoothstep" | "step" | "straight" | "simple
 
 export const WIRE_STYLE_LABEL: Record<WireStyle, string> = {
   default: "Curved",
-  smoothstep: "Rounded corners",
-  step: "Square corners",
+  simplebezier: "Gentle",
+  smoothstep: "Rounded",
+  step: "Square",
   straight: "Straight",
-  simplebezier: "Gentle curves",
 };
 
 function storedWireStyle(): WireStyle {

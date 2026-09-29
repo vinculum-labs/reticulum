@@ -20,6 +20,7 @@ import ToggleRight from "@lucide/svelte/icons/toggle-right";
 import type { NodeKind } from "./types";
 
 export { default as SparklesIcon } from "@lucide/svelte/icons/sparkles";
+export { default as SplineIcon } from "@lucide/svelte/icons/spline";
 export { default as ZapIcon } from "@lucide/svelte/icons/zap";
 
 /** An icon for each node kind, for the toolbar and menus (Lucide, ISC license). */
