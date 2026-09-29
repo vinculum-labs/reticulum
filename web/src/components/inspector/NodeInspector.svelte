@@ -121,12 +121,13 @@
   </div>
 
   {#if namedDevice}
-    <div class="flex gap-2">
-      <button class="btn text-sm" onclick={() => openDevice(namedDevice)} title="Rename the device and its faces">
+    <div class="flex min-w-0 gap-2">
+      <!-- A long device name is cut short here rather than pushing the ID button out of the panel. -->
+      <button class="btn min-w-0 flex-1 truncate text-left text-sm" onclick={() => openDevice(namedDevice)} title={`Rename “${deviceName(namedDevice)}” and its faces`}>
         Names of “{deviceName(namedDevice)}”…
       </button>
       <button
-        class="btn text-sm"
+        class="btn shrink-0 text-sm"
         style={isIdentified({ kind: "device", device: namedDevice.pos }) ? "border-color: var(--warn); color: var(--warn)" : ""}
         disabled={!canEdit}
         title="Light the device up in the world until turned off"

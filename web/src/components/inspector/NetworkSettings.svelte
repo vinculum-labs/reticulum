@@ -87,7 +87,7 @@
     </section>
   {/if}
 
-  <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+  <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 break-words text-sm">
     <dt class="muted">Antenna</dt>
     <dd title="Right-click the controller with an antenna to change it">{ANTENNA[snapshot.antenna ?? 0]}</dd>
     <dt class="muted">Connectors</dt>

@@ -76,7 +76,24 @@
       <button class="btn btn-danger" onclick={deleteNetwork}>Delete network</button>
     {/if}
   {/if}
-  <span class="text-sm muted" title="Connection to the game">
-    {app.busy > 0 ? "Saving…" : app.inWorld ? app.player : app.socketOpen ? "Not in a world" : "Offline"}
+  <!-- Saving shows as a dot beside the connection status rather than replacing it: changing that text's length
+       (on every node move) shifted every button in the bar. -->
+  <span class="flex shrink-0 items-center gap-1.5 text-sm muted" title={app.busy > 0 ? "Saving…" : "Connection to the game"}>
+    <span class="saving-dot" class:on={app.busy > 0}></span>
+    {app.inWorld ? app.player : app.socketOpen ? "Not in a world" : "Offline"}
   </span>
 </header>
+
+<style>
+  .saving-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 150ms;
+  }
+  .saving-dot.on {
+    opacity: 1;
+  }
+</style>

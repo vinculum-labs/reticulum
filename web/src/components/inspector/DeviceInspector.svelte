@@ -45,7 +45,7 @@
       <p class="truncate text-xs muted">{device.block} · {device.pos.pos.join(", ")}</p>
     </div>
     <button
-      class="btn text-sm"
+      class="btn shrink-0 text-sm"
       style={isIdentified({ kind: "device", device: device.pos }) ? "border-color: var(--warn); color: var(--warn)" : ""}
       disabled={!canEdit}
       title="Light it up in the world until turned off"
@@ -87,9 +87,9 @@
   <div class="flex flex-col gap-1">
     <span class="text-xs font-medium muted">Face names</span>
     {#each FACES as face}
-      <div class="grid grid-cols-[4.5rem_1fr_auto] items-center gap-2 text-sm">
+      <div class="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-2 text-sm">
         <span class="muted">{face}</span>
-        <input value={device.faceNames[face] ?? ""} placeholder="—" disabled={!canEdit} onchange={(e) => renameFace(face, e.currentTarget.value)} />
+        <input class="w-full min-w-0" value={device.faceNames[face] ?? ""} placeholder="—" disabled={!canEdit} onchange={(e) => renameFace(face, e.currentTarget.value)} />
         {#if face !== "unsided"}
           <button
             class="btn px-1.5 text-xs"

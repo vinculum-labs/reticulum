@@ -110,7 +110,7 @@
 
   <hr style="border-color: var(--line)" />
   <h2 class="text-base font-semibold">Network</h2>
-  <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+  <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 break-words text-sm">
     <dt class="muted">Access</dt><dd>{snapshot.access}</dd>
     <dt class="muted">Owner</dt><dd>{snapshot.owner || "none"}</dd>
     <dt class="muted">Your role</dt><dd>{snapshot.role}</dd>
