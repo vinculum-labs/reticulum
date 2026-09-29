@@ -56,11 +56,20 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             ctx.writeAndFlush(new TextWebSocketFrame(hello.toString()));
             return;
         }
-        if (request.has("op") && "closeEditor".equals(request.get("op").getAsString())) {
-            // Esc at the root of the in-game editor: hide it (the page stays loaded for next time).
+        String op = request.has("op") ? request.get("op").getAsString() : "";
+        if (op.equals("closeEditor") || op.equals("toggleFullscreen")) {
             Minecraft.getInstance().execute(() -> {
-                if (Minecraft.getInstance().screen instanceof io.github.leadassimilator.reticulum.client.webview.EditorScreen) {
-                    Minecraft.getInstance().setScreen(null);
+                Minecraft mc = Minecraft.getInstance();
+                if (!(mc.screen instanceof io.github.leadassimilator.reticulum.client.webview.EditorScreen)) {
+                    return;
+                }
+                if (op.equals("closeEditor")) {
+                    // Esc at the root of the in-game editor: hide it (the page stays loaded for next time).
+                    mc.setScreen(null);
+                } else {
+                    // F11 in the in-game editor, done as the game does it.
+                    mc.getWindow().toggleFullScreen();
+                    mc.options.fullscreen().set(mc.getWindow().isFullscreen());
                 }
             });
             JsonObject done = new JsonObject();

@@ -17,8 +17,14 @@ export function onEscape(close: () => void): () => void {
 /** Shown inside the game (Edge WebView2) rather than in a browser tab. */
 export const embedded = typeof window !== "undefined" && !!(window as unknown as { chrome?: { webview?: unknown } }).chrome?.webview;
 
-export function installEscape(closeEditor: () => void) {
+export function installEscape(closeEditor: () => void, toggleFullscreen: () => void) {
   window.addEventListener("keydown", (e) => {
+    // Inside the game the page has the keyboard, so the game's own F11 (fullscreen) is passed on.
+    if (e.key === "F11" && embedded) {
+      e.preventDefault();
+      toggleFullscreen();
+      return;
+    }
     // A field that handles Esc itself (e.g. cancelling a rename) marks it handled.
     if (e.key !== "Escape" || e.defaultPrevented) return;
     const top = stack.at(-1);
