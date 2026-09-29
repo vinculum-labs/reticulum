@@ -1,5 +1,6 @@
 package io.github.leadassimilator.reticulum.client.web;
 
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -7,6 +8,8 @@ import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,6 +25,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.ReticulumClientConfig;
@@ -46,9 +50,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
+import net.neoforged.fml.loading.FMLPaths;
 
 /**
- * The web UI's local server, hosted by the game client. By default it binds to 127.0.0.1 on a random free port
+ * The web UI's local server, hosted by the game client. By default it binds to 127.0.0.1 on port 38291 (or the port
+ * it last used, or a free one)
  * (both configurable), and admits a browser only after it has presented the one-time token from the URL the game opened. Requests are
  * relayed to the server as they are; the server checks every one of them against the player's permissions.
  */
@@ -75,6 +81,33 @@ public final class WebBridge {
 
     // ---------------------------------------------------------------- lifecycle
 
+    /** The port tried first when none is configured. */
+    static final int DEFAULT_PORT = 38291;
+
+    /** Remembered between runs: the session secret, so bookmarks and open pages keep working, and the port last used. */
+    private static Path stateFile() {
+        return FMLPaths.CONFIGDIR.get().resolve("reticulum-web.json");
+    }
+
+    private static JsonObject loadState() {
+        try {
+            if (Files.exists(stateFile())) {
+                return JsonParser.parseString(Files.readString(stateFile())).getAsJsonObject();
+            }
+        } catch (IOException | RuntimeException e) {
+            Reticulum.LOGGER.warn("Could not read {}; starting afresh", stateFile(), e);
+        }
+        return new JsonObject();
+    }
+
+    private static void saveState(JsonObject state) {
+        try {
+            Files.writeString(stateFile(), state.toString());
+        } catch (IOException e) {
+            Reticulum.LOGGER.warn("Could not save {}", stateFile(), e);
+        }
+    }
+
     static synchronized void start() {
         String address = ReticulumClientConfig.WEB_ADDRESS.get().strip();
         int wantedPort = ReticulumClientConfig.WEB_PORT.getAsInt();
@@ -85,14 +118,32 @@ public final class WebBridge {
             // The config changed since the server started: restart it with the new address or port.
             stop();
         }
-        byte[] bytes = new byte[32];
-        RANDOM.nextBytes(bytes);
-        token = HexFormat.of().formatHex(bytes);
+        JsonObject state = loadState();
+        if (state.has("secret") && state.get("secret").getAsString().matches("[0-9a-f]{64}")) {
+            token = state.get("secret").getAsString();
+        } else {
+            byte[] bytes = new byte[32];
+            RANDOM.nextBytes(bytes);
+            token = HexFormat.of().formatHex(bytes);
+            state.addProperty("secret", token);
+            saveState(state);
+        }
+        // Ports to try in order: the configured one, or the remembered one and the default; then any free port.
+        List<Integer> ports = new ArrayList<>();
+        if (wantedPort > 0) {
+            ports.add(wantedPort);
+        } else {
+            if (state.has("port")) {
+                ports.add(state.get("port").getAsInt());
+            }
+            ports.add(DEFAULT_PORT);
+        }
+        ports.add(0);
         // Daemon threads, so the game can always exit even if the server is still up.
         group = new NioEventLoopGroup(1, new DefaultThreadFactory("reticulum-web", true));
         try {
             InetAddress bindTo = InetAddress.getByName(address);
-            server = new ServerBootstrap()
+            ServerBootstrap bootstrap = new ServerBootstrap()
                     .group(group)
                     .channel(NioServerSocketChannel.class)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -100,11 +151,27 @@ public final class WebBridge {
                         protected void initChannel(SocketChannel ch) {
                             ch.pipeline().addLast(new HttpServerCodec(), new HttpObjectAggregator(64 * 1024), new HttpHandler());
                         }
-                    })
-                    .bind(new InetSocketAddress(bindTo, wantedPort))
-                    .syncUninterruptibly()
-                    .channel();
+                    });
+            Exception lastFailure = null;
+            for (int candidate : ports.stream().distinct().toList()) {
+                try {
+                    server = bootstrap.bind(new InetSocketAddress(bindTo, candidate)).syncUninterruptibly().channel();
+                    break;
+                } catch (Exception e) {
+                    // Netty rethrows the BindException as is, although it is checked, so catch everything.
+                    // Most likely taken by something else (another game instance, say); try the next one.
+                    Reticulum.LOGGER.info("Reticulum web editor could not use port {} ({}); trying another", candidate, e.getMessage());
+                    lastFailure = e;
+                }
+            }
+            if (server == null) {
+                throw new IllegalStateException("no port could be used", lastFailure);
+            }
             InetSocketAddress bound = (InetSocketAddress) server.localAddress();
+            if (wantedPort == 0 && (!state.has("port") || state.get("port").getAsInt() != bound.getPort())) {
+                state.addProperty("port", bound.getPort());
+                saveState(state);
+            }
             port = bound.getPort();
             boundAddress = address;
             boundPort = wantedPort;

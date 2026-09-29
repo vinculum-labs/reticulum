@@ -15,8 +15,9 @@ public final class ReticulumClientConfig {
             .define("webAddress", "127.0.0.1");
 
     public static final ModConfigSpec.IntValue WEB_PORT = BUILDER
-            .comment("Port the web editor listens on. 0 picks a free port each time; a fixed port lets you bookmark the page",
-                    "(the one-time link from the game is still needed once per game session).")
+            .comment("Port the web editor listens on. 0 (the default) tries 38291, or the port it last used; when that is taken it",
+                    "picks a free one and remembers it (in reticulum-web.json next to this file). Any other value uses that port,",
+                    "falling back to a free one for that run if it is taken.")
             .defineInRange("webPort", 0, 0, 65535);
 
     public static final ModConfigSpec.BooleanValue KEEP_RUNNING_WHILE_EDITING = BUILDER
