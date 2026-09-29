@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onEscape } from "../../lib/escape";
   import { deviceName } from "../../lib/state.svelte";
   import { posKey, type Device, type GlobalPos } from "../../lib/types";
   import DeviceIcon from "../DeviceIcon.svelte";
@@ -13,6 +14,10 @@
   const LIMIT = 100;
 
   let open = $state(false);
+  // Esc closes the list while it is open, wherever the focus is.
+  $effect(() => {
+    if (open) return onEscape(() => (open = false));
+  });
   let query = $state("");
   let active = $state(0);
   let root: HTMLDivElement | undefined = $state();

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onEscape } from "../../lib/escape";
   import { KIND_ICON, ZapIcon } from "../../lib/icons";
   import { KIND_HINT, KIND_LABEL } from "../../lib/kinds";
   import type { NodeKind } from "../../lib/types";
@@ -22,10 +23,7 @@
 
   function onkeydown(e: KeyboardEvent) {
     if (!open) return;
-    if (e.key === "Escape") {
-      e.preventDefault();
-      open = false;
-    } else if (e.key === "ArrowDown") {
+    if (e.key === "ArrowDown") {
       e.preventDefault();
       active = (active + 1) % kinds.length;
     } else if (e.key === "ArrowUp") {
@@ -36,6 +34,11 @@
       pick(kinds[active]);
     }
   }
+
+  // Esc closes the menu while it is open.
+  $effect(() => {
+    if (open) return onEscape(() => (open = false));
+  });
 
   /** Closes when clicking anywhere else. */
   function onpointerdown(e: PointerEvent) {

@@ -14,6 +14,7 @@
     type CatalogEntry,
     type CatalogKind,
   } from "../../lib/catalog";
+  import { onEscape } from "../../lib/escape";
   import { formatAmount } from "../../lib/kinds";
   import { app, deviceName, request } from "../../lib/state.svelte";
   import { posKey, type GlobalPos } from "../../lib/types";
@@ -130,15 +131,10 @@
     onclose();
   }
 
-  function onkeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onclose();
-    }
-  }
+  // Esc closes the picker (the innermost thing open).
+  $effect(() => onEscape(() => onclose()));
 </script>
 
-<svelte:window {onkeydown} />
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgb(0 0 0 / 0.45)" onclick={onclose}>

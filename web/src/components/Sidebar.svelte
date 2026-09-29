@@ -168,7 +168,10 @@
                 onblur={(e) => renameSheet(sheet, e.currentTarget.value)}
                 onkeydown={(e) => {
                   if (e.key === "Enter") renameSheet(sheet, e.currentTarget.value);
-                  if (e.key === "Escape") renaming = null;
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    renaming = null;
+                  }
                 }}
               />
             {:else}
