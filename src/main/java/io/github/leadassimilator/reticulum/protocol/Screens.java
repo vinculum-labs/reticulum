@@ -90,7 +90,58 @@ public final class Screens {
         return new Views.ControllerView(pos, network.id(), network.name(), network.ownerName(), network.accessMode(), network.passwordHash() != null,
                 network.connectors().size(), network.devices().size(), NetworkManager.orphanCount(network),
                 Security.canEdit(network, player), Security.canAdmin(network, player),
-                player.serverLevel().getBlockEntity(pos) instanceof ControllerBlockEntity controller ? controller.antennaTier() : 0);
+                player.serverLevel().getBlockEntity(pos) instanceof ControllerBlockEntity controller ? controller.antennaTier() : 0,
+                network.enabled(), io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(player.server, network),
+                network.switches().redstone().mode(), sheetEntries(player, network), overflowLines(player, network));
+    }
+
+    private static List<Views.SheetEntry> sheetEntries(ServerPlayer player, Network network) {
+        var runtime = io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(network.id());
+        List<Views.SheetEntry> entries = new ArrayList<>();
+        for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
+            if (sheet.subsheet()) {
+                continue;
+            }
+            entries.add(new Views.SheetEntry(sheet.id(), sheet.name(), sheet.enabled(), sheet.enabled() && !network.runs(sheet),
+                    runtime.sheetsOff().contains(sheet.id()),
+                    runtime.compiled(sheet, network).errors().size()));
+        }
+        return entries;
+    }
+
+    private static List<String> overflowLines(ServerPlayer player, Network network) {
+        List<String> lines = new ArrayList<>();
+        network.overflowItems().forEach(stack -> lines.add(stack.getCount() + "× " + stack.getHoverName().getString()));
+        network.overflowFluids().forEach(fluid -> lines.add(fluid.getAmount() + " mB " + fluid.getHoverName().getString()));
+        network.overflow().chemicals().forEach((id, amount) -> lines.add(amount + " mB " + id));
+        return lines;
+    }
+
+    /** The controller screen's Network tab: the network's button and redstone mode, and each sheet's button. */
+    static void controllerSwitch(ServerPlayer player, Payloads.ControllerSwitch payload) {
+        if (!(reachable(player, payload.pos()) instanceof ControllerBlockEntity controller)) {
+            return;
+        }
+        Network network = NetworkManager.network(player.server, controller.networkId());
+        if (network == null || !Security.canEdit(network, player)) {
+            player.displayClientMessage(Component.translatable("message.reticulum.no_edit_access"), true);
+            return;
+        }
+        switch (payload.what()) {
+            case Payloads.ControllerSwitch.NETWORK -> network.setEnabled(payload.value() != 0);
+            case Payloads.ControllerSwitch.REDSTONE -> {
+                var modes = io.github.leadassimilator.reticulum.graph.Redstone.Mode.values();
+                var old = network.switches().redstone();
+                var mode = modes[Math.floorMod(payload.value(), modes.length)];
+                network.switches().setRedstone(new io.github.leadassimilator.reticulum.graph.Redstone(mode, old.source(), old.device(), old.face(),
+                        old.connector(), old.signal()));
+            }
+            case Payloads.ControllerSwitch.SHEET -> payload.sheet().map(network::sheet).ifPresent(sheet -> sheet.setEnabled(payload.value() != 0));
+            default -> {
+            }
+        }
+        NetworkManager.changed(player.server, network);
+        open(player, payload.pos());
     }
 
     private static Views.BlockView blockView(ServerPlayer player, ServerLevel level, BlockPos pos, NetworkBlockEntity be, @Nullable Network network) {

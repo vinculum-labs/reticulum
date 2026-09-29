@@ -132,6 +132,30 @@ public final class Payloads {
         }
     }
 
+    // ---------------------------------------------------------------- controller switches
+
+    /**
+     * The controller screen's Network tab: switch the network on or off ({@code what} NETWORK, {@code value} 0/1), set
+     * its redstone mode (REDSTONE, {@code value} the mode's ordinal), or switch a sheet on or off (SHEET).
+     */
+    public record ControllerSwitch(BlockPos pos, int what, java.util.Optional<java.util.UUID> sheet, int value) implements CustomPacketPayload {
+        public static final int NETWORK = 0;
+        public static final int REDSTONE = 1;
+        public static final int SHEET = 2;
+        public static final Type<ControllerSwitch> TYPE = payloadType("controller_switch");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ControllerSwitch> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, ControllerSwitch::pos,
+                ByteBufCodecs.VAR_INT, ControllerSwitch::what,
+                ByteBufCodecs.optional(net.minecraft.core.UUIDUtil.STREAM_CODEC), ControllerSwitch::sheet,
+                ByteBufCodecs.VAR_INT, ControllerSwitch::value,
+                ControllerSwitch::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     // ---------------------------------------------------------------- identify
 
     /** Something to light up in the world: a block (or one face of it), its color and the name to show above it. */
@@ -247,6 +271,8 @@ public final class Payloads {
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openBlockScreen(payload.view()));
         registrar.playToClient(OpenControllerScreen.TYPE, OpenControllerScreen.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openControllerScreen(payload.view()));
+        registrar.playToServer(ControllerSwitch.TYPE, ControllerSwitch.STREAM_CODEC,
+                (payload, context) -> server(context, player -> Screens.controllerSwitch(player, payload)));
         registrar.playToClient(IdentifyMarkers.TYPE, IdentifyMarkers.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.IdentifyRenderer.accept(payload.markers()));
         registrar.playToServer(ToggleIdentify.TYPE, ToggleIdentify.STREAM_CODEC,

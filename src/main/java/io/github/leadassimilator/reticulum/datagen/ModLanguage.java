@@ -153,6 +153,25 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.join", "Join");
         add("screen.reticulum.no_networks", "No networks you can use");
 
+        // Controller screen, Network tab
+        add("screen.reticulum.tab_settings", "Settings");
+        add("screen.reticulum.tab_network", "Network");
+        add("screen.reticulum.on", "On");
+        add("screen.reticulum.off", "Off");
+        add("screen.reticulum.network_switch", "Network");
+        add("screen.reticulum.redstone", "Redstone");
+        add("screen.reticulum.redstone.ignored", "Ignored");
+        add("screen.reticulum.redstone.high", "High");
+        add("screen.reticulum.redstone.low", "Low");
+        add("screen.reticulum.redstone.pulse", "Pulse");
+        add("screen.reticulum.redstone_hint", "Runs only while this allows it: High while powered, Low while not, Pulse once per rising edge. Read at the controller unless set otherwise in the editor.");
+        add("screen.reticulum.running", "Running");
+        add("screen.reticulum.stopped_off", "Switched off");
+        add("screen.reticulum.stopped_redstone", "Not running (redstone, or the controller isn't loaded)");
+        add("screen.reticulum.no_sheets", "No sheets yet: open the editor to make one");
+        add("screen.reticulum.folder_off", "(folder off)");
+        add("screen.reticulum.overflow", "Overflow: %s");
+
         // Identify
         add("tool.reticulum.mode.identify", "Identify");
         add("tooltip.reticulum.tool_identify", "Right-click a connector or device to light it up (or off); sneak + right-click lights one face of a device");

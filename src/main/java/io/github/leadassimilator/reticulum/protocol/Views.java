@@ -103,8 +103,26 @@ public final class Views {
         }
     }
 
+    /** One sheet in the controller screen's list. */
+    public record SheetEntry(java.util.UUID id, String name, boolean enabled, boolean folderOff, boolean redstoneOff, int errors) {
+        public static final StreamCodec<RegistryFriendlyByteBuf, SheetEntry> STREAM_CODEC = StreamCodec.composite(
+                net.minecraft.core.UUIDUtil.STREAM_CODEC, SheetEntry::id,
+                ByteBufCodecs.STRING_UTF8, SheetEntry::name,
+                ByteBufCodecs.BOOL, SheetEntry::enabled,
+                ByteBufCodecs.BOOL, SheetEntry::folderOff,
+                ByteBufCodecs.BOOL, SheetEntry::redstoneOff,
+                ByteBufCodecs.VAR_INT, SheetEntry::errors,
+                SheetEntry::new);
+    }
+
+    /**
+     * {@code running}: the network ticks now. {@code redstoneMode}: the network's redstone condition. {@code overflow}:
+     * a line per thing in the overflow buffer.
+     */
     public record ControllerView(BlockPos pos, java.util.UUID networkId, String networkName, String ownerName, AccessMode mode, boolean hasPassword,
-            int connectors, int devices, int orphans, boolean canEdit, boolean canAdmin, int antenna) {
+            int connectors, int devices, int orphans, boolean canEdit, boolean canAdmin, int antenna,
+            boolean enabled, boolean running, io.github.leadassimilator.reticulum.graph.Redstone.Mode redstoneMode, List<SheetEntry> sheets,
+            List<String> overflow) {
         public static final StreamCodec<RegistryFriendlyByteBuf, ControllerView> STREAM_CODEC = StreamCodec.of(
                 (buf, v) -> {
                     buf.writeBlockPos(v.pos);
@@ -119,9 +137,16 @@ public final class Views {
                     buf.writeBoolean(v.canEdit);
                     buf.writeBoolean(v.canAdmin);
                     ByteBufCodecs.VAR_INT.encode(buf, v.antenna);
+                    buf.writeBoolean(v.enabled);
+                    buf.writeBoolean(v.running);
+                    buf.writeEnum(v.redstoneMode);
+                    buf.writeCollection(v.sheets, (b, s) -> SheetEntry.STREAM_CODEC.encode((RegistryFriendlyByteBuf) b, s));
+                    buf.writeCollection(v.overflow, (b, s) -> b.writeUtf(s));
                 },
                 buf -> new ControllerView(buf.readBlockPos(), buf.readUUID(), buf.readUtf(), buf.readUtf(), AccessMode.STREAM_CODEC.decode(buf),
                         buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
-                        ByteBufCodecs.VAR_INT.decode(buf), buf.readBoolean(), buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf)));
+                        ByteBufCodecs.VAR_INT.decode(buf), buf.readBoolean(), buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf),
+                        buf.readBoolean(), buf.readBoolean(), buf.readEnum(io.github.leadassimilator.reticulum.graph.Redstone.Mode.class),
+                        buf.readList(b -> SheetEntry.STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)), buf.readList(b -> b.readUtf())));
     }
 }
