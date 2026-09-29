@@ -276,6 +276,21 @@ public final class EngineTests {
     }
 
     @GameTest(template = "empty")
+    public static void redstoneDirectionIsDetected(GameTestHelper helper) {
+        BlockPos lever = new BlockPos(1, 1, 1);
+        BlockPos lamp = new BlockPos(3, 1, 1);
+        BlockPos door = new BlockPos(5, 1, 1);
+        helper.setBlock(lever, lever(false));
+        helper.setBlock(lamp, Blocks.REDSTONE_LAMP);
+        helper.setBlock(door, Blocks.OAK_DOOR);
+        var level = helper.getLevel();
+        check(helper, Devices.givesRedstone(level, helper.absolutePos(lever)) && !Devices.takesRedstone(level, helper.absolutePos(lever)), "lever");
+        check(helper, !Devices.givesRedstone(level, helper.absolutePos(lamp)) && Devices.takesRedstone(level, helper.absolutePos(lamp)), "lamp");
+        check(helper, !Devices.givesRedstone(level, helper.absolutePos(door)) && Devices.takesRedstone(level, helper.absolutePos(door)), "door");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void gateWireSwitchesAFlow(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.LEVER);
         helper.setBlock(rig.devices().get(2), lever(false));

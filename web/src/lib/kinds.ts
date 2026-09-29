@@ -171,8 +171,16 @@ export function defaultSettings(
     case "sheet_input":
     case "sheet_output":
       return { kind, name: "" };
-    case "device":
-      return { kind, device: device!.pos, inputs: [{ resource }], outputs: [{ resource, per_operation: 0 }] };
+    case "device": {
+      // A redstone device gets the pins it is for: a lever only an output, a lamp only an input.
+      const redstone = resource === "redstone" && (device?.givesRedstone || device?.takesRedstone);
+      return {
+        kind,
+        device: device!.pos,
+        inputs: redstone && !device?.takesRedstone ? [] : [{ resource }],
+        outputs: redstone && !device?.givesRedstone ? [] : [{ resource, per_operation: 0 }],
+      };
+    }
     case "filter":
       return { kind, expression: "" };
     case "rate_limit":

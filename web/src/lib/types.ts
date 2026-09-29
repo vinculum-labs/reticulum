@@ -241,6 +241,10 @@ export interface Device {
   faceNames: Partial<Record<Face, string>>;
   resources?: Partial<Record<Resource, Face[]>>;
   loaded: boolean;
+  /** Gives out redstone (a signal source, or a comparator value). */
+  givesRedstone?: boolean;
+  /** Reacts to redstone (a door, lamp, piston, machine). */
+  takesRedstone?: boolean;
   /** Only wireless connectors the antenna doesn't reach reach it: it counts as offline. */
   outOfRange?: boolean;
 }

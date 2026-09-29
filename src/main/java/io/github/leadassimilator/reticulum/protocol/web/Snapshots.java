@@ -225,6 +225,8 @@ final class Snapshots {
                 resources.add(ResourceKind.CHEMICAL.getSerializedName(), faces(level, at, Mods.chemicalCapability()));
             }
             json.add("resources", resources);
+            json.addProperty("givesRedstone", Devices.givesRedstone(level, at));
+            json.addProperty("takesRedstone", Devices.takesRedstone(level, at));
             json.addProperty("loaded", true);
         } else {
             json.addProperty("defaultName", Devices.defaultName(net.minecraft.network.chat.Component.literal(record.blockId().getPath()), at));

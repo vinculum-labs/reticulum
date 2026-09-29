@@ -109,6 +109,26 @@ public final class Devices {
                 || state.hasProperty(BlockStateProperties.EXTENDED) || state.getBlock() instanceof RedstoneLampBlock;
     }
 
+    /** Whether the block gives out redstone: a signal source (lever, sensor, dust) or a comparator value (a chest). */
+    public static boolean givesRedstone(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return state.isSignalSource() || state.hasAnalogOutputSignal();
+    }
+
+    /**
+     * Whether the block reacts to redstone: it isn't a signal source itself, and it has a powered, triggered or
+     * extended state (doors, dispensers, pistons), is a lamp, or is a machine (has a block entity).
+     */
+    public static boolean takesRedstone(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (state.isSignalSource()) {
+            return false;
+        }
+        return state.hasProperty(BlockStateProperties.POWERED) || state.hasProperty(BlockStateProperties.TRIGGERED)
+                || state.hasProperty(BlockStateProperties.EXTENDED) || state.getBlock() instanceof RedstoneLampBlock
+                || level.getBlockEntity(pos) != null;
+    }
+
     public static ResourceLocation blockId(Level level, BlockPos pos) {
         return BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock());
     }
