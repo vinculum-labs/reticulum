@@ -4,6 +4,7 @@
 import { Connection } from "./protocol";
 import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face, Identify, PowerState } from "./types";
 import { posKey } from "./types";
+import { share } from "./share";
 
 export interface Toast {
   id: number;
@@ -221,7 +222,9 @@ export async function selectNetwork(id: string): Promise<void> {
 }
 
 function setSnapshot(snapshot: Snapshot): void {
-  app.snapshot = snapshot;
+  // Unchanged parts keep their objects, so after an edit only what it changed re-renders.
+  const merged = app.snapshot && app.snapshot.id === snapshot.id ? share(app.snapshot, snapshot) : snapshot;
+  if (merged !== app.snapshot) app.snapshot = merged;
   const summary = app.networks.find((n) => n.id === snapshot.id);
   if (summary) Object.assign(summary, { name: snapshot.name, running: snapshot.running, enabled: snapshot.enabled });
   if (!snapshot.sheets.some((s) => s.id === app.sheetId)) app.sheetId = snapshot.sheets[0]?.id ?? null;
