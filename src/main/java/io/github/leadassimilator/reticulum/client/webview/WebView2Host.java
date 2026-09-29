@@ -50,6 +50,9 @@ public final class WebView2Host {
     private static final int CTL_MOVE_FOCUS = 12;
     private static final int CTL_CLOSE = 24;
     private static final int CTL_GET_CORE_WEBVIEW2 = 25;
+    // ICoreWebView2Controller2
+    private static final String IID_CONTROLLER2 = "{c979903e-d4ca-4228-92eb-47ee3fa96eab}";
+    private static final int CTL2_PUT_DEFAULT_BACKGROUND_COLOR = 27;
     // ICoreWebView2
     private static final int WV_NAVIGATE = 5;
     private static final int WV_ADD_NAVIGATION_COMPLETED = 15;
@@ -207,6 +210,7 @@ public final class WebView2Host {
         }
         addRef(made);
         controller = made;
+        paintBehindPage();
         PointerByReference core = new PointerByReference();
         call(controller, CTL_GET_CORE_WEBVIEW2, core);
         webview = core.getValue();
@@ -234,6 +238,34 @@ public final class WebView2Host {
             // COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC
             call(controller, CTL_MOVE_FOCUS, 0);
         }
+    }
+
+    /**
+     * WebView2 fills the view with white before the page is composited; make that the placeholder's dark color, so
+     * showing the view never flashes white.
+     */
+    private static void paintBehindPage() {
+        PointerByReference controller2 = new PointerByReference();
+        com.sun.jna.platform.win32.Guid.GUID iid = new com.sun.jna.platform.win32.Guid.GUID(IID_CONTROLLER2);
+        if (call(controller, 0, iid, controller2) < 0 || controller2.getValue() == null) {
+            return;
+        }
+        Color color = new Color();
+        color.a = (byte) 0xFF;
+        color.r = (byte) 0x12;
+        color.g = (byte) 0x15;
+        color.b = (byte) 0x1B;
+        call(controller2.getValue(), CTL2_PUT_DEFAULT_BACKGROUND_COLOR, color);
+        call(controller2.getValue(), 2);
+    }
+
+    /** COREWEBVIEW2_COLOR, passed by value. */
+    @Structure.FieldOrder({"a", "r", "g", "b"})
+    public static class Color extends Structure implements Structure.ByValue {
+        public byte a;
+        public byte r;
+        public byte g;
+        public byte b;
     }
 
     private static void fail(String what, int hresult) {
