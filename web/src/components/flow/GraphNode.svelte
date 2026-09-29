@@ -68,6 +68,22 @@
           : [],
   );
   const pinned = $derived(kind === "device" || kind === "subsheet" || signal);
+  /**
+   * The other cards' pins (filter, rate limit, splitter, kit, sheet pins), as labeled rows like the pinned cards: the
+   * input on the left, the outputs on the right, each pin beside its label. Ids are the handles' (wires keep them).
+   */
+  const flowIn = $derived(kind !== "sheet_input");
+  const flowOuts = $derived<{ id: string; label: string; color: string }[]>(
+    kind === "filter"
+      ? [
+          { id: "match", label: "match", color: "var(--good)" },
+          { id: "reject", label: "other", color: "var(--bad)" },
+        ]
+      : kind === "sheet_output"
+        ? []
+        : [{ id: "out", label: "out", color }],
+  );
+  const flowRows = $derived(Math.max(1, flowOuts.length));
   const redstone = $derived(redstoneSummary(data.node.redstone));
   const HEADER = $derived(BASE_HEADER + (redstone ? 13 : 0));
   const rows = $derived(Math.max(leftRows.length, rightRows.length, 1));
@@ -164,18 +180,23 @@
         {/each}
       </div>
     </div>
-  {:else if kind === "filter"}
-    <!-- The filter beside its two outputs (up to two lines, the rest in the tooltip), so they start right under the
-         header instead of a row further down. -->
-    <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2" style="font-size: 10px">
-      <div class="filter-text muted pl-1.5" style="grid-row: span 2; padding-top: 3px" title={summary(data.node, app.rateUnit)}>
+  {:else}
+    <div class="grid grid-cols-2 gap-2" style="height: {flowRows * ROW}px; font-size: 10px">
+      <div class="flex flex-col">
+        {#if flowIn}<div class="pl-2" style="height: {ROW}px; line-height: {ROW}px">in</div>{/if}
+      </div>
+      <div class="flex flex-col text-right">
+        {#each flowOuts as out (out.id)}
+          <div class="pr-2" style="height: {ROW}px; line-height: {ROW}px; color: {out.color}">{out.label}</div>
+        {/each}
+      </div>
+    </div>
+    <!-- What it does, under its pins (a filter's expression gets up to two lines; the rest is in the tooltip). -->
+    {#if kind !== "sheet_input" && kind !== "sheet_output"}
+      <div class="px-1.5 pb-1 muted" class:filter-text={kind === "filter"} class:truncate={kind !== "filter"} style="font-size: 10px" title={summary(data.node, app.rateUnit)}>
         {summary(data.node, app.rateUnit)}
       </div>
-      <div class="pr-2 text-right" style="height: {ROW}px; line-height: {ROW}px; color: var(--good)">match</div>
-      <div class="pr-2 text-right" style="height: {ROW}px; line-height: {ROW}px; color: var(--bad)">other</div>
-    </div>
-  {:else if kind !== "sheet_input" && kind !== "sheet_output"}
-    <div class="truncate px-1.5 py-0.5 muted" style="font-size: 10px" title={summary(data.node, app.rateUnit)}>{summary(data.node, app.rateUnit)}</div>
+    {/if}
   {/if}
 </div>
 
@@ -191,16 +212,12 @@
     <Handle type="source" position={Position.Right} id={`out:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}" />
   {/each}
 {:else}
-  {#if kind !== "sheet_input"}
-    <Handle type="target" position={Position.Left} id="in" style={inPin(color)} />
+  {#if flowIn}
+    <Handle type="target" position={Position.Left} id="in" style="top: {HEADER + ROW / 2}px; {inPin(color)}" />
   {/if}
-  {#if kind === "filter"}
-    <!-- Aligned with the "match" and "other" rows right under the header. -->
-    <Handle type="source" position={Position.Right} id="match" style="top: {HEADER + ROW / 2}px; {outPin('var(--good)')}" />
-    <Handle type="source" position={Position.Right} id="reject" style="top: {HEADER + ROW + ROW / 2}px; {outPin('var(--bad)')}" />
-  {:else if kind !== "sheet_output"}
-    <Handle type="source" position={Position.Right} id="out" style={outPin(color)} />
-  {/if}
+  {#each flowOuts as out, i (out.id)}
+    <Handle type="source" position={Position.Right} id={out.id} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(out.color)}" />
+  {/each}
 {/if}
 
 <style>
