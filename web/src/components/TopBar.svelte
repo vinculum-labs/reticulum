@@ -1,4 +1,8 @@
 <script lang="ts">
+  import Play from "@lucide/svelte/icons/play";
+  import PowerOff from "@lucide/svelte/icons/power-off";
+  import Unplug from "@lucide/svelte/icons/unplug";
+  import ZapOff from "@lucide/svelte/icons/zap-off";
   import {
     app,
     edit,
@@ -29,6 +33,16 @@
     }
   }
   const power = $derived(app.power ?? app.snapshot?.power);
+
+  /** The network's state as an icon, a color and a tooltip. */
+  function networkStatus(running: boolean, enabled: boolean, unpowered: boolean) {
+    if (running && unpowered) {
+      return { icon: ZapOff, color: "var(--bad)", title: "No power: the controller has too little FE for this network, so only energy flows run" };
+    }
+    if (running) return { icon: Play, color: "var(--good)", title: "Running" };
+    if (enabled) return { icon: Unplug, color: "var(--warn)", title: "No controller loaded: the controller's chunk isn't loaded, so nothing runs" };
+    return { icon: PowerOff, color: "var(--muted)", title: "Off: switched off with the On checkbox" };
+  }
 
   /** How long the saving dot stays once lit, so a quick save shows as a calm blip instead of a flicker. */
   const SAVING_MIN_MS = 1000;
@@ -72,10 +86,11 @@
       />
       On
     </label>
-    <span class="text-sm muted">{snapshot.running ? "Running" : snapshot.enabled ? "No controller loaded" : "Off"}</span>
-    {#if power?.enabled && !power.powered}
-      <span class="rounded px-2 py-1 text-sm" style="background: var(--bad); color: white" title="The controller has too little FE for this network; only energy flows run">No power</span>
-    {/if}
+    <!-- One fixed-size icon for the network's state, so nothing beside it shifts when the state changes. -->
+    {@const status = networkStatus(snapshot.running, snapshot.enabled, !!power?.enabled && !power.powered)}
+    <span class="flex h-5 w-5 shrink-0 items-center justify-center" style="color: {status.color}" title={status.title} role="img" aria-label={status.title}>
+      <status.icon size={16} />
+    </span>
     <button
       class="btn"
       style={app.panel === "dashboard" ? "border-color: var(--accent); color: var(--accent)" : ""}
