@@ -383,9 +383,32 @@ public sealed interface NodeSettings {
     }
 
     enum LogicOp implements StringRepresentable {
-        AND, OR, NOT, XOR;
+        /** All on (and at least one wire). */
+        AND,
+        /** Any on. */
+        OR,
+        /** None on: a NOT with one wire, a NOR with several. */
+        NOT,
+        /** An odd number on. */
+        XOR,
+        /** Not all on. */
+        NAND,
+        /** An even number on (with two wires: they match). */
+        XNOR;
 
         public static final Codec<LogicOp> CODEC = StringRepresentable.fromEnum(LogicOp::values);
+
+        /** The result with {@code on} of {@code all} input wires on. */
+        public boolean test(int on, int all) {
+            return switch (this) {
+                case AND -> all > 0 && on == all;
+                case OR -> on > 0;
+                case NOT -> on == 0;
+                case XOR -> on % 2 == 1;
+                case NAND -> !(all > 0 && on == all);
+                case XNOR -> on % 2 == 0;
+            };
+        }
 
         @Override
         public String getSerializedName() {

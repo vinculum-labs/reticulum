@@ -185,12 +185,14 @@
       </div>
     </Field>
   {:else if s.kind === "logic"}
-    <Field label="Operation" hint="Every wire into the input is one operand. NOT is on only while none is (a NOR with several).">
+    <Field label="Operation" hint="Every wire into the input is one operand. NOT is on only while none is, so with several wires it is a NOR.">
       <select value={s.op ?? "and"} disabled={!canEdit} onchange={(e) => settings({ op: e.currentTarget.value as LogicOp })}>
         <option value="and">AND: all on</option>
         <option value="or">OR: any on</option>
-        <option value="not">NOT: none on</option>
+        <option value="not">NOT / NOR: none on</option>
         <option value="xor">XOR: an odd number on</option>
+        <option value="nand">NAND: not all on</option>
+        <option value="xnor">XNOR: an even number on (two: they match)</option>
       </select>
     </Field>
   {:else if s.kind === "timer"}

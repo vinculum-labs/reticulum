@@ -557,6 +557,30 @@ public final class EngineTests {
         });
     }
 
+    @GameTest(template = "empty")
+    public static void logicOpsFollowTheirTruthTables(GameTestHelper helper) {
+        // {on, all} -> AND, OR, NOT, XOR, NAND, XNOR
+        int[][] cases = {{0, 2}, {1, 2}, {2, 2}, {0, 1}, {1, 1}, {2, 3}};
+        boolean[][] expected = {
+                {false, false, true, false, true, true},
+                {false, true, false, true, true, false},
+                {true, true, false, false, false, true},
+                {false, false, true, false, true, true},
+                {true, true, false, true, false, false},
+                {false, true, false, false, true, true},
+        };
+        NodeSettings.LogicOp[] ops = {NodeSettings.LogicOp.AND, NodeSettings.LogicOp.OR, NodeSettings.LogicOp.NOT, NodeSettings.LogicOp.XOR,
+                NodeSettings.LogicOp.NAND, NodeSettings.LogicOp.XNOR};
+        for (int c = 0; c < cases.length; c++) {
+            for (int o = 0; o < ops.length; o++) {
+                boolean result = ops[o].test(cases[c][0], cases[c][1]);
+                check(helper, result == expected[c][o], ops[o] + " with " + cases[c][0] + " of " + cases[c][1] + " on gave " + result);
+            }
+        }
+        check(helper, !NodeSettings.LogicOp.AND.test(0, 0) && NodeSettings.LogicOp.NAND.test(0, 0), "no wires: AND should be off and NAND on");
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------- editor
 
     @GameTest(template = "empty")

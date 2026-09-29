@@ -236,14 +236,7 @@ final class Signals {
                         on++;
                     }
                 }
-                int all = node.input(0).size();
-                boolean result = switch (logic.op()) {
-                    case AND -> all > 0 && on == all;
-                    case OR -> on > 0;
-                    case NOT -> on == 0;
-                    case XOR -> on % 2 == 1;
-                };
-                yield result ? ON : 0;
+                yield logic.op().test(on, node.input(0).size()) ? ON : 0;
             }
             case NodeSettings.TimerSettings timer -> {
                 boolean running = node.input(0).isEmpty() || in(node, 0) > 0;

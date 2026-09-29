@@ -34,7 +34,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   sheet_output: "Inside a sub-sheet: where resources go out (a pin on the right of the sub-sheet node)",
   level: "How much of a resource a device holds",
   compare: "15 when A compares true against B (or a number), else 0",
-  logic: "AND, OR, NOT or XOR of every wire into it",
+  logic: "AND, OR, NOT / NOR, XOR, NAND or XNOR of every wire into it",
   timer: "A one-tick pulse every so many ticks",
   pulse: "A short pulse each time its input turns on",
   latch: "Set turns it on, reset turns it off; it remembers in between",

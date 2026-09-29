@@ -119,7 +119,7 @@ export interface CompareSettings {
   constant?: number;
 }
 
-export type LogicOp = "and" | "or" | "not" | "xor";
+export type LogicOp = "and" | "or" | "not" | "xor" | "nand" | "xnor";
 
 export interface LogicSettings {
   kind: "logic";
