@@ -1,11 +1,11 @@
 <script lang="ts">
   import { KIND_ICON, SparklesIcon } from "../../lib/icons";
   import AddMenu from "./AddMenu.svelte";
+  import SheetMinimap from "./SheetMinimap.svelte";
   import {
     SvelteFlow,
     Background,
     Controls,
-    MiniMap,
     Panel,
     useSvelteFlow,
     type Edge,
@@ -242,7 +242,7 @@
   >
     <Background gap={24} />
     <Controls showLock={false} />
-    <MiniMap pannable zoomable maskStrokeWidth={1} />
+    <SheetMinimap />
     {#if canEdit}
       <Panel position="top-left">
         <div class="flex flex-wrap gap-1 rounded-lg border p-1" style="background: var(--panel); border-color: var(--line)">

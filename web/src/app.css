@@ -151,10 +151,6 @@ img.icon {
   --xy-edge-stroke: var(--muted);
   --xy-edge-stroke-selected: var(--accent);
   --xy-connectionline-stroke: var(--accent);
-  --xy-minimap-background-color: var(--panel);
-  /* No dimmed band outside the view (it came out thick and uneven); the view is a thin outline instead. */
-  --xy-minimap-mask-background-color: transparent;
-  --xy-minimap-mask-stroke-color: color-mix(in srgb, var(--accent) 70%, transparent);
   --xy-controls-button-background-color: var(--panel);
   --xy-controls-button-background-color-hover: var(--panel-2);
   --xy-controls-button-color: var(--ink);
@@ -179,11 +175,4 @@ img.icon {
 .svelte-flow .svelte-flow__handle {
   width: 10px;
   height: 10px;
-}
-
-/* A thin, even frame around the minimap. */
-.svelte-flow__minimap {
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  overflow: hidden;
 }
