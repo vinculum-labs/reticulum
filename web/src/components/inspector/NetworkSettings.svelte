@@ -9,6 +9,7 @@
   const canAdmin = $derived(snapshot.canAdmin);
 
   let password = $state("");
+  const power = $derived(app.power ?? snapshot.power);
 
   const ANTENNA = ["None: no wireless connectors", "Tier 1: 128 blocks, same dimension", "Tier 2: the whole dimension", "Tier 3: every dimension"];
   const wireless = $derived(snapshot.connectors.filter((c) => c.reach === "wireless").length);
@@ -68,6 +69,21 @@
       {#each Object.entries(app.networkSignals) as [name, value]}
         <div class="flex justify-between"><span>{name}</span><span class="tabular-nums" style="color: {value > 0 ? 'var(--c-signal)' : 'var(--muted)'}">{value}</span></div>
       {/each}
+    </section>
+  {/if}
+
+  {#if power?.enabled}
+    <section class="flex flex-col gap-1 text-sm">
+      <h3 class="panel-title">Power</h3>
+      <div class="h-2 overflow-hidden rounded" style="background: var(--line)">
+        <div class="h-full" style="width: {Math.min(100, (power.stored / Math.max(1, power.capacity)) * 100)}%; background: {power.powered ? 'var(--good)' : 'var(--bad)'}"></div>
+      </div>
+      <div class="flex justify-between tabular-nums">
+        <span>{power.stored.toLocaleString()} / {power.capacity.toLocaleString()} FE</span>
+        <span>{power.upkeep} FE/t upkeep</span>
+      </div>
+      {#if !power.powered}<p class="text-xs" style="color: var(--bad)">Not enough FE: only energy flows run until the controller is charged.</p>{/if}
+      <p class="text-xs muted">The controller takes FE from anything that pushes into it and pulls from FE sources next to it. Item operations cost extra.</p>
     </section>
   {/if}
 

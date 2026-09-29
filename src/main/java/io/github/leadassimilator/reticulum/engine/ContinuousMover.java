@@ -28,6 +28,11 @@ final class ContinuousMover {
             if (!ctx.runtime().active(source) || ctx.runtime().routes(source).isEmpty()) {
                 continue;
             }
+            // Without power only energy moves, so the network can still recover.
+            if (!ctx.runtime().powered() && source.resource() != ResourceKind.ENERGY) {
+                ctx.runtime().status(sheet.owner(source.node().id()), Status.NO_POWER);
+                continue;
+            }
             if (source.resource() == ResourceKind.ENERGY) {
                 energy(ctx, sheet, source);
             } else if (source.resource() == ResourceKind.FLUID) {

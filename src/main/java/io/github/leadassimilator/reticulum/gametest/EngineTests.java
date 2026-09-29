@@ -519,6 +519,34 @@ public final class EngineTests {
         });
     }
 
+    // ---------------------------------------------------------------- power
+
+    /** Switches the whole server to the balanced power preset, so it runs in a batch of its own and switches it back. */
+    @GameTest(template = "empty", batch = "power", timeoutTicks = 200)
+    public static void networksNeedPowerWhenTheServerChargesForIt(GameTestHelper helper) {
+        var preset = io.github.leadassimilator.reticulum.ReticulumConfig.POWER_PRESET;
+        preset.set(io.github.leadassimilator.reticulum.engine.Power.Preset.BALANCED);
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
+        rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
+        ControllerBlockEntity controller = (ControllerBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 1));
+        long[] charged = new long[1];
+        helper.startSequence()
+                .thenExecuteAfter(20, () -> {
+                    check(helper, rig.count(1, Items.COBBLESTONE) == 0, "items moved without power");
+                    check(helper, !rig.runtime().powered(), "network says it has power with an empty controller");
+                    controller.energyStorage().receiveEnergy(100_000, false);
+                    charged[0] = controller.energy();
+                })
+                .thenWaitUntil(() -> check(helper, rig.count(1, Items.COBBLESTONE) == 64, "items didn't move once the controller had FE"))
+                .thenExecute(() -> {
+                    check(helper, rig.runtime().powered(), "network still unpowered");
+                    check(helper, controller.energy() < charged[0], "running cost nothing");
+                    preset.set(io.github.leadassimilator.reticulum.engine.Power.Preset.FREE);
+                })
+                .thenSucceed();
+    }
+
     // ---------------------------------------------------------------- identify
 
     @GameTest(template = "empty")

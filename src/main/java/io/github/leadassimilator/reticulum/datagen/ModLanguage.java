@@ -172,6 +172,18 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.folder_off", "(folder off)");
         add("screen.reticulum.overflow", "Overflow: %s");
 
+        add("screen.reticulum.power", "Power: %s / %s FE (%s FE/t)");
+        add("screen.reticulum.power_out", "No power: %s / %s FE (needs %s FE/t)");
+        add("reticulum.configuration.powerPreset", "Power costs");
+        add("reticulum.configuration.controllerCapacity", "Controller FE capacity");
+        add("reticulum.configuration.costBase", "Cost per network (FE/t)");
+        add("reticulum.configuration.costPerConnector", "Cost per connector (FE/t)");
+        add("reticulum.configuration.costWirelessTier1", "Cost per wireless connector, tier 1 (FE/t)");
+        add("reticulum.configuration.costWirelessTier2", "Cost per wireless connector, tier 2+ (FE/t)");
+        add("reticulum.configuration.costWirelessPerBlock", "Cost per block of wireless distance (FE/t)");
+        add("reticulum.configuration.costCrossDimension", "Cost per wireless connector in another dimension (FE/t)");
+        add("reticulum.configuration.costPerOperation", "Cost per item operation (FE)");
+
         // Identify
         add("tool.reticulum.mode.identify", "Identify");
         add("tooltip.reticulum.tool_identify", "Right-click a connector or device to light it up (or off); sneak + right-click lights one face of a device");

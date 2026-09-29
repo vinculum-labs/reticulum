@@ -19,7 +19,9 @@ public enum Status {
     NO_ROOM_FOR_KIT,
     OVERFLOW_FULL,
     /** Its redstone condition or gate has it switched off (set directly, never through {@link #furthest}). */
-    SWITCHED_OFF;
+    SWITCHED_OFF,
+    /** The controller doesn't have the FE this needs (set directly, never through {@link #furthest}). */
+    NO_POWER;
 
     public String key() {
         return name().toLowerCase(Locale.ROOT);

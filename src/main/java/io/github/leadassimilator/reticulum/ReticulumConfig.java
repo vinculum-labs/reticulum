@@ -30,6 +30,34 @@ public final class ReticulumConfig {
             .comment("Minutes after which an identify turns itself off. 0 (the default) keeps it on until someone turns it off.")
             .defineInRange("identifyAutoOffMinutes", 0, 0, 100_000);
 
+    public static final ModConfigSpec.EnumValue<io.github.leadassimilator.reticulum.engine.Power.Preset> POWER_PRESET = BUILDER
+            .comment("What networks cost to run. FREE (the default): nothing. BALANCED: 10 FE/t per network, 2 FE/t per connector,",
+                    "8 / 32 FE/t per wireless connector (tier 1 / tier 2+ antenna) plus 0.05 FE/t per block of distance or 256 FE/t",
+                    "in another dimension, and 1 FE per item operation. CUSTOM: the cost values below.",
+                    "The controller holds the FE; it takes it from anything that pushes into it, and pulls from FE sources next to it.")
+            .defineEnum("powerPreset", io.github.leadassimilator.reticulum.engine.Power.Preset.FREE);
+
+    public static final ModConfigSpec.IntValue CONTROLLER_CAPACITY = BUILDER
+            .comment("FE a controller holds.")
+            .defineInRange("controllerCapacity", 1_000_000, 1, Integer.MAX_VALUE);
+
+    public static final ModConfigSpec.DoubleValue COST_BASE = cost("costBase", "CUSTOM: FE per tick for every running network.", 10);
+    public static final ModConfigSpec.DoubleValue COST_PER_CONNECTOR = cost("costPerConnector", "CUSTOM: FE per tick for each connector.", 2);
+    public static final ModConfigSpec.DoubleValue COST_WIRELESS_TIER_1 = cost("costWirelessTier1",
+            "CUSTOM: FE per tick for each wireless connector on a tier 1 antenna.", 8);
+    public static final ModConfigSpec.DoubleValue COST_WIRELESS_TIER_2 = cost("costWirelessTier2",
+            "CUSTOM: FE per tick for each wireless connector on a tier 2 or 3 antenna.", 32);
+    public static final ModConfigSpec.DoubleValue COST_WIRELESS_PER_BLOCK = cost("costWirelessPerBlock",
+            "CUSTOM: FE per tick per block between a wireless connector and the controller.", 0.05);
+    public static final ModConfigSpec.DoubleValue COST_CROSS_DIMENSION = cost("costCrossDimension",
+            "CUSTOM: FE per tick for each wireless connector in another dimension than the controller.", 256);
+    public static final ModConfigSpec.DoubleValue COST_PER_OPERATION = cost("costPerOperation",
+            "CUSTOM: FE for each item operation that moves something. Energy, fluid and chemical flows never pay it.", 1);
+
+    private static ModConfigSpec.DoubleValue cost(String key, String comment, double balanced) {
+        return BUILDER.comment(comment).defineInRange(key, balanced, 0, 1_000_000);
+    }
+
     public static final ModConfigSpec.IntValue ENERGY_PER_TICK = BUILDER
             .comment("Most FE one energy route moves per tick. Set above Mekanism's best cables by default.")
             .defineInRange("energyPerTick", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);

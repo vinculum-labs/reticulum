@@ -122,7 +122,7 @@ public final class Views {
     public record ControllerView(BlockPos pos, java.util.UUID networkId, String networkName, String ownerName, AccessMode mode, boolean hasPassword,
             int connectors, int devices, int orphans, boolean canEdit, boolean canAdmin, int antenna,
             boolean enabled, boolean running, io.github.leadassimilator.reticulum.graph.Redstone.Mode redstoneMode, List<SheetEntry> sheets,
-            List<String> overflow) {
+            List<String> overflow, String power) {
         public static final StreamCodec<RegistryFriendlyByteBuf, ControllerView> STREAM_CODEC = StreamCodec.of(
                 (buf, v) -> {
                     buf.writeBlockPos(v.pos);
@@ -142,11 +142,13 @@ public final class Views {
                     buf.writeEnum(v.redstoneMode);
                     buf.writeCollection(v.sheets, (b, s) -> SheetEntry.STREAM_CODEC.encode((RegistryFriendlyByteBuf) b, s));
                     buf.writeCollection(v.overflow, (b, s) -> b.writeUtf(s));
+                    buf.writeUtf(v.power);
                 },
                 buf -> new ControllerView(buf.readBlockPos(), buf.readUUID(), buf.readUtf(), buf.readUtf(), AccessMode.STREAM_CODEC.decode(buf),
                         buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
                         ByteBufCodecs.VAR_INT.decode(buf), buf.readBoolean(), buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf),
                         buf.readBoolean(), buf.readBoolean(), buf.readEnum(io.github.leadassimilator.reticulum.graph.Redstone.Mode.class),
-                        buf.readList(b -> SheetEntry.STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)), buf.readList(b -> b.readUtf())));
+                        buf.readList(b -> SheetEntry.STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)), buf.readList(b -> b.readUtf()),
+                        buf.readUtf()));
     }
 }

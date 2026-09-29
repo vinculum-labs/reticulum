@@ -92,7 +92,17 @@ public final class Screens {
                 Security.canEdit(network, player), Security.canAdmin(network, player),
                 player.serverLevel().getBlockEntity(pos) instanceof ControllerBlockEntity controller ? controller.antennaTier() : 0,
                 network.enabled(), io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(player.server, network),
-                network.switches().redstone().mode(), sheetEntries(player, network), overflowLines(player, network));
+                network.switches().redstone().mode(), sheetEntries(player, network), overflowLines(player, network), powerLine(player, network));
+    }
+
+    /** "Power: 52,000 / 1,000,000 FE (24 FE/t)", or empty when power is free. */
+    private static String powerLine(ServerPlayer player, Network network) {
+        var state = io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(network.id()).powerState(player.server, network);
+        if (!state.enabled()) {
+            return "";
+        }
+        return Component.translatable(state.powered() ? "screen.reticulum.power" : "screen.reticulum.power_out",
+                String.format("%,d", state.stored()), String.format("%,d", state.capacity()), String.format("%.1f", state.upkeep())).getString();
     }
 
     private static List<Views.SheetEntry> sheetEntries(ServerPlayer player, Network network) {

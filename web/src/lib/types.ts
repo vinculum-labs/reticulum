@@ -283,6 +283,8 @@ export interface Snapshot extends NetworkSummary {
   hasPassword: boolean;
   disabledFolders: string[];
   redstone?: Redstone;
+  /** What running the network costs, when the server charges for it. */
+  power?: PowerState;
   /** What is lit up in the world. */
   identified?: Identify[];
   /** Antenna upgrade in the controller, 0 (none) to 3. */
@@ -307,6 +309,16 @@ export interface MeUsage {
   /** The fullest cable on the way to the controller: channels in use and the most it carries. */
   used: number;
   max: number;
+}
+
+export interface PowerState {
+  /** Whether power costs anything on this server; when not, nothing about power is shown. */
+  enabled: boolean;
+  powered: boolean;
+  stored: number;
+  capacity: number;
+  /** FE per tick. */
+  upkeep: number;
 }
 
 /** Something lit up in the world so it can be found: a connector, a device, or one face of a device. */

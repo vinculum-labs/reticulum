@@ -213,6 +213,7 @@ export const STATUS_LABEL: Record<string, string> = {
   no_room_for_kit: "no room for a kit",
   overflow_full: "overflow full",
   switched_off: "switched off by redstone",
+  no_power: "no power",
 };
 
 /**

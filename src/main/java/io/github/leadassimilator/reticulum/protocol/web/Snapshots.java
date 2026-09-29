@@ -149,6 +149,7 @@ final class Snapshots {
             devices.add(device);
         }
         out.addProperty("antenna", antennaTier(server, network));
+        out.add("power", WebApi.powerJson(runtime.powerState(server, network)));
         out.add("devices", devices);
 
         JsonArray connectors = new JsonArray();

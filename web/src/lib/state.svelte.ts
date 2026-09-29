@@ -2,7 +2,7 @@
 // replaces what is shown. Undo and redo send the inverse edits recorded with each change.
 
 import { Connection } from "./protocol";
-import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face, Identify } from "./types";
+import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face, Identify, PowerState } from "./types";
 import { posKey } from "./types";
 
 export interface Toast {
@@ -61,6 +61,8 @@ export const app = $state({
   networkSignals: {} as Record<string, number>,
   /** Sheets their redstone condition currently switches off. */
   sheetsOff: [] as string[],
+  /** What running the network costs and what the controller holds, updated once a second. */
+  power: null as PowerState | null,
   /** Channel use of each ME port node. */
   me: {} as Record<string, MeUsage>,
   selectedNodes: [] as string[],
@@ -132,6 +134,7 @@ async function onMessage(m: any): Promise<void> {
         app.networkSignals = m.networkSignals ?? {};
         app.sheetsOff = m.sheetsOff ?? [];
         app.me = m.me ?? {};
+        app.power = m.power ?? null;
       }
       break;
     case "removed":

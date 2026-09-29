@@ -78,6 +78,21 @@ public final class NetworkRuntime {
             ? io.github.leadassimilator.reticulum.integration.ae2.Ae2Links.create() : null;
     private Map<String, MeLinker.Usage> meUsage = Map.of();
 
+    // ---------------------------------------------------------------- power (see Power; everything is free by default)
+
+    private Power power = Power.FREE;
+    private boolean powered = true;
+    @Nullable
+    private ControllerBlockEntity powerSource;
+    /** FE owed but not yet paid, so fractional costs add up exactly. */
+    private double upkeepOwed;
+    private double operationsOwed;
+    private double lastUpkeep;
+    /** Wireless connectors by what they cost: count per antenna tier, total distance, other dimensions. */
+    private int wirelessConnectors;
+    private double wirelessDistance;
+    private int crossDimensionConnectors;
+
     private long reachVersion = -1;
     private int reachTier = -1;
     /** Where the rolling connector rescan got to. */
@@ -165,6 +180,7 @@ public final class NetworkRuntime {
         }
         stopped = false;
         updateReach(server, network);
+        payUpkeep(server, network);
         List<CompiledSheet> sheets = new ArrayList<>();
         for (Sheet sheet : network.sheets()) {
             if (!network.runs(sheet)) {
@@ -226,6 +242,99 @@ public final class NetworkRuntime {
         }
     }
 
+    // ---------------------------------------------------------------- power
+
+    /**
+     * Takes FE from sources next to the controller, then pays this tick's upkeep. When the controller can't pay it, the
+     * network is unpowered: only energy flows run (so it can recover), everything else waits.
+     */
+    private void payUpkeep(MinecraftServer server, Network network) {
+        power = Power.current();
+        powered = true;
+        powerSource = null;
+        lastUpkeep = 0;
+        if (!power.enabled()) {
+            return;
+        }
+        GlobalPos at = network.controller();
+        ServerLevel level = at == null ? null : server.getLevel(at.dimension());
+        if (level == null || !(level.getBlockEntity(at.pos()) instanceof ControllerBlockEntity controller)) {
+            powered = false;
+            return;
+        }
+        powerSource = controller;
+        pullFromNeighbors(level, at.pos(), controller);
+        int tier = controller.antennaTier();
+        lastUpkeep = power.base() + power.perConnector() * network.connectors().size()
+                + wirelessConnectors * (tier <= 1 ? power.wirelessTier1() : power.wirelessTier2())
+                + wirelessDistance * power.perBlock() + crossDimensionConnectors * power.crossDimension();
+        upkeepOwed += lastUpkeep;
+        long whole = (long) upkeepOwed;
+        if (controller.draw(whole)) {
+            upkeepOwed -= whole;
+        } else {
+            // Not charged while unpowered, so the buffer can fill up again.
+            upkeepOwed -= whole;
+            powered = false;
+        }
+    }
+
+    /** The controller pulls FE from anything next to it that gives it (generators, batteries, other mods' cables). */
+    private static void pullFromNeighbors(ServerLevel level, net.minecraft.core.BlockPos pos, ControllerBlockEntity controller) {
+        for (Direction side : Direction.values()) {
+            long room = ControllerBlockEntity.capacity() - controller.energy();
+            if (room <= 0) {
+                return;
+            }
+            net.minecraft.core.BlockPos next = pos.relative(side);
+            if (!level.isLoaded(next) || level.getBlockEntity(next) instanceof io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity) {
+                continue;
+            }
+            IEnergyStorage source = level.getCapability(Capabilities.EnergyStorage.BLOCK, next, side.getOpposite());
+            if (source == null || !source.canExtract()) {
+                continue;
+            }
+            int offered = source.extractEnergy((int) Math.min(room, Integer.MAX_VALUE), true);
+            if (offered > 0) {
+                int taken = source.extractEnergy(offered, false);
+                controller.energyStorage().receiveEnergy(taken, false);
+            }
+        }
+    }
+
+    /** Whether the network has power this tick (always, when power is free). */
+    public boolean powered() {
+        return powered;
+    }
+
+    /** Whether an item operation may run: power is free, or the controller has what one costs. */
+    boolean canAffordOperation() {
+        return !power.enabled() || powered && powerSource != null && powerSource.energy() >= Math.ceil(power.perOperation() + operationsOwed);
+    }
+
+    /** Pays for an item operation that moved something. */
+    void chargeOperation() {
+        if (!power.enabled() || powerSource == null || power.perOperation() <= 0) {
+            return;
+        }
+        operationsOwed += power.perOperation();
+        long whole = (long) operationsOwed;
+        if (powerSource.draw(whole)) {
+            operationsOwed -= whole;
+        }
+    }
+
+    /** For the editor and the controller screen: whether power costs anything, what is stored and what upkeep costs per tick. */
+    public PowerState powerState(MinecraftServer server, Network network) {
+        GlobalPos at = network.controller();
+        ServerLevel level = at == null ? null : server.getLevel(at.dimension());
+        long stored = level != null && level.isLoaded(at.pos()) && level.getBlockEntity(at.pos()) instanceof ControllerBlockEntity c ? c.energy() : 0;
+        return new PowerState(Power.current().enabled(), powered, stored, ControllerBlockEntity.capacity(), lastUpkeep);
+    }
+
+    public record PowerState(boolean enabled, boolean powered, long stored, long capacity, double upkeep) {
+    }
+
     // ---------------------------------------------------------------- wireless reach
 
     /**
@@ -247,12 +356,23 @@ public final class NetworkRuntime {
         reachTier = tier;
         Set<net.minecraft.core.BlockPos> wired = Topology.component(level, controller.pos(), null).blocks();
         Map<UUID, Reach> found = new HashMap<>();
+        wirelessConnectors = 0;
+        wirelessDistance = 0;
+        crossDimensionConnectors = 0;
         Set<GlobalPos> reached = new java.util.HashSet<>();
         Set<GlobalPos> all = new java.util.HashSet<>();
         for (ConnectorRecord connector : network.connectors()) {
             Reach r = connector.pos().dimension().equals(controller.dimension()) && wired.contains(connector.pos().pos()) ? Reach.WIRED
                     : inRange(tier, controller, connector.pos()) ? Reach.WIRELESS : Reach.OUT_OF_RANGE;
             found.put(connector.id(), r);
+            if (r == Reach.WIRELESS) {
+                wirelessConnectors++;
+                if (connector.pos().dimension().equals(controller.dimension())) {
+                    wirelessDistance += Math.sqrt(controller.pos().distSqr(connector.pos().pos()));
+                } else {
+                    crossDimensionConnectors++;
+                }
+            }
             all.addAll(connector.devices());
             if (r != Reach.OUT_OF_RANGE) {
                 reached.addAll(connector.devices());

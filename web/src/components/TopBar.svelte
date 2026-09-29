@@ -15,6 +15,7 @@
       toast((e as Error).message);
     }
   }
+  const power = $derived(app.power ?? app.snapshot?.power);
 </script>
 
 <header class="flex items-center gap-3 border-b px-3 py-2" style="background: var(--panel); border-color: var(--line)">
@@ -43,6 +44,9 @@
       On
     </label>
     <span class="text-sm muted">{snapshot.running ? "Running" : snapshot.enabled ? "No controller loaded" : "Off"}</span>
+    {#if power?.enabled && !power.powered}
+      <span class="rounded px-2 py-1 text-sm" style="background: var(--bad); color: white" title="The controller has too little FE for this network; only energy flows run">No power</span>
+    {/if}
     <button
       class="btn"
       style={app.panel === "identified" ? "border-color: var(--accent); color: var(--accent)" : ""}

@@ -46,6 +46,9 @@ public class Reticulum {
         if (Mods.MEKANISM) {
             MekanismChemicals.init();
         }
+        modEventBus.addListener((net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent event) -> event.registerBlockEntity(
+                net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, io.github.leadassimilator.reticulum.registry.ModBlockEntities.CONTROLLER.get(),
+                (controller, side) -> controller.energyStorage()));
         if (Mods.AE2) {
             modEventBus.addListener(io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration::registerCapabilities);
         }

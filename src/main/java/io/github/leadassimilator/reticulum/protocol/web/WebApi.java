@@ -515,7 +515,7 @@ public final class WebApi {
                     send(player, push);
                 }
                 if (metricsDue && NetworkTicker.isRunning(server, network)) {
-                    send(player, metrics(network));
+                    send(player, metrics(server, network));
                 }
             }
         }
@@ -556,7 +556,7 @@ public final class WebApi {
         }
     }
 
-    private static JsonObject metrics(Network network) {
+    private static JsonObject metrics(MinecraftServer server, Network network) {
         NetworkRuntime runtime = NetworkTicker.runtime(network.id());
         Metrics metrics = runtime.metrics();
         JsonObject out = new JsonObject();
@@ -597,10 +597,21 @@ public final class WebApi {
             me.add(pin, port);
         });
         out.add("me", me);
+        out.add("power", powerJson(runtime.powerState(server, network)));
         JsonArray sheetsOff = new JsonArray();
         runtime.sheetsOff().forEach(id -> sheetsOff.add(id.toString()));
         out.add("sheetsOff", sheetsOff);
         return out;
+    }
+
+    static JsonObject powerJson(NetworkRuntime.PowerState state) {
+        JsonObject power = new JsonObject();
+        power.addProperty("enabled", state.enabled());
+        power.addProperty("powered", state.powered());
+        power.addProperty("stored", state.stored());
+        power.addProperty("capacity", state.capacity());
+        power.addProperty("upkeep", Math.round(state.upkeep() * 100) / 100.0);
+        return power;
     }
 
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {

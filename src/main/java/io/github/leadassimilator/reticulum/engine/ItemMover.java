@@ -24,6 +24,14 @@ final class ItemMover {
     }
 
     static void run(NetworkRuntime.Context ctx, CompiledSheet sheet) {
+        if (!ctx.runtime().powered()) {
+            for (CompiledSheet.Source source : sheet.sources()) {
+                if (source.resource() == ResourceKind.ITEM) {
+                    ctx.runtime().status(sheet.owner(source.node().id()), Status.NO_POWER);
+                }
+            }
+            return;
+        }
         if (Overflow.itemsFull(ctx.network())) {
             for (CompiledSheet.Source source : sheet.sources()) {
                 if (source.resource() == ResourceKind.ITEM) {
@@ -53,13 +61,29 @@ final class ItemMover {
             int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.sheet().interval();
             UUID id = source.node().id();
             if (!direct.isEmpty() && (due(ctx, id, interval * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, direct))) {
-                ctx.runtime().recordOperation(id, operate(ctx, sheet, source, ctx.runtime().ordered(direct)) > 0);
+                if (!ctx.runtime().canAffordOperation()) {
+                    ctx.runtime().status(sheet.owner(id), Status.NO_POWER);
+                    continue;
+                }
+                boolean moved = operate(ctx, sheet, source, ctx.runtime().ordered(direct)) > 0;
+                if (moved) {
+                    ctx.runtime().chargeOperation();
+                }
+                ctx.runtime().recordOperation(id, moved);
             }
         }
         for (Map.Entry<UUID, List<CompiledSheet.Route>> kit : kits.entrySet()) {
             UUID id = kit.getKey();
             if (due(ctx, id, sheet.sheet().interval() * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, kit.getValue())) {
-                ctx.runtime().recordOperation(id, KitMover.operate(ctx, sheet, kit.getValue().getFirst().kit(), ctx.runtime().ordered(kit.getValue())));
+                if (!ctx.runtime().canAffordOperation()) {
+                    ctx.runtime().status(sheet.owner(id), Status.NO_POWER);
+                    continue;
+                }
+                boolean moved = KitMover.operate(ctx, sheet, kit.getValue().getFirst().kit(), ctx.runtime().ordered(kit.getValue()));
+                if (moved) {
+                    ctx.runtime().chargeOperation();
+                }
+                ctx.runtime().recordOperation(id, moved);
             }
         }
     }
