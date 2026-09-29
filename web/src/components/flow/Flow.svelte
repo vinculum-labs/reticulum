@@ -49,8 +49,18 @@
     if (!s || dragging) return;
     const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit);
     rebuilding = true;
-    nodes = built.nodes;
-    edges = built.edges;
+    // Unchanged nodes and wires keep their objects, so Svelte Flow skips them (it compares by identity) instead of
+    // re-rendering and re-measuring the whole sheet on every metrics update.
+    const oldNodes = new Map(untrack(() => nodes).map((n) => [n.id, n]));
+    const oldEdges = new Map(untrack(() => edges).map((e) => [e.id, e]));
+    nodes = built.nodes.map((n) => {
+      const old = oldNodes.get(n.id);
+      return old && sameNode(old, n) ? old : n;
+    });
+    edges = built.edges.map((e) => {
+      const old = oldEdges.get(e.id);
+      return old && sameEdge(old, e) ? old : e;
+    });
     queueMicrotask(() => (rebuilding = false));
   });
 
@@ -70,6 +80,30 @@
 
   /** Set while new nodes are being handed to the canvas, which may report the selection as empty meanwhile. */
   let rebuilding = false;
+
+  function sameValue(a: unknown, b: unknown): boolean {
+    return a === b || (typeof a === "object" && typeof b === "object" && JSON.stringify(a) === JSON.stringify(b));
+  }
+
+  function sameNode(a: Node<NodeData>, b: Node<NodeData>): boolean {
+    if (a.type !== b.type || !!a.selected !== !!b.selected || a.position.x !== b.position.x || a.position.y !== b.position.y) return false;
+    const keys = new Set([...Object.keys(a.data), ...Object.keys(b.data)]) as Set<keyof NodeData>;
+    for (const key of keys) if (!sameValue(a.data[key], b.data[key])) return false;
+    return true;
+  }
+
+  function sameEdge(a: Edge, b: Edge): boolean {
+    return (
+      a.source === b.source &&
+      a.target === b.target &&
+      a.sourceHandle === b.sourceHandle &&
+      a.targetHandle === b.targetHandle &&
+      !!a.selected === !!b.selected &&
+      a.animated === b.animated &&
+      a.label === b.label &&
+      a.style === b.style
+    );
+  }
 
   function sameIds(a: string[], b: string[]): boolean {
     return a.length === b.length && a.every((id, i) => id === b[i]);

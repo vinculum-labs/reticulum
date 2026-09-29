@@ -93,10 +93,12 @@
   const outPin = (c: string) => `background: ${c}; border: 2px solid ${c}`;
 
   // New or removed handles must be measured again, or wires attach to stale positions.
+  // Re-measure the handles only when the pins or the header actually change. The row arrays are rebuilt with the
+  // node's data (every metrics update), so depending on them directly re-measured every node — a forced layout each —
+  // once a second.
+  const pinLayout = $derived(`${leftRows.length}:${rightRows.length}:${HEADER}`);
   $effect(() => {
-    void leftRows.length;
-    void rightRows.length;
-    void HEADER;
+    void pinLayout;
     updateInternals(id);
   });
 </script>
