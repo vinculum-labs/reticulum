@@ -284,8 +284,8 @@ public final class WebBridge {
     // ---------------------------------------------------------------- opening the editor
 
     /**
-     * Shows the editor on a network: inside the game on Windows (when enabled and WebView2 works), else in the
-     * browser. If a page is already connected it just switches to the network there.
+     * Shows the editor on a network: inside the game on Windows and macOS (when enabled and the system's web view
+     * works), else in the browser. If a page is already connected it just switches to the network there.
      */
     public static void openEditor(@Nullable UUID network) {
         start();
@@ -294,22 +294,26 @@ public final class WebBridge {
         }
         focus = network;
         if (io.github.leadassimilator.reticulum.ReticulumClientConfig.EDITOR_IN_GAME.getAsBoolean()
-                && io.github.leadassimilator.reticulum.client.webview.WebView2Host.supported()) {
-            if (io.github.leadassimilator.reticulum.client.webview.WebView2Host.ready()) {
+                && io.github.leadassimilator.reticulum.client.webview.EmbeddedView.supported()) {
+            if (io.github.leadassimilator.reticulum.client.webview.EmbeddedView.ready()) {
                 // The page is loaded (hidden); show it again, on this network.
                 broadcastFocus(network);
                 io.github.leadassimilator.reticulum.client.webview.EditorScreen.open(null);
             } else {
-                io.github.leadassimilator.reticulum.client.webview.EditorScreen.open(editorUrl(network));
+                io.github.leadassimilator.reticulum.client.webview.EditorScreen.open(editorUrl(network, true));
             }
             return;
         }
         openInBrowser();
     }
 
-    /** The one-time login link for the editor, opening on a network. */
-    private static String editorUrl(@Nullable UUID network) {
-        return baseUrl + "/?token=" + token + (network == null ? "" : "#network=" + network);
+    /**
+     * The one-time login link for the editor, opening on a network. {@code embedded} marks the page as shown inside
+     * the game, so Esc at its root closes it (the page remembers that across reloads).
+     */
+    private static String editorUrl(@Nullable UUID network, boolean embedded) {
+        String hash = (network == null ? "" : "network=" + network) + (embedded ? (network == null ? "" : "&") + "embedded=1" : "");
+        return baseUrl + "/?token=" + token + (hash.isEmpty() ? "" : "#" + hash);
     }
 
     private static void broadcastFocus(@Nullable UUID network) {
@@ -332,13 +336,13 @@ public final class WebBridge {
             return;
         }
         UUID network = focus;
-        // A connected page (unless it's the in-game one, which can't tell us apart from a browser tab) just switches.
-        if (!SOCKETS.isEmpty() && !io.github.leadassimilator.reticulum.client.webview.WebView2Host.ready()) {
+        // A connected page (unless it's the in-game one, which we can't tell apart from a browser tab) just switches.
+        if (!SOCKETS.isEmpty() && !io.github.leadassimilator.reticulum.client.webview.EmbeddedView.ready()) {
             broadcastFocus(network);
             chat(Component.translatable("message.reticulum.editor_focused"));
             return;
         }
-        String url = editorUrl(network);
+        String url = editorUrl(network, false);
         Util.getPlatform().openUri(url);
         chat(Component.translatable("message.reticulum.editor_opened", Component.literal("[" + url.substring(0, url.indexOf("?")) + "]")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withUnderlined(true)

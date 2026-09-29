@@ -14,8 +14,19 @@ export function onEscape(close: () => void): () => void {
   };
 }
 
-/** Shown inside the game (Edge WebView2) rather than in a browser tab. */
-export const embedded = typeof window !== "undefined" && !!(window as unknown as { chrome?: { webview?: unknown } }).chrome?.webview;
+/**
+ * Shown inside the game (WebView2 on Windows, WKWebView on macOS) rather than in a browser tab: the game marks its
+ * link with "embedded=1", remembered for the session so reloads keep it.
+ */
+export const embedded = (() => {
+  if (typeof window === "undefined") return false;
+  try {
+    if (/(^#|&)embedded=1/.test(location.hash)) sessionStorage.setItem("reticulum.embedded", "1");
+    return sessionStorage.getItem("reticulum.embedded") === "1";
+  } catch {
+    return /(^#|&)embedded=1/.test(location.hash);
+  }
+})();
 
 export function installEscape(closeEditor: () => void, toggleFullscreen: () => void) {
   window.addEventListener("keydown", (e) => {

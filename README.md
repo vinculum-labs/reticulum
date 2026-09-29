@@ -40,9 +40,10 @@ The editor runs on your own computer, served by the game client, and only accept
 from the controller's screen, or anywhere with the network tool (sneak + right-click the air). One link logs you in; it stays logged in for 90 days unless you
 turn that off in the client config.
 
-On Windows the editor opens inside the game window, using Edge's WebView2 (part of Windows). **Esc** closes whatever
-is open inside it, then the editor; **Open in browser** in its top bar moves it to your browser. Elsewhere, or with
-"Open the editor inside the game" turned off in the client config, it opens in your browser.
+On Windows and macOS the editor opens inside the game window, using the system's own web view (Edge's WebView2 on
+Windows, Safari's WKWebView on macOS). **Esc** closes whatever is open inside it, then the editor; **Open in browser**
+in its top bar moves it to your browser. On Windows it can't show over exclusive fullscreen: press F11 for a window.
+On Linux, or with "Open the editor inside the game" turned off in the client config, it opens in your browser.
 
 ### Sheets, folders and sub-sheets
 

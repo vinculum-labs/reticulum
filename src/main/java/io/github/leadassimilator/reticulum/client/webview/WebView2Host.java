@@ -38,7 +38,7 @@ import net.minecraft.client.Minecraft;
  *
  * <p>Method numbers are the vtable slots from the SDK's WebView2.h (IUnknown takes 0-2).
  */
-public final class WebView2Host {
+final class WebView2Host {
     private static final int S_OK = 0;
     private static final int RPC_E_CHANGED_MODE = 0x80010106;
 
@@ -89,21 +89,21 @@ public final class WebView2Host {
     }
 
     /** Windows with a WebView2 runtime we can reach, and nothing has failed yet. */
-    public static boolean supported() {
+    static boolean supported() {
         return Platform.isWindows() && state != State.FAILED;
     }
 
-    public static boolean ready() {
+    static boolean ready() {
         return state == State.READY;
     }
 
     /** Ready and the page has loaded, so the view is on screen when asked to be. */
-    public static boolean shown() {
+    static boolean shown() {
         return state == State.READY && loaded;
     }
 
     /** Shows the view over the game at these window pixels, loading {@code url} (null keeps the current page). */
-    public static void show(@Nullable String url, int x, int y, int width, int height) {
+    static void show(@Nullable String url, int x, int y, int width, int height) {
         if (url != null) {
             pendingUrl = url;
         }
@@ -122,7 +122,7 @@ public final class WebView2Host {
         }
     }
 
-    public static void setBounds(int x, int y, int width, int height) {
+    static void setBounds(int x, int y, int width, int height) {
         bounds = new int[] {x, y, x + Math.max(1, width), y + Math.max(1, height)};
         if (state == State.READY) {
             call(controller, CTL_PUT_BOUNDS, rect());
@@ -130,7 +130,7 @@ public final class WebView2Host {
     }
 
     /** Hides the view and gives the keyboard back to the game; the page stays loaded (and connected) for next time. */
-    public static void hide() {
+    static void hide() {
         visible = false;
         if (state == State.READY) {
             call(controller, CTL_PUT_IS_VISIBLE, 0);
@@ -139,14 +139,14 @@ public final class WebView2Host {
     }
 
     /** Gives the keyboard to the game window (clicking the bar above the view), so the game's keys work there. */
-    public static void focusGame() {
+    static void focusGame() {
         if (Platform.isWindows()) {
             User32.INSTANCE.SetFocus(gameWindow());
         }
     }
 
     /** Closes the browser for good (leaving the world, or the game closing). */
-    public static void close() {
+    static void close() {
         if (state == State.READY) {
             call(controller, CTL_CLOSE);
         }

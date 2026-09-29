@@ -10,7 +10,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * The editor inside the game: a thin bar across the top (title, Open in browser, Close) with the WebView2 view filling
+ * The editor inside the game: a thin bar across the top (title, Open in browser, Close) with the web view filling
  * the rest of the window. The game keeps running underneath, as it does while the editor is open in a browser.
  */
 public class EditorScreen extends Screen {
@@ -24,7 +24,7 @@ public class EditorScreen extends Screen {
         Minecraft.getInstance().setScreen(new EditorScreen(url));
     }
 
-    /** WebView2 couldn't start: close this and use the browser, as before. */
+    /** The web view couldn't start: close this and use the browser, as before. */
     static void fallBackToBrowser() {
         if (Minecraft.getInstance().screen instanceof EditorScreen) {
             Minecraft.getInstance().setScreen(null);
@@ -46,15 +46,15 @@ public class EditorScreen extends Screen {
             WebBridge.openInBrowser();
         }).bounds(width - 62 - 104, 2, 100, BAR - 4).build());
         var window = Minecraft.getInstance().getWindow();
-        if (window.isFullscreen()) {
+        if (window.isFullscreen() && EmbeddedView.hiddenByFullscreen()) {
             // Exclusive fullscreen draws past Windows' compositor, so a child window never shows, and taking focus
             // for it minimizes the game. Wait for windowed mode (F11 here reaches the game) or the browser.
-            WebView2Host.hide();
+            EmbeddedView.hide();
             return;
         }
         // The view covers the window below the bar, in window pixels.
         int barPixels = (int) Math.ceil(BAR * window.getGuiScale());
-        WebView2Host.show(url, 0, barPixels, window.getWidth(), window.getHeight() - barPixels);
+        EmbeddedView.show(url, 0, barPixels, window.getWidth(), window.getHeight() - barPixels);
         url = null;
     }
 
@@ -63,11 +63,11 @@ public class EditorScreen extends Screen {
         // Only the bar shows; the web view covers everything below it.
         graphics.fill(0, 0, width, BAR, 0xFF1A1E26);
         graphics.fill(0, BAR - 1, width, BAR, 0xFF2F3542);
-        if (Minecraft.getInstance().getWindow().isFullscreen()) {
+        if (Minecraft.getInstance().getWindow().isFullscreen() && EmbeddedView.hiddenByFullscreen()) {
             graphics.fill(0, BAR, width, height, 0xFF12151B);
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen"), width / 2, height / 2 - 6, 0xE3E7EF);
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen_hint"), width / 2, height / 2 + 6, 0xA0A0A0);
-        } else if (!WebView2Host.shown()) {
+        } else if (!EmbeddedView.shown()) {
             graphics.fill(0, BAR, width, height, 0xFF12151B);
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_loading"), width / 2, height / 2, 0xA0A0A0);
         }
@@ -82,13 +82,18 @@ public class EditorScreen extends Screen {
     /** A click on the bar takes the keyboard back from the view, so Esc there closes the editor. */
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        WebView2Host.focusGame();
+        EmbeddedView.focusGame();
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public void removed() {
-        WebView2Host.hide();
+        EmbeddedView.hide();
+    }
+
+    @Override
+    public void tick() {
+        EmbeddedView.tick();
     }
 
     @Override

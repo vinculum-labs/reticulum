@@ -32,8 +32,9 @@ public final class ReticulumClientConfig {
             .define("rememberLogin", true);
 
     public static final ModConfigSpec.BooleanValue EDITOR_IN_GAME = BUILDER
-            .comment("On Windows, open the editor inside the game window (with Edge's WebView2, part of Windows) instead of the",
-                    "browser. Falls back to the browser when WebView2 isn't available. Has no effect on other systems.")
+            .comment("On Windows and macOS, open the editor inside the game window (with the system's own web view: Edge's",
+                    "WebView2 or Safari's WKWebView) instead of the browser. Falls back to the browser when that isn't available,",
+                    "and on Linux.")
             .define("editorInGame", true);
 
     public static final ModConfigSpec.BooleanValue KEEP_RUNNING_WHILE_EDITING = BUILDER
