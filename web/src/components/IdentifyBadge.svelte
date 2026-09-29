@@ -35,11 +35,11 @@
     border-radius: 50%;
     animation: identify-pulse 1.3s ease-in-out infinite;
   }
-  /* Capitals sit above the baseline, so centering the line box leaves them low; nudge them up to the dots' center. */
+  /* Trim the line box to the capitals, so centering centers the letters themselves on the dots. */
   .identify-text {
     display: block;
     line-height: 1;
-    transform: translateY(-0.5px);
+    text-box: trim-both cap alphabetic;
   }
   @keyframes identify-pulse {
     50% {
