@@ -84,6 +84,8 @@
         : [{ id: "out", label: "out", color }],
   );
   const flowRows = $derived(Math.max(1, flowOuts.length));
+  /** What a filter, rate limit, splitter or kit does, shown on the header's second line while it is idle. */
+  const flowSummary = $derived(!pinned && kind !== "sheet_input" && kind !== "sheet_output" ? summary(data.node, app.rateUnit) : "");
   const redstone = $derived(redstoneSummary(data.node.redstone));
   const HEADER = $derived(BASE_HEADER + (redstone ? 13 : 0));
   const rows = $derived(Math.max(leftRows.length, rightRows.length, 1));
@@ -145,7 +147,8 @@
       <div
         class="truncate muted"
         style="font-size: 10px"
-        title={signal ? summary(data.node, app.rateUnit) : idleTitle}
+        title={signal ? summary(data.node, app.rateUnit) : flowSummary ? `${flowSummary}
+${idleTitle}` : idleTitle}
         role="note"
         onpointerenter={() => (hovered = true)}
         onpointerleave={() => (hovered = false)}
@@ -157,6 +160,8 @@
           <span class="tabular-nums" style="color: {color}">{formatRate(data.rate, data.resource, app.rateUnit)}</span>
         {:else if data.status}
           <span style="color: var(--warn)">{STATUS_LABEL[data.status] ?? data.status}</span>
+        {:else if flowSummary}
+          {flowSummary}
         {:else if data.fiveMinutes > 0}
           <span class="tabular-nums">avg {formatAverage(data.fiveMinutes, data.resource, app.rateUnit)}</span>
         {:else}
@@ -191,12 +196,6 @@
         {/each}
       </div>
     </div>
-    <!-- What it does, under its pins (a filter's expression gets up to two lines; the rest is in the tooltip). -->
-    {#if kind !== "sheet_input" && kind !== "sheet_output"}
-      <div class="px-1.5 pb-1 muted" class:filter-text={kind === "filter"} class:truncate={kind !== "filter"} style="font-size: 10px" title={summary(data.node, app.rateUnit)}>
-        {summary(data.node, app.rateUnit)}
-      </div>
-    {/if}
   {/if}
 </div>
 
@@ -219,15 +218,3 @@
     <Handle type="source" position={Position.Right} id={out.id} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(out.color)}" />
   {/each}
 {/if}
-
-<style>
-  .filter-text {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    overflow-wrap: anywhere;
-    line-height: 1.25;
-  }
-</style>
