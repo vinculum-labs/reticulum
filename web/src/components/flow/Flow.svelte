@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { KIND_ICON, SparklesIcon, SplineIcon } from "../../lib/icons";
-  import AddMenu from "./AddMenu.svelte";
+  import { KIND_ICON, SparklesIcon, SplineIcon, ZapIcon } from "../../lib/icons";
+  import MenuButton from "./MenuButton.svelte";
   import {
     SvelteFlow,
     Background,
@@ -329,14 +329,26 @@
               <Icon size={14} />{KIND_LABEL[kind]}
             </button>
           {/each}
-          <AddMenu label="Redstone" kinds={SIGNAL_KINDS} color="var(--c-signal)" onpick={(kind) => addNode(kind, viewCenter())} />
+          <MenuButton
+            label="Redstone"
+            icon={ZapIcon}
+            color="var(--c-signal)"
+            items={SIGNAL_KINDS.map((kind) => ({ key: kind, label: KIND_LABEL[kind], hint: KIND_HINT[kind], icon: KIND_ICON[kind] }))}
+            onpick={(kind) => addNode(kind as NodeKind, viewCenter())}
+          />
           <!-- Wire style: a canvas setting, remembered in this browser. -->
-          <label class="btn flex items-center gap-1 text-sm" title="How wires are drawn between pins (remembered in this browser)">
-            <SplineIcon size={14} />
-            <select class="wire-style" value={app.wireStyle} onchange={(e) => setWireStyle(e.currentTarget.value as WireStyle)} aria-label="Wire style">
-              {#each Object.entries(WIRE_STYLE_LABEL) as [style, label] (style)}<option value={style}>{label}</option>{/each}
-            </select>
-          </label>
+          <MenuButton
+            label={WIRE_STYLE_LABEL[app.wireStyle]}
+            icon={SplineIcon}
+            width={140}
+            title="How wires are drawn between pins (remembered in this browser)"
+            items={(Object.keys(WIRE_STYLE_LABEL) as WireStyle[]).map((style) => ({
+              key: style,
+              label: WIRE_STYLE_LABEL[style],
+              checked: style === app.wireStyle,
+            }))}
+            onpick={(style) => setWireStyle(style as WireStyle)}
+          />
           <button class="btn flex items-center gap-1 text-sm" title="Lay the sheet out left to right" disabled={tidying || !sheet?.nodes?.length} onclick={tidy}>
             <SparklesIcon size={14} />Tidy up
           </button>
@@ -352,23 +364,3 @@
     {/if}
   </SvelteFlow>
 </div>
-
-<style>
-  /* The wire style picker sits inside a toolbar button: no box of its own. */
-  .wire-style {
-    border: none;
-    background: transparent;
-    padding: 0;
-    color: inherit;
-    font: inherit;
-  }
-  /* No ring of its own when focused; the whole button shows focus instead (still visible for keyboard users). */
-  .wire-style:focus,
-  .wire-style:focus-visible {
-    outline: none;
-    box-shadow: none;
-  }
-  :global(label.btn:has(.wire-style:focus-visible)) {
-    border-color: var(--accent);
-  }
-</style>
