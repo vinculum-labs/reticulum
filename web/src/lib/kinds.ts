@@ -144,8 +144,8 @@ export const RESOURCE_VAR: Record<Resource, string> = {
 
 /**
  * A new device node's pins, from every face of the device that touches a connector: one input and one output per
- * resource those faces offer (tied to those faces), energy only in the directions they allow, and redstone only where
- * the device gives or takes it (every face touching a connector offers redstone). Null when nothing is found.
+ * resource those faces offer (tied to those faces), energy only in the directions they allow, and redstone pins only
+ * for a device that offers nothing else (every face touching a connector offers redstone). Null when nothing is found.
  */
 function probedPins(device: Device): { inputs: DeviceInput[]; outputs: DeviceOutput[] } | null {
   const touching = new Set<string>((device.resources?.redstone ?? []).filter((f) => f !== "unsided"));
@@ -163,8 +163,12 @@ function probedPins(device: Device): { inputs: DeviceInput[]; outputs: DeviceOut
   const energyOut = on(device.energyOut);
   if (energyIn.length) inputs.push({ resource: "energy", faces: energyIn });
   if (energyOut.length) outputs.push({ resource: "energy", faces: energyOut, per_operation: 0 });
-  if (device.takesRedstone) inputs.push({ resource: "redstone", faces: [...touching] as Face[] });
-  if (device.givesRedstone) outputs.push({ resource: "redstone", faces: [...touching] as Face[] });
+  // Redstone only for blocks that are about redstone (levers, lamps, doors, pistons): the test for "takes" counts
+  // any machine and "gives" any comparator reading, so a barrel would get both. Those can be added by hand.
+  if (!inputs.length && !outputs.length) {
+    if (device.takesRedstone) inputs.push({ resource: "redstone", faces: [...touching] as Face[] });
+    if (device.givesRedstone) outputs.push({ resource: "redstone", faces: [...touching] as Face[] });
+  }
   return inputs.length || outputs.length ? { inputs, outputs } : null;
 }
 
