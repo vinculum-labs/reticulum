@@ -130,6 +130,8 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     protected void applyImplicitComponents(DataComponentInput input) {
         super.applyImplicitComponents(input);
         itemNetworkId = input.get(ModDataComponents.NETWORK_ID.get());
+        // Only the field: the block state already has the tier (set as it was placed).
+        antennaTier = input.getOrDefault(ModDataComponents.ANTENNA_TIER.get(), 0);
     }
 
     @Override
@@ -137,6 +139,9 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         super.collectImplicitComponents(components);
         if (networkId() != null) {
             components.set(ModDataComponents.NETWORK_ID.get(), networkId());
+        }
+        if (antennaTier > 0) {
+            components.set(ModDataComponents.ANTENNA_TIER.get(), antennaTier);
         }
     }
 }

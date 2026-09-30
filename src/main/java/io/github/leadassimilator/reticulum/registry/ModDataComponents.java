@@ -22,6 +22,10 @@ public final class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> NETWORK_ID = COMPONENTS.registerComponentType("network_id",
             b -> b.persistent(Ids.UUID_CODEC).networkSynchronized(UUIDUtil.STREAM_CODEC));
 
+    /** The antenna tier inside a controller item (absent: none), so breaking a controller keeps its antenna in it. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> ANTENNA_TIER = COMPONENTS.registerComponentType("antenna_tier",
+            b -> b.persistent(Codec.intRange(1, 3)).networkSynchronized(ByteBufCodecs.VAR_INT));
+
     /** The name of the network in {@link #NETWORK_ID}, for tooltips (the client has no network list). */
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<String>> NETWORK_NAME = COMPONENTS.registerComponentType("network_name",
             b -> b.persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8));

@@ -15,7 +15,8 @@
             {
               "function": "minecraft:copy_components",
               "include": [
-                "reticulum:network_id"
+                "reticulum:network_id",
+                "reticulum:antenna_tier"
               ],
               "source": "block_entity"
             }

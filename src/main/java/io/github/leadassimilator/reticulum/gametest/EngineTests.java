@@ -612,6 +612,23 @@ public final class EngineTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void brokenControllerKeepsItsAntenna(GameTestHelper helper) {
+        BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
+        helper.getLevel().setBlock(pos, io.github.leadassimilator.reticulum.registry.ModBlocks.CONTROLLER.get().defaultBlockState(), 3);
+        var controller = (io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getLevel().getBlockEntity(pos);
+        controller.setAntennaTier(2);
+        helper.getLevel().destroyBlock(pos, true);
+        check(helper, helper.getLevel().getBlockState(pos).isAir(), "the controller didn't break in one go");
+        var drops = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(1.5));
+        check(helper, drops.size() == 1, "expected just the controller to drop, got " + drops.stream().map(e -> e.getItem().toString()).toList());
+        var stack = drops.get(0).getItem();
+        check(helper, stack.is(io.github.leadassimilator.reticulum.registry.ModItems.CONTROLLER.get())
+                && stack.getOrDefault(io.github.leadassimilator.reticulum.registry.ModDataComponents.ANTENNA_TIER.get(), 0) == 2,
+                "the dropped controller didn't keep its tier 2 antenna: " + stack);
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------- saving
 
     @GameTest(template = "empty")

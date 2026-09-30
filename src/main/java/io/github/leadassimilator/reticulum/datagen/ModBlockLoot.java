@@ -24,12 +24,13 @@ public class ModBlockLoot extends BlockLootSubProvider {
     protected void generate() {
         dropSelf(ModBlocks.CABLE.get());
         dropSelf(ModBlocks.CONNECTOR.get());
-        // The controller item keeps its network, so placing it again brings back the whole design.
+        // The controller item keeps its network and its antenna, so placing it again brings back the whole design.
         add(ModBlocks.CONTROLLER.get(), LootTable.lootTable().withPool(applyExplosionCondition(ModBlocks.CONTROLLER.get(),
                 LootPool.lootPool().setRolls(ConstantValue.exactly(1))
                         .add(LootItem.lootTableItem(ModBlocks.CONTROLLER.get())
                                 .apply(CopyComponentsFunction.copyComponents(CopyComponentsFunction.Source.BLOCK_ENTITY)
-                                        .include(ModDataComponents.NETWORK_ID.get()))))));
+                                        .include(ModDataComponents.NETWORK_ID.get())
+                                        .include(ModDataComponents.ANTENNA_TIER.get()))))));
     }
 
     @Override

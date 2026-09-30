@@ -13,7 +13,6 @@ import io.github.leadassimilator.reticulum.registry.ModItems;
 import io.github.leadassimilator.reticulum.security.Security;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.Containers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
@@ -50,7 +49,9 @@ public class ControllerBlock extends NetworkBlock {
     @Override
     public BlockState getStateForPlacement(net.minecraft.world.item.context.BlockPlaceContext context) {
         BlockState state = super.getStateForPlacement(context);
-        return state == null ? null : state.setValue(FACING, context.getHorizontalDirection().getOpposite());
+        // A controller item that kept its antenna shows it from the start.
+        int antenna = context.getItemInHand().getOrDefault(io.github.leadassimilator.reticulum.registry.ModDataComponents.ANTENNA_TIER.get(), 0);
+        return state == null ? null : state.setValue(FACING, context.getHorizontalDirection().getOpposite()).setValue(ANTENNA, antenna);
     }
 
     @Override
@@ -157,16 +158,6 @@ public class ControllerBlock extends NetworkBlock {
         stack.set(ModDataComponents.NETWORK_ID.get(), network.id());
         stack.set(ModDataComponents.NETWORK_NAME.get(), network.name());
         player.displayClientMessage(Component.translatable("message.reticulum.stack_bound", stack.getCount(), network.name()), true);
-    }
-
-    /** The antenna comes out when the controller is broken. */
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof ControllerBlockEntity controller && controller.antennaTier() > 0) {
-            Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), ModItems.antenna(controller.antennaTier()));
-            controller.setAntennaTier(0);
-        }
-        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     @Override

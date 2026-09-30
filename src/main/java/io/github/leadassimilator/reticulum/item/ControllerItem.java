@@ -20,6 +20,10 @@ public class ControllerItem extends BlockItem {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         super.appendHoverText(stack, context, tooltip, flag);
+        Integer antenna = stack.get(ModDataComponents.ANTENNA_TIER.get());
+        if (antenna != null) {
+            tooltip.add(AntennaItem.range(antenna).copy().withStyle(ChatFormatting.GRAY));
+        }
         UUID network = stack.get(ModDataComponents.NETWORK_ID.get());
         if (network != null) {
             tooltip.add(Component.translatable("tooltip.reticulum.remembers_network", network.toString().substring(0, 8))
