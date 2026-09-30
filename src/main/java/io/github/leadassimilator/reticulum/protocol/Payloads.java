@@ -28,10 +28,11 @@ public final class Payloads {
 
     // ---------------------------------------------------------------- server to client
 
-    public record OpenBlockScreen(Views.BlockView view) implements CustomPacketPayload {
+    /** {@code refresh}: new contents for the screen if it is still open (after a change made in it); ignored otherwise. */
+    public record OpenBlockScreen(Views.BlockView view, boolean refresh) implements CustomPacketPayload {
         public static final Type<OpenBlockScreen> TYPE = payloadType("open_block_screen");
-        public static final StreamCodec<RegistryFriendlyByteBuf, OpenBlockScreen> STREAM_CODEC =
-                Views.BlockView.STREAM_CODEC.map(OpenBlockScreen::new, OpenBlockScreen::view);
+        public static final StreamCodec<RegistryFriendlyByteBuf, OpenBlockScreen> STREAM_CODEC = StreamCodec.composite(
+                Views.BlockView.STREAM_CODEC, OpenBlockScreen::view, ByteBufCodecs.BOOL, OpenBlockScreen::refresh, OpenBlockScreen::new);
 
         @Override
         public Type<? extends CustomPacketPayload> type() {
@@ -39,10 +40,11 @@ public final class Payloads {
         }
     }
 
-    public record OpenControllerScreen(Views.ControllerView view) implements CustomPacketPayload {
+    /** {@code refresh}: as for {@link OpenBlockScreen}. */
+    public record OpenControllerScreen(Views.ControllerView view, boolean refresh) implements CustomPacketPayload {
         public static final Type<OpenControllerScreen> TYPE = payloadType("open_controller_screen");
-        public static final StreamCodec<RegistryFriendlyByteBuf, OpenControllerScreen> STREAM_CODEC =
-                Views.ControllerView.STREAM_CODEC.map(OpenControllerScreen::new, OpenControllerScreen::view);
+        public static final StreamCodec<RegistryFriendlyByteBuf, OpenControllerScreen> STREAM_CODEC = StreamCodec.composite(
+                Views.ControllerView.STREAM_CODEC, OpenControllerScreen::view, ByteBufCodecs.BOOL, OpenControllerScreen::refresh, OpenControllerScreen::new);
 
         @Override
         public Type<? extends CustomPacketPayload> type() {
@@ -295,9 +297,9 @@ public final class Payloads {
         PayloadRegistrar registrar = event.registrar(VERSION);
         // Lambdas (not method references) keep client classes from loading on a dedicated server.
         registrar.playToClient(OpenBlockScreen.TYPE, OpenBlockScreen.STREAM_CODEC,
-                (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openBlockScreen(payload.view()));
+                (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openBlockScreen(payload.view(), payload.refresh()));
         registrar.playToClient(OpenControllerScreen.TYPE, OpenControllerScreen.STREAM_CODEC,
-                (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openControllerScreen(payload.view()));
+                (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openControllerScreen(payload.view(), payload.refresh()));
         registrar.playToServer(ControllerSwitch.TYPE, ControllerSwitch.STREAM_CODEC,
                 (payload, context) -> server(context, player -> Screens.controllerSwitch(player, payload)));
         registrar.playToClient(IdentifyMarkers.TYPE, IdentifyMarkers.STREAM_CODEC,

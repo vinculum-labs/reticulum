@@ -11,7 +11,11 @@ public final class ClientPayloadHandler {
     private ClientPayloadHandler() {
     }
 
-    public static void openBlockScreen(Views.BlockView view) {
+    /**
+     * Opens a block's screen, or updates it when it is open. A refresh (the server's answer to a change made in the
+     * screen) never reopens it: Done may already have closed it, and the answer arriving just after would bring it back.
+     */
+    public static void openBlockScreen(Views.BlockView view, boolean refresh) {
         Minecraft mc = Minecraft.getInstance();
         // A refresh for the screen that is already open updates it in place instead of stacking a new one.
         if (mc.screen instanceof DeviceFacesScreen faces && faces.pos().equals(view.pos())) {
@@ -22,7 +26,9 @@ public final class ClientPayloadHandler {
             screen.update(view);
             return;
         }
-        mc.setScreen(new BlockScreen(view));
+        if (!refresh) {
+            mc.setScreen(new BlockScreen(view));
+        }
     }
 
     public static void openNetworkPicker(io.github.leadassimilator.reticulum.protocol.Payloads.OpenNetworkPicker payload) {
@@ -41,12 +47,15 @@ public final class ClientPayloadHandler {
         event.setCanceled(true);
     }
 
-    public static void openControllerScreen(Views.ControllerView view) {
+    /** As {@link #openBlockScreen}: a refresh updates the screen if open and never reopens it. */
+    public static void openControllerScreen(Views.ControllerView view, boolean refresh) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof ControllerScreen screen && screen.pos().equals(view.pos())) {
             screen.update(view);
             return;
         }
-        mc.setScreen(new ControllerScreen(view));
+        if (!refresh) {
+            mc.setScreen(new ControllerScreen(view));
+        }
     }
 }

@@ -59,10 +59,20 @@ public final class Screens {
             target = payload.face().isPresent() ? Identify.face(device, payload.face().get(), 0) : Identify.device(device, 0);
         }
         Identifies.toggle(level.getServer(), network, target);
-        open(player, pos);
+        refresh(player, pos);
     }
 
+    /** Opens a network block's screen for the player. */
     public static void open(ServerPlayer player, BlockPos pos) {
+        send(player, pos, false);
+    }
+
+    /** New contents for a screen after a change made in it; the client ignores it if the screen was closed meanwhile. */
+    static void refresh(ServerPlayer player, BlockPos pos) {
+        send(player, pos, true);
+    }
+
+    private static void send(ServerPlayer player, BlockPos pos, boolean refresh) {
         ServerLevel level = player.serverLevel();
         NetworkBlockEntity be = Topology.blockEntity(level, pos);
         if (be == null) {
@@ -79,10 +89,10 @@ public final class Screens {
                 network = NetworkManager.network(level.getServer(), Topology.reclaimController(level, pos, player));
             }
             if (network != null && Security.canView(network, player)) {
-                PacketDistributor.sendToPlayer(player, new Payloads.OpenControllerScreen(controllerView(player, pos, network)));
+                PacketDistributor.sendToPlayer(player, new Payloads.OpenControllerScreen(controllerView(player, pos, network), refresh));
             }
         } else {
-            PacketDistributor.sendToPlayer(player, new Payloads.OpenBlockScreen(blockView(player, level, pos, be, network)));
+            PacketDistributor.sendToPlayer(player, new Payloads.OpenBlockScreen(blockView(player, level, pos, be, network), refresh));
         }
     }
 
@@ -151,7 +161,7 @@ public final class Screens {
             }
         }
         NetworkManager.changed(player.server, network);
-        open(player, payload.pos());
+        refresh(player, payload.pos());
     }
 
     private static Views.BlockView blockView(ServerPlayer player, ServerLevel level, BlockPos pos, NetworkBlockEntity be, @Nullable Network network) {
@@ -240,7 +250,7 @@ public final class Screens {
         }
         Component message = Topology.toggle(player.serverLevel(), payload.pos(), payload.side(), player);
         player.displayClientMessage(message, true);
-        open(player, payload.pos());
+        refresh(player, payload.pos());
     }
 
     static void renameConnector(ServerPlayer player, Payloads.RenameConnector payload) {
@@ -256,7 +266,7 @@ public final class Screens {
             record.setName(clip(payload.name()));
             NetworkManager.changed(player.server, network);
         }
-        open(player, payload.pos());
+        refresh(player, payload.pos());
     }
 
     static void renameDevice(ServerPlayer player, Payloads.RenameDevice payload) {
@@ -279,7 +289,7 @@ public final class Screens {
             record.setName(clip(payload.name()));
         }
         NetworkManager.changed(player.server, network);
-        open(player, payload.pos());
+        refresh(player, payload.pos());
     }
 
     static void controllerSettings(ServerPlayer player, Payloads.ControllerSettings payload) {
@@ -304,7 +314,7 @@ public final class Screens {
             }
         }
         NetworkManager.changed(player.server, network);
-        open(player, payload.pos());
+        refresh(player, payload.pos());
     }
 
     @Nullable
