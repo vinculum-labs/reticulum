@@ -37,7 +37,30 @@
     onclose: () => void;
   } = $props();
 
-  const LIMIT = 400;
+  /** Entries added at a time as the list scrolls (so a huge modpack doesn't build every cell at once). */
+  const PAGE = 400;
+  let shown = $state(PAGE);
+  let sentinel: HTMLDivElement | undefined = $state();
+
+  // Back to the first page whenever what is listed changes.
+  $effect(() => {
+    void query;
+    void kind;
+    void source;
+    shown = PAGE;
+  });
+
+  // More as the end of the list scrolls into view; re-armed after each batch, in case the end is still in view.
+  $effect(() => {
+    const end = sentinel;
+    void shown;
+    if (!end) return;
+    const observer = new IntersectionObserver((seen) => {
+      if (seen.some((s) => s.isIntersecting)) shown += PAGE;
+    }, { rootMargin: "200px" });
+    observer.observe(end);
+    return () => observer.disconnect();
+  });
 
   let catalog = $state<Catalog | null>(null);
   let failed = $state(false);
@@ -191,7 +214,7 @@
           <p class="p-2 text-sm muted">{source ? "Nothing matching in that device." : "Nothing matches."}</p>
         {:else}
           <div class="grid gap-0.5" style="grid-template-columns: repeat(auto-fill, minmax(40px, 1fr))">
-            {#each matches.slice(0, LIMIT) as entry (entry.id)}
+            {#each matches.slice(0, shown) as entry (entry.id)}
               <button
                 class="picker-cell relative flex items-center justify-center rounded"
                 class:picked={selected?.id === entry.id}
@@ -214,8 +237,8 @@
               </button>
             {/each}
           </div>
-          {#if matches.length > LIMIT}
-            <p class="p-2 text-xs muted">Showing {LIMIT} of {matches.length}; search to narrow it down.</p>
+          {#if matches.length > shown}
+            <div bind:this={sentinel} class="p-2 text-xs muted">Loading more… ({shown} of {matches.length})</div>
           {/if}
         {/if}
       </div>
