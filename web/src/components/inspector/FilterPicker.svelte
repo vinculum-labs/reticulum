@@ -22,7 +22,7 @@
 
   /**
    * A JEI-like browser for writing filters: pick items, fluids or chemicals (or their tags and mods) from everything
-   * the game knows, or from what a device holds right now. Clicking adds to the filter text, which stays editable.
+   * the game knows, or from what a device holds right now. Clicking includes or excludes things in the filter text, which stays editable.
    */
   let {
     value,
@@ -141,14 +141,14 @@
     }, 250);
   });
 
-  function add(term: string, exclude: boolean) {
+  function include(term: string, exclude: boolean) {
     text = exclude ? withExclusion(text, term) : withAlternative(text, term);
   }
 
-  /** Alt-click or right-click excludes instead of adding. */
+  /** Alt-click or right-click excludes instead of including. */
   function termClick(e: MouseEvent, term: string) {
     e.preventDefault();
-    add(term, e.altKey || e.button === 2);
+    include(term, e.altKey || e.button === 2);
   }
 
   function apply() {
@@ -230,16 +230,16 @@
               <button
                 class="picker-cell relative flex items-center justify-center rounded"
                 class:picked={selected?.id === entry.id}
-                title={`${entry.name}\n${entry.id}\nDouble-click to add; alt-click or right-click to exclude`}
+                title={`${entry.name}\n${entry.id}\nDouble-click to include; alt-click or right-click to exclude`}
                 onclick={(e) => {
                   selected = entry;
-                  if (e.altKey) add(itemTerm(entry.id), true);
+                  if (e.altKey) include(itemTerm(entry.id), true);
                 }}
-                ondblclick={() => add(itemTerm(entry.id), false)}
+                ondblclick={() => include(itemTerm(entry.id), false)}
                 oncontextmenu={(e) => {
                   e.preventDefault();
                   selected = entry;
-                  add(itemTerm(entry.id), true);
+                  include(itemTerm(entry.id), true);
                 }}
               >
                 <img src={iconUrl(kind, entry.id)} alt="" width="32" height="32" loading="lazy" class="icon" />
@@ -266,8 +266,8 @@
             </div>
           </div>
           <div class="flex gap-1">
-            <button class="btn flex-1 text-sm" onclick={() => add(itemTerm(entry.id), false)}>Add</button>
-            <button class="btn flex-1 text-sm" onclick={() => add(itemTerm(entry.id), true)}>Exclude</button>
+            <button class="btn flex-1 text-sm" onclick={() => include(itemTerm(entry.id), false)}>Include</button>
+            <button class="btn flex-1 text-sm" onclick={() => include(itemTerm(entry.id), true)}>Exclude</button>
           </div>
           <div class="flex flex-col gap-1">
             <span class="text-xs font-medium muted">Mod</span>
@@ -287,10 +287,10 @@
               </div>
             </div>
           {/if}
-          <p class="text-xs muted">Click a mod or tag to add it (anything from that mod, or with that tag). Alt-click or right-click excludes it instead.</p>
+          <p class="text-xs muted">Click a mod or tag to include it (anything from that mod, or with that tag). Alt-click or right-click excludes it instead.</p>
         {:else}
           <p class="text-xs muted">
-            Click something to see its tags and mod. Double-click adds it to the filter; alt-click or right-click excludes it. Added things match
+            Click something to see its tags and mod. Double-click includes it in the filter; alt-click or right-click excludes it. Included things match
             if any of them does.
           </p>
         {/if}
