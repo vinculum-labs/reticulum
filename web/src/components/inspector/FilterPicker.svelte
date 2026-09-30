@@ -163,14 +163,17 @@
       {#if error}<span class="text-xs" style="color: var(--bad)">{error}</span>{/if}
     </div>
 
-    <div class="flex flex-wrap items-center gap-2">
-      <input bind:this={search} class="text-sm" style="width: 220px" bind:value={query} placeholder="Search the list (@mod, #tag)" spellcheck="false" />
-      <div class="flex gap-1">
-        {#each kinds as k (k)}
-          <button class="btn text-sm" class:btn-primary={kind === k} onclick={() => ((kind = k), (selected = null))}>{CATALOG_KIND_LABEL[k]}</button>
-        {/each}
+    <!-- Same two columns as below: search and tabs over the grid, the source picker over the details panel. -->
+    <div class="flex items-center gap-3">
+      <div class="flex min-w-0 flex-1 items-center gap-2">
+        <input bind:this={search} class="min-w-0 flex-1 text-sm" bind:value={query} placeholder="Search the list (@mod, #tag)" spellcheck="false" />
+        <div class="flex shrink-0 gap-1">
+          {#each kinds as k (k)}
+            <button class="btn text-sm" class:btn-primary={kind === k} onclick={() => ((kind = k), (selected = null))}>{CATALOG_KIND_LABEL[k]}</button>
+          {/each}
+        </div>
       </div>
-      <select class="min-w-0 flex-1 text-sm" bind:value={source} title="Browse everything, or just what one device holds now">
+      <select class="w-56 shrink-0 text-sm" bind:value={source} title="Browse everything, or just what one device holds now">
         <option value="">Everything</option>
         {#each deviceChoices as d (posKey(d.pos))}
           <option value={posKey(d.pos)}>In {deviceName(d)}</option>
