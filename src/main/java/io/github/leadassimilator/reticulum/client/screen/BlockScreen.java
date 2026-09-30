@@ -89,7 +89,8 @@ public class BlockScreen extends Screen {
         int x = left + 80;
         switch (side.kind()) {
             case DEVICE -> {
-                EditBox name = new SeeThroughTextBox(font, x, y, 150, 18, Component.translatable("screen.reticulum.device_name"));
+                // Name box, attach switch, Faces, ID: the name box gives up some width so Faces fits its label.
+                EditBox name = new SeeThroughTextBox(font, x, y, 118, 18, Component.translatable("screen.reticulum.device_name"));
                 name.setMaxLength(64);
                 name.setValue(side.customName());
                 name.setHint(Component.literal(side.defaultName()));
@@ -100,11 +101,13 @@ public class BlockScreen extends Screen {
                 }
                 addRenderableWidget(name);
                 Button toggle = Button.builder(Component.translatable(side.enabled() ? "screen.reticulum.attached" : "screen.reticulum.detached"),
-                        b -> toggle(side.side())).bounds(x + 154, y - 1, 58, 20).build();
+                        b -> toggle(side.side())).bounds(x + 122, y - 1, 58, 20).build();
                 toggle.active = view.canEdit();
                 addRenderableWidget(toggle);
                 Button faces = Button.builder(Component.translatable("screen.reticulum.faces"), b -> openFaces(side.side()))
-                        .bounds(x + 216, y - 1, WIDTH - 80 - 216 - 24, 20).build();
+                        .bounds(x + 184, y - 1, WIDTH - 80 - 184 - 24, 20)
+                        .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("screen.reticulum.faces_title")))
+                        .build();
                 if (!view.networkName().isEmpty() && side.enabled()) {
                     addRenderableWidget(idButton(left + WIDTH - 22, y - 1, side.deviceIdentified(), java.util.Optional.of(side.side()),
                             java.util.Optional.empty()));
