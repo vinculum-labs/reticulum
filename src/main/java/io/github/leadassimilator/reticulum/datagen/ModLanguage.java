@@ -59,6 +59,12 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.joint.connected", "Connected");
         add("screen.reticulum.joint.disconnected", "Disconnected");
         add("screen.reticulum.joint.conflict", "Network Conflict");
+        add("screen.reticulum.attached_tip", "Attached: the network uses this device. Click to detach it.");
+        add("screen.reticulum.detached_tip", "Detached: the network leaves this device alone. Click to attach it.");
+        add("screen.reticulum.faces_tip", "Name this device's faces");
+        add("screen.reticulum.joint.connected_tip", "Connected. Click to disconnect this side.");
+        add("screen.reticulum.joint.disconnected_tip", "Disconnected. Click to connect this side.");
+        add("screen.reticulum.joint.conflict_tip", "Network conflict: the two sides belong to different networks. Click to join them into the one with the controller (not possible when both have one).");
         add("screen.reticulum.no_network", "No network");
         add("screen.reticulum.network", "Network: %s");
         add("screen.reticulum.empty_side", "-");

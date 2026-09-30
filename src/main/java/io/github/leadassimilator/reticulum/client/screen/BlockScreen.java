@@ -17,7 +17,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * Quick screen for a connector or a cable: one row per side. Connector rows for devices carry an editable name,
- * an attach/detach switch and a button to name the device's faces; rows for neighboring network blocks connect or disconnect the joint.
+ * an attach/detach switch and a button to name the device's faces (icon buttons); rows for neighboring network blocks connect or disconnect the joint.
  */
 public class BlockScreen extends Screen {
     private static final int WIDTH = 340;
@@ -89,8 +89,8 @@ public class BlockScreen extends Screen {
         int x = left + 80;
         switch (side.kind()) {
             case DEVICE -> {
-                // Name box, attach switch, Faces, ID: the name box gives up some width so Faces fits its label.
-                EditBox name = new SeeThroughTextBox(font, x, y, 118, 18, Component.translatable("screen.reticulum.device_name"));
+                // Name box, then icon buttons: attach/detach, faces, ID.
+                EditBox name = new SeeThroughTextBox(font, x, y, 186, 18, Component.translatable("screen.reticulum.device_name"));
                 name.setMaxLength(64);
                 name.setValue(side.customName());
                 name.setHint(Component.literal(side.defaultName()));
@@ -100,14 +100,14 @@ public class BlockScreen extends Screen {
                     deviceNames.put(side.side(), name);
                 }
                 addRenderableWidget(name);
-                Button toggle = Button.builder(Component.translatable(side.enabled() ? "screen.reticulum.attached" : "screen.reticulum.detached"),
-                        b -> toggle(side.side())).bounds(x + 122, y - 1, 58, 20).build();
+                Button toggle = new IconButton(x + 190, y - 1, 20, 20, side.enabled() ? "link_connected" : "link_disconnected",
+                        Component.translatable(side.enabled() ? "screen.reticulum.attached" : "screen.reticulum.detached"),
+                        Component.translatable(side.enabled() ? "screen.reticulum.attached_tip" : "screen.reticulum.detached_tip"),
+                        b -> toggle(side.side()));
                 toggle.active = view.canEdit();
                 addRenderableWidget(toggle);
-                Button faces = Button.builder(Component.translatable("screen.reticulum.faces"), b -> openFaces(side.side()))
-                        .bounds(x + 184, y - 1, WIDTH - 80 - 184 - 24, 20)
-                        .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("screen.reticulum.faces_title")))
-                        .build();
+                Button faces = new IconButton(x + 214, y - 1, 20, 20, "faces", Component.translatable("screen.reticulum.faces"),
+                        Component.translatable("screen.reticulum.faces_tip"), b -> openFaces(side.side()));
                 if (!view.networkName().isEmpty() && side.enabled()) {
                     addRenderableWidget(idButton(left + WIDTH - 22, y - 1, side.deviceIdentified(), java.util.Optional.of(side.side()),
                             java.util.Optional.empty()));
@@ -116,8 +116,10 @@ public class BlockScreen extends Screen {
                 addRenderableWidget(faces);
             }
             case JOINT -> {
-                Button toggle = Button.builder(Component.translatable("screen.reticulum.joint." + side.joint().name().toLowerCase(java.util.Locale.ROOT)),
-                        b -> toggle(side.side())).bounds(left + WIDTH - 96, y - 1, 96, 20).build();
+                String joint = side.joint().name().toLowerCase(java.util.Locale.ROOT);
+                Button toggle = new IconButton(left + WIDTH - 22, y - 1, 22, 20, "link_" + joint,
+                        Component.translatable("screen.reticulum.joint." + joint), Component.translatable("screen.reticulum.joint." + joint + "_tip"),
+                        b -> toggle(side.side()));
                 toggle.active = view.canEdit();
                 addRenderableWidget(toggle);
             }
@@ -128,12 +130,11 @@ public class BlockScreen extends Screen {
 
     /** A small ID toggle: lights up the connector, a device or a face in the world until switched off. */
     Button idButton(int x, int y, boolean on, java.util.Optional<Direction> side, java.util.Optional<io.github.leadassimilator.reticulum.network.FaceKey> face) {
-        Button button = Button.builder(Component.literal(on ? "§eID" : "ID"), b -> {
-            sendRenames();
-            PacketDistributor.sendToServer(new Payloads.ToggleIdentify(view.pos(), side, face));
-        }).bounds(x, y, 22, 20).build();
-        button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable(on ? "screen.reticulum.identify_off" : "screen.reticulum.identify_on")));
-        return button;
+        return new IconButton(x, y, 22, 20, on ? "identify_on" : "identify_off", Component.literal("ID"),
+                Component.translatable(on ? "screen.reticulum.identify_off" : "screen.reticulum.identify_on"), b -> {
+                    sendRenames();
+                    PacketDistributor.sendToServer(new Payloads.ToggleIdentify(view.pos(), side, face));
+                });
     }
 
     private void toggle(Direction side) {
