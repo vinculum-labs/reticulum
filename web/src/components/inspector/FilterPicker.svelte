@@ -70,7 +70,6 @@
   let error = $state<string | null>(null);
   let kind = $state<CatalogKind>(untrack(() => initialKind));
   let query = $state("");
-  let showSyntax = $state(false);
   let selected = $state<CatalogEntry | null>(null);
   /** "" browses everything; otherwise a device's position key, to show what it holds. */
   let source = $state(untrack(() => (suggested[0] ? posKey(suggested[0]) : "")));
@@ -175,14 +174,12 @@
       <button class="btn btn-primary text-sm" onclick={apply} disabled={!!error}>Apply</button>
     </div>
     <div class="flex flex-col gap-0.5">
-      <div class="flex items-baseline gap-2 text-xs">
-        <label for="picker-filter" class="flex-1 font-medium muted">Filter — what Apply puts in the box. Built from what you add below; you can also type it.</label>
-        <button class="shrink-0 underline" style="color: var(--accent)" aria-expanded={showSyntax} onclick={() => (showSyntax = !showSyntax)}>
-          {showSyntax ? "Hide syntax" : "Syntax"}
-        </button>
-      </div>
+      <details class="text-xs">
+        <summary class="cursor-pointer muted">Filter syntax</summary>
+        <div class="mt-1"><FilterSyntax /></div>
+      </details>
       <input
-        id="picker-filter"
+        aria-label="Filter"
         class="w-full font-mono text-sm"
         style={error ? "border-color: var(--bad)" : ""}
         bind:value={text}
@@ -190,7 +187,7 @@
         spellcheck="false"
       />
       {#if error}<span class="text-xs" style="color: var(--bad)">{error}</span>{/if}
-      {#if showSyntax}<FilterSyntax />{/if}
+
     </div>
 
     <!-- Same two columns as below: search and tabs over the grid, the source picker over the details panel. -->
