@@ -2,6 +2,7 @@ package io.github.leadassimilator.reticulum.lookat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -9,6 +10,7 @@ import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.engine.MeLinker;
 import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
@@ -81,6 +83,9 @@ public final class LookAt {
             if (!given.isEmpty()) {
                 lines.add(Component.translatable("lookat.reticulum.redstone_out", String.join(", ", given)).withStyle(ChatFormatting.RED));
             }
+            if (connector.meEndpoints() instanceof MeLinker.Ports ports) {
+                meLine(ports, lines);
+            }
             if (Identifies.isOn(network, Identify.connector(connector.connectorId(), 0))) {
                 lines.add(identifiedLine());
             }
@@ -141,6 +146,26 @@ public final class LookAt {
                     || face != null && Identifies.isOn(network, Identifies.deviceOrFace(global, face))) {
                 lines.add(identifiedLine());
             }
+        }
+    }
+
+    /**
+     * Per ME port, the fullest cable on its way to the ME controller ("north 3/8"): AE2's own cable tooltips count
+     * only the channels routed through that one cable, so a cable past a link can read 0 while the way back is full.
+     */
+    private static void meLine(MeLinker.Ports ports, List<Component> lines) {
+        List<String> parts = new ArrayList<>();
+        boolean full = false;
+        for (Map.Entry<Direction, MeLinker.Usage> entry : ports.usages().entrySet()) {
+            MeLinker.Usage usage = entry.getValue();
+            if (usage.connected() && usage.max() > 0) {
+                parts.add(entry.getKey().getName() + " " + usage.used() + "/" + usage.max());
+                full |= usage.used() >= usage.max();
+            }
+        }
+        if (!parts.isEmpty()) {
+            lines.add(Component.translatable("lookat.reticulum.me", String.join(", ", parts))
+                    .withStyle(full ? ChatFormatting.RED : ChatFormatting.GRAY));
         }
     }
 

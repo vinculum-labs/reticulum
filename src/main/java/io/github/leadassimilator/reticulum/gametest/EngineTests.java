@@ -529,6 +529,11 @@ public final class EngineTests {
             int sideUsed = toConnector == null ? -1 : toConnector.getUsedChannels();
             check(helper, nodeUsed == 2 && sideUsed == 2,
                     "smart cable: node " + nodeUsed + "/" + node.getMaxChannels() + ", its connection to the connector " + sideUsed);
+            // The far connector's look-at line shows the smart cable back at the controller, not its own cable's count.
+            var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());
+            String lines = io.github.leadassimilator.reticulum.lookat.LookAt.describe(helper.getLevel(), far.south(), null, player)
+                    .stream().map(net.minecraft.network.chat.Component::getString).toList().toString();
+            check(helper, lines.contains("north 2/8"), "far connector says " + lines);
         });
     }
 

@@ -111,6 +111,7 @@ public class ModLanguage extends LanguageProvider {
         add("lookat.reticulum.reach.out_of_range", "Wireless: out of the antenna's reach");
         add("lookat.reticulum.device_out_of_range", "Offline: its connector is out of the antenna's reach");
         add("lookat.reticulum.redstone_out", "Redstone out: %s");
+        add("lookat.reticulum.me", "ME: %s");
         add("lookat.reticulum.redstone_in", "Redstone from the network: %s");
         add("lookat.reticulum.identified", "Identified");
         add("lookat.reticulum.identifies", "Identified: %s");

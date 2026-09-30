@@ -28,7 +28,7 @@ import net.minecraft.server.level.ServerLevel;
  * only, so four dense cables on four sides are four separate 32-channel ME ports. Nodes carry channels like a dense
  * cable (they need none themselves); ME link wires connect them to endpoints elsewhere.
  */
-public final class MeEndpoints implements IInWorldGridNodeHost {
+public final class MeEndpoints implements IInWorldGridNodeHost, MeLinker.Ports {
     private static final IGridNodeListener<MeEndpoints> LISTENER = (owner, node) -> owner.connector.setChanged();
 
     private final ConnectorBlockEntity connector;
@@ -123,6 +123,18 @@ public final class MeEndpoints implements IInWorldGridNodeHost {
         }
         // AE2 counts on each node the channels routed through it to the machines further out.
         return new MeLinker.Usage(true, node.getUsedChannels(), tightest.getUsedChannels(), tightest.getMaxChannels());
+    }
+
+    @Override
+    public Map<Direction, MeLinker.Usage> usages() {
+        Map<Direction, MeLinker.Usage> out = new EnumMap<>(Direction.class);
+        for (Direction side : nodes.keySet()) {
+            MeLinker.Usage usage = usage(side);
+            if (usage != null) {
+                out.put(side, usage);
+            }
+        }
+        return out;
     }
 
     private static int room(IGridNode node) {

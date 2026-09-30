@@ -33,6 +33,7 @@
   "lookat.reticulum.face": "Face: %s",
   "lookat.reticulum.identified": "Identified",
   "lookat.reticulum.identifies": "Identified: %s",
+  "lookat.reticulum.me": "ME: %s",
   "lookat.reticulum.no_network": "No network",
   "lookat.reticulum.no_power": "No power: %s / %s FE",
   "lookat.reticulum.power": "Energy: %s / %s FE",

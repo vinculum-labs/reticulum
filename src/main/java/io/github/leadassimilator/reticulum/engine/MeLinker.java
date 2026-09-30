@@ -33,4 +33,10 @@ public interface MeLinker {
     record Usage(boolean connected, int through, int used, int max) {
         public static final Usage NOT_CONNECTED = new Usage(false, 0, 0, 0);
     }
+
+    /** A connector's ME ports, for the look-at line; kept free of AE2 types so it can be used without AE2. */
+    interface Ports {
+        /** Channel use of each side with an ME port. */
+        Map<net.minecraft.core.Direction, Usage> usages();
+    }
 }

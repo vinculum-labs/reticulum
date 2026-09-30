@@ -136,6 +136,10 @@ With [Jade](https://www.curseforge.com/minecraft/mc-mods/jade) or
 device shows its network, names, wireless reach, redstone and whether it is identified. Without either, the same
 lines appear under the crosshair while you hold the network tool.
 
+A connector with ME ports also shows `ME: north 3/8`, one entry per port: the channels in use on the fullest cable
+between that port and the ME controller. AE2's own cable tooltip counts only the channels going through that one
+cable, so a cable past a link can read 0 even when the way back to the controller is full.
+
 ## Security
 
 Every network has an owner and an access mode: **Public**, **Password** or **Private**. Members have roles — viewer,
