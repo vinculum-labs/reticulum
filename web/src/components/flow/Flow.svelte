@@ -27,6 +27,7 @@
   let nodes = $state.raw<Node<NodeData>[]>([]);
   let edges = $state.raw<Edge[]>([]);
   let dragging = false;
+  let wiring = $state(false);
   let container: HTMLDivElement | undefined = $state();
 
   const sheet = $derived(currentSheet());
@@ -302,7 +303,8 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="h-full w-full" bind:this={container} {ondragover} {ondrop}>
+<!-- "wiring" while a new wire is being dragged, so pins that hide when unused (gates) show as drop targets. -->
+<div class="h-full w-full" class:wiring bind:this={container} {ondragover} {ondrop}>
   <SvelteFlow
     bind:nodes
     bind:edges
@@ -317,6 +319,8 @@
     elementsSelectable={true}
     onselectionchange={selectionChange}
     onconnect={connect}
+    onconnectstart={() => (wiring = true)}
+    onconnectend={() => (wiring = false)}
     isValidConnection={validConnection}
     ondelete={remove}
     onnodedragstart={() => {

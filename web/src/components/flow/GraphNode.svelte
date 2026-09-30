@@ -207,6 +207,7 @@ ${idleTitle}` : idleTitle}
     type="target"
     position={Position.Left}
     id="gate"
+    class={data.gateWired ? "gate-pin wired" : "gate-pin"}
     title="Gate: a signal here switches this node on and off"
     style="top: {HEADER / 2}px; {inPin('var(--c-signal)')}"
   />
@@ -226,3 +227,15 @@ ${idleTitle}` : idleTitle}
     <Handle type="source" position={Position.Right} id={out.id} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(out.color)}" />
   {/each}
 {/if}
+
+<style>
+  /* An unused gate pin stays out of sight until the card is hovered or a wire is being dragged to it. */
+  :global(.svelte-flow__handle.gate-pin:not(.wired)) {
+    opacity: 0;
+    transition: opacity 120ms;
+  }
+  :global(.svelte-flow__node:hover .svelte-flow__handle.gate-pin),
+  :global(.wiring .svelte-flow__handle.gate-pin) {
+    opacity: 1;
+  }
+</style>

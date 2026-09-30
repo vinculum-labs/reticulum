@@ -19,6 +19,8 @@ export interface NodeData extends Record<string, unknown> {
   subsheet?: { sheet?: Sheet; inputs: string[]; outputs: string[] };
   /** For a signal node: its output as last reported. */
   signal?: number;
+  /** A wire is plugged into its gate (the gate pin shows only then, or on hover). */
+  gateWired?: boolean;
 
 }
 
@@ -163,6 +165,7 @@ export function toFlow(
         status: activity.status[n.id],
         subsheet,
         signal: isSignal(s.kind) ? (activity.signals[n.id] ?? 0) : undefined,
+        gateWired: (sheet.wires ?? []).some((w) => w.to === n.id && (w.input ?? 0) === GATE) || undefined,
       },
     };
   });
