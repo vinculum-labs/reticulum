@@ -25,7 +25,13 @@ public class ModBlockStates extends BlockStateProvider {
 
     @Override
     protected void registerStatesAndModels() {
-        simpleBlock(ModBlocks.CONTROLLER.get(), models().cubeAll("controller", modLoc("block/controller")));
+        // The controller, plus a mast on top for the antenna tier installed (hand-made models in src/main/resources).
+        MultiPartBlockStateBuilder controller = getMultipartBuilder(ModBlocks.CONTROLLER.get());
+        controller.part().modelFile(models().cubeAll("controller", modLoc("block/controller"))).addModel().end();
+        for (int tier = 1; tier <= 3; tier++) {
+            controller.part().modelFile(existing("antenna_" + tier)).addModel()
+                    .condition(io.github.leadassimilator.reticulum.block.ControllerBlock.ANTENNA, tier).end();
+        }
 
         linked(ModBlocks.CABLE.get(), "cable_core", Map.of(Link.CABLE, "cable_arm"));
         linked(ModBlocks.CONNECTOR.get(), "connector_core",

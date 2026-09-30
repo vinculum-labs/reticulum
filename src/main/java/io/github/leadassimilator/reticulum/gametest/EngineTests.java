@@ -598,6 +598,20 @@ public final class EngineTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void controllerShowsItsAntenna(GameTestHelper helper) {
+        BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
+        helper.getLevel().setBlock(pos, io.github.leadassimilator.reticulum.registry.ModBlocks.CONTROLLER.get().defaultBlockState(), 3);
+        var controller = (io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getLevel().getBlockEntity(pos);
+        var antenna = io.github.leadassimilator.reticulum.block.ControllerBlock.ANTENNA;
+        controller.setAntennaTier(2);
+        check(helper, helper.getLevel().getBlockState(pos).getValue(antenna) == 2, "the controller doesn't show a tier 2 antenna");
+        check(helper, helper.getLevel().getBlockEntity(pos) == controller, "changing the look replaced the controller's block entity");
+        controller.setAntennaTier(0);
+        check(helper, helper.getLevel().getBlockState(pos).getValue(antenna) == 0, "the mast stayed after the antenna came out");
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------- saving
 
     @GameTest(template = "empty")

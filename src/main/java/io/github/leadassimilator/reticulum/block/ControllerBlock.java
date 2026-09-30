@@ -27,9 +27,19 @@ import net.minecraft.world.phys.BlockHitResult;
 
 public class ControllerBlock extends NetworkBlock {
     public static final MapCodec<ControllerBlock> CODEC = simpleCodec(ControllerBlock::new);
+    /** The antenna tier installed (0: none), shown as a mast on top. The block entity holds the truth and sets this. */
+    public static final net.minecraft.world.level.block.state.properties.IntegerProperty ANTENNA =
+            net.minecraft.world.level.block.state.properties.IntegerProperty.create("antenna", 0, 3);
 
     public ControllerBlock(Properties properties) {
         super(properties);
+        registerDefaultState(stateDefinition.any().setValue(ANTENNA, 0));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(net.minecraft.world.level.block.state.StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(ANTENNA);
     }
 
     @Override

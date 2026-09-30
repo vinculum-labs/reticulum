@@ -1,7 +1,33 @@
 {
-  "variants": {
-    "": {
-      "model": "reticulum:block/controller"
+  "multipart": [
+    {
+      "apply": {
+        "model": "reticulum:block/controller"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/antenna_1"
+      },
+      "when": {
+        "antenna": "1"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/antenna_2"
+      },
+      "when": {
+        "antenna": "2"
+      }
+    },
+    {
+      "apply": {
+        "model": "reticulum:block/antenna_3"
+      },
+      "when": {
+        "antenna": "3"
+      }
     }
-  }
+  ]
 }

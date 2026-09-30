@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import io.github.leadassimilator.reticulum.block.ControllerBlock;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import net.minecraft.core.BlockPos;
@@ -104,6 +105,11 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     public void setAntennaTier(int tier) {
         antennaTier = tier;
         setChanged();
+        // The mast on top follows the antenna.
+        BlockState state = getBlockState();
+        if (level != null && !level.isClientSide && state.hasProperty(ControllerBlock.ANTENNA) && state.getValue(ControllerBlock.ANTENNA) != tier) {
+            level.setBlock(worldPosition, state.setValue(ControllerBlock.ANTENNA, Math.max(0, Math.min(3, tier))), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        }
     }
 
     @Override
