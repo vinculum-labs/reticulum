@@ -163,8 +163,9 @@ public class ModLanguage extends LanguageProvider {
         add("tooltip.reticulum.bound_to", "Bound to %s");
         add("tooltip.reticulum.linked_to", "Network: %s");
         add("tooltip.reticulum.tool_configure", "Right-click a joint to connect or disconnect it, or a device side to attach or detach it. Sneak + right-click takes off a facade, or a controller's antenna");
-        add("tooltip.reticulum.tool_link", "Sneak + right-click a controller or connector to copy its network; right-click a connector to bind it; right-click the air to pick a network");
-        add("tooltip.reticulum.tool_switch", "Sneak + scroll to switch mode");
+        add("tooltip.reticulum.tool_link", "Sneak + right-click a controller or connector to copy its network; right-click a connector to bind it; right-click the air to pick a network (or unlink the tool)");
+        add("tooltip.reticulum.tool_switch", "Sneak + scroll to switch mode; sneak + right-click the air to open the editor");
+        add("screen.reticulum.unlink_tool", "Unlink tool");
         add("tool.reticulum.mode.configure", "Configure");
         add("tool.reticulum.mode.link", "Link");
         add("message.reticulum.tool_mode", "Network tool: %s mode");

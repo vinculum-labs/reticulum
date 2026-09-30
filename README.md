@@ -30,14 +30,14 @@ the redstone condition.
 | **Network Controller** | The heart of a network. One per network. Holds its energy and its antenna. |
 | **Cable** | Joins network blocks. Cable without a controller that touches a network joins it; two networks that each have a controller stay separate where they touch. |
 | **Connector** | Joins the machines next to it to the network. Can be named, and so can each device face. |
-| **Network Tool** | Three modes (sneak + scroll to switch): **Configure** — right-click a joint to connect or disconnect it, or a device side to attach or detach it. **Link** — copy a network from a controller or connector (sneak + right-click), bind a wireless connector to it (right-click), or pick one from a list (right-click the air). **Identify** — light up a connector or device so you can find it (sneak for one face). |
+| **Network Tool** | Three modes (sneak + scroll to switch): **Configure** — right-click a joint to connect or disconnect it, or a device side to attach or detach it. **Link** — copy a network from a controller or connector (sneak + right-click), bind a wireless connector to it (right-click), or pick one from a list (right-click the air). **Identify** — light up a connector or device so you can find it (sneak for one face). In any mode, sneak + right-click the air to open the editor on the tool's network. |
 | **Antenna** (tiers 1–3) | Installed in the controller (right-click it; take it out with the tool in Configure mode, sneak + right-click). Lets connectors that no cable reaches join the network: tier 1 within 128 blocks, tier 2 anywhere in the dimension, tier 3 in every dimension. |
 | **Facade** | Makes a cable or connector look like any full block. Crafted blank, eight at a time. Right-click with a stack to pick its block from a searchable list of every block — owned or not — or drag one in from JEI; sneak + right-click a block in the world to copy it exactly, rotation included. Right-click a cable or connector to put one on; take it off with the tool in Configure mode (sneak + right-click). While holding the tool, faced cables show through as outlines. |
 
 ## The editor
 
 The editor runs on your own computer, served by the game client, and only accepts this machine by default. Open it
-from the controller's screen. One link logs you in; it stays logged in for 90 days unless you
+from the controller's screen, or anywhere with the network tool (sneak + right-click the air). One link logs you in; it stays logged in for 90 days unless you
 turn that off in the client config.
 
 On Windows the editor opens inside the game window, using Edge's WebView2 (part of Windows). **Esc** closes whatever

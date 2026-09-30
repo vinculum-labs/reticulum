@@ -69,8 +69,33 @@ public class NetworkPickerScreen extends Screen {
             }).bounds(left, y, WIDTH, 20).build());
             y += ROW;
         }
-        addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), b -> onClose())
-                .bounds(width / 2 - 75, top + 22 + VISIBLE * ROW + 8, 150, 20).build());
+        int bottom = top + 22 + VISIBLE * ROW + 8;
+        if (connector.isEmpty() && toolLinked()) {
+            // Picking for the tool: it can also forget its network.
+            addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.unlink_tool"), b -> {
+                PacketDistributor.sendToServer(new Payloads.UnlinkTool());
+                onClose();
+            }).bounds(width / 2 - 152, bottom, 150, 20).build());
+            addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), b -> onClose()).bounds(width / 2 + 2, bottom, 150, 20).build());
+        } else {
+            addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), b -> onClose()).bounds(width / 2 - 75, bottom, 150, 20).build());
+        }
+    }
+
+    /** The network tool in hand is linked to a network. */
+    private static boolean toolLinked() {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player == null) {
+            return false;
+        }
+        for (var hand : net.minecraft.world.InteractionHand.values()) {
+            var stack = player.getItemInHand(hand);
+            if (stack.getItem() instanceof io.github.leadassimilator.reticulum.item.NetworkToolItem
+                    && stack.has(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void choose(Payloads.NetworkChoice choice, String secret) {

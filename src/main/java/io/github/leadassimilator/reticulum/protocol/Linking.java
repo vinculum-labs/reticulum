@@ -51,6 +51,20 @@ public final class Linking {
         PacketDistributor.sendToPlayer(player, new Payloads.OpenNetworkPicker(connector, choices));
     }
 
+    /** The network tool in hand forgets its network. */
+    public static void unlinkTool(ServerPlayer player) {
+        for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
+            net.minecraft.world.item.ItemStack stack = player.getItemInHand(hand);
+            if (stack.getItem() instanceof io.github.leadassimilator.reticulum.item.NetworkToolItem
+                    && stack.has(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get())) {
+                stack.remove(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get());
+                stack.remove(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_NAME.get());
+                player.displayClientMessage(Component.translatable("message.reticulum.tool_cleared"), true);
+                return;
+            }
+        }
+    }
+
     public static void pick(ServerPlayer player, Payloads.PickNetwork payload) {
         Network network = NetworkManager.network(player.server, payload.network());
         if (network == null) {

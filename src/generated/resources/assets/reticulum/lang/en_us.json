@@ -212,6 +212,7 @@
   "screen.reticulum.stopped_redstone": "Not running (redstone, or the controller isn't loaded)",
   "screen.reticulum.tab_network": "Network",
   "screen.reticulum.tab_settings": "Settings",
+  "screen.reticulum.unlink_tool": "Unlink tool",
   "tool.reticulum.mode.configure": "Configure",
   "tool.reticulum.mode.identify": "Identify",
   "tool.reticulum.mode.link": "Link",
@@ -227,6 +228,6 @@
   "tooltip.reticulum.remembers_network": "Remembers network %s",
   "tooltip.reticulum.tool_configure": "Right-click a joint to connect or disconnect it, or a device side to attach or detach it. Sneak + right-click takes off a facade, or a controller's antenna",
   "tooltip.reticulum.tool_identify": "Right-click a connector or device to light it up (or off); sneak + right-click lights one face of a device",
-  "tooltip.reticulum.tool_link": "Sneak + right-click a controller or connector to copy its network; right-click a connector to bind it; right-click the air to pick a network",
-  "tooltip.reticulum.tool_switch": "Sneak + scroll to switch mode"
+  "tooltip.reticulum.tool_link": "Sneak + right-click a controller or connector to copy its network; right-click a connector to bind it; right-click the air to pick a network (or unlink the tool)",
+  "tooltip.reticulum.tool_switch": "Sneak + scroll to switch mode; sneak + right-click the air to open the editor"
 }

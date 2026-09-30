@@ -236,6 +236,17 @@ public final class Payloads {
     }
 
     /** The picker's choice; {@code password} is only used to join a password network. */
+    /** "Unlink tool" in the network picker: the held network tool forgets its network. */
+    public record UnlinkTool() implements CustomPacketPayload {
+        public static final Type<UnlinkTool> TYPE = payloadType("unlink_tool");
+        public static final StreamCodec<RegistryFriendlyByteBuf, UnlinkTool> STREAM_CODEC = StreamCodec.unit(new UnlinkTool());
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     public record PickNetwork(java.util.Optional<BlockPos> connector, java.util.UUID network, String password) implements CustomPacketPayload {
         public static final Type<PickNetwork> TYPE = payloadType("pick_network");
         public static final StreamCodec<RegistryFriendlyByteBuf, PickNetwork> STREAM_CODEC = StreamCodec.composite(
@@ -297,6 +308,8 @@ public final class Payloads {
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openNetworkPicker(payload));
         registrar.playToServer(RequestNetworkPicker.TYPE, RequestNetworkPicker.STREAM_CODEC,
                 (payload, context) -> server(context, player -> Linking.openPicker(player, payload.connector())));
+        registrar.playToServer(UnlinkTool.TYPE, UnlinkTool.STREAM_CODEC,
+                (payload, context) -> server(context, Linking::unlinkTool));
         registrar.playToServer(PickNetwork.TYPE, PickNetwork.STREAM_CODEC,
                 (payload, context) -> server(context, player -> Linking.pick(player, payload)));
         registrar.playToServer(PaintFacade.TYPE, PaintFacade.STREAM_CODEC,

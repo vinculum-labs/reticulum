@@ -177,17 +177,19 @@ public class NetworkToolItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        // Sneak + right-click the air, in any mode: the editor, on the network the tool is linked to (or the last one
+        // edited), so there's no need to go back to a controller.
+        if (player.isShiftKeyDown()) {
+            if (level.isClientSide) {
+                io.github.leadassimilator.reticulum.client.web.WebBridge.openEditor(stack.get(ModDataComponents.NETWORK_ID.get()));
+            }
+            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
+        }
         if (mode(stack) != ToolMode.LINK) {
             return InteractionResultHolder.pass(stack);
         }
         if (player instanceof ServerPlayer serverPlayer) {
-            if (player.isShiftKeyDown()) {
-                stack.remove(ModDataComponents.NETWORK_ID.get());
-                stack.remove(ModDataComponents.NETWORK_NAME.get());
-                serverPlayer.displayClientMessage(Component.translatable("message.reticulum.tool_cleared"), true);
-            } else {
-                Linking.openPicker(serverPlayer, Optional.empty());
-            }
+            Linking.openPicker(serverPlayer, Optional.empty());
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
     }
