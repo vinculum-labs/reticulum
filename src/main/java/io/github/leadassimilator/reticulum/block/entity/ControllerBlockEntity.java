@@ -105,7 +105,7 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     public void setAntennaTier(int tier) {
         antennaTier = tier;
         setChanged();
-        // The mast on top follows the antenna.
+        // The top face follows the antenna.
         BlockState state = getBlockState();
         if (level != null && !level.isClientSide && state.hasProperty(ControllerBlock.ANTENNA) && state.getValue(ControllerBlock.ANTENNA) != tier) {
             level.setBlock(worldPosition, state.setValue(ControllerBlock.ANTENNA, Math.max(0, Math.min(3, tier))), net.minecraft.world.level.block.Block.UPDATE_ALL);

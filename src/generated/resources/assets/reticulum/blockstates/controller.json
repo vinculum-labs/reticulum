@@ -1,33 +1,16 @@
 {
-  "multipart": [
-    {
-      "apply": {
-        "model": "reticulum:block/controller"
-      }
+  "variants": {
+    "antenna=0": {
+      "model": "reticulum:block/controller"
     },
-    {
-      "apply": {
-        "model": "reticulum:block/antenna_1"
-      },
-      "when": {
-        "antenna": "1"
-      }
+    "antenna=1": {
+      "model": "reticulum:block/controller_antenna_1"
     },
-    {
-      "apply": {
-        "model": "reticulum:block/antenna_2"
-      },
-      "when": {
-        "antenna": "2"
-      }
+    "antenna=2": {
+      "model": "reticulum:block/controller_antenna_2"
     },
-    {
-      "apply": {
-        "model": "reticulum:block/antenna_3"
-      },
-      "when": {
-        "antenna": "3"
-      }
+    "antenna=3": {
+      "model": "reticulum:block/controller_antenna_3"
     }
-  ]
+  }
 }
