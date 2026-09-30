@@ -124,11 +124,12 @@ export function moves(resource: Resource): boolean {
 }
 
 /**
- * The resources a device offers on some face, most specific first: what flows, then ME, then redstone (which every
- * device touching a connector offers), so a new device node starts with what the device is really for.
+ * The resources a device offers on some face, most specific first: items, fluids and chemicals, then ME (a block on an
+ * ME network is there for that, like the ME controller, which also takes energy), then energy, then redstone (which
+ * every device touching a connector offers), so a new device node starts with what the device is really for.
  */
 export function offeredResources(resources: Partial<Record<Resource, string[]>> | undefined): Resource[] {
-  return (["item", "fluid", "energy", "chemical", "me", "redstone"] as Resource[]).filter((r) => resources?.[r]?.length);
+  return (["item", "fluid", "chemical", "me", "energy", "redstone"] as Resource[]).filter((r) => resources?.[r]?.length);
 }
 
 /** CSS custom property holding the color for a resource's wires. */

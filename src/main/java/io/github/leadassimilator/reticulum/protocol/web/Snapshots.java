@@ -246,11 +246,25 @@ final class Snapshots {
     private static JsonArray faces(ServerLevel level, BlockPos pos, net.neoforged.neoforge.capabilities.BlockCapability<?, net.minecraft.core.Direction> capability) {
         JsonArray faces = new JsonArray();
         for (FaceKey face : FaceKey.values()) {
-            if (level.getCapability(capability, pos, face.direction()) != null) {
+            if (usable(level.getCapability(capability, pos, face.direction()))) {
                 faces.add(face.getSerializedName());
             }
         }
         return faces;
+    }
+
+    /**
+     * Whether a handler can actually hold or pass something. Some blocks offer an empty one on every face (AE2 gives
+     * its machines, the ME controller included, an item handler with no slots), which isn't something to move from.
+     */
+    private static boolean usable(@javax.annotation.Nullable Object handler) {
+        return switch (handler) {
+            case null -> false;
+            case net.neoforged.neoforge.items.IItemHandler items -> items.getSlots() > 0;
+            case net.neoforged.neoforge.fluids.capability.IFluidHandler fluids -> fluids.getTanks() > 0;
+            case net.neoforged.neoforge.energy.IEnergyStorage energy -> energy.getMaxEnergyStored() > 0 || energy.canReceive() || energy.canExtract();
+            default -> true;
+        };
     }
 
     /** The name shown for an identify in the editor's Identified panel. */

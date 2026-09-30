@@ -93,9 +93,12 @@ public final class MeEndpoints implements IInWorldGridNodeHost {
         if (node.getInWorldConnections().get(side) == null && node.getConnections().isEmpty()) {
             return MeLinker.Usage.NOT_CONNECTED;
         }
-        // The cable on this side limits the link too, even when it lies further out than us rather than towards the controller.
+        // The cable on this side limits the link too, even when it lies further out than us rather than towards the
+        // controller. Not what has no channel limit of its own, though: the controller itself reports none (0), and
+        // an endpoint right on it is limited only by its own dense capacity.
         appeng.api.networking.IGridConnection cable = node.getInWorldConnections().get(side);
-        IGridNode tightest = cable == null ? null : cable.getOtherSide(node);
+        IGridNode neighbor = cable == null ? null : cable.getOtherSide(node);
+        IGridNode tightest = neighbor != null && neighbor.getMaxChannels() > 0 ? neighbor : null;
         IGridNode current = node;
         for (int steps = 0; current != null && steps < 4096; steps++) {
             IGridNode parent = null;
@@ -110,7 +113,7 @@ public final class MeEndpoints implements IInWorldGridNodeHost {
                 // current is the controller (or the route ends): it isn't a cable with a limit to report.
                 break;
             }
-            if (tightest == null || room(current) < room(tightest)) {
+            if (current.getMaxChannels() > 0 && (tightest == null || room(current) < room(tightest))) {
                 tightest = current;
             }
             current = parent;
