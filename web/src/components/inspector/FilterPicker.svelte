@@ -15,6 +15,7 @@
     type CatalogKind,
   } from "../../lib/catalog";
   import { onEscape } from "../../lib/escape";
+  import FilterSyntax from "./FilterSyntax.svelte";
   import { formatAmount } from "../../lib/kinds";
   import { app, deviceName, request } from "../../lib/state.svelte";
   import { posKey, type GlobalPos } from "../../lib/types";
@@ -184,6 +185,10 @@
         />
       </label>
       {#if error}<span class="text-xs" style="color: var(--bad)">{error}</span>{/if}
+      <details class="text-xs">
+        <summary class="cursor-pointer muted">Filter syntax</summary>
+        <div class="mt-1"><FilterSyntax /></div>
+      </details>
     </div>
 
     <!-- Same two columns as below: search and tabs over the grid, the source picker over the details panel. -->

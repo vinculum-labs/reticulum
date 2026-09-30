@@ -287,20 +287,6 @@
         onchange={(expression) => settings({ expression })}
       />
     </Field>
-    <details class="text-xs muted">
-      <summary class="cursor-pointer">Filter syntax</summary>
-      <ul class="mt-1 list-disc pl-4">
-        <li><code>minecraft:*_ore</code>, <code>iron_ingot</code> ids with <code>*</code></li>
-        <li><code>#c:ores</code> or <code>tag:c:ores</code>, <code>mod:mekanism</code></li>
-        <li><code>name:"iron"</code>, <code>name:/^Raw/</code></li>
-        <li><code>dura:&lt;25%</code>, <code>ench:minecraft:fortune&gt;=3</code>, <code>ench:any</code></li>
-        <li><code>is:fuel|food|stackable|damaged|enchanted|smeltable</code>, <code>has:minecraft:custom_name</code></li>
-        <li><code>in:sink</code> only what the sink already holds; <code>@name</code> a template</li>
-        <li>Fluids: <code>temp:&gt;1000</code>, <code>is:gaseous</code></li>
-        <li>Chemicals: <code>chem:radioactive|coolant|fuel</code></li>
-        <li>Combine with <code>&amp;</code> (or just a space), <code>|</code>, <code>!</code> and brackets</li>
-      </ul>
-    </details>
   {:else if s.kind === "rate_limit"}
     <Field label={app.rateUnit === "t" ? "Per tick" : "Per second"} hint={`${unit}; the top bar switches between per tick and per second.`}>
       <input

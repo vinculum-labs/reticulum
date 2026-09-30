@@ -3,6 +3,7 @@
   import { request } from "../../lib/state.svelte";
   import type { GlobalPos } from "../../lib/types";
   import FilterPicker from "./FilterPicker.svelte";
+  import FilterSyntax from "./FilterSyntax.svelte";
 
   let {
     value,
@@ -23,6 +24,7 @@
   } = $props();
 
   let picking = $state(false);
+  let helping = $state(false);
 
   let text = $state("");
   let error = $state<string | null>(null);
@@ -64,8 +66,17 @@
       onkeydown={(e) => e.key === "Enter" && (commit(), e.currentTarget.blur())}
     />
     <button class="btn shrink-0 text-sm" {disabled} title="Pick items, fluids or chemicals, their tags or mods" onclick={() => (picking = true)}>Pick…</button>
+    <button
+      class="btn shrink-0 px-2 text-sm"
+      class:btn-primary={helping}
+      title="Filter syntax"
+      aria-label="Filter syntax"
+      aria-expanded={helping}
+      onclick={() => (helping = !helping)}>?</button
+    >
   </div>
   {#if error}<span class="text-xs" style="color: var(--bad)">{error}</span>{/if}
+  {#if helping}<FilterSyntax />{/if}
 </div>
 
 {#if picking}
