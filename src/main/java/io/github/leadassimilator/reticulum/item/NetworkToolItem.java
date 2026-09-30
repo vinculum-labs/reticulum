@@ -114,6 +114,10 @@ public class NetworkToolItem extends Item {
 
     /** Identify mode: a connector lights up itself; any other block lights up as a device (sneak: just the clicked face). */
     private static void identify(ServerLevel level, ServerPlayer player, BlockPos pos, Direction face) {
+        if (player.isShiftKeyDown()) {
+            identifyFace(level, player, pos, face);
+            return;
+        }
         if (Topology.blockEntity(level, pos) instanceof ConnectorBlockEntity connector) {
             Network network = Topology.network(level, pos);
             if (network == null || !Security.canUse(network, player)) {
@@ -138,10 +142,69 @@ public class NetworkToolItem extends Item {
             player.displayClientMessage(Component.translatable("message.reticulum.not_a_device_of_yours"), true);
             return;
         }
-        Identify target = Identifies.deviceOrFace(device, player.isShiftKeyDown() ? face : null);
+        Identify target = Identifies.deviceOrFace(device, null);
         boolean on = Identifies.toggle(level.getServer(), found, target);
-        String name = Identifies.deviceName(level.getServer(), found, device) + (player.isShiftKeyDown() ? " › " + face.getSerializedName() : "");
+        String name = Identifies.deviceName(level.getServer(), found, device);
         player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", name), true);
+    }
+
+    /**
+     * Sneak + right-click: one face of a device. A face lit up is drawn on the surface it shares with whatever touches it,
+     * and aiming there often hits the neighbor instead (a connector's plug, another device), so both sides of the
+     * surface are considered: a connector side facing a device means that device's face, and a lit face on either
+     * side of the surface is the one turned off.
+     */
+    private static void identifyFace(ServerLevel level, ServerPlayer player, BlockPos pos, Direction face) {
+        if (Topology.blockEntity(level, pos) instanceof ConnectorBlockEntity) {
+            // The side aimed at (a plug reaching a device): that device's face touching it.
+            Direction side = targetSide(player, level.getBlockState(pos), pos, face, 1.0f);
+            BlockPos device = pos.relative(side);
+            if (deviceNetwork(level, player, Devices.global(level, device)) != null) {
+                toggleFace(level, player, device, side.getOpposite(), false);
+            } else {
+                player.displayClientMessage(Component.translatable("message.reticulum.not_a_device_of_yours"), true);
+            }
+            return;
+        }
+        // The face on the other side of the surface, if it is the one lit.
+        BlockPos other = pos.relative(face);
+        Network otherNetwork = deviceNetwork(level, player, Devices.global(level, other));
+        if (!faceOn(level, player, pos, face) && otherNetwork != null
+                && Identifies.isOn(otherNetwork, Identifies.deviceOrFace(Devices.global(level, other), face.getOpposite()))) {
+            toggleFace(level, player, other, face.getOpposite(), true);
+            return;
+        }
+        toggleFace(level, player, pos, face, false);
+    }
+
+    private static boolean faceOn(ServerLevel level, ServerPlayer player, BlockPos pos, Direction face) {
+        Network network = deviceNetwork(level, player, Devices.global(level, pos));
+        return network != null && Identifies.isOn(network, Identifies.deviceOrFace(Devices.global(level, pos), face));
+    }
+
+    /** Toggles one face of a device (or only turns it off, when {@code offOnly}), with a message saying which. */
+    private static void toggleFace(ServerLevel level, ServerPlayer player, BlockPos pos, Direction face, boolean offOnly) {
+        GlobalPos device = Devices.global(level, pos);
+        Network network = deviceNetwork(level, player, device);
+        if (network == null) {
+            player.displayClientMessage(Component.translatable("message.reticulum.not_a_device_of_yours"), true);
+            return;
+        }
+        Identify target = Identifies.deviceOrFace(device, face);
+        boolean on = offOnly ? Identifies.set(level.getServer(), network, target, false) : Identifies.toggle(level.getServer(), network, target);
+        String name = Identifies.deviceName(level.getServer(), network, device) + " › " + face.getSerializedName();
+        player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", name), true);
+    }
+
+    /** The first network the player may use that has this device. */
+    @javax.annotation.Nullable
+    private static Network deviceNetwork(ServerLevel level, ServerPlayer player, GlobalPos device) {
+        for (Network network : NetworkManager.data(level.getServer()).networks()) {
+            if (network.device(device) != null && Security.canUse(network, player)) {
+                return network;
+            }
+        }
+        return null;
     }
 
     private static void link(ServerLevel level, ServerPlayer player, BlockPos pos, ItemStack tool) {

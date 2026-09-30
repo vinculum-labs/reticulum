@@ -629,6 +629,30 @@ public final class EngineTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void sneakIdentifyTurnsOffTheLitFaceAcrossTheSurface(GameTestHelper helper) {
+        // Two barrels side by side; the right one's west face is lit. Aiming at that shared surface hits the left
+        // barrel's east face; sneak + right-click there must turn the lit face off, not light a second one.
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        var level = helper.getLevel();
+        BlockPos left = helper.absolutePos(rig.devices().get(0));
+        BlockPos right = helper.absolutePos(rig.devices().get(1));
+        var lit = io.github.leadassimilator.reticulum.network.Identifies.deviceOrFace(Devices.global(level, right), Direction.WEST);
+        io.github.leadassimilator.reticulum.network.Identifies.set(level.getServer(), rig.network(), lit, true);
+        // A fake player: a mock one "joins", and other mods (Jade) then try to send it packets.
+        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
+        player.setShiftKeyDown(true);
+        ItemStack tool = new ItemStack(io.github.leadassimilator.reticulum.registry.ModItems.NETWORK_TOOL.get());
+        tool.set(io.github.leadassimilator.reticulum.registry.ModDataComponents.TOOL_MODE.get(), io.github.leadassimilator.reticulum.item.ToolMode.IDENTIFY);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, tool);
+        var hit = new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(left).add(0.5, 0, 0), Direction.EAST, left, false);
+        tool.getItem().onItemUseFirst(tool, new net.minecraft.world.item.context.UseOnContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, hit));
+        check(helper, !io.github.leadassimilator.reticulum.network.Identifies.isOn(rig.network(), lit), "the lit face across the surface stayed on");
+        var wrong = io.github.leadassimilator.reticulum.network.Identifies.deviceOrFace(Devices.global(level, left), Direction.EAST);
+        check(helper, !io.github.leadassimilator.reticulum.network.Identifies.isOn(rig.network(), wrong), "the neighboring face was lit instead");
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------- saving
 
     @GameTest(template = "empty")
