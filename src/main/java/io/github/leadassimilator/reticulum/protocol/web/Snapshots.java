@@ -233,6 +233,21 @@ final class Snapshots {
                 resources.add(ResourceKind.CHEMICAL.getSerializedName(), faces(level, at, Mods.chemicalCapability()));
             }
             json.add("resources", resources);
+            // Which way energy goes on each face, so a new device node gets the energy pins its faces can use.
+            JsonArray energyIn = new JsonArray();
+            JsonArray energyOut = new JsonArray();
+            for (FaceKey face : FaceKey.values()) {
+                if (level.getCapability(Capabilities.EnergyStorage.BLOCK, at, face.direction()) instanceof net.neoforged.neoforge.energy.IEnergyStorage energy) {
+                    if (energy.canReceive()) {
+                        energyIn.add(face.getSerializedName());
+                    }
+                    if (energy.canExtract()) {
+                        energyOut.add(face.getSerializedName());
+                    }
+                }
+            }
+            json.add("energyIn", energyIn);
+            json.add("energyOut", energyOut);
             json.addProperty("givesRedstone", Devices.givesRedstone(level, at));
             json.addProperty("takesRedstone", Devices.takesRedstone(level, at));
             json.addProperty("loaded", true);

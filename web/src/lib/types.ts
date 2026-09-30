@@ -248,6 +248,9 @@ export interface Device {
   resources?: Partial<Record<Resource, Face[]>>;
   loaded: boolean;
   /** Gives out redstone (a signal source, or a comparator value). */
+  /** Faces whose energy storage takes energy in, and faces it gives energy out of. */
+  energyIn?: Face[];
+  energyOut?: Face[];
   givesRedstone?: boolean;
   /** Reacts to redstone (a door, lamp, piston, machine). */
   takesRedstone?: boolean;

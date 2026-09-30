@@ -1,6 +1,6 @@
 // What each node kind looks like and how it is summarized, plus defaults for new nodes.
 
-import type { Device, GraphNode, NodeKind, NodeSettings, Redstone, Resource } from "./types";
+import type { Device, DeviceInput, DeviceOutput, Face, GraphNode, NodeKind, NodeSettings, Redstone, Resource } from "./types";
 
 export const KIND_LABEL: Record<NodeKind, string> = {
   device: "Device",
@@ -142,6 +142,32 @@ export const RESOURCE_VAR: Record<Resource, string> = {
   me: "var(--c-me)",
 };
 
+/**
+ * A new device node's pins, from every face of the device that touches a connector: one input and one output per
+ * resource those faces offer (tied to those faces), energy only in the directions they allow, and redstone only where
+ * the device gives or takes it (every face touching a connector offers redstone). Null when nothing is found.
+ */
+function probedPins(device: Device): { inputs: DeviceInput[]; outputs: DeviceOutput[] } | null {
+  const touching = new Set<string>((device.resources?.redstone ?? []).filter((f) => f !== "unsided"));
+  if (!touching.size) return null;
+  const on = (faces: string[] | undefined) => (faces ?? []).filter((f) => touching.has(f)) as Face[];
+  const inputs: DeviceInput[] = [];
+  const outputs: DeviceOutput[] = [];
+  for (const resource of ["item", "fluid", "chemical", "me"] as Resource[]) {
+    const faces = on(device.resources?.[resource]);
+    if (!faces.length) continue;
+    inputs.push({ resource, faces });
+    outputs.push({ resource, faces, per_operation: 0 });
+  }
+  const energyIn = on(device.energyIn);
+  const energyOut = on(device.energyOut);
+  if (energyIn.length) inputs.push({ resource: "energy", faces: energyIn });
+  if (energyOut.length) outputs.push({ resource: "energy", faces: energyOut, per_operation: 0 });
+  if (device.takesRedstone) inputs.push({ resource: "redstone", faces: [...touching] as Face[] });
+  if (device.givesRedstone) outputs.push({ resource: "redstone", faces: [...touching] as Face[] });
+  return inputs.length || outputs.length ? { inputs, outputs } : null;
+}
+
 export function defaultSettings(
   kind: NodeKind,
   device: Device | null,
@@ -173,6 +199,8 @@ export function defaultSettings(
     case "sheet_output":
       return { kind, name: "" };
     case "device": {
+      const probed = device ? probedPins(device) : null;
+      if (probed) return { kind, device: device!.pos, ...probed };
       // A redstone device gets the pins it is for: a lever only an output, a lamp only an input.
       const redstone = resource === "redstone" && (device?.givesRedstone || device?.takesRedstone);
       return {
