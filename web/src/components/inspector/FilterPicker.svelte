@@ -183,8 +183,7 @@
         class="w-full font-mono text-sm"
         style={error ? "border-color: var(--bad)" : ""}
         bind:value={text}
-        placeholder="The filter Apply saves: add things below or type it here (empty matches anything)"
-        title="The filter Apply saves. Add things below, or type it here."
+        placeholder="empty: matches anything (see Filter syntax above)"
         spellcheck="false"
       />
       {#if error}<span class="text-xs" style="color: var(--bad)">{error}</span>{/if}
