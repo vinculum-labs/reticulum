@@ -201,7 +201,15 @@ ${idleTitle}` : idleTitle}
 
 {#if gated(kind)}
   <!-- A signal wire into the gate switches the node on (above 0) and off. -->
-  <Handle type="target" position={Position.Top} id="gate" title="Gate: a signal here switches this node on and off" style={inPin("var(--c-signal)")} />
+  <!-- On the left, centered on the header: wires come in from the left like every other input (a pin on top had
+       square wires drop into it through whatever sat above), yet it stays apart from the data pins below. -->
+  <Handle
+    type="target"
+    position={Position.Left}
+    id="gate"
+    title="Gate: a signal here switches this node on and off"
+    style="top: {HEADER / 2}px; {inPin('var(--c-signal)')}"
+  />
 {/if}
 {#if pinned}
   {#each leftRows as row, i}

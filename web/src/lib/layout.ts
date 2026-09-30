@@ -20,7 +20,7 @@ export async function layout(
 ): Promise<{ id: string; x: number; y: number }[]> {
   const byId = new Map((sheet.nodes ?? []).map((n) => [n.id, n]));
   const ports = new Map<string, Set<string>>();
-  const port = (node: string, handle: string, side: "WEST" | "EAST" | "NORTH") => {
+  const port = (node: string, handle: string, side: "WEST" | "EAST") => {
     const id = `${node}::${handle}`;
     if (!ports.has(node)) ports.set(node, new Set());
     ports.get(node)!.add(`${id}|${side}`);
@@ -31,7 +31,8 @@ export async function layout(
     .map((w) => ({
       id: w.id,
       sources: [port(w.from, sourceHandle(byId.get(w.from), w.output ?? 0), "EAST")],
-      targets: [port(w.to, targetHandle(byId.get(w.to), w.input ?? 0), (w.input ?? 0) < 0 ? "NORTH" : "WEST")],
+      // Every input, the gate included, is on the left.
+      targets: [port(w.to, targetHandle(byId.get(w.to), w.input ?? 0), "WEST")],
     }));
   const graph = {
     id: "root",
