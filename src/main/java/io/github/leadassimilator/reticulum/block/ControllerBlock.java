@@ -31,15 +31,36 @@ public class ControllerBlock extends NetworkBlock {
     public static final net.minecraft.world.level.block.state.properties.IntegerProperty ANTENNA =
             net.minecraft.world.level.block.state.properties.IntegerProperty.create("antenna", 0, 3);
 
+    /** Which way its front faces (towards whoever placed it); the antenna on top lies along that edge. */
+    public static final net.minecraft.world.level.block.state.properties.DirectionProperty FACING =
+            net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING;
+
     public ControllerBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(ANTENNA, 0));
+        registerDefaultState(stateDefinition.any().setValue(ANTENNA, 0).setValue(FACING, net.minecraft.core.Direction.NORTH));
     }
 
     @Override
     protected void createBlockStateDefinition(net.minecraft.world.level.block.state.StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(ANTENNA);
+        builder.add(ANTENNA, FACING);
+    }
+
+    @javax.annotation.Nullable
+    @Override
+    public BlockState getStateForPlacement(net.minecraft.world.item.context.BlockPlaceContext context) {
+        BlockState state = super.getStateForPlacement(context);
+        return state == null ? null : state.setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    @Override
+    protected BlockState rotate(BlockState state, net.minecraft.world.level.block.Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, net.minecraft.world.level.block.Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
     @Override

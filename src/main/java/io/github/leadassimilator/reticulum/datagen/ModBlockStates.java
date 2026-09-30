@@ -25,13 +25,17 @@ public class ModBlockStates extends BlockStateProvider {
 
     @Override
     protected void registerStatesAndModels() {
-        // The controller; with an antenna installed, its top shows that tier's antenna (like the item's icon).
+        // The controller; with an antenna installed, its top shows that tier's antenna (like the item's icon), lying
+        // with its base along the front edge. The top texture is drawn facing north, turned for the others.
         ModelFile plain = models().cubeAll("controller", modLoc("block/controller"));
         getVariantBuilder(ModBlocks.CONTROLLER.get()).forAllStates(state -> {
             int tier = state.getValue(io.github.leadassimilator.reticulum.block.ControllerBlock.ANTENNA);
             ModelFile model = tier == 0 ? plain
                     : models().cubeTop("controller_antenna_" + tier, modLoc("block/controller"), modLoc("block/controller_top_antenna_" + tier));
-            return net.neoforged.neoforge.client.model.generators.ConfiguredModel.builder().modelFile(model).build();
+            return net.neoforged.neoforge.client.model.generators.ConfiguredModel.builder().modelFile(model)
+                    // toYRot counts from south; the texture is drawn for north (0°), so east 90°, south 180°, west 270°.
+                    .rotationY(((int) state.getValue(io.github.leadassimilator.reticulum.block.ControllerBlock.FACING).toYRot() + 180) % 360)
+                    .build();
         });
 
         linked(ModBlocks.CABLE.get(), "cable_core", Map.of(Link.CABLE, "cable_arm"));
