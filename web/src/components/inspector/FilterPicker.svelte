@@ -164,6 +164,7 @@
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
+      <input bind:this={search} class="text-sm" style="width: 220px" bind:value={query} placeholder="Search the list (@mod, #tag)" spellcheck="false" />
       <div class="flex gap-1">
         {#each kinds as k (k)}
           <button class="btn text-sm" class:btn-primary={kind === k} onclick={() => ((kind = k), (selected = null))}>{CATALOG_KIND_LABEL[k]}</button>
@@ -175,7 +176,6 @@
           <option value={posKey(d.pos)}>In {deviceName(d)}</option>
         {/each}
       </select>
-      <input bind:this={search} class="text-sm" style="width: 220px" bind:value={query} placeholder="Search the list (@mod, #tag)" spellcheck="false" />
     </div>
 
     <div class="flex min-h-0 flex-1 gap-3">
