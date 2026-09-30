@@ -183,11 +183,11 @@
         class="w-full font-mono text-sm"
         style={error ? "border-color: var(--bad)" : ""}
         bind:value={text}
-        placeholder="empty: matches anything"
+        placeholder="The filter Apply saves: add things below or type it here (empty matches anything)"
+        title="The filter Apply saves. Add things below, or type it here."
         spellcheck="false"
       />
       {#if error}<span class="text-xs" style="color: var(--bad)">{error}</span>{/if}
-
     </div>
 
     <!-- Same two columns as below: search and tabs over the grid, the source picker over the details panel. -->
