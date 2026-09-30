@@ -11,12 +11,19 @@ public class ModItemModels extends ItemModelProvider {
         super(output, Reticulum.MODID, files);
     }
 
+    private static final net.minecraft.resources.ResourceLocation TOOL_MODE = io.github.leadassimilator.reticulum.item.NetworkToolItem.MODE_PROPERTY;
+
     @Override
     protected void registerModels() {
         withExistingParent(ModItems.CABLE.getId().getPath(), modLoc("block/cable_inventory"));
         withExistingParent(ModItems.CONNECTOR.getId().getPath(), modLoc("block/connector_inventory"));
         withExistingParent(ModItems.CONTROLLER.getId().getPath(), modLoc("block/controller"));
-        basicItem(ModItems.NETWORK_TOOL.get());
+        // The tool's head is colored by its mode (the "reticulum:mode" item property: 0 Configure, 0.5 Link, 1 Identify).
+        basicItem(modLoc("network_tool_link"));
+        basicItem(modLoc("network_tool_identify"));
+        basicItem(ModItems.NETWORK_TOOL.get())
+                .override().predicate(TOOL_MODE, 0.5f).model(getExistingFile(modLoc("item/network_tool_link"))).end()
+                .override().predicate(TOOL_MODE, 1f).model(getExistingFile(modLoc("item/network_tool_identify"))).end();
         basicItem(ModItems.FACADE.get());
         basicItem(ModItems.ANTENNA_1.get());
         basicItem(ModItems.ANTENNA_2.get());

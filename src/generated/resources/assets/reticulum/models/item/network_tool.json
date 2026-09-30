@@ -1,5 +1,19 @@
 {
   "parent": "minecraft:item/generated",
+  "overrides": [
+    {
+      "model": "reticulum:item/network_tool_link",
+      "predicate": {
+        "reticulum:mode": 0.5
+      }
+    },
+    {
+      "model": "reticulum:item/network_tool_identify",
+      "predicate": {
+        "reticulum:mode": 1.0
+      }
+    }
+  ],
   "textures": {
     "layer0": "reticulum:item/network_tool"
   }

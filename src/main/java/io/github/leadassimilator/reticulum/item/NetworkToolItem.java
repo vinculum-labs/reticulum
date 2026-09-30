@@ -55,6 +55,10 @@ public class NetworkToolItem extends Item {
         super(properties);
     }
 
+    /** The item property its look follows: 0 Configure, 0.5 Link, 1 Identify (the item model picks a head color). */
+    public static final net.minecraft.resources.ResourceLocation MODE_PROPERTY =
+            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(io.github.leadassimilator.reticulum.Reticulum.MODID, "mode");
+
     public static ToolMode mode(ItemStack stack) {
         return stack.getOrDefault(ModDataComponents.TOOL_MODE.get(), ToolMode.CONFIGURE);
     }

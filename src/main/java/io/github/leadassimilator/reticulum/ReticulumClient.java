@@ -18,6 +18,11 @@ public class ReticulumClient {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT, ReticulumClientConfig.SPEC);
         modEventBus.addListener(LookHud::registerLayer);
+        // The network tool's look follows its mode (see the item model's overrides).
+        modEventBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) -> event.enqueueWork(() ->
+                net.minecraft.client.renderer.item.ItemProperties.register(io.github.leadassimilator.reticulum.registry.ModItems.NETWORK_TOOL.get(),
+                        io.github.leadassimilator.reticulum.item.NetworkToolItem.MODE_PROPERTY,
+                        (stack, level, entity, seed) -> io.github.leadassimilator.reticulum.item.NetworkToolItem.mode(stack).ordinal() / 2f)));
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.FacadeModel::wrap);
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.FacadeItemModel::wrap);
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.FacadeItemModel::registerDecorator);
