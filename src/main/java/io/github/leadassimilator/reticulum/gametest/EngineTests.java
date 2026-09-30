@@ -500,6 +500,38 @@ public final class EngineTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 400)
+    public static void smartCableOnAConnectorCountsChannelsThroughTheLink(GameTestHelper helper) {
+        if (!Mods.AE2) {
+            helper.succeed();
+            return;
+        }
+        // Near side: a smart cable on connector 0, on a powered controller. Far side: a glass cable on connector 2 with
+        // two interfaces, reached only through the link. The smart cable carries their two channels.
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
+        BlockPos smart = helper.absolutePos(new BlockPos(3, 1, 0));
+        BlockPos far = helper.absolutePos(new BlockPos(5, 1, 0));
+        Ae2TestSupport.use(helper.getLevel(), "fluix_smart_cable", smart.south(), Direction.NORTH);
+        helper.setBlock(new BlockPos(3, 2, 0), Ae2TestSupport.block("controller"));
+        helper.setBlock(new BlockPos(3, 3, 0), Ae2TestSupport.block("creative_energy_cell"));
+        Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", far.south(), Direction.NORTH);
+        helper.setBlock(new BlockPos(5, 2, 0), Ae2TestSupport.block("interface"));
+        helper.setBlock(new BlockPos(6, 1, 0), Ae2TestSupport.block("interface"));
+        Node a = rig.meOut(Devices.global(helper.getLevel(), smart));
+        Node b = rig.meIn(Devices.global(helper.getLevel(), far));
+        rig.sheet().connect(Wire.of(a, b));
+        helper.succeedWhen(() -> {
+            var host = appeng.api.networking.GridHelper.getNodeHost(helper.getLevel(), smart);
+            var node = host == null ? null : host.getGridNode(null);
+            check(helper, node != null, "no smart cable node");
+            var toConnector = node.getInWorldConnections().get(Direction.SOUTH);
+            int nodeUsed = node.getUsedChannels();
+            int sideUsed = toConnector == null ? -1 : toConnector.getUsedChannels();
+            check(helper, nodeUsed == 2 && sideUsed == 2,
+                    "smart cable: node " + nodeUsed + "/" + node.getMaxChannels() + ", its connection to the connector " + sideUsed);
+        });
+    }
+
     @GameTest(template = "empty")
     public static void ae2CableShowsItsCableAsIcon(GameTestHelper helper) {
         if (!Mods.AE2) {
