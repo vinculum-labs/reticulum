@@ -150,7 +150,16 @@
       <button class="btn btn-primary text-sm" onclick={apply} disabled={!!error}>Apply</button>
     </div>
     <div class="flex flex-col gap-0.5">
-      <input class="w-full font-mono text-sm" style={error ? "border-color: var(--bad)" : ""} bind:value={text} placeholder="anything" spellcheck="false" />
+      <label class="flex flex-col gap-0.5">
+        <span class="text-xs font-medium muted">Filter — what Apply puts in the box. Built from what you add below; you can also type it.</span>
+        <input
+          class="w-full font-mono text-sm"
+          style={error ? "border-color: var(--bad)" : ""}
+          bind:value={text}
+          placeholder="empty: matches anything"
+          spellcheck="false"
+        />
+      </label>
       {#if error}<span class="text-xs" style="color: var(--bad)">{error}</span>{/if}
     </div>
 
@@ -166,7 +175,7 @@
           <option value={posKey(d.pos)}>In {deviceName(d)}</option>
         {/each}
       </select>
-      <input bind:this={search} class="text-sm" style="width: 220px" bind:value={query} placeholder="Search (@mod, #tag)" spellcheck="false" />
+      <input bind:this={search} class="text-sm" style="width: 220px" bind:value={query} placeholder="Search the list (@mod, #tag)" spellcheck="false" />
     </div>
 
     <div class="flex min-h-0 flex-1 gap-3">
