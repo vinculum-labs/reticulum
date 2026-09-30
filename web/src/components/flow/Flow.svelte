@@ -19,7 +19,7 @@
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Wire } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
-  import { layout } from "../../lib/layout";
+  import { layout, type PinPositions } from "../../lib/layout";
 
   const nodeTypes = { graph: GraphNodeView };
   const flow = useSvelteFlow();
@@ -279,7 +279,17 @@
     tidying = true;
     try {
       const sizes = new Map(nodes.map((n) => [n.id, { width: n.measured?.width ?? 160, height: n.measured?.height ?? 60 }]));
-      const positions = await layout(sheet, sizes);
+      // Each pin's center on its card, as Svelte Flow measured it.
+      const pins: PinPositions = new Map();
+      for (const n of nodes) {
+        const bounds = flow.getInternalNode(n.id)?.internals.handleBounds;
+        const byHandle = new Map<string, { x: number; y: number }>();
+        for (const h of [...(bounds?.source ?? []), ...(bounds?.target ?? [])]) {
+          if (h.id) byHandle.set(h.id, { x: h.x + h.width / 2, y: h.y + h.height / 2 });
+        }
+        pins.set(n.id, byHandle);
+      }
+      const positions = await layout(sheet, sizes, pins);
       const before = (sheet.nodes ?? []).map((n) => ({ id: n.id, x: n.x ?? 0, y: n.y ?? 0 }));
       await edit([{ type: "moveNodes", sheet: sheet.id, positions }], [{ type: "moveNodes", sheet: sheet.id, positions: before }], "tidy up");
       setTimeout(() => flow.fitView({ duration: 300 }), 100);
