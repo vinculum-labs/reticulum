@@ -70,6 +70,7 @@
   let error = $state<string | null>(null);
   let kind = $state<CatalogKind>(untrack(() => initialKind));
   let query = $state("");
+  let helping = $state(false);
   let selected = $state<CatalogEntry | null>(null);
   /** "" browses everything; otherwise a device's position key, to show what it holds. */
   let source = $state(untrack(() => (suggested[0] ? posKey(suggested[0]) : "")));
@@ -174,19 +175,27 @@
       <button class="btn btn-primary text-sm" onclick={apply} disabled={!!error}>Apply</button>
     </div>
     <div class="flex flex-col gap-0.5">
-      <details class="text-xs">
-        <summary class="cursor-pointer muted">Filter syntax</summary>
-        <div class="mt-1"><FilterSyntax /></div>
-      </details>
-      <input
-        aria-label="Filter"
-        class="w-full font-mono text-sm"
-        style={error ? "border-color: var(--bad)" : ""}
-        bind:value={text}
-        placeholder="empty: matches anything (see Filter syntax above)"
-        spellcheck="false"
-      />
+      <!-- Like every other filter box: ? beside it shows the syntax below. -->
+      <div class="flex gap-1">
+        <input
+          aria-label="Filter"
+          class="min-w-0 flex-1 font-mono text-sm"
+          style={error ? "border-color: var(--bad)" : ""}
+          bind:value={text}
+          placeholder="empty: matches anything (? for the syntax)"
+          spellcheck="false"
+        />
+        <button
+          class="btn shrink-0 px-2 text-sm"
+          class:btn-primary={helping}
+          title="Filter syntax"
+          aria-label="Filter syntax"
+          aria-expanded={helping}
+          onclick={() => (helping = !helping)}>?</button
+        >
+      </div>
       {#if error}<span class="text-xs" style="color: var(--bad)">{error}</span>{/if}
+      {#if helping}<FilterSyntax />{/if}
     </div>
 
     <!-- Same two columns as below: search and tabs over the grid, the source picker over the details panel. -->
