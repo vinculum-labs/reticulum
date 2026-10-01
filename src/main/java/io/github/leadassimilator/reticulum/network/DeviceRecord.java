@@ -10,6 +10,8 @@ import javax.annotation.Nullable;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
+import io.github.leadassimilator.reticulum.util.LowercaseName;
+
 import net.minecraft.core.GlobalPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.StringRepresentable;
@@ -19,17 +21,12 @@ import net.minecraft.util.StringRepresentable;
  * Records holding no user data are dropped as soon as no connector reaches them.
  */
 public final class DeviceRecord {
-    public enum State implements StringRepresentable {
+    public enum State implements LowercaseName {
         ACTIVE,
         ORPHANED,
         MISSING;
 
         public static final Codec<State> CODEC = StringRepresentable.fromEnum(State::values);
-
-        @Override
-        public String getSerializedName() {
-            return name().toLowerCase(java.util.Locale.ROOT);
-        }
     }
 
     public static final Codec<DeviceRecord> CODEC = RecordCodecBuilder.create(i -> i.group(

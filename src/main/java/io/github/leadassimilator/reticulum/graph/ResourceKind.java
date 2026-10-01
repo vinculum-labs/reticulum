@@ -1,8 +1,8 @@
 package io.github.leadassimilator.reticulum.graph;
 
-import java.util.Locale;
-
 import com.mojang.serialization.Codec;
+
+import io.github.leadassimilator.reticulum.util.LowercaseName;
 
 import net.minecraft.util.StringRepresentable;
 
@@ -11,7 +11,7 @@ import net.minecraft.util.StringRepresentable;
  * pins carry signals: an output is the redstone the device gives out, an input the redstone its connectors give it.
  * ME pins (AE2) are the device's faces touching a connector; a wire between two joins their AE2 networks.
  */
-public enum ResourceKind implements StringRepresentable {
+public enum ResourceKind implements LowercaseName {
     ITEM(false),
     FLUID(true),
     ENERGY(true),
@@ -35,10 +35,5 @@ public enum ResourceKind implements StringRepresentable {
     /** Whether flows move this kind (redstone and ME pins carry signals and links instead). */
     public boolean moves() {
         return this != REDSTONE && this != ME;
-    }
-
-    @Override
-    public String getSerializedName() {
-        return name().toLowerCase(Locale.ROOT);
     }
 }

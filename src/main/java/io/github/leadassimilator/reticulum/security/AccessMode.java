@@ -1,15 +1,15 @@
 package io.github.leadassimilator.reticulum.security;
 
-import java.util.Locale;
-
 import com.mojang.serialization.Codec;
 
 import io.netty.buffer.ByteBuf;
+import io.github.leadassimilator.reticulum.util.LowercaseName;
+
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.util.StringRepresentable;
 
-public enum AccessMode implements StringRepresentable {
+public enum AccessMode implements LowercaseName {
     PUBLIC,
     PASSWORD,
     PRIVATE;
@@ -19,10 +19,5 @@ public enum AccessMode implements StringRepresentable {
 
     public AccessMode next() {
         return values()[(ordinal() + 1) % values().length];
-    }
-
-    @Override
-    public String getSerializedName() {
-        return name().toLowerCase(Locale.ROOT);
     }
 }

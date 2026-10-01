@@ -1,16 +1,16 @@
 package io.github.leadassimilator.reticulum.item;
 
-import java.util.Locale;
-
 import com.mojang.serialization.Codec;
 
 import io.netty.buffer.ByteBuf;
+import io.github.leadassimilator.reticulum.util.LowercaseName;
+
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.util.StringRepresentable;
 
 /** What the network tool does; switched with sneak + scroll. */
-public enum ToolMode implements StringRepresentable {
+public enum ToolMode implements LowercaseName {
     /** Connect or disconnect joints, attach or detach devices. */
     CONFIGURE,
     /** Copy a network (sneak + right-click a controller or connector) and bind connectors to it (right-click). */
@@ -27,10 +27,5 @@ public enum ToolMode implements StringRepresentable {
 
     public String translationKey() {
         return "tool.reticulum.mode." + getSerializedName();
-    }
-
-    @Override
-    public String getSerializedName() {
-        return name().toLowerCase(Locale.ROOT);
     }
 }

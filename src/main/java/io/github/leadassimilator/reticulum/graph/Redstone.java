@@ -1,6 +1,5 @@
 package io.github.leadassimilator.reticulum.graph;
 
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -9,6 +8,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Ids;
+import io.github.leadassimilator.reticulum.util.LowercaseName;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.util.StringRepresentable;
 
@@ -37,7 +37,7 @@ public record Redstone(Mode mode, Source source, Optional<GlobalPos> device, Opt
         return mode == Mode.IGNORED;
     }
 
-    public enum Mode implements StringRepresentable {
+    public enum Mode implements LowercaseName {
         /** Always runs (if its button is on). */
         IGNORED,
         /** Runs while the signal is 1 or more. */
@@ -48,14 +48,9 @@ public record Redstone(Mode mode, Source source, Optional<GlobalPos> device, Opt
         PULSE;
 
         public static final Codec<Mode> CODEC = StringRepresentable.fromEnum(Mode::values);
-
-        @Override
-        public String getSerializedName() {
-            return name().toLowerCase(Locale.ROOT);
-        }
     }
 
-    public enum Source implements StringRepresentable {
+    public enum Source implements LowercaseName {
         /**
          * The usual place: the controller for the network, folders and sheets; for a device node, the connectors
          * that reach that device (strongest), as in XNet.
@@ -69,10 +64,5 @@ public record Redstone(Mode mode, Source source, Optional<GlobalPos> device, Opt
         SIGNAL;
 
         public static final Codec<Source> CODEC = StringRepresentable.fromEnum(Source::values);
-
-        @Override
-        public String getSerializedName() {
-            return name().toLowerCase(Locale.ROOT);
-        }
     }
 }

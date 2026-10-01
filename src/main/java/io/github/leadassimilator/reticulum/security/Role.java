@@ -1,13 +1,13 @@
 package io.github.leadassimilator.reticulum.security;
 
-import java.util.Locale;
-
 import com.mojang.serialization.Codec;
+
+import io.github.leadassimilator.reticulum.util.LowercaseName;
 
 import net.minecraft.util.StringRepresentable;
 
 /** Member roles, lowest to highest. A higher role can do everything a lower one can. */
-public enum Role implements StringRepresentable {
+public enum Role implements LowercaseName {
     VIEWER,
     USER,
     EDITOR,
@@ -18,10 +18,5 @@ public enum Role implements StringRepresentable {
 
     public boolean atLeast(Role other) {
         return ordinal() >= other.ordinal();
-    }
-
-    @Override
-    public String getSerializedName() {
-        return name().toLowerCase(Locale.ROOT);
     }
 }

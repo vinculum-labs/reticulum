@@ -1,7 +1,6 @@
 package io.github.leadassimilator.reticulum.graph;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,6 +10,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Ids;
+import io.github.leadassimilator.reticulum.util.LowercaseName;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.util.StringRepresentable;
 
@@ -18,7 +18,7 @@ import net.minecraft.util.StringRepresentable;
 public sealed interface NodeSettings {
     Kind kind();
 
-    enum Kind implements StringRepresentable {
+    enum Kind implements LowercaseName {
         /** Engine-internal: one output of a device node. Never saved or sent. */
         SOURCE(null, false),
         /** Engine-internal: one input of a device node. Never saved or sent. */
@@ -68,11 +68,6 @@ public sealed interface NodeSettings {
         public boolean signal() {
             return signal;
         }
-
-        @Override
-        public String getSerializedName() {
-            return name().toLowerCase(Locale.ROOT);
-        }
     }
 
     Codec<NodeSettings> CODEC = Kind.CODEC.dispatch("kind", NodeSettings::kind, Kind::codec);
@@ -94,7 +89,7 @@ public sealed interface NodeSettings {
     }
 
     /** How a keep rule or insert cap counts. */
-    enum Scope implements StringRepresentable {
+    enum Scope implements LowercaseName {
         /** Everything in the port together. */
         TOTAL,
         /** Each item or fluid type on its own. */
@@ -103,11 +98,6 @@ public sealed interface NodeSettings {
         FILTER;
 
         public static final Codec<Scope> CODEC = StringRepresentable.fromEnum(Scope::values);
-
-        @Override
-        public String getSerializedName() {
-            return name().toLowerCase(Locale.ROOT);
-        }
     }
 
     /**
@@ -169,7 +159,7 @@ public sealed interface NodeSettings {
         }
     }
 
-    enum SplitMode implements StringRepresentable {
+    enum SplitMode implements LowercaseName {
         /** Rotate which output goes first, one operation at a time (items) or share evenly (continuous). */
         ROUND_ROBIN,
         /** Outputs in wire order: the first takes all it can before the next gets any. */
@@ -180,11 +170,6 @@ public sealed interface NodeSettings {
         NEAREST;
 
         public static final Codec<SplitMode> CODEC = StringRepresentable.fromEnum(SplitMode::values);
-
-        @Override
-        public String getSerializedName() {
-            return name().toLowerCase(Locale.ROOT);
-        }
     }
 
     /** {@code weights}: for WEIGHTED, one per output in wire order (missing ones count 1). */
@@ -347,7 +332,7 @@ public sealed interface NodeSettings {
         }
     }
 
-    enum CompareOp implements StringRepresentable {
+    enum CompareOp implements LowercaseName {
         LT, LE, GT, GE, EQ, NE;
 
         public static final Codec<CompareOp> CODEC = StringRepresentable.fromEnum(CompareOp::values);
@@ -361,11 +346,6 @@ public sealed interface NodeSettings {
                 case EQ -> a == b;
                 case NE -> a != b;
             };
-        }
-
-        @Override
-        public String getSerializedName() {
-            return name().toLowerCase(Locale.ROOT);
         }
     }
 
@@ -382,7 +362,7 @@ public sealed interface NodeSettings {
         }
     }
 
-    enum LogicOp implements StringRepresentable {
+    enum LogicOp implements LowercaseName {
         /** All on (and at least one wire). */
         AND,
         /** Any on. */
@@ -408,11 +388,6 @@ public sealed interface NodeSettings {
                 case NAND -> !(all > 0 && on == all);
                 case XNOR -> on % 2 == 0;
             };
-        }
-
-        @Override
-        public String getSerializedName() {
-            return name().toLowerCase(Locale.ROOT);
         }
     }
 

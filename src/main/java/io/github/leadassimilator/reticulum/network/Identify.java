@@ -1,11 +1,12 @@
 package io.github.leadassimilator.reticulum.network;
 
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+
+import io.github.leadassimilator.reticulum.util.LowercaseName;
 
 import net.minecraft.core.GlobalPos;
 import net.minecraft.util.StringRepresentable;
@@ -31,17 +32,12 @@ public record Identify(Kind kind, Optional<UUID> connector, Optional<GlobalPos> 
     /** Colors handed out in turn when none is chosen, so several lit things can be told apart. */
     public static final int[] PALETTE = {0xFFC830, 0x3FD0FF, 0xFF5AD2, 0x7CFF5A, 0xFF7A3A, 0xB58CFF};
 
-    public enum Kind implements StringRepresentable {
+    public enum Kind implements LowercaseName {
         CONNECTOR,
         DEVICE,
         FACE;
 
         public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(Kind::values);
-
-        @Override
-        public String getSerializedName() {
-            return name().toLowerCase(Locale.ROOT);
-        }
     }
 
     public static Identify connector(UUID connector, int color) {
