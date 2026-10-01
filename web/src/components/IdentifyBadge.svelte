@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { deviceIdentifies, setIdentify } from "../lib/state.svelte";
+  import { app, deviceIdentifies, setIdentifies, setIdentify } from "../lib/state.svelte";
   import type { Device } from "../lib/types";
 
   /**
@@ -11,9 +11,12 @@
   const identifies = $derived(deviceIdentifies(device));
   const hex = (color: number | undefined) => `#${(color ?? 0xffc830).toString(16).padStart(6, "0")}`;
 
+  const canEdit = $derived(app.snapshot?.canEdit ?? false);
+
   function toggle(e: Event) {
     e.stopPropagation();
-    if (identifies.length) for (const identify of identifies) setIdentify(identify, false);
+    if (!canEdit) return;
+    if (identifies.length) setIdentifies(identifies, false);
     else setIdentify({ kind: "device", device: device.pos }, true);
   }
 </script>

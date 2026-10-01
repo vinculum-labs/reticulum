@@ -5,8 +5,9 @@
 </script>
 
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import { untrack, type Snippet } from "svelte";
   import { onEscape } from "../lib/escape";
+  import { modals } from "../lib/dialog.svelte";
 
   /**
    * The frame of every dialog: a native <dialog> shown modally while this is mounted, so the page behind it is inert
@@ -43,8 +44,11 @@
     if (!element) return;
     if (!element.open) element.showModal();
     const release = onEscape(() => onclose());
+    // Untracked: the count is written here, not depended on.
+    untrack(() => modals.open++);
     return () => {
       release();
+      untrack(() => modals.open--);
       if (element?.open) element.close();
     };
   });

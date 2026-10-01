@@ -136,7 +136,8 @@ async function onMessage(m: any): Promise<void> {
       break;
     case "connected":
       app.inWorld = true;
-      await loadNetworks(app.current ?? hashNetwork());
+      // The server dropped this page's subscription when the player left; subscribe again, even to the same network.
+      await loadNetworks(app.current ?? hashNetwork(), true);
       break;
     case "disconnected":
       app.inWorld = false;
@@ -216,13 +217,14 @@ function hashNetwork(): string | null {
   return match ? match[1] : null;
 }
 
-export async function loadNetworks(focus: string | null): Promise<void> {
+/** Loads the network list and shows {@code focus} (else the current or first network); {@code resubscribe} even if shown. */
+export async function loadNetworks(focus: string | null, resubscribe = false): Promise<void> {
   try {
     const r = await connection.send({ op: "networks" });
     app.networks = r.networks;
     app.player = r.player;
     const target = focus && app.networks.some((n) => n.id === focus) ? focus : app.current ?? app.networks[0]?.id ?? null;
-    if (target && target !== app.current) await selectNetwork(target);
+    if (target && (target !== app.current || resubscribe)) await selectNetwork(target);
   } catch (e) {
     toast((e as Error).message);
   }
@@ -245,13 +247,14 @@ export async function selectNetwork(id: string): Promise<void> {
   app.selectedDevice = null;
   try {
     const r = await connection.send({ op: "subscribe", network: id });
-    setSnapshot(r.network);
+    if (app.current === id) setSnapshot(r.network);
   } catch (e) {
     toast((e as Error).message);
   }
 }
 
 function setSnapshot(snapshot: Snapshot): void {
+  if (snapshot.id !== app.current) return;
   // Unchanged parts keep their objects, so after an edit only what it changed re-renders.
   const merged = app.snapshot && app.snapshot.id === snapshot.id ? share(app.snapshot, snapshot) : snapshot;
   if (merged !== app.snapshot) app.snapshot = merged;
@@ -262,57 +265,123 @@ function setSnapshot(snapshot: Snapshot): void {
 
 // ---------------------------------------------------------------- edits
 
-/** Sends edits; returns the server's per-edit results (created ids) or null on failure. */
-export async function edit(edits: Edit[], undo?: Edit[], label = "change"): Promise<unknown[] | null> {
-  const network = app.current;
-  if (!network || edits.length === 0) return null;
-  app.busy++;
-  try {
-    const r = await connection.send({ op: "edit", network, edits });
-    if (undo) {
-      app.undo.push({ network, label, redo: edits, undo });
-      if (app.undo.length > 100) app.undo.shift();
-      app.redo = [];
+let queue: Promise<unknown> = Promise.resolve();
+
+/** Runs edit requests one after another, in the order they were made. */
+function serially<T>(task: () => Promise<T>): Promise<T> {
+  const run = queue.then(task, task);
+  queue = run.catch(() => {});
+  return run;
+}
+
+/** Bumped when an edit is refused, so the canvas redraws from the snapshot (undoing what Svelte Flow did locally). */
+export const resync = $state({ count: 0 });
+
+/** Node versions sent but not yet answered: a second quick edit builds on these, not on the older snapshot. */
+const sentNodes = new Map<string, GraphNode>();
+
+/**
+ * Sends edits; returns the server's per-edit results (created ids) or null on failure. {@code network} is where
+ * they go (the network shown when not given): a confirm answered after switching networks still acts on the one
+ * it asked about.
+ */
+export function edit(edits: Edit[], undo?: Edit[], label = "change", network = app.current): Promise<unknown[] | null> {
+  if (!network || edits.length === 0) return Promise.resolve(null);
+  const nodes: GraphNode[] = [];
+  for (const e of edits) {
+    if ((e.type === "updateNode" || e.type === "addNode") && e.node) {
+      sentNodes.set((e.node as GraphNode).id, e.node as GraphNode);
+      nodes.push(e.node as GraphNode);
     }
-    return r.results;
-  } catch (e) {
-    toast((e as Error).message);
-    return null;
-  } finally {
-    app.busy--;
-  }
-}
-
-export async function undo(): Promise<void> {
-  const change = app.undo.pop();
-  if (!change) return;
-  if (change.network !== app.current) {
-    app.undo = [];
-    return;
   }
   app.busy++;
-  try {
-    await connection.send({ op: "edit", network: change.network, edits: change.undo });
-    app.redo.push(change);
-  } catch (e) {
-    toast(`Undo failed: ${(e as Error).message}`);
-  } finally {
-    app.busy--;
-  }
+  return serially(async () => {
+    try {
+      const r = await connection.send({ op: "edit", network, edits });
+      if (undo) {
+        app.undo.push({ network, label, redo: edits, undo });
+        if (app.undo.length > 100) app.undo.shift();
+        app.redo = [];
+      }
+      return r.results as unknown[];
+    } catch (e) {
+      toast((e as Error).message);
+      resync.count++;
+      return null;
+    } finally {
+      for (const n of nodes) if (sentNodes.get(n.id) === n) sentNodes.delete(n.id);
+      app.busy--;
+    }
+  });
 }
 
-export async function redo(): Promise<void> {
-  const change = app.redo.pop();
-  if (!change || change.network !== app.current) return;
-  app.busy++;
-  try {
-    await connection.send({ op: "edit", network: change.network, edits: change.redo });
-    app.undo.push(change);
-  } catch (e) {
-    toast(`Redo failed: ${(e as Error).message}`);
-  } finally {
-    app.busy--;
+/**
+ * A node edit made from {@code node} (as the snapshot shows it) turned into {@code next}, rebased onto the version
+ * last sent for that node if its answer hasn't come back yet. Only the fields this edit changed are taken from
+ * {@code next}, so typing a label and then clicking a checkbox keeps both. Returns the node to send, and the one
+ * to restore on undo.
+ */
+export function rebase(node: GraphNode, next: GraphNode): { after: GraphNode; before: GraphNode } {
+  const before = sentNodes.get(node.id) ?? node;
+  if (before === node) return { after: next, before };
+  const after: any = { ...before };
+  for (const key of Object.keys(next) as (keyof GraphNode)[]) {
+    if (key === "settings") continue;
+    if (!same(next[key], node[key])) after[key] = next[key];
   }
+  if (!same(next.settings, node.settings)) {
+    const settings: any = { ...before.settings };
+    for (const key of Object.keys(next.settings)) {
+      if (!same((next.settings as any)[key], (node.settings as any)[key])) settings[key] = (next.settings as any)[key];
+    }
+    after.settings = settings;
+  }
+  return { after, before };
+}
+
+function same(a: unknown, b: unknown): boolean {
+  return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
+/** Undo and redo put a change back on its stack when the server refuses it, so it isn't lost. */
+export function undo(): Promise<void> {
+  return serially(async () => {
+    const change = app.undo.pop();
+    if (!change) return;
+    if (change.network !== app.current) {
+      app.undo = [];
+      return;
+    }
+    app.busy++;
+    try {
+      await connection.send({ op: "edit", network: change.network, edits: change.undo });
+      app.redo.push(change);
+    } catch (e) {
+      app.undo.push(change);
+      toast(`Undo failed: ${(e as Error).message}`);
+      resync.count++;
+    } finally {
+      app.busy--;
+    }
+  });
+}
+
+export function redo(): Promise<void> {
+  return serially(async () => {
+    const change = app.redo.pop();
+    if (!change || change.network !== app.current) return;
+    app.busy++;
+    try {
+      await connection.send({ op: "edit", network: change.network, edits: change.redo });
+      app.undo.push(change);
+    } catch (e) {
+      app.redo.push(change);
+      toast(`Redo failed: ${(e as Error).message}`);
+      resync.count++;
+    } finally {
+      app.busy--;
+    }
+  });
 }
 
 export function request(op: string, payload: Record<string, unknown> = {}): Promise<any> {
@@ -381,8 +450,23 @@ export function deviceIdentifies(device: Device): Identify[] {
 
 /** Lights a connector, device or face up in the world (or turns it off); a color picks its color. */
 export function setIdentify(target: Identify, on: boolean, color?: number) {
-  const { label: _label, color: _color, ...bare } = target;
-  return edit([{ type: "identify", ...bare, ...(color !== undefined ? { color } : {}), on }], [{ type: "identify", ...bare, on: !on }], on ? "identify" : "stop identifying");
+  return setIdentifies([target], on, color);
+}
+
+/**
+ * Lights several things up or turns them off, as one undoable change. Undo puts each back as it was: off, or on in
+ * its old color (so undoing a color change keeps it lit).
+ */
+export function setIdentifies(targets: Identify[], on: boolean, color?: number) {
+  const edits: Edit[] = [];
+  const undo: Edit[] = [];
+  for (const target of targets) {
+    const { label: _label, color: _color, ...bare } = target;
+    const existing = (app.snapshot?.identified ?? []).find((x) => sameIdentify(x, target));
+    edits.push({ type: "identify", ...bare, ...(color !== undefined ? { color } : {}), on });
+    undo.push(existing ? { type: "identify", ...bare, color: existing.color, on: true } : { type: "identify", ...bare, on: false });
+  }
+  return edit(edits, undo, on ? "identify" : "stop identifying");
 }
 
 export function toggleIdentify(target: Identify) {

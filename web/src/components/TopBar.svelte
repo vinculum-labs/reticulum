@@ -26,6 +26,7 @@
 
   async function deleteNetwork() {
     if (!snapshot) return;
+    const id = snapshot.id;
     const ok = await confirmDialog({
       title: `Delete the network “${snapshot.name}”?`,
       message: "Its sheets, names and settings are gone for good.",
@@ -34,9 +35,11 @@
     });
     if (!ok) return;
     try {
-      await request("deleteNetwork");
-      app.current = null;
-      app.snapshot = null;
+      await request("deleteNetwork", { network: id });
+      if (app.current === id) {
+        app.current = null;
+        app.snapshot = null;
+      }
       await loadNetworks(null);
     } catch (e) {
       toast((e as Error).message);

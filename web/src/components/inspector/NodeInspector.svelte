@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, deviceAt, deviceName, edit, isIdentified, openDevice, toggleIdentify } from "../../lib/state.svelte";
+  import { app, deviceAt, deviceName, edit, isIdentified, openDevice, rebase, toggleIdentify } from "../../lib/state.svelte";
   import { KIND_HINT, KIND_LABEL, OP_SYMBOL, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, STATUS_LABEL, formatAgo, formatAverage, formatRate, isSignal } from "../../lib/kinds";
   import {
     SIDES,
@@ -57,7 +57,8 @@
    */
   function saveDevice(next: DeviceNodeSettings, removed?: { direction: "in" | "out"; index: number }) {
     const edits: Edit[] = [];
-    const undo: Edit[] = [{ type: "updateNode", sheet: sheet.id, node }];
+    const { after, before } = rebase(node, { ...node, settings: next });
+    const undo: Edit[] = [{ type: "updateNode", sheet: sheet.id, node: before }];
     if (removed) {
       const onSide = (w: Wire) => (removed.direction === "in" ? w.to === node.id : w.from === node.id);
       const index = (w: Wire) => (removed.direction === "in" ? (w.input ?? 0) : (w.output ?? 0));
@@ -71,11 +72,12 @@
         }
       }
     }
-    edit([...edits, { type: "updateNode", sheet: sheet.id, node: { ...node, settings: next } }], undo, "edit device");
+    edit([...edits, { type: "updateNode", sheet: sheet.id, node: after }], undo, "edit device");
   }
 
   function save(next: GraphNode, label = "edit node") {
-    edit([{ type: "updateNode", sheet: sheet.id, node: next }], [{ type: "updateNode", sheet: sheet.id, node }], label);
+    const { after, before } = rebase(node, next);
+    edit([{ type: "updateNode", sheet: sheet.id, node: after }], [{ type: "updateNode", sheet: sheet.id, node: before }], label);
   }
 
   function settings(patch: Partial<NodeSettings>) {
@@ -102,8 +104,9 @@
     if (weights?.length) {
       const next = outs.map((_, j) => weights[j] ?? 1);
       [next[index], next[other]] = [next[other], next[index]];
-      edits.push({ type: "updateNode", sheet: sheet.id, node: { ...node, settings: { ...node.settings, weights: next } } });
-      undo.push({ type: "updateNode", sheet: sheet.id, node });
+      const { after, before } = rebase(node, { ...node, settings: { ...node.settings, weights: next } });
+      edits.push({ type: "updateNode", sheet: sheet.id, node: after });
+      undo.push({ type: "updateNode", sheet: sheet.id, node: before });
     }
     edit(edits, undo, "reorder outputs");
   }

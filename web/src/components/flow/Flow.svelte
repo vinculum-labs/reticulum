@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onDestroy, untrack } from "svelte";
+  import { modals } from "../../lib/dialog.svelte";
   import { KIND_ICON, SparklesIcon, SplineIcon, ZapIcon } from "../../lib/icons";
   import MenuButton from "./MenuButton.svelte";
   import {
@@ -14,7 +15,7 @@
     type Node,
     type Connection,
   } from "@xyflow/svelte";
-  import { app, currentSheet, deviceAt, edit, toast, uuid, holdMetrics, setWireStyle, WIRE_STYLE_LABEL, type WireStyle } from "../../lib/state.svelte";
+  import { app, currentSheet, deviceAt, edit, resync, toast, uuid, holdMetrics, setWireStyle, WIRE_STYLE_LABEL, type WireStyle } from "../../lib/state.svelte";
   import { handleIndex, pinResource, toFlow, type NodeData } from "../../lib/graph";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Wire } from "../../lib/types";
@@ -33,8 +34,13 @@
   const sheet = $derived(currentSheet());
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
 
-  // Rebuild from the server's snapshot, and on every metrics update, except mid-drag.
+  // A drag interrupted by the canvas going away (leaving the world) mustn't leave metrics held for good.
+  onDestroy(() => holdMetrics(false));
+
+  // Rebuild from the server's snapshot, and on every metrics update, except mid-drag; and when an edit was refused,
+  // so what Svelte Flow changed on its own (a new wire, a moved node) goes back to what the server has.
   $effect(() => {
+    void resync.count;
     const s = sheet;
     const devices = app.snapshot?.devices ?? [];
     const activity = {
@@ -292,9 +298,12 @@
         }
         pins.set(n.id, byHandle);
       }
-      const positions = await layout(sheet, sizes, pins);
-      const before = (sheet.nodes ?? []).map((n) => ({ id: n.id, x: n.x ?? 0, y: n.y ?? 0 }));
-      await edit([{ type: "moveNodes", sheet: sheet.id, positions }], [{ type: "moveNodes", sheet: sheet.id, positions: before }], "tidy up");
+      const laidOut = sheet;
+      const positions = await layout(laidOut, sizes, pins);
+      // Laying out takes a moment; if the sheet changed meanwhile, these positions are for the one laid out.
+      if (currentSheet()?.id !== laidOut.id) return;
+      const before = (laidOut.nodes ?? []).map((n) => ({ id: n.id, x: n.x ?? 0, y: n.y ?? 0 }));
+      await edit([{ type: "moveNodes", sheet: laidOut.id, positions }], [{ type: "moveNodes", sheet: laidOut.id, positions: before }], "tidy up");
       setTimeout(() => flow.fitView({ duration: 300 }), 100);
     } catch (e) {
       toast(`Couldn't tidy up: ${(e as Error).message}`);
@@ -315,7 +324,7 @@
     fitView
     minZoom={0.2}
     maxZoom={2}
-    deleteKey={canEdit ? ["Delete", "Backspace"] : null}
+    deleteKey={canEdit && modals.open === 0 ? ["Delete", "Backspace"] : null}
     nodesDraggable={canEdit}
     nodesConnectable={canEdit}
     elementsSelectable={true}

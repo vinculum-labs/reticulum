@@ -1,6 +1,5 @@
 <script lang="ts">
   import { app } from "../../lib/state.svelte";
-  import { confirmDialog } from "../../lib/dialog.svelte";
   import { offeredResources, sideLabel } from "../../lib/kinds";
   import { posKey, type DeviceInput, type DeviceNodeSettings, type DeviceOutput, type Resource, type Sheet } from "../../lib/types";
   import Field from "./Field.svelte";
@@ -41,19 +40,7 @@
   }
 
   /** Removes input or output i; the caller drops its wires and renumbers the wires on later ones. */
-  async function removeSide(direction: "in" | "out", i: number) {
-    const wires = (sheet.wires ?? []).filter((w) => (direction === "in" ? w.to === nodeId && (w.input ?? 0) === i : w.from === nodeId && (w.output ?? 0) === i));
-    const side = direction === "in" ? "input" : "output";
-    if (
-      wires.length &&
-      !(await confirmDialog({
-        title: `Remove this ${side}?`,
-        message: `Its ${wires.length} wire${wires.length === 1 ? "" : "s"} go${wires.length === 1 ? "es" : ""} with it.`,
-        confirm: `Remove ${side}`,
-        danger: true,
-      }))
-    )
-      return;
+  function removeSide(direction: "in" | "out", i: number) {
     const next =
       direction === "in" ? { ...settings, inputs: inputs.filter((_, j) => j !== i) } : { ...settings, outputs: outputs.filter((_, j) => j !== i) };
     onchange(next, { direction, index: i });

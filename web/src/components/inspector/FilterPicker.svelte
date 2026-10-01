@@ -135,7 +135,7 @@
     clearTimeout(checkTimer);
     checkTimer = setTimeout(async () => {
       try {
-        const r = await request("checkFilter", { expression, resource: kind });
+        const r = await request("checkFilter", { expression, resource: initialKind });
         if (expression === text) error = r.valid ? null : r.message;
       } catch {
         error = null;

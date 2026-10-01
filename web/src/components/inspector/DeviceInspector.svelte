@@ -26,24 +26,26 @@
   async function relink(key: string) {
     const target = app.snapshot?.devices.find((d) => posKey(d.pos) === key);
     if (!target) return;
+    const network = app.current;
     const ok = await confirmDialog({
       title: `Move “${deviceName(device)}” onto “${deviceName(target)}”?`,
       message: "Its names and every flow that uses it move to the other device.",
       confirm: "Move",
     });
-    if (!ok) return;
+    if (!ok || app.current !== network) return;
     app.selectedDevice = key;
     edit([{ type: "relinkDevice", from: device.pos, to: target.pos }]);
   }
 
   async function deleteOrphan() {
+    const network = app.current;
     const ok = await confirmDialog({
       title: `Forget “${deviceName(device)}”?`,
       message: "Its name and face names are lost.",
       confirm: "Forget",
       danger: true,
     });
-    if (ok) {
+    if (ok && app.current === network) {
       app.selectedDevice = null;
       edit([{ type: "deleteOrphan", device: device.pos }]);
     }

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, edit, setIdentify } from "../../lib/state.svelte";
+  import { app, setIdentifies, setIdentify } from "../../lib/state.svelte";
   import type { Identify } from "../../lib/types";
 
   const identified = $derived(app.snapshot?.identified ?? []);
@@ -40,6 +40,6 @@
     <p class="text-sm muted">Nothing is identified. Use the ID buttons on devices and faces, or the network tool's Identify mode in game.</p>
   {/each}
   {#if identified.length > 1 && canEdit}
-    <button class="btn btn-danger self-start text-sm" onclick={() => edit([{ type: "clearIdentify" }])}>Turn all off</button>
+    <button class="btn btn-danger self-start text-sm" onclick={() => setIdentifies(identified, false)}>Turn all off</button>
   {/if}
 </div>

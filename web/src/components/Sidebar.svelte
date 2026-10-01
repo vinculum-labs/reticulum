@@ -78,7 +78,10 @@
   function saveFilter(name: string, expression: string | null) {
     name = name.trim();
     if (!name) return;
-    edit([{ type: "setFilter", name, expression }]);
+    const before = snapshot.filters[name] ?? null;
+    if (before === expression) return;
+    edit([{ type: "setFilter", name, expression }], [{ type: "setFilter", name, expression: before }],
+      expression === null ? "delete filter template" : "filter template");
   }
 
   // ---------------------------------------------------------------- folders

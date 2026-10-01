@@ -29,6 +29,9 @@ export type OpenDialog =
 
 export const dialogs = $state<{ open: OpenDialog | null }>({ open: null });
 
+/** How many modals (dialogs, the filter picker) are open; the canvas ignores its keys while any is. */
+export const modals = $state({ open: 0 });
+
 function cancelOpen() {
   const open = dialogs.open;
   if (!open) return;
