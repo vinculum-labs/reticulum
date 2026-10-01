@@ -181,8 +181,7 @@
         bind:clientWidth={viewWidth}
         bind:clientHeight={viewHeight}
         onscroll={() => (scrollTop = scroller?.scrollTop ?? 0)}
-        class="min-h-0 flex-1 overflow-y-auto rounded border p-1"
-        style="border-color: var(--line); background: var(--panel-2)"
+        class="min-h-0 flex-1 overflow-y-auto rounded border border-line bg-panel-2 p-1"
       >
         {#if failed}
           <p class="p-2 text-sm muted">Couldn't load the list of items from the game.</p>

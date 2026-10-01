@@ -135,7 +135,7 @@
   }
 </script>
 
-<aside class="flex w-72 shrink-0 flex-col overflow-y-auto border-r" style="background: var(--panel); border-color: var(--line)">
+<aside class="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-line bg-panel">
   <section class="p-3">
     <h2 class="panel-title mb-2">Sheets</h2>
     <ul class="flex flex-col gap-0.5">
@@ -182,7 +182,7 @@
                 title={sheet.subsheet ? "Sub-sheet: runs only where it is placed. Double-click to rename." : "Double-click to rename"}
               >
                 {#if sheet.subsheet}<Layers size={14} class="shrink-0 muted" />{/if}<span class="truncate">{sheet.name}</span>
-                {#if app.sheetsOff.includes(sheet.id)}<span class="shrink-0" style="color: var(--c-signal)" title="Switched off by redstone"><Zap size={12} /></span>{/if}
+                {#if app.sheetsOff.includes(sheet.id)}<span class="shrink-0 text-signal" title="Switched off by redstone"><Zap size={12} /></span>{/if}
                 {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.join("\n")}><TriangleAlert size={12} /></span>{/if}
               </button>
             {/if}
@@ -203,7 +203,7 @@
     {/if}
   </section>
 
-  <section class="border-t p-3" style="border-color: var(--line)">
+  <section class="border-t border-line p-3">
     <h2 class="panel-title mb-2">Devices</h2>
     <input class="mb-2 w-full" placeholder="Search devices" bind:value={deviceSearch} />
     <p class="mb-2 text-xs muted">Drag a device onto the canvas to add it; give it inputs and outputs in the inspector.</p>
@@ -231,7 +231,7 @@
     </ul>
   </section>
 
-  <section class="border-t p-3" style="border-color: var(--line)">
+  <section class="border-t border-line p-3">
     <h2 class="panel-title mb-2">Filter templates</h2>
     <p class="mb-2 text-xs muted">Use them in any filter as <code>@name</code>.</p>
     <ul class="flex flex-col gap-2">

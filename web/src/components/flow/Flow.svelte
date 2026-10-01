@@ -358,7 +358,7 @@
     <MiniMap pannable zoomable maskStrokeWidth={1} />
     {#if canEdit}
       <Panel position="top-left">
-        <div class="flex flex-wrap gap-1 rounded-lg border p-1" style="background: var(--panel); border-color: var(--line)">
+        <div class="flex flex-wrap gap-1 rounded-lg border border-line bg-panel p-1">
           {#each palette as kind}
             {@const Icon = KIND_ICON[kind]}
             <button class="btn flex items-center gap-1 text-sm" title={KIND_HINT[kind]} onclick={() => addNode(kind, viewCenter())}>

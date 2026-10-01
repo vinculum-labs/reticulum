@@ -66,8 +66,7 @@
   bind:this={trigger}
   type="button"
   {id}
-  class="flex w-full items-center gap-2 rounded-md border px-2 py-1 text-left"
-  style="background: var(--field); border-color: var(--line)"
+  class="flex w-full items-center gap-2 rounded-md border border-line bg-field px-2 py-1 text-left"
   {disabled}
   onclick={() => (open ? popover?.close(false) : show())}
   aria-haspopup="listbox"

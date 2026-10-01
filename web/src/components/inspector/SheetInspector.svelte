@@ -50,7 +50,7 @@
       defaultLabel="the controller"
       onchange={(redstone) => update({ redstone }, { redstone: sheet.redstone ?? { mode: "ignored" } }, "sheet redstone")}
     />
-    {#if app.sheetsOff.includes(sheet.id)}<p class="text-xs" style="color: var(--c-signal)" role="status">Redstone has this sheet switched off right now.</p>{/if}
+    {#if app.sheetsOff.includes(sheet.id)}<p class="text-xs text-signal" role="status">Redstone has this sheet switched off right now.</p>{/if}
     {#if sheet.folder}
       <details class="text-sm">
         <summary class="cursor-pointer">Folder “{sheet.folder}” redstone</summary>

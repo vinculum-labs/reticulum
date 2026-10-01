@@ -51,6 +51,22 @@
   }
 }
 
+/* The tokens as Tailwind colors (bg-panel, border-line, text-warn, …), so markup needs no inline styles for them. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-field: var(--field);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-signal: var(--c-signal);
+}
+
 html,
 body,
 #app {
@@ -148,14 +164,6 @@ input[type="checkbox"] {
 
 .box-bad {
   border-color: var(--bad);
-}
-
-.text-warn {
-  color: var(--warn);
-}
-
-.text-bad {
-  color: var(--bad);
 }
 
 /* A toggle button that is on (aria-pressed): the same accent look everywhere. */

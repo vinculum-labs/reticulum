@@ -76,7 +76,7 @@
   });
 </script>
 
-<header class="flex items-center gap-3 border-b px-3 py-2" style="background: var(--panel); border-color: var(--line)">
+<header class="flex items-center gap-3 border-b border-line bg-panel px-3 py-2">
   <span class="font-semibold tracking-wide">Reticulum</span>
   <nav class="flex min-w-0 flex-1 gap-1 overflow-x-auto" aria-label="Networks">
     {#each app.networks as n (n.id)}

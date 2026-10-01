@@ -70,7 +70,7 @@
   {#if power?.enabled}
     <section class="flex flex-col gap-1 text-sm">
       <h3 class="panel-title">Power</h3>
-      <div class="h-2 overflow-hidden rounded" style="background: var(--line)">
+      <div class="h-2 overflow-hidden rounded bg-line">
         <div class="h-full" style="width: {Math.min(100, (power.stored / Math.max(1, power.capacity)) * 100)}%; background: {power.powered ? 'var(--good)' : 'var(--bad)'}"></div>
       </div>
       <div class="flex justify-between tabular-nums">

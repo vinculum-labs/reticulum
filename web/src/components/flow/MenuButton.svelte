@@ -98,7 +98,7 @@
         onclick={() => pick(item.key)}
       >
         {#if anyChecks}
-          <span class="mt-0.5 w-4 shrink-0" style="color: var(--accent)">{#if item.checked}<Check size={14} />{/if}</span>
+          <span class="mt-0.5 w-4 shrink-0 text-accent">{#if item.checked}<Check size={14} />{/if}</span>
         {/if}
         {#if ItemIcon}<span class="mt-0.5 shrink-0" style={color ? `color: ${color}` : ""}><ItemIcon size={16} /></span>{/if}
         <span class="flex flex-col">

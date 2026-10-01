@@ -160,7 +160,7 @@ ${idleTitle}` : idleTitle}
         {:else if data.rate > 0}
           <span class="tabular-nums" style="color: {color}">{formatRate(data.rate, data.resource, app.rateUnit)}</span>
         {:else if data.status}
-          <span style="color: var(--warn)">{STATUS_LABEL[data.status] ?? data.status}</span>
+          <span class="text-warn">{STATUS_LABEL[data.status] ?? data.status}</span>
         {:else if flowSummary}
           {flowSummary}
         {:else if data.fiveMinutes > 0}
@@ -169,7 +169,7 @@ ${idleTitle}` : idleTitle}
           {KIND_LABEL[kind]}
         {/if}{offline ? ` · ${data.device?.outOfRange ? "out of range" : data.device?.state}` : ""}{disabled ? " · off" : ""}
       </div>
-      {#if redstone}<div class="flex items-center gap-0.5 truncate" style="font-size: 10px; color: var(--c-signal)" title={redstone}><Zap size={10} class="shrink-0" />{redstone}</div>{/if}
+      {#if redstone}<div class="flex items-center gap-0.5 truncate text-signal" style="font-size: 10px" title={redstone}><Zap size={10} class="shrink-0" />{redstone}</div>{/if}
     </div>
     {#if data.device}<IdentifyBadge device={data.device} />{/if}
   </div>

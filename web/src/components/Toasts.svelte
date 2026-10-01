@@ -10,8 +10,7 @@
 <div class="pointer-events-none fixed right-4 bottom-4 z-50 flex max-w-md flex-col gap-2">
   {#each app.toasts as t (t.id)}
     <div
-      class="pointer-events-auto flex items-start gap-2 rounded-lg border px-3 py-2 shadow-lg"
-      style="background: var(--panel); border-color: {t.kind === 'error' ? 'var(--bad)' : 'var(--line)'}"
+      class="pointer-events-auto flex items-start gap-2 rounded-lg border bg-panel px-3 py-2 shadow-lg {t.kind === 'error' ? 'border-bad' : 'border-line'}"
       role={t.kind === "error" ? "alert" : "status"}
     >
       <span class="flex-1">{t.text}</span>
