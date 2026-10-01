@@ -54,16 +54,12 @@ public final class Filters {
         }
     }
 
-    public interface ItemFilter {
+    public interface ItemFilter extends Test<ItemStack> {
         ItemFilter ANY = (stack, context) -> true;
-
-        boolean test(ItemStack stack, Context context);
     }
 
-    public interface FluidFilter {
+    public interface FluidFilter extends Test<FluidStack> {
         FluidFilter ANY = (stack, context) -> true;
-
-        boolean test(FluidStack stack, Context context);
     }
 
     /** A filter over Mekanism chemical stacks, typed loosely so this class never loads Mekanism's. */
@@ -166,23 +162,35 @@ public final class Filters {
         return (stack, context) -> cache.computeIfAbsent(new Key(stack.getItem(), stack.getComponentsPatch()), k -> filter.test(stack, context));
     }
 
-    // ---------------------------------------------------------------- items
+    // ---------------------------------------------------------------- shared by every resource
 
-    private static ItemFilter compileItems(FilterExpr expr) throws FilterException {
+    /** A compiled test on one kind of stack (item, fluid or chemical). */
+    @FunctionalInterface
+    public interface Test<T> {
+        boolean test(T stack, Context context);
+    }
+
+    @FunctionalInterface
+    public interface AtomCompiler<T> {
+        Test<T> compile(FilterExpr.Atom atom) throws FilterException;
+    }
+
+    /** Compiles the combinators (anything, !, &, |) the same way for every resource; the atoms are the resource's own. */
+    public static <T> Test<T> combine(FilterExpr expr, AtomCompiler<T> atoms) throws FilterException {
         return switch (expr) {
-            case FilterExpr.Any any -> ItemFilter.ANY;
+            case FilterExpr.Any any -> (s, c) -> true;
             case FilterExpr.Not not -> {
-                ItemFilter inner = compileItems(not.term());
+                Test<T> inner = combine(not.term(), atoms);
                 yield (s, c) -> !inner.test(s, c);
             }
             case FilterExpr.And and -> {
-                List<ItemFilter> terms = new ArrayList<>();
+                List<Test<T>> terms = new ArrayList<>();
                 for (FilterExpr term : and.terms()) {
-                    terms.add(compileItems(term));
+                    terms.add(combine(term, atoms));
                 }
                 yield (s, c) -> {
-                    for (ItemFilter f : terms) {
-                        if (!f.test(s, c)) {
+                    for (Test<T> t : terms) {
+                        if (!t.test(s, c)) {
                             return false;
                         }
                     }
@@ -190,40 +198,67 @@ public final class Filters {
                 };
             }
             case FilterExpr.Or or -> {
-                List<ItemFilter> terms = new ArrayList<>();
+                List<Test<T>> terms = new ArrayList<>();
                 for (FilterExpr term : or.terms()) {
-                    terms.add(compileItems(term));
+                    terms.add(combine(term, atoms));
                 }
                 yield (s, c) -> {
-                    for (ItemFilter f : terms) {
-                        if (f.test(s, c)) {
+                    for (Test<T> t : terms) {
+                        if (t.test(s, c)) {
                             return true;
                         }
                     }
                     return false;
                 };
             }
-            case FilterExpr.Atom atom -> itemAtom(atom);
+            case FilterExpr.Atom atom -> atoms.compile(atom);
             case FilterExpr.Ref ref -> throw new FilterException("Unresolved template @" + ref.name(), -1);
         };
     }
 
-    private static ItemFilter itemAtom(FilterExpr.Atom atom) throws FilterException {
+    /**
+     * The atoms every resource has: {@code id:} (with * wildcards), {@code tag:}, {@code mod:} and {@code name:}. Null
+     * for any other key, which is the resource's own to compile.
+     */
+    @Nullable
+    public static <T> Test<T> commonAtom(FilterExpr.Atom atom, java.util.function.Function<T, ResourceLocation> id,
+            java.util.function.Function<ResourceLocation, Predicate<T>> tag, java.util.function.Function<T, String> name) throws FilterException {
         String value = atom.value();
         return switch (atom.key()) {
             case "id" -> {
-                Predicate<String> id = idMatcher(value);
-                yield (s, c) -> id.test(BuiltInRegistries.ITEM.getKey(s.getItem()).toString());
+                Predicate<String> matches = idMatcher(value);
+                yield (s, c) -> matches.test(id.apply(s).toString());
             }
             case "tag" -> {
-                TagKey<Item> tag = TagKey.create(Registries.ITEM, location(value));
-                yield (s, c) -> s.is(tag);
+                Predicate<T> in = tag.apply(location(value));
+                yield (s, c) -> in.test(s);
             }
-            case "mod" -> (s, c) -> BuiltInRegistries.ITEM.getKey(s.getItem()).getNamespace().equals(value);
+            case "mod" -> (s, c) -> id.apply(s).getNamespace().equals(value);
             case "name" -> {
-                Predicate<String> name = textMatcher(atom);
-                yield (s, c) -> name.test(s.getHoverName().getString());
+                Predicate<String> matches = textMatcher(atom);
+                yield (s, c) -> matches.test(name.apply(s));
             }
+            default -> null;
+        };
+    }
+
+    // ---------------------------------------------------------------- items
+
+    private static ItemFilter compileItems(FilterExpr expr) throws FilterException {
+        Test<ItemStack> test = combine(expr, Filters::itemAtom);
+        return expr instanceof FilterExpr.Any ? ItemFilter.ANY : test::test;
+    }
+
+    private static Test<ItemStack> itemAtom(FilterExpr.Atom atom) throws FilterException {
+        Test<ItemStack> common = commonAtom(atom, s -> BuiltInRegistries.ITEM.getKey(s.getItem()), location -> {
+            TagKey<Item> tag = TagKey.create(Registries.ITEM, location);
+            return s -> s.is(tag);
+        }, s -> s.getHoverName().getString());
+        if (common != null) {
+            return common;
+        }
+        String value = atom.value();
+        return switch (atom.key()) {
             case "dura" -> {
                 Comparison cmp = Comparison.parse(value);
                 yield (s, c) -> {
@@ -291,47 +326,20 @@ public final class Filters {
     // ---------------------------------------------------------------- fluids
 
     private static FluidFilter compileFluids(FilterExpr expr) throws FilterException {
-        return switch (expr) {
-            case FilterExpr.Any any -> FluidFilter.ANY;
-            case FilterExpr.Not not -> {
-                FluidFilter inner = compileFluids(not.term());
-                yield (s, c) -> !inner.test(s, c);
-            }
-            case FilterExpr.And and -> {
-                List<FluidFilter> terms = new ArrayList<>();
-                for (FilterExpr term : and.terms()) {
-                    terms.add(compileFluids(term));
-                }
-                yield (s, c) -> terms.stream().allMatch(f -> f.test(s, c));
-            }
-            case FilterExpr.Or or -> {
-                List<FluidFilter> terms = new ArrayList<>();
-                for (FilterExpr term : or.terms()) {
-                    terms.add(compileFluids(term));
-                }
-                yield (s, c) -> terms.stream().anyMatch(f -> f.test(s, c));
-            }
-            case FilterExpr.Atom atom -> fluidAtom(atom);
-            case FilterExpr.Ref ref -> throw new FilterException("Unresolved template @" + ref.name(), -1);
-        };
+        Test<FluidStack> test = combine(expr, Filters::fluidAtom);
+        return expr instanceof FilterExpr.Any ? FluidFilter.ANY : test::test;
     }
 
-    private static FluidFilter fluidAtom(FilterExpr.Atom atom) throws FilterException {
+    private static Test<FluidStack> fluidAtom(FilterExpr.Atom atom) throws FilterException {
+        Test<FluidStack> common = commonAtom(atom, s -> BuiltInRegistries.FLUID.getKey(s.getFluid()), location -> {
+            TagKey<Fluid> tag = TagKey.create(Registries.FLUID, location);
+            return s -> s.is(tag);
+        }, s -> s.getHoverName().getString());
+        if (common != null) {
+            return common;
+        }
         String value = atom.value();
         return switch (atom.key()) {
-            case "id" -> {
-                Predicate<String> id = idMatcher(value);
-                yield (s, c) -> id.test(BuiltInRegistries.FLUID.getKey(s.getFluid()).toString());
-            }
-            case "tag" -> {
-                TagKey<Fluid> tag = TagKey.create(Registries.FLUID, location(value));
-                yield (s, c) -> s.is(tag);
-            }
-            case "mod" -> (s, c) -> BuiltInRegistries.FLUID.getKey(s.getFluid()).getNamespace().equals(value);
-            case "name" -> {
-                Predicate<String> name = textMatcher(atom);
-                yield (s, c) -> name.test(s.getHoverName().getString());
-            }
             case "temp" -> {
                 Comparison cmp = Comparison.parse(value);
                 yield (s, c) -> cmp.test(s.getFluidType().getTemperature(s));

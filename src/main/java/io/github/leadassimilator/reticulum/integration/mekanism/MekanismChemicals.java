@@ -65,52 +65,25 @@ public final class MekanismChemicals {
     // ---------------------------------------------------------------- filters
 
     private static Filters.ChemicalFilter compile(FilterExpr expr) throws FilterException {
-        return switch (expr) {
-            case FilterExpr.Any any -> (s, c) -> true;
-            case FilterExpr.Not not -> {
-                Filters.ChemicalFilter inner = compile(not.term());
-                yield (s, c) -> !inner.test(s, c);
-            }
-            case FilterExpr.And and -> {
-                List<Filters.ChemicalFilter> terms = new ArrayList<>();
-                for (FilterExpr term : and.terms()) {
-                    terms.add(compile(term));
-                }
-                yield (s, c) -> terms.stream().allMatch(f -> f.test(s, c));
-            }
-            case FilterExpr.Or or -> {
-                List<Filters.ChemicalFilter> terms = new ArrayList<>();
-                for (FilterExpr term : or.terms()) {
-                    terms.add(compile(term));
-                }
-                yield (s, c) -> terms.stream().anyMatch(f -> f.test(s, c));
-            }
-            case FilterExpr.Atom atom -> atom(atom);
-            case FilterExpr.Ref ref -> throw new FilterException("Unresolved template @" + ref.name(), -1);
-        };
+        Filters.Test<ChemicalStack> test = Filters.combine(expr, MekanismChemicals::atom);
+        return (s, c) -> s instanceof ChemicalStack stack && test.test(stack, c);
     }
 
-    private static Filters.ChemicalFilter atom(FilterExpr.Atom atom) throws FilterException {
+    private static Filters.Test<ChemicalStack> atom(FilterExpr.Atom atom) throws FilterException {
+        Filters.Test<ChemicalStack> common = Filters.commonAtom(atom, MekanismChemicals::id, location -> {
+            TagKey<Chemical> tag = TagKey.create(MekanismAPI.CHEMICAL_REGISTRY_NAME, location);
+            return s -> s.is(tag);
+        }, s -> s.getTextComponent().getString());
+        if (common != null) {
+            return common;
+        }
         String value = atom.value();
         return switch (atom.key()) {
-            case "id" -> {
-                Predicate<String> id = Filters.idMatcher(value);
-                yield (s, c) -> id.test(id((ChemicalStack) s).toString());
-            }
-            case "tag" -> {
-                TagKey<Chemical> tag = TagKey.create(MekanismAPI.CHEMICAL_REGISTRY_NAME, Filters.location(value));
-                yield (s, c) -> ((ChemicalStack) s).is(tag);
-            }
-            case "mod" -> (s, c) -> id((ChemicalStack) s).getNamespace().equals(value);
-            case "name" -> {
-                Predicate<String> name = Filters.textMatcher(atom);
-                yield (s, c) -> name.test(((ChemicalStack) s).getTextComponent().getString());
-            }
             case "chem" -> switch (value) {
-                case "radioactive" -> (s, c) -> ((ChemicalStack) s).isRadioactive();
-                case "coolant" -> (s, c) -> ((ChemicalStack) s).getData(IMekanismDataMapTypes.INSTANCE.cooledChemicalCoolant()) != null
-                        || ((ChemicalStack) s).getData(IMekanismDataMapTypes.INSTANCE.heatedChemicalCoolant()) != null;
-                case "fuel" -> (s, c) -> ((ChemicalStack) s).getData(IMekanismDataMapTypes.INSTANCE.chemicalFuel()) != null;
+                case "radioactive" -> (s, c) -> s.isRadioactive();
+                case "coolant" -> (s, c) -> s.getData(IMekanismDataMapTypes.INSTANCE.cooledChemicalCoolant()) != null
+                        || s.getData(IMekanismDataMapTypes.INSTANCE.heatedChemicalCoolant()) != null;
+                case "fuel" -> (s, c) -> s.getData(IMekanismDataMapTypes.INSTANCE.chemicalFuel()) != null;
                 default -> throw new FilterException("Unknown chemical property chem:" + value + " (radioactive, coolant, fuel)", -1);
             };
             case "in" -> {
