@@ -14,7 +14,7 @@
     type CatalogEntry,
     type CatalogKind,
   } from "../../lib/catalog";
-  import { onEscape } from "../../lib/escape";
+  import Modal from "../Modal.svelte";
   import FilterSyntax from "./FilterSyntax.svelte";
   import { formatAmount } from "../../lib/kinds";
   import { app, deviceName, request } from "../../lib/state.svelte";
@@ -156,19 +156,11 @@
     onclose();
   }
 
-  // Esc closes the picker (the innermost thing open).
-  $effect(() => onEscape(() => onclose()));
 </script>
 
-
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgb(0 0 0 / 0.45)" onclick={onclose}>
-  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-  <div
-    class="flex max-h-full w-full flex-col gap-2 rounded-lg border p-3"
-    style="max-width: 760px; height: 640px; background: var(--panel); border-color: var(--line); box-shadow: 0 8px 30px rgb(0 0 0 / 0.35)"
-    onclick={(e) => e.stopPropagation()}
-  >
+<!-- Esc or a click outside closes it, like Cancel. -->
+<Modal {onclose} width={760} height={640} resizable minWidth={560} minHeight={360} label="Pick for filter">
+  <div class="flex min-h-0 flex-1 flex-col gap-2 p-3">
     <div class="flex items-center gap-2">
       <h2 class="flex-1 text-base font-semibold">Pick for filter</h2>
       <button class="btn text-sm" onclick={onclose}>Cancel</button>
@@ -297,7 +289,7 @@
       </div>
     </div>
   </div>
-</div>
+</Modal>
 
 <style>
   .picker-cell {
