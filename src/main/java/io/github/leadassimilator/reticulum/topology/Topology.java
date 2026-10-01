@@ -24,6 +24,7 @@ import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -278,12 +279,22 @@ public final class Topology {
             }
         }
 
-        for (Map.Entry<Direction, Section> side : sides.entrySet()) {
+        // Sides on the chosen network first, so that when two sections each bring a controller, the one that stays
+        // joined is the chosen network's.
+        List<Map.Entry<Direction, Section>> ordered = new ArrayList<>(sides.entrySet());
+        UUID chosen = primary;
+        ordered.sort(java.util.Comparator.comparing((Map.Entry<Direction, Section> e) -> chosen == null || !chosen.equals(e.getValue().network())));
+        boolean controllerJoined = own != null;
+        for (Map.Entry<Direction, Section> side : ordered) {
             Section comp = side.getValue();
             UUID net = comp.network();
             boolean connect = primary != null ? net == null || net.equals(primary) : net == null;
-            if (own != null && !comp.controllers().isEmpty()) {
-                connect = false;
+            if (connect && !comp.controllers().isEmpty()) {
+                // One controller per section, even when the other's network was deleted.
+                if (controllerJoined) {
+                    connect = false;
+                }
+                controllerJoined = true;
             }
             if (!connect) {
                 NetworkBlockEntity neighbor = blockEntity(level, pos.relative(side.getKey()));
@@ -393,7 +404,14 @@ public final class Topology {
         ControllerBlockEntity controller = (ControllerBlockEntity) blockEntity(level, pos);
         UUID id = claimControllerNetwork(level, pos, controller, player);
         Section comp = component(level, pos, null);
-        assign(level, comp, id);
+        Set<BlockPos> unowned = new HashSet<>();
+        for (BlockPos block : comp.blocks()) {
+            NetworkBlockEntity be = blockEntity(level, block);
+            if (be != null && networkOf(level, be) == null) {
+                unowned.add(block);
+            }
+        }
+        assign(level, new Section(unowned, comp.networks(), comp.controllers()), id);
         refreshAround(level, comp.blocks());
         return id;
     }
@@ -414,10 +432,12 @@ public final class Topology {
         if (comp.controllers().size() > 1) {
             Reticulum.LOGGER.warn("Reticulum component with {} controllers at {}", comp.controllers().size(), comp.controllers());
         }
-        if (!comp.controllers().isEmpty()) {
-            NetworkBlockEntity controller = blockEntity(level, comp.controllers().getFirst());
-            if (controller != null) {
-                return networkOf(level, controller);
+        // The first controller that still has a network decides; one whose network was deleted has no say.
+        for (BlockPos pos : comp.controllers()) {
+            NetworkBlockEntity controller = blockEntity(level, pos);
+            UUID id = controller == null ? null : networkOf(level, controller);
+            if (id != null) {
+                return id;
             }
         }
         if (preferred != null) {
@@ -504,6 +524,10 @@ public final class Topology {
             return Component.translatable("message.reticulum.already_bound", network.name());
         }
         Network oldNetwork = NetworkManager.network(level.getServer(), old);
+        // Moving a connector off a network takes its devices away from it, so that needs edit access there too.
+        if (oldNetwork != null && player != null && !Security.canEdit(oldNetwork, player)) {
+            return Component.translatable("message.reticulum.no_edit_access");
+        }
         if (oldNetwork != null) {
             NetworkManager.removeConnector(level.getServer(), oldNetwork, connector.connectorId());
         }
@@ -561,11 +585,6 @@ public final class Topology {
         }
         BlockPos otherPos = pos.relative(side);
         NetworkBlockEntity b = blockEntity(level, otherPos);
-        // Whatever this changes happens now; the engine works out reach again on its next tick.
-        touch(networkOf(level, a));
-        if (b != null) {
-            touch(networkOf(level, b));
-        }
         if (b == null) {
             if (a instanceof ConnectorBlockEntity connector && Devices.isDevice(level, otherPos, side.getOpposite())) {
                 return toggleDevice(level, pos, connector, side, player);
@@ -577,6 +596,9 @@ public final class Topology {
         if (player != null && (netA != null && !Security.canEdit(netA, player) || netB != null && !Security.canEdit(netB, player))) {
             return Component.translatable("message.reticulum.no_edit_access");
         }
+        // Whatever this changes happens now; the engine works out reach again on its next tick.
+        touch(networkOf(level, a));
+        touch(networkOf(level, b));
 
         if (connected(level, pos, side)) {
             a.setManuallyDisconnected(side, true);
@@ -610,6 +632,13 @@ public final class Topology {
         }
         UUID absorbed = compA.network() != null && !compA.network().equals(target) ? compA.network()
                 : compB.network() != null && !compB.network().equals(target) ? compB.network() : null;
+        // Only a network that has lost its controller is merged in. A cut-off piece of a network whose controller is
+        // still there (on its other piece) stays that network's; joining it elsewhere would take the whole network.
+        Network absorbedNetwork = NetworkManager.network(level.getServer(), absorbed);
+        if (absorbedNetwork != null && absorbedNetwork.controller() != null
+                && controllerStillThere(level, absorbedNetwork.controller(), absorbedNetwork.id())) {
+            return Component.translatable("message.reticulum.still_has_controller", absorbedNetwork.name());
+        }
         a.clearDisconnects(side);
         b.clearDisconnects(side.getOpposite());
         assign(level, compA, target);
@@ -618,7 +647,8 @@ public final class Topology {
         Network into = NetworkManager.network(level.getServer(), target);
         Network from = NetworkManager.network(level.getServer(), absorbed);
         if (into != null && from != null && into != from) {
-            NetworkManager.absorb(level.getServer(), into, from);
+            Role cap = player == null ? Role.ADMIN : Security.role(into, player).orElse(Role.VIEWER);
+            NetworkManager.absorb(level.getServer(), into, from, cap);
         }
         Set<BlockPos> changed = new HashSet<>(compA.blocks());
         changed.addAll(compB.blocks());
@@ -631,6 +661,7 @@ public final class Topology {
         if (player != null && network != null && !Security.canEdit(network, player)) {
             return Component.translatable("message.reticulum.no_edit_access");
         }
+        touch(networkOf(level, connector));
         boolean enable = !connector.isDeviceEnabled(side);
         connector.setDeviceEnabled(side, enable);
         connector.refreshEndpoints();

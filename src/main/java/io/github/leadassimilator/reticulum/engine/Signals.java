@@ -113,7 +113,7 @@ final class Signals {
         return switch (redstone.source()) {
             case DEFAULT -> device != null ? atConnectorsOf(server, network, device) : atController(server, network);
             case CONNECTOR -> redstone.connector().map(network::connector).map(c -> (long) received(server, c.pos())).orElse(0L);
-            case FACE -> redstone.device().map(pos -> givenOut(server, pos, redstone.face(), false)).orElse(0);
+            case FACE -> redstone.device().map(pos -> givenOut(server, network, pos, redstone.face(), false)).orElse(0);
             case SIGNAL -> published.getOrDefault(redstone.signal(), 0L);
         };
     }
@@ -139,11 +139,14 @@ final class Signals {
         return level != null && level.isLoaded(at.pos()) ? level.getBestNeighborSignal(at.pos()) : 0;
     }
 
-    /** The signal a device gives out of one face (or its strongest face), or its comparator value. */
-    static int givenOut(MinecraftServer server, GlobalPos device, Optional<FaceKey> face, boolean comparator) {
+    /**
+     * The signal a device gives out of one face (or its strongest face), or its comparator value. Only devices of the
+     * network are read; a sheet (an imported one, say) naming any other block reads 0.
+     */
+    static int givenOut(MinecraftServer server, Network network, GlobalPos device, Optional<FaceKey> face, boolean comparator) {
         ServerLevel level = server.getLevel(device.dimension());
         BlockPos pos = device.pos();
-        if (level == null || !level.isLoaded(pos)) {
+        if (network.device(device) == null || level == null || !level.isLoaded(pos)) {
             return 0;
         }
         BlockState state = level.getBlockState(pos);
@@ -203,11 +206,11 @@ final class Signals {
         return switch (node.node().settings()) {
             case NodeSettings.RedstoneInSettings in -> {
                 if (in.comparator() || in.faces().isEmpty()) {
-                    yield givenOut(ctx.server(), in.device(), Optional.empty(), in.comparator());
+                    yield givenOut(ctx.server(), ctx.network(), in.device(), Optional.empty(), in.comparator());
                 }
                 int best = 0;
                 for (FaceKey face : in.faces()) {
-                    best = Math.max(best, givenOut(ctx.server(), in.device(), Optional.of(face), false));
+                    best = Math.max(best, givenOut(ctx.server(), ctx.network(), in.device(), Optional.of(face), false));
                 }
                 yield best;
             }

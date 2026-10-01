@@ -88,26 +88,36 @@ public final class Filters {
     // ---------------------------------------------------------------- entry points
 
     public static ItemFilter items(String expression, Map<String, String> templates) throws FilterException {
-        FilterExpr expr = resolve(FilterParser.parse(expression), templates, 0);
+        FilterExpr expr = expand(FilterParser.parse(expression), templates);
         ItemFilter compiled = compileItems(expr);
         return usesContext(expr) ? compiled : cached(compiled);
     }
 
     public static FluidFilter fluids(String expression, Map<String, String> templates) throws FilterException {
-        return compileFluids(resolve(FilterParser.parse(expression), templates, 0));
+        return compileFluids(expand(FilterParser.parse(expression), templates));
     }
 
     public static ChemicalFilter chemicals(String expression, Map<String, String> templates) throws FilterException {
         if (chemicalCompiler == null) {
             throw new FilterException("Chemicals need Mekanism", -1);
         }
-        return chemicalCompiler.compile(resolve(FilterParser.parse(expression), templates, 0));
+        return chemicalCompiler.compile(expand(FilterParser.parse(expression), templates));
     }
 
-    /** Replaces template references with their parsed expressions, refusing cycles. */
-    private static FilterExpr resolve(FilterExpr expr, Map<String, String> templates, int depth) throws FilterException {
+    /** The most terms a filter may have once its templates are filled in (templates can repeat each other). */
+    private static final int MAX_TERMS = 4096;
+
+    /** Replaces template references with their parsed expressions, refusing cycles and runaway expansion. */
+    private static FilterExpr expand(FilterExpr expr, Map<String, String> templates) throws FilterException {
+        return resolve(expr, templates, 0, new int[] {MAX_TERMS});
+    }
+
+    private static FilterExpr resolve(FilterExpr expr, Map<String, String> templates, int depth, int[] budget) throws FilterException {
         if (depth > MAX_TEMPLATE_DEPTH) {
             throw new FilterException("Filter templates refer to each other in a loop", -1);
+        }
+        if (--budget[0] < 0) {
+            throw new FilterException("Filter has more than " + MAX_TERMS + " terms once its templates are filled in", -1);
         }
         return switch (expr) {
             case FilterExpr.Ref ref -> {
@@ -115,19 +125,20 @@ public final class Filters {
                 if (body == null) {
                     throw new FilterException("Unknown filter template @" + ref.name(), -1);
                 }
-                yield resolve(FilterParser.parse(body), templates, depth + 1);
+                yield resolve(FilterParser.parse(body), templates, depth + 1, budget);
             }
-            case FilterExpr.And and -> new FilterExpr.And(resolveAll(and.terms(), templates, depth));
-            case FilterExpr.Or or -> new FilterExpr.Or(resolveAll(or.terms(), templates, depth));
-            case FilterExpr.Not not -> new FilterExpr.Not(resolve(not.term(), templates, depth));
+            case FilterExpr.And and -> new FilterExpr.And(resolveAll(and.terms(), templates, depth, budget));
+            case FilterExpr.Or or -> new FilterExpr.Or(resolveAll(or.terms(), templates, depth, budget));
+            case FilterExpr.Not not -> new FilterExpr.Not(resolve(not.term(), templates, depth, budget));
             default -> expr;
         };
     }
 
-    private static List<FilterExpr> resolveAll(List<FilterExpr> terms, Map<String, String> templates, int depth) throws FilterException {
+    private static List<FilterExpr> resolveAll(List<FilterExpr> terms, Map<String, String> templates, int depth, int[] budget)
+            throws FilterException {
         List<FilterExpr> out = new ArrayList<>();
         for (FilterExpr term : terms) {
-            out.add(resolve(term, templates, depth));
+            out.add(resolve(term, templates, depth, budget));
         }
         return out;
     }

@@ -21,14 +21,23 @@ import java.util.Set;
 public final class FilterParser {
     public static final Set<String> KEYS = Set.of("id", "tag", "mod", "name", "dura", "ench", "has", "is", "in", "temp");
 
+    /** How deep brackets and ! may nest: deeper than any real filter, shallow enough not to overflow the stack. */
+    public static final int MAX_DEPTH = 64;
+    /** The longest filter text accepted. */
+    public static final int MAX_LENGTH = 4096;
+
     private final String text;
     private int pos;
+    private int depth;
 
     private FilterParser(String text) {
         this.text = text;
     }
 
     public static FilterExpr parse(String text) throws FilterException {
+        if (text.length() > MAX_LENGTH) {
+            throw new FilterException("Filter is longer than " + MAX_LENGTH + " characters", MAX_LENGTH);
+        }
         FilterParser parser = new FilterParser(text);
         parser.skipSpace();
         if (parser.atEnd()) {
@@ -79,18 +88,23 @@ public final class FilterParser {
             throw new FilterException("Expected a filter term", pos);
         }
         char c = peek();
-        if (c == '!') {
-            pos++;
-            return new FilterExpr.Not(unary());
-        }
-        if (c == '(') {
-            pos++;
-            FilterExpr inner = or();
-            skipSpace();
-            if (atEnd() || peek() != ')') {
-                throw new FilterException("Missing ')'", pos);
+        if (c == '!' || c == '(') {
+            if (++depth > MAX_DEPTH) {
+                throw new FilterException("Filter is nested more than " + MAX_DEPTH + " deep", pos);
             }
             pos++;
+            FilterExpr inner;
+            if (c == '!') {
+                inner = new FilterExpr.Not(unary());
+            } else {
+                inner = or();
+                skipSpace();
+                if (atEnd() || peek() != ')') {
+                    throw new FilterException("Missing ')'", pos);
+                }
+                pos++;
+            }
+            depth--;
             return inner;
         }
         return term();

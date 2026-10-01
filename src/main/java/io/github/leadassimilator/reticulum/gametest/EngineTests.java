@@ -817,7 +817,8 @@ public final class EngineTests {
         check(helper, markers.stream().anyMatch(m -> m.pos().equals(barrel) && m.face().isEmpty()), "no marker for the device: " + markers);
         check(helper, markers.stream().anyMatch(m -> m.pos().equals(barrel) && m.face().equals(Optional.of(Direction.NORTH)) && m.label().endsWith("› Intake")),
                 "no named marker for the face: " + markers);
-        check(helper, markers.stream().map(m -> m.color()).distinct().count() == 2, "the two identifies share a color");
+        // Only this barrel's markers: other tests light things up alongside.
+        check(helper, markers.stream().filter(m -> m.pos().equals(barrel)).map(m -> m.color()).distinct().count() == 2, "the two identifies share a color");
         check(helper, !io.github.leadassimilator.reticulum.network.Identifies.toggle(server, rig.network(), device), "device didn't turn off");
         io.github.leadassimilator.reticulum.network.Identifies.clear(server, rig.network());
         check(helper, io.github.leadassimilator.reticulum.network.Identifies.markersFor(player).stream().noneMatch(m -> m.pos().equals(barrel)),

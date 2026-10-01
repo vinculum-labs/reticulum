@@ -40,7 +40,10 @@ import net.minecraft.resources.ResourceLocation;
  * handshake itself, carry the session cookie. The WebSocket upgrade must also come from this origin.
  */
 final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
-    private static final String COOKIE = "reticulum_session";
+    /** The login cookie's name, per port (cookies aren't kept apart by port, so two games would share one). */
+    private static String cookieName() {
+        return "reticulum_session_" + WebBridge.port();
+    }
     private static final String WEB_ROOT = "/assets/reticulum/web/";
     private static final Map<String, String> TYPES = Map.of(
             "html", "text/html; charset=utf-8",
@@ -111,7 +114,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             return false;
         }
         for (Cookie cookie : ServerCookieDecoder.STRICT.decode(header)) {
-            if (cookie.name().equals(COOKIE) && tokenMatches(cookie.value())) {
+            if (cookie.name().equals(cookieName()) && tokenMatches(cookie.value())) {
                 return true;
             }
         }
@@ -124,7 +127,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             respond(ctx, request, HttpResponseStatus.FORBIDDEN, "text/plain", bytes("This editor link has expired; open it again from the game."));
             return;
         }
-        DefaultCookie cookie = new DefaultCookie(COOKIE, WebBridge.token());
+        DefaultCookie cookie = new DefaultCookie(cookieName(), WebBridge.token());
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         // Kept across browser and game restarts (the secret is kept too), so bookmarks and open pages keep working;

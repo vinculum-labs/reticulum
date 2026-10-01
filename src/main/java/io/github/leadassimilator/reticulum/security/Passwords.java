@@ -14,6 +14,9 @@ public final class Passwords {
     private static final int ITERATIONS = 65_536;
     private static final int KEY_BITS = 256;
     private static final SecureRandom RANDOM = new SecureRandom();
+    /** The least time between one player's password guesses. */
+    private static final long GUESS_INTERVAL_MS = 1000;
+    private static final java.util.Map<java.util.UUID, Long> LAST_GUESS = new java.util.concurrent.ConcurrentHashMap<>();
 
     private Passwords() {
     }
@@ -24,6 +27,19 @@ public final class Passwords {
         byte[] hash = derive(password, salt, ITERATIONS);
         Base64.Encoder b64 = Base64.getEncoder();
         return ITERATIONS + ":" + b64.encodeToString(salt) + ":" + b64.encodeToString(hash);
+    }
+
+    /**
+     * Checks a player's guess, at most once a second per player: a guess sooner than that is refused without being
+     * checked.
+     */
+    public static boolean guess(java.util.UUID player, String password, String stored) {
+        long now = System.currentTimeMillis();
+        Long last = LAST_GUESS.put(player, now);
+        if (last != null && now - last < GUESS_INTERVAL_MS) {
+            return false;
+        }
+        return matches(password, stored);
     }
 
     public static boolean matches(String password, String stored) {

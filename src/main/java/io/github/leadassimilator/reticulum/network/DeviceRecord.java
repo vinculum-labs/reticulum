@@ -113,10 +113,6 @@ public final class DeviceRecord {
 
     @Nullable
     static String blankToNull(@Nullable String s) {
-        if (s == null) {
-            return null;
-        }
-        String trimmed = s.strip();
-        return trimmed.isEmpty() ? null : trimmed;
+        return Limits.name(s);
     }
 }

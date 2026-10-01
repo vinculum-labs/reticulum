@@ -68,6 +68,11 @@ public final class WebPayloads {
         return chunks;
     }
 
+    /** The largest message a client accepts, decompressed. */
+    public static final int MAX_MESSAGE_BYTES = 64 * 1024 * 1024;
+    /** The most pieces one message may come in. */
+    public static final int MAX_CHUNKS = 4096;
+
     public static String join(List<byte[]> parts) throws DataFormatException {
         ByteArrayOutputStream all = new ByteArrayOutputStream();
         for (byte[] part : parts) {
@@ -83,6 +88,10 @@ public final class WebPayloads {
                 break;
             }
             out.write(buffer, 0, n);
+            if (out.size() > MAX_MESSAGE_BYTES) {
+                inflater.end();
+                throw new DataFormatException("message larger than " + MAX_MESSAGE_BYTES + " bytes");
+            }
         }
         inflater.end();
         return out.toString(StandardCharsets.UTF_8);

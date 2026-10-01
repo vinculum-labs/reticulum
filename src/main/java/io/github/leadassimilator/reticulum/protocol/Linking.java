@@ -73,7 +73,7 @@ public final class Linking {
         }
         if (!Security.canUse(network, player)) {
             String hash = network.passwordHash();
-            if (network.accessMode() != AccessMode.PASSWORD || hash == null || !Passwords.matches(payload.password(), hash)) {
+            if (network.accessMode() != AccessMode.PASSWORD || hash == null || !Passwords.guess(player.getUUID(), payload.password(), hash)) {
                 player.displayClientMessage(Component.translatable("message.reticulum.wrong_password", network.name()), true);
                 return;
             }

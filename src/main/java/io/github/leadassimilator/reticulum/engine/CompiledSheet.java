@@ -134,6 +134,9 @@ public final class CompiledSheet {
         List<Node> flatNodes = new ArrayList<>();
         List<Wire> flatWires = new ArrayList<>(sheet.wires());
         paste(network, sheet.nodes(), flatNodes, flatWires, List.of(sheet.id()));
+        if (tooBig) {
+            return;
+        }
         pins(network, flatNodes, flatWires);
 
         Map<UUID, Node> nodes = new LinkedHashMap<>();
@@ -195,6 +198,10 @@ public final class CompiledSheet {
             List<Route> routes = new ArrayList<>();
             walk(source, source, settings.port().resource(), nodes, outgoing, gates, new Walk(), routes);
             sources.add(new Source(source, settings, routes, controls(List.of(source.id()))));
+        }
+        if (tooBig) {
+            // Nothing runs rather than whichever routes were found before giving up.
+            sources.clear();
         }
     }
 
@@ -497,6 +504,23 @@ public final class CompiledSheet {
     }
 
     private static final int MAX_SUBSHEET_DEPTH = 8;
+    /**
+     * How big a sheet may get with its sub-sheets pasted in, and how much work finding its routes may take. Sub-sheets
+     * inside sub-sheets multiply, and so do splitters whose branches meet again; past these the sheet is refused with
+     * an error instead of stalling the server while it compiles.
+     */
+    private static final int MAX_EXPANDED_NODES = 4096;
+    private static final int MAX_EXPANDED_WIRES = 8192;
+    private static final int MAX_WALK_STEPS = 100_000;
+    private boolean tooBig;
+    private int walkSteps;
+
+    private void tooBig(String what) {
+        if (!tooBig) {
+            tooBig = true;
+            errors.add("This sheet is too big to run: " + what);
+        }
+    }
 
     /**
      * Copies nodes into {@code out}, replacing every sub-sheet node with a copy of that sheet's nodes and wires.
@@ -524,6 +548,10 @@ public final class CompiledSheet {
                 continue;
             }
             dependencies.put(used.id(), used.revision());
+            if (out.size() + used.nodes().size() > MAX_EXPANDED_NODES || wires.size() + used.wires().size() > MAX_EXPANDED_WIRES) {
+                tooBig("with its sub-sheets filled in it has more than " + MAX_EXPANDED_NODES + " nodes or " + MAX_EXPANDED_WIRES + " wires");
+                return;
+            }
             java.util.function.Function<UUID, UUID> copy = id ->
                     UUID.nameUUIDFromBytes((node.id() + "/" + id).getBytes(java.nio.charset.StandardCharsets.UTF_8));
             List<Node> copies = new ArrayList<>();
@@ -625,6 +653,10 @@ public final class CompiledSheet {
 
     private void walk(Node source, Node node, ResourceKind resource, Map<UUID, Node> nodes, Map<UUID, List<Wire>> outgoing,
             Map<UUID, Gate> gates, Walk walk, List<Route> routes) {
+        if (++walkSteps > MAX_WALK_STEPS) {
+            tooBig("its splitters and filters branch and join again into too many routes");
+            return;
+        }
         if (!walk.onPath.add(node.id())) {
             errors.add("Wires loop back to " + describe(node) + "; resource wires must not form a cycle");
             return;

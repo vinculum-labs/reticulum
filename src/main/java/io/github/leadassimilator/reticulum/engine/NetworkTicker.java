@@ -36,8 +36,9 @@ public final class NetworkTicker {
                 long start = System.nanoTime();
                 runtime.tick(server, network);
                 runtime.recordTickTime(System.nanoTime() - start);
-            } catch (RuntimeException e) {
-                // One broken network (or a misbehaving machine) must not take the server down.
+            } catch (RuntimeException | StackOverflowError | LinkageError e) {
+                // One broken network (or a misbehaving machine, or an optional mod whose internals changed) must not
+                // take the server down. Other errors (out of memory) are left to crash it as usual.
                 Reticulum.LOGGER.error("Reticulum network {} ({}) failed this tick", network.name(), network.id(), e);
             }
         }
@@ -47,8 +48,12 @@ public final class NetworkTicker {
         RUNTIMES.clear();
     }
 
-    public static void forget(UUID networkId) {
-        RUNTIMES.remove(networkId);
+    /** Drops a deleted (or merged-away) network's runtime, stopping it first so its AE2 links and redstone end too. */
+    public static void forget(MinecraftServer server, Network network) {
+        NetworkRuntime runtime = RUNTIMES.remove(network.id());
+        if (runtime != null) {
+            runtime.stop(server, network);
+        }
     }
 
     public static NetworkRuntime runtime(UUID networkId) {

@@ -27,9 +27,21 @@ public final class Identifies {
     private Identifies() {
     }
 
-    /** Turns an identify on (with the given color, or the next palette color when 0) or off. Returns whether it is on now. */
+    /** The longest label sent with a marker (the packet's limit). */
+    private static final int MAX_LABEL = 256;
+    /** The most markers sent to one player (the packet's limit). */
+    private static final int MAX_MARKERS = 4096;
+
+    /**
+     * Turns an identify on (with the given color, or the next palette color when 0) or off. Returns whether it is on
+     * now: turning on is refused for something that isn't part of the network, or when {@link Limits#IDENTIFIES}
+     * things are already lit.
+     */
     public static boolean set(MinecraftServer server, Network network, Identify target, boolean on) {
         List<Identify> list = network.identified();
+        if (on && (!belongs(network, target) || list.size() >= Limits.IDENTIFIES && !isOn(network, target))) {
+            return false;
+        }
         boolean was = list.removeIf(target::sameTarget);
         if (on) {
             int color = target.color() != 0 ? target.color() : Identify.PALETTE[list.size() % Identify.PALETTE.length];
@@ -39,6 +51,15 @@ public final class Identifies {
             changed(server, network);
         }
         return on;
+    }
+
+    /** Whether an identify's connector or device is part of the network (only those can be lit). */
+    public static boolean belongs(Network network, Identify target) {
+        return switch (target.kind()) {
+            case CONNECTOR -> target.connector().map(network::connector).isPresent();
+            case DEVICE -> target.device().map(network::device).isPresent();
+            case FACE -> target.face().isPresent() && target.device().map(network::device).isPresent();
+        };
     }
 
     public static boolean isOn(Network network, Identify target) {
@@ -73,8 +94,8 @@ public final class Identifies {
             }
             for (Identify identify : network.identified()) {
                 Payloads.IdentifyMarker marker = marker(player.server, network, identify);
-                if (marker != null) {
-                    markers.add(marker);
+                if (marker != null && markers.size() < MAX_MARKERS) {
+                    markers.add(new Payloads.IdentifyMarker(marker.pos(), marker.face(), marker.color(), clip(marker.label())));
                 }
             }
         }
@@ -110,6 +131,10 @@ public final class Identifies {
         };
     }
 
+    private static String clip(String label) {
+        return label.length() > MAX_LABEL ? label.substring(0, MAX_LABEL) : label;
+    }
+
     public static String deviceName(MinecraftServer server, Network network, GlobalPos pos) {
         DeviceRecord record = network.device(pos);
         if (record != null && record.name() != null) {
@@ -140,7 +165,8 @@ public final class Identifies {
     }
 
     /**
-     * Every 5 seconds: turns off identifies older than the server's auto-off time (if set), and refreshes what
+     * Every 5 seconds: turns off identifies older than the server's auto-off time (if set) or no longer part of their
+     * network, and refreshes what
      * players see (names change, access changes, devices get unloaded or come back).
      */
     public static void onServerTick(ServerTickEvent.Post event) {
@@ -148,20 +174,20 @@ public final class Identifies {
         if (server.getTickCount() % 100 != 0) {
             return;
         }
+        // Lit things that are no longer part of the network (broken, moved) go out too, so they don't stay in the save.
         long autoOff = ReticulumConfig.IDENTIFY_AUTO_OFF_MINUTES.getAsInt() * 60_000L;
-        if (autoOff > 0) {
-            long now = System.currentTimeMillis();
-            for (Network network : NetworkManager.data(server).networks()) {
-                boolean removed = false;
-                for (Iterator<Identify> it = network.identified().iterator(); it.hasNext();) {
-                    if (now - it.next().since() > autoOff) {
-                        it.remove();
-                        removed = true;
-                    }
+        long now = System.currentTimeMillis();
+        for (Network network : NetworkManager.data(server).networks()) {
+            boolean removed = false;
+            for (Iterator<Identify> it = network.identified().iterator(); it.hasNext();) {
+                Identify identify = it.next();
+                if (autoOff > 0 && now - identify.since() > autoOff || !belongs(network, identify)) {
+                    it.remove();
+                    removed = true;
                 }
-                if (removed) {
-                    NetworkManager.changed(server, network);
-                }
+            }
+            if (removed) {
+                NetworkManager.changed(server, network);
             }
         }
         boolean any = NetworkManager.data(server).networks().stream().anyMatch(n -> !n.identified().isEmpty());

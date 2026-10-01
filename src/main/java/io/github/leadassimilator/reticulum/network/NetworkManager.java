@@ -8,6 +8,8 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.security.AccessMode;
+import io.github.leadassimilator.reticulum.security.Member;
+import io.github.leadassimilator.reticulum.security.Role;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -182,20 +184,49 @@ public final class NetworkManager {
     public static void delete(MinecraftServer server, Network network) {
         network.bump();
         data(server).remove(network.id());
-        io.github.leadassimilator.reticulum.engine.NetworkTicker.forget(network.id());
+        io.github.leadassimilator.reticulum.engine.NetworkTicker.forget(server, network);
     }
 
     /**
-     * Merges {@code from} into {@code into}: sheets, filters, members, connectors, overflow, and device and face
-     * names (where {@code into} has none). {@code from} is removed, and blocks still carrying its id follow it.
+     * Merges {@code from} into {@code into}: sheets, filters, members, connectors, overflow, switches, signal memory,
+     * identifies, and device and face names (where {@code into} has none). {@code from} is removed, and blocks still
+     * carrying its id follow it.
+     *
+     * <p>{@code from}'s owner and members join {@code into} with their roles capped at {@code cap} (the role of the
+     * player doing the merge) and never above admin, so a merge can't hand anyone more than its maker has. Members
+     * {@code into} already has keep their role.
      */
-    public static void absorb(MinecraftServer server, Network into, Network from) {
+    public static void absorb(MinecraftServer server, Network into, Network from, Role cap) {
         if (into == from) {
             return;
         }
+        Role most = cap.atLeast(Role.ADMIN) ? Role.ADMIN : cap;
+        java.util.Set<String> folders = new java.util.HashSet<>();
+        into.sheets().forEach(sheet -> folders.add(sheet.folder()));
         into.sheets().addAll(from.sheets());
         from.filters().forEach(into.filters()::putIfAbsent);
-        from.members().forEach(into.members()::putIfAbsent);
+        List<Member> joining = new ArrayList<>(from.members().values());
+        if (from.owner() != null) {
+            joining.add(new Member(from.owner(), from.ownerName(), Role.OWNER));
+        }
+        for (Member member : joining) {
+            if (!member.id().equals(into.owner())) {
+                Role role = member.role().atLeast(most) ? most : member.role();
+                into.members().putIfAbsent(member.id(), new Member(member.id(), member.name(), role));
+            }
+        }
+        from.disabledFolders().stream().filter(folder -> !folders.contains(folder)).forEach(into.disabledFolders()::add);
+        from.switches().folderRedstone().forEach((folder, redstone) -> {
+            if (!folders.contains(folder)) {
+                into.switches().folderRedstone().putIfAbsent(folder, redstone);
+            }
+        });
+        from.signalMemory().forEach(into.signalMemory()::putIfAbsent);
+        for (io.github.leadassimilator.reticulum.network.Identify identify : from.identified()) {
+            if (into.identified().size() < Limits.IDENTIFIES && into.identified().stream().noneMatch(identify::sameTarget)) {
+                into.identified().add(identify);
+            }
+        }
         for (ConnectorRecord connector : from.connectors()) {
             into.connectorMap().putIfAbsent(connector.id(), connector);
         }

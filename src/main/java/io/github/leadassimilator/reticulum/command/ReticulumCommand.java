@@ -37,7 +37,10 @@ public final class ReticulumCommand {
     private static final SimpleCommandExceptionType NO_ACCESS = new SimpleCommandExceptionType(Component.translatable("command.reticulum.no_access"));
 
     private static final SuggestionProvider<CommandSourceStack> NETWORKS = (ctx, builder) -> SharedSuggestionProvider.suggest(
-            NetworkManager.data(ctx.getSource().getServer()).networks().stream().map(n -> StringArgumentType.escapeIfRequired(n.name())), builder);
+            NetworkManager.data(ctx.getSource().getServer()).networks().stream()
+                    .filter(n -> ctx.getSource().getPlayer() == null || Security.canView(n, ctx.getSource().getPlayer())
+                            || n.accessMode() == AccessMode.PASSWORD)
+                    .map(n -> StringArgumentType.escapeIfRequired(n.name())), builder);
     private static final SuggestionProvider<CommandSourceStack> ROLES = (ctx, builder) -> SharedSuggestionProvider.suggest(
             List.of("viewer", "user", "editor", "admin"), builder);
 
@@ -97,7 +100,7 @@ public final class ReticulumCommand {
             return 1;
         }
         String hash = network.passwordHash();
-        if (network.accessMode() != AccessMode.PASSWORD || hash == null || !Passwords.matches(StringArgumentType.getString(ctx, "password"), hash)) {
+        if (network.accessMode() != AccessMode.PASSWORD || hash == null || !Passwords.guess(player.getUUID(), StringArgumentType.getString(ctx, "password"), hash)) {
             throw NO_ACCESS.create();
         }
         network.members().put(player.getUUID(), new Member(player.getUUID(), player.getGameProfile().getName(), Role.USER));
@@ -133,7 +136,8 @@ public final class ReticulumCommand {
         if (from.controller() != null && io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(ctx.getSource().getServer(), from)) {
             throw new SimpleCommandExceptionType(Component.translatable("command.reticulum.merge_has_controller", from.name())).create();
         }
-        NetworkManager.absorb(ctx.getSource().getServer(), into, from);
+        Role cap = player == null ? Role.ADMIN : Security.role(into, player).orElse(Role.ADMIN);
+        NetworkManager.absorb(ctx.getSource().getServer(), into, from, cap);
         ctx.getSource().sendSuccess(() -> Component.translatable("command.reticulum.merged", from.name(), into.name()), true);
         return 1;
     }

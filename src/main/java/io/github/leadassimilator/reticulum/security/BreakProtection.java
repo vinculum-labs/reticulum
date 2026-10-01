@@ -17,7 +17,9 @@ public final class BreakProtection {
         }
         Network network = Topology.network(level, event.getPos());
         if (network != null && !Security.canBreak(network, event.getPlayer())) {
-            event.getPlayer().displayClientMessage(Component.translatable("message.reticulum.protected", network.name()), true);
+            event.getPlayer().displayClientMessage(Security.canView(network, event.getPlayer())
+                    ? Component.translatable("message.reticulum.protected", network.name())
+                    : Component.translatable("message.reticulum.protected_private"), true);
             event.setCanceled(true);
         }
     }

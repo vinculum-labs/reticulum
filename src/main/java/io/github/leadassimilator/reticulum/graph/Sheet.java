@@ -10,6 +10,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import io.github.leadassimilator.reticulum.network.Ids;
+import io.github.leadassimilator.reticulum.network.Limits;
 
 /**
  * A subnetwork: a canvas of nodes and wires. Every edit must go through a method here (or call {@link #touch()})
@@ -97,9 +98,13 @@ public final class Sheet {
         return copy;
     }
 
+    /** Trimmed and cut to {@link Limits#NAME}; a blank name leaves the old one. */
     public void setName(String name) {
-        this.name = name;
-        touch();
+        String value = Limits.name(name);
+        if (value != null) {
+            this.name = value;
+            touch();
+        }
     }
 
     public String folder() {
@@ -112,13 +117,18 @@ public final class Sheet {
         touch();
     }
 
+    /** Each level trimmed and cut like a name, empty levels dropped, the whole path cut to {@link Limits#FOLDER}. */
     public static String normalizeFolder(String folder) {
         StringBuilder out = new StringBuilder();
         for (String part : folder.split("/")) {
-            String trimmed = part.strip();
-            if (!trimmed.isEmpty()) {
-                out.append(out.isEmpty() ? "" : "/").append(trimmed);
+            String level = Limits.name(part);
+            if (level == null) {
+                continue;
             }
+            if (out.length() + level.length() + 1 > Limits.FOLDER) {
+                break;
+            }
+            out.append(out.isEmpty() ? "" : "/").append(level);
         }
         return out.toString();
     }

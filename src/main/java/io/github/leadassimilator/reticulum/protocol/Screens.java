@@ -33,7 +33,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 /** Server side of the in-game quick screens: builds views and applies the edits they send. */
 public final class Screens {
-    public static final int MAX_NAME_LENGTH = 64;
+    public static final int MAX_NAME_LENGTH = io.github.leadassimilator.reticulum.network.Limits.NAME;
 
     private Screens() {
     }
@@ -156,7 +156,9 @@ public final class Screens {
                 network.switches().setRedstone(new io.github.leadassimilator.reticulum.graph.Redstone(mode, old.source(), old.device(), old.face(),
                         old.connector(), old.signal()));
             }
-            case Payloads.ControllerSwitch.SHEET -> payload.sheet().map(network::sheet).ifPresent(sheet -> sheet.setEnabled(payload.value() != 0));
+            // Only the sheets the screen lists: sub-sheets run as part of the sheets that use them.
+            case Payloads.ControllerSwitch.SHEET -> payload.sheet().map(network::sheet).filter(sheet -> !sheet.subsheet())
+                    .ifPresent(sheet -> sheet.setEnabled(payload.value() != 0));
             default -> {
             }
         }
@@ -332,6 +334,7 @@ public final class Screens {
     }
 
     private static String clip(String name) {
-        return name.length() > MAX_NAME_LENGTH ? name.substring(0, MAX_NAME_LENGTH) : name;
+        String value = io.github.leadassimilator.reticulum.network.Limits.name(name);
+        return value == null ? "" : value;
     }
 }

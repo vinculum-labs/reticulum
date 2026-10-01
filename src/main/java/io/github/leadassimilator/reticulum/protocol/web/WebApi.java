@@ -31,6 +31,7 @@ import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.FaceKey;
+import io.github.leadassimilator.reticulum.network.Limits;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.security.AccessMode;
@@ -79,7 +80,7 @@ public final class WebApi {
             send(player, handle(player, request, id));
         } catch (RequestException e) {
             send(player, error(id, e.getMessage()));
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | StackOverflowError | LinkageError e) {
             io.github.leadassimilator.reticulum.Reticulum.LOGGER.error("Web request failed: {}", json, e);
             send(player, error(id, "Internal error: " + e.getMessage()));
         }
@@ -153,18 +154,23 @@ public final class WebApi {
                 }
                 JsonObject out = ok(id);
                 JsonArray created = new JsonArray();
-                for (int i = 0; i < edits.size(); i++) {
-                    try {
-                        JsonElement result = Edits.apply(player, network, edits.get(i).getAsJsonObject());
-                        created.add(result);
-                    } catch (RequestException e) {
-                        NetworkManager.changed(server, network);
-                        throw new RequestException("Edit " + (i + 1) + ": " + e.getMessage());
+                try {
+                    for (int i = 0; i < edits.size(); i++) {
+                        try {
+                            if (!edits.get(i).isJsonObject()) {
+                                throw new RequestException("not an edit");
+                            }
+                            created.add(Edits.apply(player, network, edits.get(i).getAsJsonObject()));
+                        } catch (RequestException e) {
+                            throw new RequestException("Edit " + (i + 1) + ": " + e.getMessage());
+                        }
                     }
+                } finally {
+                    // Whatever went wrong part way, the edits before it are saved and shown.
+                    NetworkManager.changed(server, network);
+                    // Push right away rather than on the next tick: a paused singleplayer server doesn't tick.
+                    pushSnapshots(server, network);
                 }
-                NetworkManager.changed(server, network);
-                // Push right away rather than on the next tick: a paused singleplayer server doesn't tick.
-                pushSnapshots(server, network);
                 out.add("results", created);
                 yield out;
             }
@@ -285,12 +291,17 @@ public final class WebApi {
                 case "importSheet" -> {
                     // A sheet pasted as JSON (from another world, say): new ids, the same devices by position.
                     Sheet pasted = decode(server, Sheet.CODEC, edit.get("sheet"), "sheet");
-                    Sheet sheet = pasted.copyWithNewIds(pasted.name());
+                    roomForSheet(network);
+                    check(Limits.check(pasted));
+                    String name = Limits.name(pasted.name());
+                    Sheet sheet = pasted.copyWithNewIds(name == null ? "Imported sheet" : name);
                     network.sheets().add(sheet);
                     return new com.google.gson.JsonPrimitive(sheet.id().toString());
                 }
                 case "createSheet" -> {
-                    Sheet sheet = new Sheet(UUID.randomUUID(), string(edit, "name"));
+                    roomForSheet(network);
+                    String name = Limits.name(string(edit, "name"));
+                    Sheet sheet = new Sheet(UUID.randomUUID(), name == null ? "Sheet " + (network.sheets().size() + 1) : name);
                     network.sheets().add(sheet);
                     return new com.google.gson.JsonPrimitive(sheet.id().toString());
                 }
@@ -351,6 +362,9 @@ public final class WebApi {
                     if (profile.getId().equals(network.owner())) {
                         throw new RequestException("That player owns the network");
                     }
+                    if (!network.members().containsKey(profile.getId()) && network.members().size() >= Limits.MEMBERS) {
+                        throw new RequestException("A network can have at most " + Limits.MEMBERS + " members");
+                    }
                     network.members().put(profile.getId(), new Member(profile.getId(), profile.getName(), role));
                 }
                 case "removeMember" -> {
@@ -362,9 +376,13 @@ public final class WebApi {
                     Sheet sheet = sheet(network, edit);
                     Node node = decode(server, Node.CODEC, edit.get("node"), "node");
                     checkPorts(network, node);
+                    check(Limits.check(node));
                     if (type.equals("addNode")) {
                         if (sheet.node(node.id()) != null) {
                             throw new RequestException("A node with that id already exists");
+                        }
+                        if (sheet.nodes().size() >= Limits.NODES_PER_SHEET) {
+                            throw new RequestException("A sheet can have at most " + Limits.NODES_PER_SHEET + " nodes");
                         }
                         sheet.add(node);
                     } else {
@@ -391,6 +409,9 @@ public final class WebApi {
                     Wire wire = decode(server, Wire.CODEC, edit.get("wire"), "wire");
                     if (sheet.node(wire.from()) == null || sheet.node(wire.to()) == null) {
                         throw new RequestException("Wire ends must be nodes on the same sheet");
+                    }
+                    if (sheet.wires().size() >= Limits.WIRES_PER_SHEET) {
+                        throw new RequestException("A sheet can have at most " + Limits.WIRES_PER_SHEET + " wires");
                     }
                     sheet.connect(wire);
                     return new com.google.gson.JsonPrimitive(wire.id().toString());
@@ -427,9 +448,15 @@ public final class WebApi {
                     }
                 }
                 case "setFilter" -> {
-                    String name = string(edit, "name");
+                    String name = Limits.name(string(edit, "name"));
+                    if (name == null) {
+                        throw new RequestException("A filter template needs a name");
+                    }
                     if (edit.has("expression") && !edit.get("expression").isJsonNull()) {
                         String expression = edit.get("expression").getAsString();
+                        if (!network.filters().containsKey(name) && network.filters().size() >= Limits.FILTER_TEMPLATES) {
+                            throw new RequestException("A network can have at most " + Limits.FILTER_TEMPLATES + " filter templates");
+                        }
                         try {
                             Filters.items(expression, withTemplate(network, name, expression));
                         } catch (FilterException e) {
@@ -445,7 +472,12 @@ public final class WebApi {
                 case "identify" -> {
                     io.github.leadassimilator.reticulum.network.Identify target = decode(server,
                             io.github.leadassimilator.reticulum.network.Identify.CODEC, edit, "identify");
-                    io.github.leadassimilator.reticulum.network.Identifies.set(server, network, target, edit.get("on").getAsBoolean());
+                    boolean on = edit.get("on").getAsBoolean();
+                    if (!io.github.leadassimilator.reticulum.network.Identifies.set(server, network, target, on) && on) {
+                        throw new RequestException(io.github.leadassimilator.reticulum.network.Identifies.belongs(network, target)
+                                ? "At most " + Limits.IDENTIFIES + " things can be identified at once"
+                                : "That isn't a connector or device of this network");
+                    }
                 }
                 case "clearIdentify" -> io.github.leadassimilator.reticulum.network.Identifies.clear(server, network);
                 case "setNetworkRedstone" -> network.switches().setRedstone(decode(server, Redstone.CODEC, edit.get("redstone"), "redstone"));
@@ -461,6 +493,19 @@ public final class WebApi {
                 default -> throw new RequestException("Unknown edit '" + type + "'");
             }
             return com.google.gson.JsonNull.INSTANCE;
+        }
+
+        private static void roomForSheet(Network network) throws RequestException {
+            if (network.sheets().size() >= Limits.SHEETS) {
+                throw new RequestException("A network can have at most " + Limits.SHEETS + " sheets");
+            }
+        }
+
+        /** Refuses an edit for the reason a limit check gave, if any. */
+        private static void check(@Nullable String problem) throws RequestException {
+            if (problem != null) {
+                throw new RequestException(problem);
+            }
         }
 
         private static void admin(Network network, ServerPlayer player) throws RequestException {

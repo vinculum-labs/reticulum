@@ -367,6 +367,13 @@ public final class WebBridge {
 
     /** A piece of a server message; once all pieces are in, the message goes to every open page. */
     public static void onChunk(WebPayloads.Chunk chunk) {
+        if (chunk.total() <= 0 || chunk.total() > WebPayloads.MAX_CHUNKS) {
+            return;
+        }
+        if (!PARTS.containsKey(chunk.message()) && PARTS.size() >= 64) {
+            // Messages that never finished (a server that stopped mid-message) don't pile up.
+            PARTS.clear();
+        }
         List<byte[]> parts = PARTS.computeIfAbsent(chunk.message(), k -> new ArrayList<>());
         parts.add(chunk.data());
         if (parts.size() < chunk.total()) {

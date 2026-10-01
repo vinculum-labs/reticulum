@@ -28,6 +28,7 @@ public class ModLanguage extends LanguageProvider {
 
         add("message.reticulum.no_access", "You don't have access to %s");
         add("message.reticulum.no_edit_access", "You don't have edit access to this network");
+        add("message.reticulum.still_has_controller", "These cables belong to %s, which still has its controller; join them to that network instead");
         add("message.reticulum.ambiguous_placement", "Touches several networks; not connected to any. Use the network tool or the cable screen to connect one.");
         add("message.reticulum.controller_exists", "%s already has a controller; this one starts a new network");
         add("message.reticulum.controller_reconnected", "Took over %s, which had lost its controller");
@@ -46,6 +47,7 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.password_required", "Set a password before choosing Password access");
         add("message.reticulum.no_network", "Not connected to a network");
         add("message.reticulum.protected", "%s is private; only members can break its blocks");
+        add("message.reticulum.protected_private", "This network is private; only members can break its blocks");
 
         add("screen.reticulum.connector", "Connector");
         add("screen.reticulum.cable", "Cable");

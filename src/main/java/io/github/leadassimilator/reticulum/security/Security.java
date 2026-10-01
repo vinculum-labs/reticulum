@@ -27,13 +27,22 @@ public final class Security {
         return Optional.empty();
     }
 
+    private static final long BYPASS_LOG_INTERVAL_MS = 10 * 60_000L;
+    private static final java.util.Map<String, Long> BYPASS_LOGGED = new java.util.concurrent.ConcurrentHashMap<>();
+
     public static boolean has(Network network, Player player, Role needed) {
         if (role(network, player).map(r -> r.atLeast(needed)).orElse(false)) {
             return true;
         }
         if (ReticulumConfig.OPERATOR_BYPASS.getAsBoolean() && player.hasPermissions(2)) {
-            Reticulum.LOGGER.info("Operator {} bypassed {} access on network {} ({})",
-                    player.getGameProfile().getName(), needed.getSerializedName(), network.name(), network.id());
+            long now = System.currentTimeMillis();
+            String key = player.getUUID() + "/" + network.id() + "/" + needed.getSerializedName();
+            Long last = BYPASS_LOGGED.get(key);
+            if (last == null || now - last > BYPASS_LOG_INTERVAL_MS) {
+                BYPASS_LOGGED.put(key, now);
+                Reticulum.LOGGER.info("Operator {} bypassed {} access on network {} ({})",
+                        player.getGameProfile().getName(), needed.getSerializedName(), network.name(), network.id());
+            }
             return true;
         }
         return false;
