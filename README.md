@@ -27,7 +27,7 @@ the redstone condition.
 
 | | What it does |
 |---|---|
-| **Network Controller** | The heart of a network. One per network. Holds its energy and its antenna. |
+| **Network Controller** | The heart of a network. One per network. Holds its energy and its antenna; broken (by hand or by an explosion), it drops with both, and remembers its network. |
 | **Cable** | Joins network blocks. Cable without a controller that touches a network joins it; two networks that each have a controller stay separate where they touch. |
 | **Connector** | Joins the machines next to it to the network. Can be named, and so can each device face. |
 | **Network Tool** | Three modes (sneak + scroll to switch): **Configure** — right-click a joint to connect or disconnect it, or a device side to attach or detach it. **Link** — copy a network from a controller or connector (sneak + right-click), bind a wireless connector to it (right-click), or pick one from a list (right-click the air). **Identify** — light up a connector or device so you can find it (sneak for one face). In any mode, sneak + right-click the air to open the editor on the tool's network. |
@@ -48,7 +48,9 @@ On Linux, or with "Open the editor inside the game" turned off in the client con
 ### Sheets, folders and sub-sheets
 
 A network has any number of **sheets**, each a flow chart. Sheets can sit in folders, and each sheet and folder can
-be switched off, given a run interval and a priority, or gated on redstone. A sheet marked as a **sub-sheet** can be
+be switched off, given a run interval and a priority, or gated on redstone. A network or sheet that redstone switches
+off moves nothing, but its signal logic keeps running, so a condition that reads a signal it sends itself (a sensor
+watching a battery, say) can switch it back on. A sheet marked as a **sub-sheet** can be
 used as a single node in other sheets, with **Sheet input** and **Sheet output** nodes as its pins.
 
 Copy a sheet as JSON and import it into this world or another. Devices are matched by position; ones that don't
@@ -58,7 +60,7 @@ exist show as offline until you pick local ones for them.
 
 | Node | |
 |---|---|
-| **Device** | A machine. Its inputs are fed and its outputs are emptied, per resource and per face. Redstone and ME are pins too: read a device's redstone, drive it, or link it to AE2. |
+| **Device** | A machine. Its inputs are fed and its outputs are emptied, per resource and per face. Redstone and ME are pins too: read a device's redstone, drive it, or link it to AE2. **Prune unwired** removes the inputs and outputs nothing is wired to. |
 | **Filter** | Sends matches one way and the rest the other way. |
 | **Rate limit** | Caps how much passes per tick or per second. |
 | **Splitter** | Shares between its outputs: round robin, in order, by weight, or nearest first. |
@@ -128,7 +130,8 @@ can power itself back up.
 
 Lost a machine? Press **ID** next to any device, face or connector — in the editor or in game — or right-click it with
 the tool in Identify mode. It is outlined in color through walls, with a beam when it is far away, and listed on
-screen until you turn it off.
+screen until you turn it off. The editor's **Identified** panel lists everything lit up; click an entry's color to
+change it.
 
 ## Look-at info
 
