@@ -38,9 +38,20 @@
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submit(e);
   }
 
-  /** A click on the backdrop (the dialog element itself, outside its box) cancels. */
+  /** Whether the current press began on the backdrop (the dialog element itself, outside its box). */
+  let pressedBackdrop = false;
+
+  function onpointerdown(e: PointerEvent) {
+    pressedBackdrop = e.target === element;
+  }
+
+  /**
+   * A click on the backdrop cancels, but only when the press began there too: a drag that starts inside (resizing the
+   * text box, selecting text) and ends outside is also reported as a click on the dialog element.
+   */
   function onclick(e: MouseEvent) {
-    if (e.target === element) cancelDialog();
+    if (pressedBackdrop && e.target === element) cancelDialog();
+    pressedBackdrop = false;
   }
 </script>
 
@@ -50,6 +61,7 @@
   class="m-auto w-[min(440px,calc(100vw-32px))] rounded-lg border p-0"
   style="background: var(--panel); color: var(--ink); border-color: var(--line); box-shadow: 0 12px 40px rgb(0 0 0 / 0.35)"
   oncancel={(e) => (e.preventDefault(), cancelDialog())}
+  {onpointerdown}
   {onclick}
 >
   {#if open}
