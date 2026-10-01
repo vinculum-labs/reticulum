@@ -46,14 +46,17 @@ public class ModBlockStates extends BlockStateProvider {
     private void linked(LinkedBlock block, String core, Map<Link, String> parts) {
         MultiPartBlockStateBuilder builder = getMultipartBuilder(block);
         builder.part().modelFile(existing(core)).addModel().end();
-        for (Map.Entry<Direction, EnumProperty<Link>> side : block.linkProperties().entrySet()) {
-            // In Link order, so the generated file comes out the same every run (Map.of has no fixed order).
+        // Sides and parts in enum order, so the generated file comes out the same every run (the maps have no fixed order).
+        for (Direction side : Direction.values()) {
+            EnumProperty<Link> property = block.linkProperties().get(side);
+            if (property == null) {
+                continue;
+            }
             for (Link link : Link.values()) {
                 String model = parts.get(link);
                 if (model != null) {
-                    builder.part().modelFile(existing(model))
-                            .rotationX(rotationX(side.getKey())).rotationY(rotationY(side.getKey())).addModel()
-                            .condition(side.getValue(), link).end();
+                    builder.part().modelFile(existing(model)).rotationX(rotationX(side)).rotationY(rotationY(side)).addModel()
+                            .condition(property, link).end();
                 }
             }
         }
