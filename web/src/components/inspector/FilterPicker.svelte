@@ -38,29 +38,31 @@
     onclose: () => void;
   } = $props();
 
-  /** Entries added at a time as the list scrolls (so a huge modpack doesn't build every cell at once). */
-  const PAGE = 400;
-  let shown = $state(PAGE);
-  let sentinel: HTMLDivElement | undefined = $state();
+  /*
+   * The grid is virtual: it is as tall as every match needs from the start, so the scrollbar keeps its size and
+   * place, but only the rows in view (and a few either side) are built, so a huge modpack stays quick.
+   */
+  const CELL = 40;
+  const GAP = 2;
+  const ROW = CELL + GAP;
+  /** The grid's padding (p-1). */
+  const PAD = 4;
+  /** Rows built beyond each edge of the view. */
+  const OVERSCAN = 3;
+  let scroller: HTMLDivElement | undefined = $state();
+  let scrollTop = $state(0);
+  let viewWidth = $state(0);
+  let viewHeight = $state(0);
 
-  // Back to the first page whenever what is listed changes.
+  const columns = $derived(Math.max(1, Math.floor((viewWidth - 2 * PAD + GAP) / ROW)));
+
+  // Back to the top whenever what is listed changes.
   $effect(() => {
     void query;
     void kind;
     void source;
-    shown = PAGE;
-  });
-
-  // More as the end of the list scrolls into view; re-armed after each batch, in case the end is still in view.
-  $effect(() => {
-    const end = sentinel;
-    void shown;
-    if (!end) return;
-    const observer = new IntersectionObserver((seen) => {
-      if (seen.some((s) => s.isIntersecting)) shown += PAGE;
-    }, { rootMargin: "200px" });
-    observer.observe(end);
-    return () => observer.disconnect();
+    if (scroller) scroller.scrollTop = 0;
+    scrollTop = 0;
   });
 
   let catalog = $state<Catalog | null>(null);
@@ -209,7 +211,14 @@
     </div>
 
     <div class="flex min-h-0 flex-1 gap-3">
-      <div class="min-h-0 flex-1 overflow-y-auto rounded border p-1" style="border-color: var(--line); background: var(--panel-2)">
+      <div
+        bind:this={scroller}
+        bind:clientWidth={viewWidth}
+        bind:clientHeight={viewHeight}
+        onscroll={() => (scrollTop = scroller?.scrollTop ?? 0)}
+        class="min-h-0 flex-1 overflow-y-auto rounded border p-1"
+        style="border-color: var(--line); background: var(--panel-2)"
+      >
         {#if failed}
           <p class="p-2 text-sm muted">Couldn't load the list of items from the game.</p>
         {:else if !catalog || (source && !contents)}
@@ -217,33 +226,38 @@
         {:else if matches.length === 0}
           <p class="p-2 text-sm muted">{source ? "Nothing matching in that device." : "Nothing matches."}</p>
         {:else}
-          <div class="grid gap-0.5" style="grid-template-columns: repeat(auto-fill, minmax(40px, 1fr))">
-            {#each matches.slice(0, shown) as entry (entry.id)}
-              <button
-                class="picker-cell relative flex items-center justify-center rounded"
-                class:picked={selected?.id === entry.id}
-                title={`${entry.name}\n${entry.id}\nDouble-click to include; alt-click or right-click to exclude`}
-                onclick={(e) => {
-                  selected = entry;
-                  if (e.altKey) include(itemTerm(entry.id), true);
-                }}
-                ondblclick={() => include(itemTerm(entry.id), false)}
-                oncontextmenu={(e) => {
-                  e.preventDefault();
-                  selected = entry;
-                  include(itemTerm(entry.id), true);
-                }}
-              >
-                <img src={iconUrl(kind, entry.id)} alt="" width="32" height="32" loading="lazy" class="icon" />
-                {#if contents?.has(entry.id)}
-                  <span class="absolute bottom-0 right-0.5 tabular-nums" style="font-size: 9px; text-shadow: 0 0 2px var(--panel)">{formatAmount(contents.get(entry.id) ?? 0, kind)}</span>
-                {/if}
-              </button>
-            {/each}
+          {@const rows = Math.ceil(matches.length / columns)}
+          {@const first = Math.max(0, Math.floor((scrollTop - PAD) / ROW) - OVERSCAN)}
+          {@const last = Math.min(rows, Math.ceil((scrollTop + viewHeight) / ROW) + OVERSCAN)}
+          <div class="relative" style="height: {rows * ROW - GAP}px">
+            <div
+              class="absolute inset-x-0 grid gap-0.5"
+              style="top: {first * ROW}px; grid-template-columns: repeat({columns}, minmax({CELL}px, 1fr))"
+            >
+              {#each matches.slice(first * columns, last * columns) as entry (entry.id)}
+                <button
+                  class="picker-cell relative flex items-center justify-center rounded"
+                  class:picked={selected?.id === entry.id}
+                  title={`${entry.name}\n${entry.id}\nDouble-click to include; alt-click or right-click to exclude`}
+                  onclick={(e) => {
+                    selected = entry;
+                    if (e.altKey) include(itemTerm(entry.id), true);
+                  }}
+                  ondblclick={() => include(itemTerm(entry.id), false)}
+                  oncontextmenu={(e) => {
+                    e.preventDefault();
+                    selected = entry;
+                    include(itemTerm(entry.id), true);
+                  }}
+                >
+                  <img src={iconUrl(kind, entry.id)} alt="" width="32" height="32" loading="lazy" class="icon" />
+                  {#if contents?.has(entry.id)}
+                    <span class="absolute bottom-0 right-0.5 tabular-nums" style="font-size: 9px; text-shadow: 0 0 2px var(--panel)">{formatAmount(contents.get(entry.id) ?? 0, kind)}</span>
+                  {/if}
+                </button>
+              {/each}
+            </div>
           </div>
-          {#if matches.length > shown}
-            <div bind:this={sentinel} class="p-2 text-xs muted">Loading more… ({shown} of {matches.length})</div>
-          {/if}
         {/if}
       </div>
 
