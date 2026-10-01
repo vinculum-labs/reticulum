@@ -483,16 +483,21 @@ public final class Topology {
             if (Objects.equals(old, networkId)) {
                 continue;
             }
-            touch(old);
-            touch(networkId);
-            be.setNetworkId(networkId);
-            if (be instanceof ConnectorBlockEntity connector) {
-                Network oldNetwork = NetworkManager.network(level.getServer(), old);
-                if (oldNetwork != null) {
-                    NetworkManager.removeConnector(level.getServer(), oldNetwork, connector.connectorId());
-                }
-                rescanConnector(level, pos);
+            move(level, pos, be, old, networkId);
+        }
+    }
+
+    /** Puts a block on another network: a connector leaves the old one's records and is scanned into the new one's. */
+    private static void move(ServerLevel level, BlockPos pos, NetworkBlockEntity be, @Nullable UUID from, @Nullable UUID to) {
+        touch(from);
+        touch(to);
+        be.setNetworkId(to);
+        if (be instanceof ConnectorBlockEntity connector) {
+            Network oldNetwork = NetworkManager.network(level.getServer(), from);
+            if (oldNetwork != null) {
+                NetworkManager.removeConnector(level.getServer(), oldNetwork, connector.connectorId());
             }
+            rescanConnector(level, pos);
         }
     }
 
@@ -528,13 +533,7 @@ public final class Topology {
         if (oldNetwork != null && player != null && !Security.canEdit(oldNetwork, player)) {
             return Component.translatable("message.reticulum.no_edit_access");
         }
-        if (oldNetwork != null) {
-            NetworkManager.removeConnector(level.getServer(), oldNetwork, connector.connectorId());
-        }
-        connector.setNetworkId(network.id());
-        rescanConnector(level, pos);
-        touch(old);
-        touch(network.id());
+        move(level, pos, connector, old, network.id());
         refreshAround(level, Set.of(pos));
         return Component.translatable("message.reticulum.bound", network.name());
     }

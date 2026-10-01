@@ -168,18 +168,8 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
     /** Every item, fluid and chemical with its name and tags, for the filter picker. */
     private static void catalog(ChannelHandlerContext ctx, FullHttpRequest request) {
-        FullHttpRequest retained = request.retainedDuplicate();
-        Catalog.build().whenComplete((json, error) -> ctx.executor().execute(() -> {
-            try {
-                if (error != null || json == null) {
-                    respond(ctx, retained, HttpResponseStatus.INTERNAL_SERVER_ERROR, "text/plain", bytes("Catalog failed"));
-                } else {
-                    respond(ctx, retained, HttpResponseStatus.OK, "application/json; charset=utf-8", json);
-                }
-            } finally {
-                retained.release();
-            }
-        }));
+        respondLater(ctx, request, Catalog.build(), "Catalog failed",
+                (retained, json) -> respond(ctx, retained, HttpResponseStatus.OK, "application/json; charset=utf-8", json));
     }
 
     private static void icon(ChannelHandlerContext ctx, FullHttpRequest request, String rest,
@@ -191,13 +181,22 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             respond(ctx, request, HttpResponseStatus.NOT_FOUND, "text/plain", bytes("Not found"));
             return;
         }
+        respondLater(ctx, request, renderer.apply(id), "Icon failed", (retained, png) -> respondCached(ctx, retained, png));
+    }
+
+    /**
+     * Answers once {@code result} is ready (on the game thread, say), back on the connection's own thread; the request
+     * is kept alive until then.
+     */
+    private static void respondLater(ChannelHandlerContext ctx, FullHttpRequest request, java.util.concurrent.CompletableFuture<byte[]> result,
+            String failure, java.util.function.BiConsumer<FullHttpRequest, byte[]> answer) {
         FullHttpRequest retained = request.retainedDuplicate();
-        renderer.apply(id).whenComplete((png, error) -> ctx.executor().execute(() -> {
+        result.whenComplete((body, error) -> ctx.executor().execute(() -> {
             try {
-                if (error != null || png == null) {
-                    respond(ctx, retained, HttpResponseStatus.INTERNAL_SERVER_ERROR, "text/plain", bytes("Icon failed"));
+                if (error != null || body == null) {
+                    respond(ctx, retained, HttpResponseStatus.INTERNAL_SERVER_ERROR, "text/plain", bytes(failure));
                 } else {
-                    respondCached(ctx, retained, png);
+                    answer.accept(retained, body);
                 }
             } finally {
                 retained.release();
