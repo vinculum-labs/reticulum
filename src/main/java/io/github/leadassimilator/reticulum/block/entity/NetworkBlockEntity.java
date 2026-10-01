@@ -77,6 +77,9 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    /** Loaded from data saved at another position (a copy), so it gets ids of its own. */
+    protected boolean copied;
+
     public boolean isRegistered() {
         return registered;
     }
@@ -143,7 +146,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         if (level != null && level.isClientSide) {
             requestModelDataUpdate();
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL_IMMEDIATE);
-            io.github.leadassimilator.reticulum.client.FacadeXray.track(worldPosition, facade != null);
+            io.github.leadassimilator.reticulum.client.FacadeXray.track(net.minecraft.core.GlobalPos.of(level.dimension(), worldPosition), facade != null);
         }
     }
 
@@ -151,7 +154,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     public void setRemoved() {
         super.setRemoved();
         if (level != null && level.isClientSide) {
-            io.github.leadassimilator.reticulum.client.FacadeXray.track(worldPosition, false);
+            io.github.leadassimilator.reticulum.client.FacadeXray.track(net.minecraft.core.GlobalPos.of(level.dimension(), worldPosition), false);
         }
     }
 
@@ -175,7 +178,14 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         networkId = tag.hasUUID("network") ? tag.getUUID("network") : null;
         manualDisconnects = tag.getByte("disconnected");
         autoDisconnects = tag.getByte("auto_disconnected");
-        registered = tag.getBoolean("registered");
+        // Registered where it was saved; data copied somewhere else (ctrl+pick-block, /clone, a structure) is a new
+        // block there: it joins whatever it is placed against, rather than claiming the original's network and ids.
+        boolean wasRegistered = tag.getBoolean("registered");
+        registered = wasRegistered && (!tag.contains("registered_at") || tag.getLong("registered_at") == worldPosition.asLong());
+        copied = wasRegistered && !registered;
+        if (copied) {
+            networkId = null;
+        }
         readFacade(tag, registries);
     }
 
@@ -188,6 +198,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         tag.putByte("disconnected", (byte) manualDisconnects);
         tag.putByte("auto_disconnected", (byte) autoDisconnects);
         tag.putBoolean("registered", registered);
+        tag.putLong("registered_at", worldPosition.asLong());
         if (facade != null) {
             tag.put("facade", NbtUtils.writeBlockState(facade));
         }

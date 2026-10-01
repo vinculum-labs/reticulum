@@ -18,7 +18,7 @@ public final class ModBlocks {
     public static final DeferredBlock<ConnectorBlock> CONNECTOR = BLOCKS.register("connector", () -> new ConnectorBlock(
             BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.0f).sound(SoundType.METAL).noOcclusion()));
     public static final DeferredBlock<ControllerBlock> CONTROLLER = BLOCKS.register("controller", () -> new ControllerBlock(
-            BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+            BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL)));
 
     private ModBlocks() {
     }

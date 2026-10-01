@@ -16,7 +16,8 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 /**
  * Cables and connectors have a full-block hitbox but render much smaller, so the face the crosshair hits is often
  * not the face the player sees. When a block is placed against one (sneak + right-click), this places it on the side the player is
- * actually aiming at (the same side the outline shows). Runs on both sides so the client prediction matches.
+ * actually aiming at (the same side the outline shows). Runs on both sides so the client prediction matches, and last,
+ * so a claim mod that refuses the click has already cancelled it.
  */
 public final class PlacementRedirect {
     private PlacementRedirect() {
@@ -41,7 +42,9 @@ public final class PlacementRedirect {
         }
         Vec3 onFace = Vec3.atCenterOf(pos).add(Vec3.atLowerCornerOf(side.getNormal()).scale(0.5));
         BlockHitResult hit = new BlockHitResult(onFace, side, pos, false);
-        InteractionResult result = blockItem.useOn(new UseOnContext(player, event.getHand(), hit));
+        // Through the stack, not the item: that is where adventure mode's can_place_on and NeoForge's placement event
+        // (which claim mods use) apply.
+        InteractionResult result = stack.useOn(new UseOnContext(player, event.getHand(), hit));
         event.setCanceled(true);
         event.setCancellationResult(result);
     }

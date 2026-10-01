@@ -29,6 +29,7 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.no_access", "You don't have access to %s");
         add("message.reticulum.no_edit_access", "You don't have edit access to this network");
         add("message.reticulum.no_admin_access", "Only the network's admins can do that");
+        add("tooltip.reticulum.stored_energy", "Holds %s FE");
         add("message.reticulum.member_is_owner", "%s owns the network");
         add("message.reticulum.too_many_members", "A network can have at most %s members");
         add("message.reticulum.password_empty", "The password can't be empty");

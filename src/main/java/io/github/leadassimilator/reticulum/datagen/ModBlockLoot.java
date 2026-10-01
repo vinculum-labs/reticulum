@@ -24,13 +24,15 @@ public class ModBlockLoot extends BlockLootSubProvider {
     protected void generate() {
         dropSelf(ModBlocks.CABLE.get());
         dropSelf(ModBlocks.CONNECTOR.get());
-        // The controller item keeps its network and its antenna, so placing it again brings back the whole design.
-        add(ModBlocks.CONTROLLER.get(), LootTable.lootTable().withPool(applyExplosionCondition(ModBlocks.CONTROLLER.get(),
-                LootPool.lootPool().setRolls(ConstantValue.exactly(1))
-                        .add(LootItem.lootTableItem(ModBlocks.CONTROLLER.get())
-                                .apply(CopyComponentsFunction.copyComponents(CopyComponentsFunction.Source.BLOCK_ENTITY)
-                                        .include(ModDataComponents.NETWORK_ID.get())
-                                        .include(ModDataComponents.ANTENNA_TIER.get()))))));
+        // The controller item keeps its network, its antenna and its charge, so placing it again brings back the whole
+        // design. It always drops (by hand, in an explosion): an antenna is too dear to lose to a missing pickaxe.
+        add(ModBlocks.CONTROLLER.get(), LootTable.lootTable().withPool(LootPool.lootPool().setRolls(ConstantValue.exactly(1))
+                .add(LootItem.lootTableItem(ModBlocks.CONTROLLER.get())
+                        .apply(CopyComponentsFunction.copyComponents(CopyComponentsFunction.Source.BLOCK_ENTITY)
+                                .include(ModDataComponents.NETWORK_ID.get())
+                                .include(ModDataComponents.NETWORK_NAME.get())
+                                .include(ModDataComponents.ANTENNA_TIER.get())
+                                .include(ModDataComponents.STORED_ENERGY.get())))));
     }
 
     @Override

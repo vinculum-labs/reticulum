@@ -26,6 +26,10 @@ public final class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> ANTENNA_TIER = COMPONENTS.registerComponentType("antenna_tier",
             b -> b.persistent(Codec.intRange(1, 3)).networkSynchronized(ByteBufCodecs.VAR_INT));
 
+    /** FE a controller item holds, so breaking a controller doesn't lose what it had stored. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Long>> STORED_ENERGY = COMPONENTS.registerComponentType("stored_energy",
+            b -> b.persistent(Codec.LONG).networkSynchronized(ByteBufCodecs.VAR_LONG));
+
     /** The name of the network in {@link #NETWORK_ID}, for tooltips (the client has no network list). */
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<String>> NETWORK_NAME = COMPONENTS.registerComponentType("network_name",
             b -> b.persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8));

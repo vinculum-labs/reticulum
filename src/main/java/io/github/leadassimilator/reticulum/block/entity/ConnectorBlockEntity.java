@@ -115,7 +115,7 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        if (tag.hasUUID("connector")) {
+        if (tag.hasUUID("connector") && !copied) {
             connectorId = tag.getUUID("connector");
         }
         disabledDevices = tag.getByte("disabled_devices");

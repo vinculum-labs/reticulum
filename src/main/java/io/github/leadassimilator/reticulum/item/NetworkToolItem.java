@@ -102,7 +102,7 @@ public class NetworkToolItem extends Item {
             if (mode(context.getItemInHand()) == ToolMode.LINK) {
                 link(level, player, context.getClickedPos(), context.getItemInHand());
             } else if (player.isShiftKeyDown() && LinkedBlock.removeFacade(level, context.getClickedPos(), player)) {
-                player.displayClientMessage(Component.translatable("message.reticulum.facade_removed"), true);
+                // Taken off, or refused; either way the click is done.
             } else if (player.isShiftKeyDown() && level.getBlockEntity(context.getClickedPos()) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) {
                 io.github.leadassimilator.reticulum.block.ControllerBlock.removeAntenna(player, level, context.getClickedPos());
             } else {

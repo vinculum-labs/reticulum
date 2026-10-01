@@ -139,7 +139,8 @@ final class Signals {
     /** The signal a block receives from its neighbors. */
     static int received(MinecraftServer server, GlobalPos at) {
         ServerLevel level = server.getLevel(at.dimension());
-        return level != null && level.isLoaded(at.pos()) ? level.getBestNeighborSignal(at.pos()) : 0;
+        // The neighbors' chunks too: reading a block in an unloaded chunk would load it.
+        return level != null && level.isAreaLoaded(at.pos(), 1) ? level.getBestNeighborSignal(at.pos()) : 0;
     }
 
     /**
@@ -428,7 +429,7 @@ final class Signals {
                     changed |= be.setPower(side, 0);
                 }
             }
-            if (changed) {
+            if (changed && level.isAreaLoaded(connector.pos().pos(), 1)) {
                 level.updateNeighborsAt(connector.pos().pos(), be.getBlockState().getBlock());
             }
             for (Direction side : Direction.values()) {

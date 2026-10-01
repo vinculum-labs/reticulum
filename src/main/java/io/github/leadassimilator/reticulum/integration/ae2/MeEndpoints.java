@@ -99,24 +99,10 @@ public final class MeEndpoints implements IInWorldGridNodeHost, MeLinker.Ports {
         appeng.api.networking.IGridConnection cable = node.getInWorldConnections().get(side);
         IGridNode neighbor = cable == null ? null : cable.getOtherSide(node);
         IGridNode tightest = neighbor != null && neighbor.getMaxChannels() > 0 ? neighbor : null;
-        IGridNode current = node;
-        for (int steps = 0; current != null && steps < 4096; steps++) {
-            IGridNode parent = null;
-            for (appeng.api.networking.IGridConnection connection : current.getConnections()) {
-                IGridNode other = connection.getOtherSide(current);
-                if (connection instanceof appeng.me.GridConnection gc && gc.getControllerRoute() == other) {
-                    parent = other;
-                    break;
-                }
-            }
-            if (parent == null) {
-                // current is the controller (or the route ends): it isn't a cable with a limit to report.
-                break;
-            }
-            if (current.getMaxChannels() > 0 && (tightest == null || room(current) < room(tightest))) {
-                tightest = current;
-            }
-            current = parent;
+        try {
+            tightest = tightestOnRoute(node, tightest);
+        } catch (LinkageError changedInternals) {
+            // The route comes from AE2 internals (not its API); if a version renames them, the cable here is all we know.
         }
         if (tightest == null) {
             tightest = node;
@@ -135,6 +121,31 @@ public final class MeEndpoints implements IInWorldGridNodeHost, MeLinker.Ports {
             }
         }
         return out;
+    }
+
+    /** The node with the least room left on AE2's own route from {@code start} to the controller (or {@code tightest}). */
+    @Nullable
+    private static IGridNode tightestOnRoute(IGridNode start, @Nullable IGridNode tightest) {
+        IGridNode current = start;
+        for (int steps = 0; current != null && steps < 4096; steps++) {
+            IGridNode parent = null;
+            for (appeng.api.networking.IGridConnection connection : current.getConnections()) {
+                IGridNode other = connection.getOtherSide(current);
+                if (connection instanceof appeng.me.GridConnection gc && gc.getControllerRoute() == other) {
+                    parent = other;
+                    break;
+                }
+            }
+            if (parent == null) {
+                // current is the controller (or the route ends): it isn't a cable with a limit to report.
+                break;
+            }
+            if (current.getMaxChannels() > 0 && (tightest == null || room(current) < room(tightest))) {
+                tightest = current;
+            }
+            current = parent;
+        }
+        return tightest;
     }
 
     private static int room(IGridNode node) {

@@ -64,6 +64,9 @@ public abstract class LinkedBlock extends NetworkBlock {
         if (!(level.getBlockEntity(pos) instanceof NetworkBlockEntity be) || facade.equals(be.facade())) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
+        if (!level.isClientSide && !mayChangeFacade(level, pos, player)) {
+            return ItemInteractionResult.CONSUME;
+        }
         if (!level.isClientSide) {
             BlockState old = be.facade();
             be.setFacade(facade);
@@ -78,17 +81,34 @@ public abstract class LinkedBlock extends NetworkBlock {
         return ItemInteractionResult.sidedSuccess(level.isClientSide);
     }
 
-    /** Takes the facade off (the network tool in Configure mode, sneaking); returns whether there was one. */
+    /**
+     * Takes the facade off (the network tool in Configure mode, sneaking), telling the player how it went; returns
+     * whether there was one (so the tool does nothing else).
+     */
     public static boolean removeFacade(Level level, BlockPos pos, Player player) {
         if (!(level.getBlockEntity(pos) instanceof NetworkBlockEntity be) || be.facade() == null) {
             return false;
+        }
+        if (!mayChangeFacade(level, pos, player)) {
+            return true;
         }
         BlockState old = be.facade();
         be.setFacade(null);
         if (!player.getAbilities().instabuild && !player.getInventory().add(FacadeItem.of(old, 1))) {
             player.drop(FacadeItem.of(old, 1), false);
         }
+        player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.facade_removed"), true);
         return true;
+    }
+
+    /** Facades on a network's blocks are its editors' to change (and to take: they are items). */
+    private static boolean mayChangeFacade(Level level, BlockPos pos, Player player) {
+        if (!(level instanceof net.minecraft.server.level.ServerLevel server) || !(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)) {
+            return true;
+        }
+        var network = io.github.leadassimilator.reticulum.topology.Topology.network(server, pos);
+        return network == null
+                || io.github.leadassimilator.reticulum.security.Access.require(serverPlayer, network, io.github.leadassimilator.reticulum.security.Role.EDITOR) != null;
     }
 
     @Override

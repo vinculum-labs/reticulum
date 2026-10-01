@@ -24,9 +24,14 @@ public class ControllerItem extends BlockItem {
         if (antenna != null) {
             tooltip.add(AntennaItem.range(antenna).copy().withStyle(ChatFormatting.GRAY));
         }
+        Long energy = stack.get(ModDataComponents.STORED_ENERGY.get());
+        if (energy != null && energy > 0) {
+            tooltip.add(Component.translatable("tooltip.reticulum.stored_energy", String.format("%,d", energy)).withStyle(ChatFormatting.GRAY));
+        }
         UUID network = stack.get(ModDataComponents.NETWORK_ID.get());
         if (network != null) {
-            tooltip.add(Component.translatable("tooltip.reticulum.remembers_network", network.toString().substring(0, 8))
+            String name = stack.get(ModDataComponents.NETWORK_NAME.get());
+            tooltip.add(Component.translatable("tooltip.reticulum.remembers_network", name != null ? name : network.toString().substring(0, 8))
                     .withStyle(ChatFormatting.GRAY));
         }
     }

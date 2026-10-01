@@ -268,6 +268,41 @@ public final class SafetyTests {
     }
 
     @GameTest(template = "empty")
+    public static void aCopiedConnectorGetsIdsOfItsOwn(GameTestHelper helper) {
+        ServerPlayer owner = player(helper, "owner");
+        Network network = rig(helper, owner);
+        var original = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(new BlockPos(3, 1, 1));
+        var data = original.saveWithFullMetadata(helper.getLevel().registryAccess());
+        // As ctrl+pick-block or /clone would: the same data, somewhere else.
+        BlockPos copyAt = new BlockPos(6, 1, 6);
+        helper.setBlock(copyAt, ModBlocks.CONNECTOR.get());
+        var copy = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(copyAt);
+        copy.loadWithComponents(data, helper.getLevel().registryAccess());
+        check(helper, !copy.isRegistered(), "the copy counts as already registered, so it never joins anything");
+        check(helper, !copy.connectorId().equals(original.connectorId()), "the copy shares the original's connector id");
+        check(helper, Topology.network(helper.getLevel(), helper.absolutePos(copyAt)) == null, "the copy claims the original's network");
+        check(helper, network.connector(original.connectorId()).pos().pos().equals(helper.absolutePos(new BlockPos(3, 1, 1))),
+                "the original's record moved");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aDeviceFlowsUseIsKeptWhenItsBlockGoes(GameTestHelper helper) {
+        ServerPlayer owner = player(helper, "owner");
+        Network network = rig(helper, owner);
+        GlobalPos barrel = Devices.global(helper.getLevel(), helper.absolutePos(new BlockPos(3, 1, 2)));
+        Sheet sheet = new Sheet(UUID.randomUUID(), "uses the barrel");
+        sheet.add(Node.of(new NodeSettings.DeviceSettings(barrel, List.of(), List.of())));
+        network.sheets().add(sheet);
+        helper.setBlock(new BlockPos(3, 1, 2), Blocks.AIR);
+        helper.succeedWhen(() -> {
+            var record = network.device(barrel);
+            check(helper, record != null, "the unnamed barrel's record was dropped although a sheet uses it");
+            check(helper, record.state() != io.github.leadassimilator.reticulum.network.DeviceRecord.State.ACTIVE, "the gone barrel is still active");
+        });
+    }
+
+    @GameTest(template = "empty")
     public static void identifyColorChangeKeepsItOn(GameTestHelper helper) {
         ServerPlayer owner = player(helper, "owner");
         Network network = rig(helper, owner);

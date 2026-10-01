@@ -240,6 +240,7 @@
   "tooltip.reticulum.facade_paint": "Right-click to choose any block for the whole stack; sneak + right-click a block to copy how it looks",
   "tooltip.reticulum.linked_to": "Network: %s",
   "tooltip.reticulum.remembers_network": "Remembers network %s",
+  "tooltip.reticulum.stored_energy": "Holds %s FE",
   "tooltip.reticulum.tool_configure": "Right-click a joint to connect or disconnect it, or a device side to attach or detach it. Sneak + right-click takes off a facade, or a controller's antenna",
   "tooltip.reticulum.tool_identify": "Right-click a connector or device to light it up (or off); sneak + right-click lights one face of a device",
   "tooltip.reticulum.tool_link": "Sneak + right-click a controller or connector to copy its network; right-click a connector to bind it; right-click the air to pick a network (or unlink the tool)",

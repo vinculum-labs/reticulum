@@ -24,8 +24,10 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * Built-in look-at info for players without Jade or The One Probe: while holding the network tool, a few lines
- * under the crosshair describe the network block or device being looked at.
+ * Built-in look-at info: while holding the network tool, a few lines under the crosshair describe the network block
+ * or device being looked at. With The One Probe it stays off (the probe shows the lines for every block). With Jade it
+ * steps aside only for blocks Jade has just shown the lines for: Jade gets them only for blocks with a block entity,
+ * and only from a server that has Jade too.
  */
 public final class LookHud {
     private static final int REFRESH_TICKS = 10;
@@ -39,13 +41,18 @@ public final class LookHud {
     private static BlockPos shownPos;
     private static List<Component> lines = List.of();
     private static Boolean enabled;
+    /** The block Jade last showed our lines for, and when (client ticks). */
+    @Nullable
+    private static BlockPos coveredPos;
+    private static long coveredAt;
+    private static long clientTicks;
 
     private LookHud() {
     }
 
     private static boolean enabled() {
         if (enabled == null) {
-            enabled = !ModList.get().isLoaded("jade") && !ModList.get().isLoaded(TopIntegration.MODID);
+            enabled = !ModList.get().isLoaded(TopIntegration.MODID);
         }
         return enabled;
     }
@@ -54,12 +61,19 @@ public final class LookHud {
         event.registerAbove(VanillaGuiLayers.CROSSHAIR, ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "look_at"), LookHud::render);
     }
 
+    /** Jade showed our lines for this block (called while it draws its tooltip). */
+    public static void coveredByJade(BlockPos pos) {
+        coveredPos = pos.immutable();
+        coveredAt = clientTicks;
+    }
+
     public static void accept(BlockPos pos, List<Component> newLines) {
         shownPos = pos;
         lines = List.copyOf(newLines);
     }
 
     public static void onClientTick(ClientTickEvent.Post event) {
+        clientTicks++;
         Minecraft mc = Minecraft.getInstance();
         BlockHitResult target = target(mc);
         if (target == null) {
@@ -91,6 +105,9 @@ public final class LookHud {
         Minecraft mc = Minecraft.getInstance();
         BlockHitResult target = target(mc);
         if (target == null || !target.getBlockPos().equals(shownPos) || lines.isEmpty() || mc.options.hideGui) {
+            return;
+        }
+        if (target.getBlockPos().equals(coveredPos) && clientTicks - coveredAt <= 5) {
             return;
         }
         int y = graphics.guiHeight() / 2 + 12;

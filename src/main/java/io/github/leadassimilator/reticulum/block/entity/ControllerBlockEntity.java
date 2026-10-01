@@ -132,6 +132,7 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         itemNetworkId = input.get(ModDataComponents.NETWORK_ID.get());
         // Only the field: the block state already has the tier (set as it was placed).
         antennaTier = input.getOrDefault(ModDataComponents.ANTENNA_TIER.get(), 0);
+        energy = Math.max(0, input.getOrDefault(ModDataComponents.STORED_ENERGY.get(), 0L));
     }
 
     @Override
@@ -142,6 +143,15 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         }
         if (antennaTier > 0) {
             components.set(ModDataComponents.ANTENNA_TIER.get(), antennaTier);
+        }
+        if (energy > 0) {
+            components.set(ModDataComponents.STORED_ENERGY.get(), energy);
+        }
+        if (level instanceof net.minecraft.server.level.ServerLevel server && networkId() != null) {
+            var network = io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId());
+            if (network != null) {
+                components.set(ModDataComponents.NETWORK_NAME.get(), network.name());
+            }
         }
     }
 }

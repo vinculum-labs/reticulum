@@ -77,13 +77,18 @@ final class WebView2Host {
     private static boolean loaded;
     private static int[] bounds = {0, 0, 1, 1};
 
-    // COM callback objects, kept reachable for as long as native code may call them.
-    @SuppressWarnings("unused")
-    private static ComHandler environmentHandler;
-    @SuppressWarnings("unused")
-    private static ComHandler controllerHandler;
-    @SuppressWarnings("unused")
-    private static ComHandler navigationHandler;
+    /**
+     * COM callback objects. WebView2 may call one after the editor was closed (a world left while it was still
+     * starting), so none is ever let go: their memory must outlive any call. There are a handful per session.
+     */
+    private static final java.util.List<ComHandler> HANDLERS = new java.util.ArrayList<>();
+    /** Bumped by every create and close; a callback from an earlier one releases what it was given and does nothing. */
+    private static int generation;
+
+    private static ComHandler keep(ComHandler handler) {
+        HANDLERS.add(handler);
+        return handler;
+    }
 
     private WebView2Host() {
     }
@@ -110,12 +115,7 @@ final class WebView2Host {
         visible = true;
         bounds = new int[] {x, y, x + Math.max(1, width), y + Math.max(1, height)};
         switch (state) {
-            case NONE -> {
-                create();
-                if (state == State.FAILED) {
-                    Minecraft.getInstance().execute(EditorScreen::fallBackToBrowser);
-                }
-            }
+            case NONE -> create();
             case READY -> apply();
             default -> {
             }
@@ -145,23 +145,36 @@ final class WebView2Host {
         }
     }
 
-    /** Closes the browser for good (leaving the world, or the game closing). */
+    /** Closes the browser for good (leaving the world, or the game closing), releasing what WebView2 handed out. */
     static void close() {
+        generation++;
         if (state == State.READY) {
             call(controller, CTL_CLOSE);
         }
+        release(webview);
+        release(controller);
+        release(environment);
         controller = null;
         webview = null;
         environment = null;
+        pendingUrl = null;
         state = State.NONE;
         visible = false;
         loaded = false;
+    }
+
+    private static void release(@Nullable Pointer object) {
+        if (object != null) {
+            // IUnknown::Release
+            call(object, 2);
+        }
     }
 
     // ---------------------------------------------------------------- creation
 
     private static void create() {
         state = State.CREATING;
+        int created = ++generation;
         try {
             int hr = Ole32.INSTANCE.CoInitializeEx(null, Ole32.COINIT_APARTMENTTHREADED).intValue();
             if (hr < 0 && hr != RPC_E_CHANGED_MODE) {
@@ -173,23 +186,34 @@ final class WebView2Host {
             Path gameDir = Minecraft.getInstance().gameDirectory.toPath().toAbsolutePath().normalize().resolve("reticulum");
             Path profile = Files.createDirectories(gameDir.resolve("webview2-profile"));
             NativeLibrary loader = NativeLibrary.getInstance(extractLoader(gameDir.resolve("webview2")).toString());
-            environmentHandler = new ComHandler((Completed) (self, result, created) -> {
-                if (result < 0 || created == null) {
+            ComHandler environmentHandler = keep(new ComHandler((Completed) (self, result, made) -> {
+                if (created != generation) {
+                    // Closed (or started again) meanwhile: what this call made isn't wanted.
+                    return S_OK;
+                }
+                if (result < 0 || made == null) {
                     fail("creating the WebView2 environment", result);
                     return S_OK;
                 }
-                addRef(created);
-                environment = created;
-                controllerHandler = new ComHandler((Completed) (self2, result2, made) -> {
-                    onController(result2, made);
+                addRef(made);
+                environment = made;
+                ComHandler controllerHandler = keep(new ComHandler((Completed) (self2, result2, controllerMade) -> {
+                    if (created != generation) {
+                        if (controllerMade != null) {
+                            // A controller nobody will show: close it rather than leave its browser process running.
+                            call(controllerMade, CTL_CLOSE);
+                        }
+                        return S_OK;
+                    }
+                    onController(result2, controllerMade);
                     return S_OK;
-                });
+                }));
                 int r = call(environment, ENV_CREATE_CONTROLLER, gameWindow().getPointer(), controllerHandler.pointer());
                 if (r < 0) {
                     fail("creating the WebView2 controller", r);
                 }
                 return S_OK;
-            });
+            }));
             Function createEnvironment = loader.getFunction("CreateCoreWebView2EnvironmentWithOptions");
             // The profile (cookies, so the editor stays logged in) lives in the game folder, not beside javaw.exe.
             int r = createEnvironment.invokeInt(new Object[] {null, new WString(profile.toString()), null,
@@ -199,7 +223,7 @@ final class WebView2Host {
             }
         } catch (RuntimeException | Error | IOException e) {
             Reticulum.LOGGER.warn("The in-game editor isn't available; using the browser instead", e);
-            state = State.FAILED;
+            fail();
         }
     }
 
@@ -214,13 +238,13 @@ final class WebView2Host {
         PointerByReference core = new PointerByReference();
         call(controller, CTL_GET_CORE_WEBVIEW2, core);
         webview = core.getValue();
-        navigationHandler = new ComHandler((Event) (self, sender, args) -> {
-            if (!loaded) {
+        ComHandler navigationHandler = keep(new ComHandler((Event) (self, sender, args) -> {
+            if (!loaded && state == State.READY) {
                 loaded = true;
                 apply();
             }
             return S_OK;
-        });
+        }));
         call(webview, WV_ADD_NAVIGATION_COMPLETED, navigationHandler.pointer(), new Memory(8));
         state = State.READY;
         apply();
@@ -272,6 +296,14 @@ final class WebView2Host {
 
     private static void fail(String what, int hresult) {
         Reticulum.LOGGER.warn("In-game editor: {} failed (0x{}); using the browser instead", what, Integer.toHexString(hresult));
+        fail();
+    }
+
+    /** Gives up on WebView2 for this session; the editor opens in the browser, once (however the failure arrived). */
+    private static void fail() {
+        if (state == State.FAILED) {
+            return;
+        }
         state = State.FAILED;
         if (visible) {
             Minecraft.getInstance().execute(EditorScreen::fallBackToBrowser);

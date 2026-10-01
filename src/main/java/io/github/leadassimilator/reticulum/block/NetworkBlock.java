@@ -73,6 +73,18 @@ public abstract class NetworkBlock extends BaseEntityBlock {
         }
     }
 
+    /**
+     * Placed any way at all (/setblock, /clone, a structure): joins the network on the next tick. Placed by a player,
+     * {@link #setPlacedBy} has already done so and the tick finds nothing to do.
+     */
+    @Override
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+        super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (!level.isClientSide && !oldState.is(state.getBlock())) {
+            level.scheduleTick(pos, this, 1);
+        }
+    }
+
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         Topology.onPlaced(level, pos, null, null);
