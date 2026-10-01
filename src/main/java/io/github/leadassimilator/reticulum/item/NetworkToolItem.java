@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import io.github.leadassimilator.reticulum.security.Role;
+import io.github.leadassimilator.reticulum.security.Access;
 import io.github.leadassimilator.reticulum.block.ConnectorBlock;
 import io.github.leadassimilator.reticulum.block.LinkedBlock;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
@@ -119,10 +121,8 @@ public class NetworkToolItem extends Item {
             return;
         }
         if (Topology.blockEntity(level, pos) instanceof ConnectorBlockEntity connector) {
-            Network network = Topology.network(level, pos);
-            if (network == null || !Security.canUse(network, player)) {
-                player.displayClientMessage(Component.translatable(network == null ? "message.reticulum.no_network" : "message.reticulum.no_access",
-                        network == null ? "" : network.name()), true);
+            Network network = Access.require(player, Topology.network(level, pos), Role.USER);
+            if (network == null) {
                 return;
             }
             boolean on = Identifies.toggle(level.getServer(), network, Identify.connector(connector.connectorId(), 0));
@@ -213,10 +213,8 @@ public class NetworkToolItem extends Item {
             return;
         }
         if (player.isShiftKeyDown()) {
-            Network network = Topology.network(level, pos);
-            if (network == null || !Security.canView(network, player)) {
-                player.displayClientMessage(Component.translatable(network == null ? "message.reticulum.no_network" : "message.reticulum.no_access",
-                        network == null ? "" : network.name()), true);
+            Network network = Access.require(player, Topology.network(level, pos), Role.VIEWER);
+            if (network == null) {
                 return;
             }
             Linking.link(tool, network);

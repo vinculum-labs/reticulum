@@ -14,6 +14,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 
+import io.github.leadassimilator.reticulum.security.NetworkAdmin;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.security.AccessMode;
@@ -99,11 +100,11 @@ public final class ReticulumCommand {
             ctx.getSource().sendSuccess(() -> Component.translatable("command.reticulum.already_member", network.name()), false);
             return 1;
         }
-        String hash = network.passwordHash();
-        if (network.accessMode() != AccessMode.PASSWORD || hash == null || !Passwords.guess(player.getUUID(), StringArgumentType.getString(ctx, "password"), hash)) {
-            throw NO_ACCESS.create();
+        try {
+            NetworkAdmin.join(network, player.getUUID(), player.getGameProfile().getName(), StringArgumentType.getString(ctx, "password"));
+        } catch (NetworkAdmin.Refused e) {
+            throw new SimpleCommandExceptionType(e.message()).create();
         }
-        network.members().put(player.getUUID(), new Member(player.getUUID(), player.getGameProfile().getName(), Role.USER));
         NetworkManager.changed(ctx.getSource().getServer(), network);
         ctx.getSource().sendSuccess(() -> Component.translatable("command.reticulum.joined", network.name()), false);
         return 1;
@@ -146,16 +147,18 @@ public final class ReticulumCommand {
         Network network = adminNetwork(ctx);
         Role role;
         try {
-            role = Role.valueOf(StringArgumentType.getString(ctx, "role").toUpperCase(Locale.ROOT));
+            role = Role.CODEC.parse(com.mojang.serialization.JavaOps.INSTANCE, StringArgumentType.getString(ctx, "role").toLowerCase(Locale.ROOT))
+                    .getOrThrow(IllegalArgumentException::new);
         } catch (IllegalArgumentException e) {
-            throw new SimpleCommandExceptionType(Component.translatable("command.reticulum.unknown_role")).create();
-        }
-        if (role == Role.OWNER) {
             throw new SimpleCommandExceptionType(Component.translatable("command.reticulum.unknown_role")).create();
         }
         int count = 0;
         for (GameProfile profile : GameProfileArgument.getGameProfiles(ctx, "player")) {
-            network.members().put(profile.getId(), new Member(profile.getId(), profile.getName(), role));
+            try {
+                NetworkAdmin.setMember(network, profile, role);
+            } catch (NetworkAdmin.Refused e) {
+                throw new SimpleCommandExceptionType(e.message()).create();
+            }
             count++;
         }
         NetworkManager.changed(ctx.getSource().getServer(), network);

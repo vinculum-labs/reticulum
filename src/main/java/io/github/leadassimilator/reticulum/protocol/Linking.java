@@ -5,6 +5,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
+import io.github.leadassimilator.reticulum.security.NetworkAdmin;
+import io.github.leadassimilator.reticulum.security.Access;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
@@ -72,12 +74,12 @@ public final class Linking {
             return;
         }
         if (!Security.canUse(network, player)) {
-            String hash = network.passwordHash();
-            if (network.accessMode() != AccessMode.PASSWORD || hash == null || !Passwords.guess(player.getUUID(), payload.password(), hash)) {
-                player.displayClientMessage(Component.translatable("message.reticulum.wrong_password", network.name()), true);
+            try {
+                NetworkAdmin.join(network, player.getUUID(), player.getGameProfile().getName(), payload.password());
+            } catch (NetworkAdmin.Refused e) {
+                player.displayClientMessage(e.message(), true);
                 return;
             }
-            network.members().put(player.getUUID(), new Member(player.getUUID(), player.getGameProfile().getName(), Role.USER));
             NetworkManager.changed(player.server, network);
             player.displayClientMessage(Component.translatable("command.reticulum.joined", network.name()), false);
         }
@@ -123,9 +125,7 @@ public final class Linking {
     }
 
     private static boolean canReachConnector(ServerPlayer player, BlockPos pos) {
-        double max = ReticulumConfig.MAX_INTERACT_DISTANCE.getAsInt();
-        return player.position().distanceToSqr(Vec3.atCenterOf(pos)) <= max * max
-                && player.serverLevel().getBlockEntity(pos) instanceof ConnectorBlockEntity;
+        return Access.reach(player, pos) instanceof ConnectorBlockEntity;
     }
 
     /** For the connector screen: whether the player may pick a network for it (no cable decides it). */

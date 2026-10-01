@@ -2,6 +2,9 @@ package io.github.leadassimilator.reticulum.block;
 
 import com.mojang.serialization.MapCodec;
 
+import io.github.leadassimilator.reticulum.topology.Topology;
+import io.github.leadassimilator.reticulum.security.Role;
+import io.github.leadassimilator.reticulum.security.Access;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.item.AntennaItem;
 import io.github.leadassimilator.reticulum.item.ConnectorItem;
@@ -99,9 +102,8 @@ public class ControllerBlock extends NetworkBlock {
         if (!(level.getBlockEntity(pos) instanceof ControllerBlockEntity controller)) {
             return;
         }
-        Network network = NetworkManager.network(player.server, controller.networkId());
-        if (network != null && !Security.canEdit(network, player)) {
-            player.displayClientMessage(Component.translatable("message.reticulum.no_edit_access"), true);
+        Network network = Topology.network((net.minecraft.server.level.ServerLevel) level, pos);
+        if (network != null && Access.require(player, network, Role.EDITOR) == null) {
             return;
         }
         if (controller.antennaTier() == antenna.tier()) {
@@ -129,9 +131,8 @@ public class ControllerBlock extends NetworkBlock {
             player.displayClientMessage(Component.translatable("message.reticulum.antenna_none_installed"), true);
             return;
         }
-        Network network = NetworkManager.network(player.server, controller.networkId());
-        if (network != null && !Security.canEdit(network, player)) {
-            player.displayClientMessage(Component.translatable("message.reticulum.no_edit_access"), true);
+        Network network = Topology.network((net.minecraft.server.level.ServerLevel) level, pos);
+        if (network != null && Access.require(player, network, Role.EDITOR) == null) {
             return;
         }
         ItemStack old = ModItems.antenna(controller.antennaTier());
@@ -150,9 +151,8 @@ public class ControllerBlock extends NetworkBlock {
         if (!(level.getBlockEntity(pos) instanceof ControllerBlockEntity controller)) {
             return;
         }
-        Network network = NetworkManager.network(player.server, controller.networkId());
-        if (network == null || !Security.canUse(network, player)) {
-            player.displayClientMessage(Component.translatable("message.reticulum.no_access", network == null ? "?" : network.name()), true);
+        Network network = Access.require(player, Topology.network((net.minecraft.server.level.ServerLevel) level, pos), Role.USER);
+        if (network == null) {
             return;
         }
         stack.set(ModDataComponents.NETWORK_ID.get(), network.id());

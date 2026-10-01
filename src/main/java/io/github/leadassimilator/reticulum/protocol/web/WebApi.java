@@ -17,6 +17,7 @@ import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Codec;
 
+import io.github.leadassimilator.reticulum.security.NetworkAdmin;
 import io.github.leadassimilator.reticulum.engine.Metrics;
 import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
@@ -339,33 +340,18 @@ public final class WebApi {
                 case "setAccess" -> {
                     admin(network, player);
                     AccessMode mode = decode(server, AccessMode.CODEC, edit.get("mode"), "mode");
-                    if (mode == AccessMode.PASSWORD && network.passwordHash() == null) {
-                        throw new RequestException("Set a password before choosing password access");
-                    }
-                    network.setAccessMode(mode);
+                    admin(() -> NetworkAdmin.setAccess(network, mode));
                 }
                 case "setPassword" -> {
                     admin(network, player);
                     String password = string(edit, "password");
-                    if (password.isEmpty()) {
-                        throw new RequestException("The password can't be empty");
-                    }
-                    network.setPasswordHash(Passwords.hash(password));
+                    admin(() -> NetworkAdmin.setPassword(network, password));
                 }
                 case "setMember" -> {
                     admin(network, player);
                     Role role = decode(server, Role.CODEC, edit.get("role"), "role");
-                    if (role == Role.OWNER) {
-                        throw new RequestException("Ownership can't be given away here");
-                    }
                     GameProfile profile = profile(server, string(edit, "player"));
-                    if (profile.getId().equals(network.owner())) {
-                        throw new RequestException("That player owns the network");
-                    }
-                    if (!network.members().containsKey(profile.getId()) && network.members().size() >= Limits.MEMBERS) {
-                        throw new RequestException("A network can have at most " + Limits.MEMBERS + " members");
-                    }
-                    network.members().put(profile.getId(), new Member(profile.getId(), profile.getName(), role));
+                    admin(() -> NetworkAdmin.setMember(network, profile, role));
                 }
                 case "removeMember" -> {
                     admin(network, player);
@@ -493,6 +479,20 @@ public final class WebApi {
                 default -> throw new RequestException("Unknown edit '" + type + "'");
             }
             return com.google.gson.JsonNull.INSTANCE;
+        }
+
+        @FunctionalInterface
+        private interface AdminChange {
+            void run() throws NetworkAdmin.Refused;
+        }
+
+        /** Runs an access or membership change, turning a refusal into the editor's error. */
+        private static void admin(AdminChange change) throws RequestException {
+            try {
+                change.run();
+            } catch (NetworkAdmin.Refused e) {
+                throw new RequestException(e.getMessage());
+            }
         }
 
         private static void roomForSheet(Network network) throws RequestException {

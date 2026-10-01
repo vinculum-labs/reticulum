@@ -5,6 +5,9 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import io.github.leadassimilator.reticulum.security.NetworkAdmin;
+import io.github.leadassimilator.reticulum.security.Access;
+import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
@@ -42,13 +45,11 @@ public final class Screens {
     public static void toggleIdentify(ServerPlayer player, Payloads.ToggleIdentify payload) {
         ServerLevel level = player.serverLevel();
         BlockPos pos = payload.pos();
-        double max = ReticulumConfig.MAX_INTERACT_DISTANCE.getAsInt();
-        if (player.position().distanceToSqr(Vec3.atCenterOf(pos)) > max * max
-                || !(Topology.blockEntity(level, pos) instanceof ConnectorBlockEntity connector)) {
+        if (!(Access.reach(player, pos) instanceof ConnectorBlockEntity connector)) {
             return;
         }
-        Network network = NetworkManager.network(level.getServer(), Topology.networkOf(level, connector));
-        if (network == null || !Security.canUse(network, player)) {
+        Network network = Access.require(player, NetworkManager.network(level.getServer(), Topology.networkOf(level, connector)), Role.USER);
+        if (network == null) {
             return;
         }
         Identify target;
@@ -79,8 +80,7 @@ public final class Screens {
             return;
         }
         Network network = NetworkManager.network(level.getServer(), Topology.networkOf(level, be));
-        if (network != null && !Security.canView(network, player)) {
-            player.displayClientMessage(Component.translatable("message.reticulum.no_access", network.name()), true);
+        if (network != null && Access.require(player, network, Role.VIEWER) == null) {
             return;
         }
         if (be instanceof ControllerBlockEntity) {
@@ -139,12 +139,11 @@ public final class Screens {
 
     /** The controller screen's Network tab: the network's button and redstone mode, and each sheet's button. */
     static void controllerSwitch(ServerPlayer player, Payloads.ControllerSwitch payload) {
-        if (!(reachable(player, payload.pos()) instanceof ControllerBlockEntity controller)) {
+        if (!(Access.reach(player, payload.pos()) instanceof ControllerBlockEntity controller)) {
             return;
         }
-        Network network = NetworkManager.network(player.server, controller.networkId());
-        if (network == null || !Security.canEdit(network, player)) {
-            player.displayClientMessage(Component.translatable("message.reticulum.no_edit_access"), true);
+        Network network = Access.require(player, Topology.network(player.serverLevel(), payload.pos()), Role.EDITOR);
+        if (network == null) {
             return;
         }
         switch (payload.what()) {
@@ -227,7 +226,7 @@ public final class Screens {
 
     /** Answers the built-in HUD. Limited to blocks the player could plausibly be looking at. */
     static void lookAt(ServerPlayer player, Payloads.LookRequest payload) {
-        if (player.distanceToSqr(Vec3.atCenterOf(payload.pos())) > 32 * 32 || !player.serverLevel().isLoaded(payload.pos())) {
+        if (player.distanceToSqr(Vec3.atCenterOf(payload.pos())) > LOOK_DISTANCE * LOOK_DISTANCE || !player.serverLevel().isLoaded(payload.pos())) {
             return;
         }
         var lines = io.github.leadassimilator.reticulum.lookat.LookAt.describe(player.serverLevel(), payload.pos(), payload.face(), player);
@@ -236,14 +235,13 @@ public final class Screens {
 
     // ---------------------------------------------------------------- edits
 
+    /** How far away the built-in HUD answers for (what the player could be looking at). */
+    private static final int LOOK_DISTANCE = 32;
+
     /** Checks the player can reach the block; every edit starts here. */
     @Nullable
     private static NetworkBlockEntity reachable(ServerPlayer player, BlockPos pos) {
-        int max = ReticulumConfig.MAX_INTERACT_DISTANCE.getAsInt();
-        if (player.distanceToSqr(Vec3.atCenterOf(pos)) > (double) max * max) {
-            return null;
-        }
-        return Topology.blockEntity(player.serverLevel(), pos);
+        return Access.reach(player, pos);
     }
 
     static void toggleSide(ServerPlayer player, Payloads.ToggleSide payload) {
@@ -298,21 +296,19 @@ public final class Screens {
         if (!(reachable(player, payload.pos()) instanceof ControllerBlockEntity controller)) {
             return;
         }
-        Network network = NetworkManager.network(player.server, controller.networkId());
+        Network network = Access.require(player, Topology.network(player.serverLevel(), payload.pos()), Role.EDITOR);
         if (network == null) {
             return;
         }
-        if (Security.canEdit(network, player)) {
-            network.setName(clip(payload.name()));
-        }
+        network.setName(clip(payload.name()));
         if (Security.canAdmin(network, player)) {
-            if (!payload.password().isEmpty()) {
-                network.setPasswordHash(Passwords.hash(payload.password()));
-            }
-            if (payload.mode() == AccessMode.PASSWORD && network.passwordHash() == null) {
-                player.displayClientMessage(Component.translatable("message.reticulum.password_required"), true);
-            } else {
-                network.setAccessMode(payload.mode());
+            try {
+                if (!payload.password().isEmpty()) {
+                    NetworkAdmin.setPassword(network, payload.password());
+                }
+                NetworkAdmin.setAccess(network, payload.mode());
+            } catch (NetworkAdmin.Refused e) {
+                player.displayClientMessage(e.message(), true);
             }
         }
         NetworkManager.changed(player.server, network);
@@ -321,16 +317,7 @@ public final class Screens {
 
     @Nullable
     private static Network editableNetwork(ServerPlayer player, NetworkBlockEntity be) {
-        Network network = NetworkManager.network(player.server, Topology.networkOf(player.serverLevel(), be));
-        if (network == null) {
-            player.displayClientMessage(Component.translatable("message.reticulum.no_network"), true);
-            return null;
-        }
-        if (!Security.canEdit(network, player)) {
-            player.displayClientMessage(Component.translatable("message.reticulum.no_edit_access"), true);
-            return null;
-        }
-        return network;
+        return Access.require(player, NetworkManager.network(player.server, Topology.networkOf(player.serverLevel(), be)), Role.EDITOR);
     }
 
     private static String clip(String name) {
