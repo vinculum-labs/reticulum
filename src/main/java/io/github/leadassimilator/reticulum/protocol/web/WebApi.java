@@ -357,7 +357,11 @@ public final class WebApi {
                     admin(network, player);
                     network.members().remove(uuid(edit, "id"));
                 }
-                case "deleteSheet" -> network.sheets().remove(sheet(network, edit));
+                case "deleteSheet" -> {
+                    Sheet sheet = sheet(network, edit);
+                    network.sheets().remove(sheet);
+                    sheet.nodes().forEach(node -> forgetSignalMemory(network, node.id()));
+                }
                 case "addNode", "updateNode" -> {
                     Sheet sheet = sheet(network, edit);
                     Node node = decode(server, Node.CODEC, edit.get("node"), "node");
@@ -379,7 +383,11 @@ public final class WebApi {
                     }
                     return new com.google.gson.JsonPrimitive(node.id().toString());
                 }
-                case "removeNode" -> sheet(network, edit).remove(uuid(edit, "node"));
+                case "removeNode" -> {
+                    UUID node = uuid(edit, "node");
+                    sheet(network, edit).remove(node);
+                    forgetSignalMemory(network, node);
+                }
                 case "moveNodes" -> {
                     Sheet sheet = sheet(network, edit);
                     for (JsonElement element : edit.getAsJsonArray("positions")) {
@@ -493,6 +501,12 @@ public final class WebApi {
             } catch (NetworkAdmin.Refused e) {
                 throw new RequestException(e.getMessage());
             }
+        }
+
+        /** What a removed latch or counter remembered goes with it (undo starts it from 0, as a new node). */
+        private static void forgetSignalMemory(Network network, UUID node) {
+            String key = node.toString();
+            network.signalMemory().keySet().removeIf(k -> k.equals(key) || k.startsWith(key + "/"));
         }
 
         private static void roomForSheet(Network network) throws RequestException {
