@@ -2,6 +2,7 @@
   import { app, edit, deviceName, isIdentified, toggleIdentify } from "../../lib/state.svelte";
   import { RESOURCE_LABEL } from "../../lib/kinds";
   import { FACES, posKey, type Device, type Face, type Resource } from "../../lib/types";
+  import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import DeviceIcon from "../DeviceIcon.svelte";
   import Field from "./Field.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
@@ -54,7 +55,9 @@
 
 <div class="flex flex-col gap-3">
   {#if app.selectedNodes.length || app.selectedEdges.length}
-    <button class="self-start text-sm muted" onclick={() => (app.selectedDevice = null)}>← Back to the selection</button>
+    <button class="btn flex items-center gap-1 self-start text-sm" onclick={() => (app.selectedDevice = null)}>
+      <ArrowLeft size={14} />Back to the selection
+    </button>
   {/if}
   <div class="flex items-center gap-2">
     <DeviceIcon item={device.icon} size={32} />
