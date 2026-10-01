@@ -1,5 +1,7 @@
 package io.github.leadassimilator.reticulum.gametest;
 
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -111,10 +113,5 @@ public final class BenchmarkTests {
                 helper.succeed();
             }
         });
-    }
-
-    private static void place(GameTestHelper helper, BlockPos rel, net.minecraft.world.level.block.Block block) {
-        helper.setBlock(rel, block);
-        Topology.onPlaced(helper.getLevel(), helper.absolutePos(rel), null, null);
     }
 }

@@ -1,5 +1,8 @@
 package io.github.leadassimilator.reticulum.gametest;
 
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,17 +49,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class SafetyTests {
     private SafetyTests() {
-    }
-
-    private static void place(GameTestHelper helper, BlockPos rel, Block block, @Nullable Direction against) {
-        helper.setBlock(rel, block);
-        Topology.onPlaced(helper.getLevel(), helper.absolutePos(rel), against, null);
-    }
-
-    private static void check(GameTestHelper helper, boolean condition, String message) {
-        if (!condition) {
-            helper.fail(message);
-        }
     }
 
     private static Network network(GameTestHelper helper, BlockPos rel) {

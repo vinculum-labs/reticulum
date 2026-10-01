@@ -1,5 +1,7 @@
 package io.github.leadassimilator.reticulum.gametest;
 
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
+
 import java.util.UUID;
 
 import com.google.gson.JsonArray;
@@ -33,11 +35,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class WebApiTests {
     private WebApiTests() {
-    }
-
-    private static void place(GameTestHelper helper, BlockPos rel, Block block, Direction against) {
-        helper.setBlock(rel, block);
-        Topology.onPlaced(helper.getLevel(), helper.absolutePos(rel), against, null);
     }
 
     private static JsonObject call(GameTestHelper helper, ServerPlayer player, String json) {

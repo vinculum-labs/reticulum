@@ -1,5 +1,8 @@
 package io.github.leadassimilator.reticulum.gametest;
 
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
+
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -28,12 +31,6 @@ public final class TopologyTests {
     private TopologyTests() {
     }
 
-    /** Places a block the way a player would, clicking against the block on side {@code against} (may be null). */
-    private static void place(GameTestHelper helper, BlockPos rel, Block block, @Nullable Direction against) {
-        helper.setBlock(rel, block);
-        Topology.onPlaced(helper.getLevel(), helper.absolutePos(rel), against, null);
-    }
-
     private static NetworkBlockEntity be(GameTestHelper helper, BlockPos rel) {
         NetworkBlockEntity be = Topology.blockEntity(helper.getLevel(), helper.absolutePos(rel));
         if (be == null) {
@@ -53,12 +50,6 @@ public final class TopologyTests {
             helper.fail("No network at " + rel);
         }
         return network;
-    }
-
-    private static void check(GameTestHelper helper, boolean condition, String message) {
-        if (!condition) {
-            helper.fail(message);
-        }
     }
 
     @GameTest(template = "empty")

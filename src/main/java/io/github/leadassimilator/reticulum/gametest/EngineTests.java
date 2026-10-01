@@ -1,5 +1,8 @@
 package io.github.leadassimilator.reticulum.gametest;
 
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -156,17 +159,6 @@ public final class EngineTests {
         sheet.setInterval(1);
         network.sheets().add(sheet);
         return new Rig(helper, network, positions, sheet);
-    }
-
-    private static void place(GameTestHelper helper, BlockPos rel, Block block, Direction against) {
-        helper.setBlock(rel, block);
-        Topology.onPlaced(helper.getLevel(), helper.absolutePos(rel), against, null);
-    }
-
-    private static void check(GameTestHelper helper, boolean condition, String message) {
-        if (!condition) {
-            helper.fail(message);
-        }
     }
 
     // ---------------------------------------------------------------- items
