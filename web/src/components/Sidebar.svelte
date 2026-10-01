@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app, edit, deviceName, openDevice, toast } from "../lib/state.svelte";
+  import { confirmDialog, promptDialog } from "../lib/dialog.svelte";
   import { posKey, type Sheet } from "../lib/types";
   import DeviceIcon from "./DeviceIcon.svelte";
   import IdentifyBadge from "./IdentifyBadge.svelte";
@@ -32,7 +33,12 @@
 
   /** Pastes a sheet copied with "Copy as JSON" (from this or another world) as a new sheet. */
   async function importSheet() {
-    const text = prompt("Paste a sheet copied with “Copy as JSON”:");
+    const text = await promptDialog({
+      title: "Import sheet",
+      message: "Paste a sheet copied with “Copy as JSON”, from this world or another.",
+      confirm: "Import",
+      multiline: true,
+    });
     if (!text?.trim()) return;
     let sheet: unknown;
     try {
@@ -56,8 +62,15 @@
     }
   }
 
-  function deleteSheet(sheet: Sheet) {
-    if (confirm(`Delete sheet "${sheet.name}" and its ${sheet.nodes?.length ?? 0} nodes?`)) {
+  async function deleteSheet(sheet: Sheet) {
+    const nodes = sheet.nodes?.length ?? 0;
+    const ok = await confirmDialog({
+      title: `Delete the sheet “${sheet.name}”?`,
+      message: nodes ? `Its ${nodes} node${nodes === 1 ? "" : "s"} and their wires go with it.` : undefined,
+      confirm: "Delete sheet",
+      danger: true,
+    });
+    if (ok) {
       edit([{ type: "deleteSheet", sheet: sheet.id }]);
     }
   }

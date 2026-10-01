@@ -123,6 +123,13 @@ input[type="checkbox"] {
   color: var(--accent-ink);
 }
 
+/* The confirm button of a destructive dialog. */
+.btn-destructive {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #ffffff;
+}
+
 .btn-danger:hover:not(:disabled) {
   border-color: var(--bad);
   color: var(--bad);

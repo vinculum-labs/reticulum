@@ -20,12 +20,19 @@
     toast,
     setRateUnit,
   } from "../lib/state.svelte";
+  import { confirmDialog } from "../lib/dialog.svelte";
 
   const snapshot = $derived(app.snapshot);
 
   async function deleteNetwork() {
     if (!snapshot) return;
-    if (!confirm(`Delete the network "${snapshot.name}"? Its sheets, names and settings are gone for good.`)) return;
+    const ok = await confirmDialog({
+      title: `Delete the network “${snapshot.name}”?`,
+      message: "Its sheets, names and settings are gone for good.",
+      confirm: "Delete network",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await request("deleteNetwork");
       app.current = null;

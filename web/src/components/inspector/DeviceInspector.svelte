@@ -4,6 +4,7 @@
   import { FACES, posKey, type Device, type Face, type Resource } from "../../lib/types";
   import DeviceIcon from "../DeviceIcon.svelte";
   import Field from "./Field.svelte";
+  import { confirmDialog } from "../../lib/dialog.svelte";
 
   let { device }: { device: Device } = $props();
 
@@ -22,15 +23,27 @@
     edit([{ type: "renameFace", device: device.pos, face, name: value }], [{ type: "renameFace", device: device.pos, face, name: before }], "rename face");
   }
 
-  function relink(key: string) {
+  async function relink(key: string) {
     const target = app.snapshot?.devices.find((d) => posKey(d.pos) === key);
-    if (!target || !confirm(`Move the names and every flow of "${deviceName(device)}" onto "${deviceName(target)}"?`)) return;
+    if (!target) return;
+    const ok = await confirmDialog({
+      title: `Move “${deviceName(device)}” onto “${deviceName(target)}”?`,
+      message: "Its names and every flow that uses it move to the other device.",
+      confirm: "Move",
+    });
+    if (!ok) return;
     app.selectedDevice = key;
     edit([{ type: "relinkDevice", from: device.pos, to: target.pos }]);
   }
 
-  function deleteOrphan() {
-    if (confirm(`Forget "${deviceName(device)}"? Its name and face names are lost.`)) {
+  async function deleteOrphan() {
+    const ok = await confirmDialog({
+      title: `Forget “${deviceName(device)}”?`,
+      message: "Its name and face names are lost.",
+      confirm: "Forget",
+      danger: true,
+    });
+    if (ok) {
       app.selectedDevice = null;
       edit([{ type: "deleteOrphan", device: device.pos }]);
     }
@@ -70,7 +83,15 @@
         <div class="mt-2 flex flex-col gap-2">
           <label class="flex flex-col gap-1">
             <span class="text-xs muted">Moved or replaced it? Move its names and every flow onto the new block:</span>
-            <select value="" onchange={(e) => relink(e.currentTarget.value)}>
+            <select
+              value=""
+              onchange={(e) => {
+                const key = e.currentTarget.value;
+                // Back to the placeholder; a cancelled move shouldn't look chosen.
+                e.currentTarget.value = "";
+                relink(key);
+              }}
+            >
               <option value="" disabled>Choose the new block…</option>
               {#each (app.snapshot?.devices ?? []).filter((d) => d.state === "active") as d (posKey(d.pos))}
                 <option value={posKey(d.pos)}>{deviceName(d)}</option>

@@ -6,6 +6,8 @@
   import Canvas from "./components/Canvas.svelte";
   import Inspector from "./components/Inspector.svelte";
   import Toasts from "./components/Toasts.svelte";
+  import Dialog from "./components/Dialog.svelte";
+  import { dialogs } from "./lib/dialog.svelte";
 
   onMount(start);
 
@@ -14,7 +16,8 @@
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (!(e.ctrlKey || e.metaKey) || typing(e.target)) return;
+    // Not behind an open dialog either: undo would change the page under the question it asks.
+    if (!(e.ctrlKey || e.metaKey) || typing(e.target) || dialogs.open) return;
     const key = e.key.toLowerCase();
     if (key === "z" && !e.shiftKey) {
       e.preventDefault();
@@ -48,4 +51,5 @@
     </div>
   {/if}
   <Toasts />
+  <Dialog />
 </div>
