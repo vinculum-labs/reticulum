@@ -112,16 +112,12 @@ public final class LookAt {
 
     private static void describeDevice(ServerLevel level, BlockPos pos, @Nullable Direction face, Player player, List<Component> lines) {
         GlobalPos global = Devices.global(level, pos);
-        boolean activeSomewhere = false;
-        for (Network network : NetworkManager.data(level.getServer()).networks()) {
+        List<Network> networks = NetworkManager.networksWith(level.getServer(), global).stream()
+                .filter(network -> Security.canView(network, player)).toList();
+        boolean activeSomewhere = networks.stream().anyMatch(network -> network.device(global).state() == DeviceRecord.State.ACTIVE);
+        for (Network network : networks) {
             DeviceRecord record = network.device(global);
-            if (record != null && record.state() == DeviceRecord.State.ACTIVE && Security.canView(network, player)) {
-                activeSomewhere = true;
-            }
-        }
-        for (Network network : NetworkManager.data(level.getServer()).networks()) {
-            DeviceRecord record = network.device(global);
-            if (record == null || !Security.canView(network, player)
+            if (record == null
                     || activeSomewhere && record.state() != DeviceRecord.State.ACTIVE) {
                 continue;
             }

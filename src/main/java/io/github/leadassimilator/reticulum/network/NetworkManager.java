@@ -105,6 +105,17 @@ public final class NetworkManager {
         }
     }
 
+    /** Every network that has the device (a block can be a device of several networks, through different connectors). */
+    public static List<Network> networksWith(MinecraftServer server, GlobalPos device) {
+        List<Network> found = new ArrayList<>();
+        for (Network network : data(server).networks()) {
+            if (network.device(device) != null) {
+                found.add(network);
+            }
+        }
+        return found;
+    }
+
     /**
      * The network's controller, if its chunk is loaded and it still belongs to this network (following merges);
      * never loads the chunk.

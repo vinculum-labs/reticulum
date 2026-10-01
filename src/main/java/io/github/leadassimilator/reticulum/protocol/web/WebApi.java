@@ -605,10 +605,7 @@ public final class WebApi {
                 }
                 if (subs.get(networkId) != network.revision()) {
                     subs.put(networkId, network.revision());
-                    JsonObject push = new JsonObject();
-                    push.addProperty("type", "snapshot");
-                    push.add("network", Snapshots.full(server, network, Security.role(network, player)));
-                    send(player, push);
+                    sendSnapshot(server, player, network);
                 }
                 if (metricsDue && NetworkTicker.isRunning(server, network)) {
                     send(player, metrics(server, network));
@@ -626,11 +623,16 @@ public final class WebApi {
                 continue;
             }
             subs.put(network.id(), network.revision());
-            JsonObject push = new JsonObject();
-            push.addProperty("type", "snapshot");
-            push.add("network", Snapshots.full(server, network, Security.role(network, player)));
-            send(player, push);
+            sendSnapshot(server, player, network);
         }
+    }
+
+    /** The network as this player may see it, pushed to their editor. */
+    private static void sendSnapshot(MinecraftServer server, ServerPlayer player, Network network) {
+        JsonObject push = new JsonObject();
+        push.addProperty("type", "snapshot");
+        push.add("network", Snapshots.full(server, network, Security.role(network, player)));
+        send(player, push);
     }
 
     /** Sends the network list to editors whose list changed: a network was added, removed, renamed, or access changed. */

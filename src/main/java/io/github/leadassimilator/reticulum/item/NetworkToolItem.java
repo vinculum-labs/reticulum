@@ -142,13 +142,7 @@ public class NetworkToolItem extends Item {
             return;
         }
         GlobalPos device = Devices.global(level, pos);
-        Network found = null;
-        for (Network network : NetworkManager.data(level.getServer()).networks()) {
-            if (network.device(device) != null && Security.canUse(network, player)) {
-                found = network;
-                break;
-            }
-        }
+        Network found = deviceNetwork(level, player, device);
         if (found == null) {
             player.displayClientMessage(Component.translatable("message.reticulum.not_a_device_of_yours"), true);
             return;
@@ -210,12 +204,8 @@ public class NetworkToolItem extends Item {
     /** The first network the player may use that has this device. */
     @javax.annotation.Nullable
     private static Network deviceNetwork(ServerLevel level, ServerPlayer player, GlobalPos device) {
-        for (Network network : NetworkManager.data(level.getServer()).networks()) {
-            if (network.device(device) != null && Security.canUse(network, player)) {
-                return network;
-            }
-        }
-        return null;
+        return NetworkManager.networksWith(level.getServer(), device).stream().filter(network -> Security.canUse(network, player)).findFirst()
+                .orElse(null);
     }
 
     private static void link(ServerLevel level, ServerPlayer player, BlockPos pos, ItemStack tool) {
