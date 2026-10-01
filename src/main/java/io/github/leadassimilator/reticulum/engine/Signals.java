@@ -409,8 +409,7 @@ final class Signals {
                 if (!devices.contains(device) || !device.dimension().equals(connector.pos().dimension())) {
                     continue;
                 }
-                Direction toward = Direction.fromDelta(device.pos().getX() - connector.pos().pos().getX(),
-                        device.pos().getY() - connector.pos().pos().getY(), device.pos().getZ() - connector.pos().pos().getZ());
+                Direction toward = io.github.leadassimilator.reticulum.network.Devices.facing(connector.pos().pos(), device.pos());
                 if (toward == null) {
                     continue;
                 }

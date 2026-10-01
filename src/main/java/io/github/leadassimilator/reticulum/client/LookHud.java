@@ -52,7 +52,7 @@ public final class LookHud {
 
     private static boolean enabled() {
         if (enabled == null) {
-            enabled = !ModList.get().isLoaded(TopIntegration.MODID);
+            enabled = !io.github.leadassimilator.reticulum.integration.Mods.TOP;
         }
         return enabled;
     }

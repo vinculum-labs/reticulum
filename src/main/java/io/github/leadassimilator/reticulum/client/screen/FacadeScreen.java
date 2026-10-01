@@ -112,7 +112,7 @@ public class FacadeScreen extends QuickScreen {
 
     /** The hint under the grid; JEI is only mentioned when it is installed. */
     private static Component hint() {
-        return Component.translatable(net.neoforged.fml.ModList.get().isLoaded("jei") ? "screen.reticulum.facade_hint_jei" : "screen.reticulum.facade_hint");
+        return Component.translatable(io.github.leadassimilator.reticulum.integration.Mods.JEI ? "screen.reticulum.facade_hint_jei" : "screen.reticulum.facade_hint");
     }
 
     /** The panel's height: the grid, then the hint wrapped to the panel's width. */

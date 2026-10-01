@@ -11,6 +11,9 @@ import net.neoforged.neoforge.capabilities.BlockCapability;
 public final class Mods {
     public static final boolean MEKANISM = ModList.get().isLoaded("mekanism");
     public static final boolean AE2 = ModList.get().isLoaded("ae2");
+    public static final boolean JEI = ModList.get().isLoaded("jei");
+    public static final boolean JADE = ModList.get().isLoaded("jade");
+    public static final boolean TOP = ModList.get().isLoaded("theoneprobe");
 
     private Mods() {
     }

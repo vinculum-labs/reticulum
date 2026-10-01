@@ -117,8 +117,7 @@ final class Snapshots {
         for (ConnectorRecord connector : network.connectors()) {
             BlockPos at = connector.pos().pos();
             for (GlobalPos device : connector.devices()) {
-                net.minecraft.core.Direction toConnector = net.minecraft.core.Direction.fromDelta(at.getX() - device.pos().getX(),
-                        at.getY() - device.pos().getY(), at.getZ() - device.pos().getZ());
+                net.minecraft.core.Direction toConnector = io.github.leadassimilator.reticulum.network.Devices.facing(device.pos(), at);
                 if (toConnector != null) {
                     redstone.computeIfAbsent(device, k -> java.util.EnumSet.noneOf(FaceKey.class)).add(FaceKey.of(toConnector));
                 }

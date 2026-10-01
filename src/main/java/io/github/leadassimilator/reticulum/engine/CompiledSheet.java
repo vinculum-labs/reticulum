@@ -281,8 +281,7 @@ public final class CompiledSheet {
             if (!connector.devices().contains(device) || !connector.pos().dimension().equals(device.dimension())) {
                 continue;
             }
-            Direction toConnector = Direction.fromDelta(connector.pos().pos().getX() - device.pos().getX(),
-                    connector.pos().pos().getY() - device.pos().getY(), connector.pos().pos().getZ() - device.pos().getZ());
+            Direction toConnector = io.github.leadassimilator.reticulum.network.Devices.facing(device.pos(), connector.pos().pos());
             if (toConnector != null && (faces.isEmpty() || faces.contains(FaceKey.of(toConnector)))) {
                 return new NodeSettings.MePortSettings(connector.id(), toConnector.getOpposite());
             }

@@ -113,8 +113,8 @@ public class ControllerBlock extends NetworkBlock {
         ItemStack old = ModItems.antenna(controller.antennaTier());
         controller.setAntennaTier(antenna.tier());
         stack.consume(1, player);
-        if (!old.isEmpty() && !player.getInventory().add(old)) {
-            player.drop(old, false);
+        if (!old.isEmpty()) {
+            net.neoforged.neoforge.items.ItemHandlerHelper.giveItemToPlayer(player, old);
         }
         if (network != null) {
             NetworkManager.changed(player.server, network);
@@ -137,8 +137,8 @@ public class ControllerBlock extends NetworkBlock {
         }
         ItemStack old = ModItems.antenna(controller.antennaTier());
         controller.setAntennaTier(0);
-        if (!player.getAbilities().instabuild && !player.getInventory().add(old)) {
-            player.drop(old, false);
+        if (!player.getAbilities().instabuild) {
+            net.neoforged.neoforge.items.ItemHandlerHelper.giveItemToPlayer(player, old);
         }
         if (network != null) {
             NetworkManager.changed(player.server, network);

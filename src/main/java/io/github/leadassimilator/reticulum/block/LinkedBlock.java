@@ -73,8 +73,8 @@ public abstract class LinkedBlock extends NetworkBlock {
             level.playSound(null, pos, facade.getSoundType(level, pos, player).getPlaceSound(), SoundSource.BLOCKS, 1f, 1f);
             if (!player.getAbilities().instabuild) {
                 stack.shrink(1);
-                if (old != null && !player.getInventory().add(FacadeItem.of(old, 1))) {
-                    player.drop(FacadeItem.of(old, 1), false);
+                if (old != null) {
+                    net.neoforged.neoforge.items.ItemHandlerHelper.giveItemToPlayer(player, FacadeItem.of(old, 1));
                 }
             }
         }
@@ -94,8 +94,8 @@ public abstract class LinkedBlock extends NetworkBlock {
         }
         BlockState old = be.facade();
         be.setFacade(null);
-        if (!player.getAbilities().instabuild && !player.getInventory().add(FacadeItem.of(old, 1))) {
-            player.drop(FacadeItem.of(old, 1), false);
+        if (!player.getAbilities().instabuild) {
+            net.neoforged.neoforge.items.ItemHandlerHelper.giveItemToPlayer(player, FacadeItem.of(old, 1));
         }
         player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.facade_removed"), true);
         return true;

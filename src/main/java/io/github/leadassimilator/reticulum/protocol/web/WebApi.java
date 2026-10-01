@@ -729,14 +729,4 @@ public final class WebApi {
     public static Optional<Network> networkAt(MinecraftServer server, UUID id) {
         return Optional.ofNullable(NetworkManager.network(server, id));
     }
-
-    /** Lets resource kinds be named in JSON the same way everywhere. */
-    static ResourceKind resource(String name) throws RequestException {
-        for (ResourceKind kind : ResourceKind.values()) {
-            if (kind.getSerializedName().equals(name)) {
-                return kind;
-            }
-        }
-        throw new RequestException("Unknown resource '" + name + "'");
-    }
 }

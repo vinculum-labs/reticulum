@@ -167,6 +167,12 @@ public final class Devices {
         return defaultName(level, pos);
     }
 
+    /** The side of {@code from} that faces {@code to}, when they touch (null otherwise). */
+    @Nullable
+    public static Direction facing(BlockPos from, BlockPos to) {
+        return Direction.fromDelta(to.getX() - from.getX(), to.getY() - from.getY(), to.getZ() - from.getZ());
+    }
+
     public static GlobalPos global(Level level, BlockPos pos) {
         return GlobalPos.of(level.dimension(), pos.immutable());
     }

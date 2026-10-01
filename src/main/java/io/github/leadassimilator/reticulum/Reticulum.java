@@ -53,7 +53,7 @@ public class Reticulum {
             modEventBus.addListener(io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration::registerCapabilities);
         }
         modEventBus.addListener((InterModEnqueueEvent event) -> {
-            if (ModList.get().isLoaded(TopIntegration.MODID)) {
+            if (io.github.leadassimilator.reticulum.integration.Mods.TOP) {
                 TopIntegration.register();
             }
         });
