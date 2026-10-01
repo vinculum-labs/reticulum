@@ -5,7 +5,8 @@
   import Layers from "@lucide/svelte/icons/layers";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Zap from "@lucide/svelte/icons/zap";
-  import { app, edit, deviceName, matchesDevice, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
+  import { app, deviceUses, edit, deviceName, matchesDevice, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
+  import Segmented from "./controls/Segmented.svelte";
   import { confirmDialog, promptDialog } from "../lib/dialog.svelte";
   import { posKey, type Sheet } from "../lib/types";
   import DeviceIcon from "./DeviceIcon.svelte";
@@ -20,13 +21,34 @@
 
   let newSheet = $state("");
   let deviceSearch = $state("");
+  /** Show every device, or only those no sheet uses yet (remembered per browser). */
+  let deviceFilter = $state<"all" | "unused">(storedDeviceFilter());
+  const uses = $derived(deviceUses(snapshot));
+  const unusedCount = $derived(snapshot.devices.filter((d) => !uses.has(posKey(d.pos))).length);
+
+  function storedDeviceFilter(): "all" | "unused" {
+    try {
+      return localStorage.getItem("reticulum.deviceFilter") === "unused" ? "unused" : "all";
+    } catch {
+      return "all";
+    }
+  }
+
+  function setDeviceFilter(filter: "all" | "unused") {
+    deviceFilter = filter;
+    try {
+      localStorage.setItem("reticulum.deviceFilter", filter);
+    } catch {
+      // Private windows and blocked storage: the choice lasts until the page closes.
+    }
+  }
   let renaming = $state<string | null>(null);
   let newFilterName = $state("");
   let newFilterExpr = $state("");
 
   const devices = $derived(
     snapshot.devices
-      .filter((d) => matchesDevice(d, deviceSearch))
+      .filter((d) => matchesDevice(d, deviceSearch) && (deviceFilter === "all" || !uses.has(posKey(d.pos))))
       .sort((a, b) => deviceName(a).localeCompare(deviceName(b))),
   );
 
@@ -205,7 +227,19 @@
 
   <section class="border-t border-line p-3">
     <h2 class="panel-title mb-2">Devices</h2>
-    <input class="mb-2 w-full" placeholder="Search devices" bind:value={deviceSearch} />
+    <div class="mb-2 flex items-center gap-2">
+      <input class="min-w-0 flex-1" placeholder="Search devices" aria-label="Search devices" bind:value={deviceSearch} />
+      <Segmented
+        label="Which devices"
+        size="xs"
+        value={deviceFilter}
+        options={[
+          { value: "all", label: "All" },
+          { value: "unused", label: `Unused (${unusedCount})`, title: "Devices no sheet uses yet" },
+        ]}
+        onchange={setDeviceFilter}
+      />
+    </div>
     <p class="mb-2 text-xs muted">Drag a device onto the canvas to add it; give it inputs and outputs in the inspector.</p>
     <ul class="flex flex-col gap-0.5">
       {#each devices as d (posKey(d.pos))}
@@ -226,7 +260,9 @@
           <IdentifyBadge device={d} />
         </li>
       {:else}
-        <li class="text-sm muted">No devices. Place a connector next to a machine.</li>
+        <li class="text-sm muted">
+          {deviceFilter === "unused" && snapshot.devices.length ? "Every device is used on a sheet." : "No devices. Place a connector next to a machine."}
+        </li>
       {/each}
     </ul>
   </section>

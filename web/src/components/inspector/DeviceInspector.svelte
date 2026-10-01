@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, edit, deviceName } from "../../lib/state.svelte";
+  import { app, deviceUses, edit, deviceName, openSheet } from "../../lib/state.svelte";
   import { RESOURCE_LABEL } from "../../lib/kinds";
   import { FACES, posKey, type Device, type Face, type Resource } from "../../lib/types";
   import { confirmDialog } from "../../lib/dialog.svelte";
@@ -13,6 +13,7 @@
   let { device }: { device: Device } = $props();
 
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
+  const usedIn = $derived(app.snapshot ? (deviceUses(app.snapshot).get(posKey(device.pos)) ?? []) : []);
   const activeDevices = $derived((app.snapshot?.devices ?? []).filter((d) => d.state === "active"));
 
   function rename(name: string) {
@@ -82,6 +83,19 @@
       {/if}
     </div>
   {/if}
+
+  <div class="flex flex-col gap-1 text-sm">
+    <span class="field-label">Used in</span>
+    {#each usedIn as use (use.label + (use.sheetId ?? ""))}
+      {#if use.sheetId}
+        <button class="list-row self-start rounded px-1 text-left text-accent" onclick={() => openSheet(use.sheetId!)}>{use.label}</button>
+      {:else}
+        <span class="px-1">{use.label}</span>
+      {/if}
+    {:else}
+      <span class="muted">No sheet yet. Drag it from the list onto the canvas.</span>
+    {/each}
+  </div>
 
   <Field label="Name">
     <TextField value={device.name} placeholder={device.defaultName} disabled={!canEdit} oncommit={rename} />

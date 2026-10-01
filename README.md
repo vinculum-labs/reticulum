@@ -53,6 +53,9 @@ off moves nothing, but its signal logic keeps running, so a condition that reads
 watching a battery, say) can switch it back on. A sheet marked as a **sub-sheet** can be
 used as a single node in other sheets, with **Sheet input** and **Sheet output** nodes as its pins.
 
+The device list beside the sheets can show only the devices no sheet uses yet (**Unused**), and a device's panel lists
+where it is used, each sheet a link.
+
 Copy a sheet as JSON and import it into this world or another. Devices are matched by position; ones that don't
 exist show as offline until you pick local ones for them.
 

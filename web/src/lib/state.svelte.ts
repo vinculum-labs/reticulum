@@ -2,7 +2,7 @@
 // replaces what is shown. Undo and redo send the inverse edits recorded with each change.
 
 import { Connection } from "./protocol";
-import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face, Identify, PowerState } from "./types";
+import type { Device, Edit, GlobalPos, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face, Identify, PowerState } from "./types";
 import { posKey } from "./types";
 import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
@@ -492,6 +492,40 @@ export function nodeTitle(node: GraphNode | undefined): string {
   if (s.kind === "subsheet") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing sub-sheet";
   if ((s.kind === "sheet_input" || s.kind === "sheet_output") && s.name) return s.name;
   return KIND_LABEL[s.kind];
+}
+
+/** One place a device is used: a sheet (which opens it), or the network's or a folder's redstone condition. */
+export interface DeviceUse {
+  label: string;
+  sheetId?: string;
+}
+
+/**
+ * Where each device is used, by its position key: every sheet with a node on it (a device, Level or redstone node)
+ * or a redstone condition reading it, and the network's and folders' conditions. A device absent here is unused.
+ */
+export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
+  const uses = new Map<string, DeviceUse[]>();
+  const add = (pos: GlobalPos | undefined, use: DeviceUse) => {
+    if (!pos) return;
+    const key = posKey(pos);
+    const list = uses.get(key) ?? [];
+    if (!list.some((u) => u.label === use.label && u.sheetId === use.sheetId)) list.push(use);
+    uses.set(key, list);
+  };
+  for (const sheet of snapshot.sheets) {
+    const use = { label: sheet.folder ? `${sheet.folder.replaceAll("/", " › ")} › ${sheet.name}` : sheet.name, sheetId: sheet.id };
+    add(sheet.redstone?.device, use);
+    for (const node of sheet.nodes ?? []) {
+      if ("device" in node.settings) add(node.settings.device as GlobalPos, use);
+      add(node.redstone?.device, use);
+    }
+  }
+  add(snapshot.redstone?.device, { label: "The network's redstone condition" });
+  for (const [folder, redstone] of Object.entries(snapshot.folderRedstone ?? {})) {
+    add(redstone.device, { label: `Folder ${folder.replaceAll("/", " › ")}'s redstone condition` });
+  }
+  return uses;
 }
 
 /** Every signal name the network uses: transmitted anywhere on it, or seen live. */
