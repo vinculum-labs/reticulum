@@ -1,7 +1,9 @@
 package io.github.leadassimilator.reticulum.engine;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import io.github.leadassimilator.reticulum.ReticulumConfig;
@@ -9,6 +11,7 @@ import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.integration.Mods;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -56,12 +59,14 @@ final class ContinuousMover {
             ctx.runtime().status(owner, Status.DEVICE_OFFLINE);
             return;
         }
+        // Faces often wrap one store (a Mekanism machine answers on every face), so what a source can give and a sink can
+        // take is the best single face's answer, and amounts are counted through the view, which sees each store once.
+        // Adding the faces up would ask for more than there is: the surplus would go back, or be lost if it can't.
         long supply = 0;
-        long stored = 0;
         for (IEnergyStorage storage : from) {
-            supply += storage.extractEnergy(Integer.MAX_VALUE, true);
-            stored += storage.getEnergyStored();
+            supply = Math.max(supply, storage.extractEnergy(Integer.MAX_VALUE, true));
         }
+        long stored = energyStored(ctx.runtime().energyView(ctx.server(), ctx.network(), source.settings().port()));
         long keep = keepAmount(source.settings().keep());
         if (keep > 0) {
             supply = Math.min(supply, Math.max(0, stored - keep));
@@ -73,24 +78,25 @@ final class ContinuousMover {
         List<CompiledSheet.Route> routes = ctx.runtime().ordered(ctx.runtime().routes(source));
         List<List<IEnergyStorage>> sinks = new ArrayList<>();
         long[] demand = new long[routes.size()];
+        // Room left in each target this tick: several routes may end at the same block (two inputs of one machine).
+        Map<GlobalPos, Long> room = new HashMap<>();
         for (int i = 0; i < routes.size(); i++) {
             CompiledSheet.Route route = routes.get(i);
-            List<IEnergyStorage> to = ctx.runtime().energy(ctx.server(), ctx.network(), route.sinkSettings().port());
+            NodeSettings.Port port = route.sinkSettings().port();
+            List<IEnergyStorage> to = ctx.runtime().energy(ctx.server(), ctx.network(), port);
             sinks.add(to);
             long max = Math.min(ReticulumConfig.ENERGY_PER_TICK.getAsInt(), ctx.runtime().available(route.rateLimits()));
-            long sinkStored = 0;
-            for (IEnergyStorage storage : to) {
-                sinkStored += storage.getEnergyStored();
-            }
+            long sinkStored = energyStored(ctx.runtime().energyView(ctx.server(), ctx.network(), port));
             max = Math.min(max, capRoom(route.sinkSettings().caps(), sinkStored));
-            for (IEnergyStorage storage : to) {
-                if (max <= 0) {
-                    break;
+            long free = room.computeIfAbsent(port.device(), device -> {
+                long best = 0;
+                for (IEnergyStorage storage : to) {
+                    best = Math.max(best, storage.receiveEnergy(Integer.MAX_VALUE, true));
                 }
-                int accepted = storage.receiveEnergy((int) Math.min(max, Integer.MAX_VALUE), true);
-                demand[i] += accepted;
-                max -= accepted;
-            }
+                return best;
+            });
+            demand[i] = Math.max(0, Math.min(max, free));
+            room.put(port.device(), free - demand[i]);
         }
         long[] share = share(supply, demand, anyPriority(routes), weights(routes));
         long total = 0;
@@ -131,6 +137,14 @@ final class ContinuousMover {
             left -= storage.receiveEnergy((int) Math.min(left, Integer.MAX_VALUE), false);
         }
         return taken - Math.max(0, left);
+    }
+
+    private static long energyStored(List<IEnergyStorage> view) {
+        long stored = 0;
+        for (IEnergyStorage storage : view) {
+            stored += storage.getEnergyStored();
+        }
+        return stored;
     }
 
     /** Energy has no types, so every keep rule counts the total stored. */
@@ -186,35 +200,42 @@ final class ContinuousMover {
     private static long fluidKind(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, ServerLevel level,
             List<IFluidHandler> from, FluidStack kind, List<CompiledSheet.Route> ordered) {
         Filters.Context plain = Filters.Context.of(level);
+        // As for energy: the best single face's answer, and amounts counted through the view.
         long supply = 0;
         for (IFluidHandler handler : from) {
-            supply += handler.drain(kind.copyWithAmount(Integer.MAX_VALUE), IFluidHandler.FluidAction.SIMULATE).getAmount();
+            supply = Math.max(supply, handler.drain(kind.copyWithAmount(Integer.MAX_VALUE), IFluidHandler.FluidAction.SIMULATE).getAmount());
         }
-        supply = Math.min(supply, fluidLimit(sheet, source.settings().keep(), from, kind, plain, true));
+        List<IFluidHandler> fromView = ctx.runtime().fluidView(ctx.server(), ctx.network(), source.settings().port());
+        supply = Math.min(supply, fluidLimit(sheet, source.settings().keep(), fromView, kind, plain, true));
         if (supply <= 0) {
             return 0;
         }
         List<CompiledSheet.Route> routes = new ArrayList<>();
         List<List<IFluidHandler>> sinks = new ArrayList<>();
         List<Long> demands = new ArrayList<>();
+        Map<GlobalPos, Long> room = new HashMap<>();
         for (CompiledSheet.Route route : ordered) {
-            List<IFluidHandler> to = ctx.runtime().fluids(ctx.server(), ctx.network(), route.sinkSettings().port());
+            NodeSettings.Port port = route.sinkSettings().port();
+            List<IFluidHandler> to = ctx.runtime().fluids(ctx.server(), ctx.network(), port);
             if (to.isEmpty()) {
                 continue;
             }
-            Filters.Context context = new Filters.Context(level, null, f -> contains(to, f));
+            List<IFluidHandler> toView = ctx.runtime().fluidView(ctx.server(), ctx.network(), port);
+            Filters.Context context = new Filters.Context(level, null, f -> contains(toView, f));
             if (!passes(route.gates(), kind, context)) {
                 continue;
             }
             long max = Math.min(ReticulumConfig.FLUID_PER_TICK.getAsInt(), ctx.runtime().available(route.rateLimits()));
-            max = Math.min(max, fluidLimit(sheet, route.sinkSettings().caps(), to, kind, context, false));
-            long demand = 0;
-            for (IFluidHandler handler : to) {
-                if (max - demand <= 0) {
-                    break;
+            max = Math.min(max, fluidLimit(sheet, route.sinkSettings().caps(), toView, kind, context, false));
+            long free = room.computeIfAbsent(port.device(), device -> {
+                long best = 0;
+                for (IFluidHandler handler : to) {
+                    best = Math.max(best, handler.fill(kind.copyWithAmount(Integer.MAX_VALUE), IFluidHandler.FluidAction.SIMULATE));
                 }
-                demand += handler.fill(kind.copyWithAmount((int) Math.min(max - demand, Integer.MAX_VALUE)), IFluidHandler.FluidAction.SIMULATE);
-            }
+                return best;
+            });
+            long demand = Math.max(0, Math.min(max, free));
+            room.put(port.device(), free - demand);
             routes.add(route);
             sinks.add(to);
             demands.add(demand);

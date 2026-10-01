@@ -66,39 +66,57 @@ final class ChemicalMover {
         return ctx.runtime().handlers(ctx.server(), ctx.network(), port, MekanismChemicals.CAPABILITY, ResourceKind.CHEMICAL);
     }
 
+    /** Adds amounts without wrapping: a creative tank reports the largest amount there is. */
+    private static long saturatedAdd(long a, long b) {
+        long sum = a + b;
+        return ((a ^ sum) & (b ^ sum)) < 0 ? Long.MAX_VALUE : sum;
+    }
+
+    /** The handlers to count with: the unsided one when no faces are chosen, so each tank is counted once. */
+    private static List<IChemicalHandler> view(NetworkRuntime.Context ctx, NodeSettings.Port port) {
+        return ctx.runtime().view(ctx.server(), ctx.network(), port, MekanismChemicals.CAPABILITY, ResourceKind.CHEMICAL);
+    }
+
     /** Returns how much moved. */
     private static long kind(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, ServerLevel level,
             List<IChemicalHandler> from, ChemicalStack kind, List<CompiledSheet.Route> ordered) {
+        // As for energy and fluids: the best single face's answer, and amounts counted through the view, which sees
+        // each tank once (a Mekanism machine answers on every face with its own wrapper around the same tanks).
         long supply = 0;
         for (IChemicalHandler handler : from) {
-            supply += handler.extractChemical(kind.copyWithAmount(Long.MAX_VALUE), Action.SIMULATE).getAmount();
+            supply = Math.max(supply, handler.extractChemical(kind.copyWithAmount(Long.MAX_VALUE), Action.SIMULATE).getAmount());
         }
-        supply = Math.min(supply, limit(sheet, source.settings().keep(), from, kind, Filters.Context.of(level), true));
+        supply = Math.min(supply, limit(sheet, source.settings().keep(), view(ctx, source.settings().port()), kind, Filters.Context.of(level), true));
         if (supply <= 0) {
             return 0;
         }
         List<CompiledSheet.Route> routes = new ArrayList<>();
         List<List<IChemicalHandler>> sinks = new ArrayList<>();
         List<Long> demands = new ArrayList<>();
+        // Room left in each target this tick: several routes may end at the same block.
+        java.util.Map<net.minecraft.core.GlobalPos, Long> room = new java.util.HashMap<>();
         for (CompiledSheet.Route route : ordered) {
-            List<IChemicalHandler> to = handlers(ctx, route.sinkSettings().port());
+            NodeSettings.Port port = route.sinkSettings().port();
+            List<IChemicalHandler> to = handlers(ctx, port);
             if (to.isEmpty()) {
                 continue;
             }
-            Filters.Context context = new Filters.Context(level, null, null, c -> contains(to, (ChemicalStack) c));
+            List<IChemicalHandler> toView = view(ctx, port);
+            Filters.Context context = new Filters.Context(level, null, null, c -> contains(toView, (ChemicalStack) c));
             if (!passes(route.gates(), kind, context)) {
                 continue;
             }
             long max = Math.min(ReticulumConfig.CHEMICAL_PER_TICK.getAsLong(), ctx.runtime().available(route.rateLimits()));
-            max = Math.min(max, limit(sheet, route.sinkSettings().caps(), to, kind, context, false));
-            long demand = 0;
-            for (IChemicalHandler handler : to) {
-                if (max - demand <= 0) {
-                    break;
+            max = Math.min(max, limit(sheet, route.sinkSettings().caps(), toView, kind, context, false));
+            long free = room.computeIfAbsent(port.device(), device -> {
+                long best = 0;
+                for (IChemicalHandler handler : to) {
+                    best = Math.max(best, Long.MAX_VALUE - handler.insertChemical(kind.copyWithAmount(Long.MAX_VALUE), Action.SIMULATE).getAmount());
                 }
-                long offered = max - demand;
-                demand += offered - handler.insertChemical(kind.copyWithAmount(offered), Action.SIMULATE).getAmount();
-            }
+                return best;
+            });
+            long demand = Math.max(0, Math.min(max, free));
+            room.put(port.device(), free - demand);
             routes.add(route);
             sinks.add(to);
             demands.add(demand);
@@ -187,7 +205,7 @@ final class ChemicalMover {
                             ? ChemicalStack.isSameChemical(chemical, kind)
                             : !chemical.isEmpty() && filter.test(chemical, context);
                     if (counted) {
-                        present += chemical.getAmount();
+                        present = saturatedAdd(present, chemical.getAmount());
                     }
                 }
             }
@@ -204,7 +222,7 @@ final class ChemicalMover {
             for (int tank = 0; tank < handler.getChemicalTanks(); tank++) {
                 ChemicalStack chemical = handler.getChemicalInTank(tank);
                 if (!chemical.isEmpty() && filter.test(chemical, context)) {
-                    total += chemical.getAmount();
+                    total = saturatedAdd(total, chemical.getAmount());
                 }
             }
         }

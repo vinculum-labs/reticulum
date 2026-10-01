@@ -1002,6 +1002,124 @@ public final class EngineTests {
         });
     }
 
+    /** FE stored in a block, read once (through its unsided handler, or the first face that answers). */
+    private static long energyStored(GameTestHelper helper, BlockPos rel) {
+        BlockPos pos = helper.absolutePos(rel);
+        var storage = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, pos, null);
+        for (Direction side : Direction.values()) {
+            if (storage != null) {
+                break;
+            }
+            storage = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, pos, side);
+        }
+        return storage == null ? -1 : storage.getEnergyStored();
+    }
+
+    /** Puts FE into a block through every face that takes it, again and again (machines limit each insert). */
+    private static void fillEnergy(GameTestHelper helper, BlockPos rel, long amount) {
+        BlockPos pos = helper.absolutePos(rel);
+        long left = amount;
+        for (int round = 0; round < 10_000 && left > 0; round++) {
+            boolean any = false;
+            for (Direction side : Direction.values()) {
+                var storage = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, pos, side);
+                if (storage != null && left > 0) {
+                    int got = storage.receiveEnergy((int) Math.min(left, Integer.MAX_VALUE), false);
+                    left -= got;
+                    any |= got > 0;
+                }
+            }
+            if (!any) {
+                break;
+            }
+        }
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 400)
+    public static void energyCapCountsAMachineOnce(GameTestHelper helper) {
+        if (!Mods.MEKANISM) {
+            helper.succeed();
+            return;
+        }
+        // A Mekanism energy cube answers on every face with its own wrapper around the one store; a cap must count
+        // that store once, not once per face.
+        Block cube = MekanismTestSupport.block("basic_energy_cube");
+        Rig rig = rig(helper, cube, cube);
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(0)));
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
+        fillEnergy(helper, rig.devices().get(0), 500_000);
+        long start = energyStored(helper, rig.devices().get(0));
+        check(helper, start > 100_000, "could only fill the source cube with " + start + " FE");
+        rig.wire(rig.source(0, ResourceKind.ENERGY, List.of(), 0),
+                rig.sink(1, ResourceKind.ENERGY, List.of(new NodeSettings.Limit(NodeSettings.Scope.TOTAL, 20_000, ""))));
+        helper.startSequence()
+                .thenExecuteAfter(200, () -> {
+                    long filled = energyStored(helper, rig.devices().get(1));
+                    long left = energyStored(helper, rig.devices().get(0));
+                    check(helper, filled >= 19_000 && filled <= 22_000, "capped at 20000 FE, the target holds " + filled);
+                    // Nothing is lost on the way (a little rounding between Mekanism's joules and FE aside).
+                    check(helper, Math.abs(start - left - filled) <= 50, "moved " + (start - left) + " FE but " + filled + " arrived");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 400)
+    public static void energyKeepCountsAMachineOnce(GameTestHelper helper) {
+        if (!Mods.MEKANISM) {
+            helper.succeed();
+            return;
+        }
+        Block cube = MekanismTestSupport.block("basic_energy_cube");
+        Rig rig = rig(helper, cube, cube);
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(0)));
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
+        fillEnergy(helper, rig.devices().get(0), 500_000);
+        long start = energyStored(helper, rig.devices().get(0));
+        long keep = start - 20_000;
+        rig.wire(rig.source(0, ResourceKind.ENERGY, List.of(new NodeSettings.Limit(NodeSettings.Scope.TOTAL, keep, "")), 0),
+                rig.sink(1, ResourceKind.ENERGY, List.of()));
+        helper.startSequence()
+                .thenExecuteAfter(200, () -> {
+                    long left = energyStored(helper, rig.devices().get(0));
+                    check(helper, left >= keep - 50, "keeping " + keep + " FE, the source fell to " + left);
+                    check(helper, energyStored(helper, rig.devices().get(1)) >= 19_000, "the 20000 FE above the keep amount didn't move");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 400)
+    public static void twoRoutesIntoOneMachineDontOverdraw(GameTestHelper helper) {
+        if (!Mods.MEKANISM) {
+            helper.succeed();
+            return;
+        }
+        // A splitter feeding two inputs of the same nearly full cube: together they may ask only for its real room.
+        Block cube = MekanismTestSupport.block("basic_energy_cube");
+        Rig rig = rig(helper, cube, cube);
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(0)));
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
+        fillEnergy(helper, rig.devices().get(0), 500_000);
+        fillEnergy(helper, rig.devices().get(1), 2_000_000);
+        long sourceStart = energyStored(helper, rig.devices().get(0));
+        long targetStart = energyStored(helper, rig.devices().get(1));
+        Node source = rig.source(0, ResourceKind.ENERGY, List.of(), 0);
+        Node splitter = rig.node(new NodeSettings.SplitterSettings(NodeSettings.SplitMode.ROUND_ROBIN));
+        GlobalPos target = Devices.global(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
+        var input = new NodeSettings.Input(ResourceKind.ENERGY, List.of(), Optional.empty(), List.of());
+        Node sink = rig.node(new NodeSettings.DeviceSettings(target, List.of(input, input), List.of()));
+        rig.wire(source, splitter);
+        rig.sheet().connect(new Wire(UUID.randomUUID(), splitter.id(), 0, sink.id(), 0));
+        rig.sheet().connect(new Wire(UUID.randomUUID(), splitter.id(), 0, sink.id(), 1));
+        helper.startSequence()
+                .thenExecuteAfter(200, () -> {
+                    long sourceLeft = energyStored(helper, rig.devices().get(0));
+                    long targetNow = energyStored(helper, rig.devices().get(1));
+                    check(helper, Math.abs((sourceStart - sourceLeft) - (targetNow - targetStart)) <= 50,
+                            "the source gave " + (sourceStart - sourceLeft) + " FE but the target gained " + (targetNow - targetStart));
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = "empty")
     public static void evenShareHandsOutRemainder(GameTestHelper helper) {
         long[] share = shareFor(10, new long[] {100, 100, 100}, false);
