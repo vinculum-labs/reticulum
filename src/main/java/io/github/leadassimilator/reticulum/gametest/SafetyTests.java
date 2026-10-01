@@ -295,6 +295,29 @@ public final class SafetyTests {
     }
 
     @GameTest(template = "empty")
+    public static void screenViewsSurviveTheTrip(GameTestHelper helper) {
+        // The views' codecs are written field by field (more fields than a composite takes): every field must come back.
+        var access = helper.getLevel().registryAccess();
+        var side = new io.github.leadassimilator.reticulum.protocol.Views.SideView(Direction.EAST, io.github.leadassimilator.reticulum.protocol.Views.SideKind.DEVICE,
+                io.github.leadassimilator.reticulum.protocol.Views.JointView.CONNECTED, true, net.minecraft.world.item.ItemStack.EMPTY, "Barrel", "Logs",
+                List.of("", "In", "", "", "", "", "Out"), 0b1000_0010);
+        var block = new io.github.leadassimilator.reticulum.protocol.Views.BlockView(new BlockPos(1, 2, 3), true, "Base", "Connector (1, 2, 3)", "Main",
+                List.of(side), true, false, true);
+        var buffer = new RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), access);
+        io.github.leadassimilator.reticulum.protocol.Views.BlockView.STREAM_CODEC.encode(buffer, block);
+        check(helper, io.github.leadassimilator.reticulum.protocol.Views.BlockView.STREAM_CODEC.decode(buffer).equals(block), "the block view changed on the way");
+        var sheet = new io.github.leadassimilator.reticulum.protocol.Views.SheetEntry(UUID.randomUUID(), "Smelting", true, false, true, 2);
+        var controller = new io.github.leadassimilator.reticulum.protocol.Views.ControllerView(new BlockPos(4, 5, 6), UUID.randomUUID(), "Base", "owner",
+                AccessMode.PASSWORD, true, 3, 7, 1, true, false, 2, true, false, io.github.leadassimilator.reticulum.graph.Redstone.Mode.HIGH,
+                List.of(sheet), List.of("4x iron"), "100 FE");
+        buffer = new RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), access);
+        io.github.leadassimilator.reticulum.protocol.Views.ControllerView.STREAM_CODEC.encode(buffer, controller);
+        check(helper, io.github.leadassimilator.reticulum.protocol.Views.ControllerView.STREAM_CODEC.decode(buffer).equals(controller),
+                "the controller view changed on the way");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void identifyColorChangeKeepsItOn(GameTestHelper helper) {
         ServerPlayer owner = player(helper, "owner");
         Network network = rig(helper, owner);
