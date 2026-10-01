@@ -60,15 +60,16 @@ public class EditorScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // Only the bar shows; the web view covers everything below it.
+        // Only the bar shows; the web view covers everything below it. The placeholder stays under the view even once
+        // it's shown: on macOS the game's next frame can reach the screen before the view is composited, and the world
+        // would flash through.
         graphics.fill(0, 0, width, BAR, 0xFF1A1E26);
         graphics.fill(0, BAR - 1, width, BAR, 0xFF2F3542);
+        graphics.fill(0, BAR, width, height, 0xFF12151B);
         if (Minecraft.getInstance().getWindow().isFullscreen() && EmbeddedView.hiddenByFullscreen()) {
-            graphics.fill(0, BAR, width, height, 0xFF12151B);
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen"), width / 2, height / 2 - 6, 0xE3E7EF);
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen_hint"), width / 2, height / 2 + 6, 0xA0A0A0);
         } else if (!EmbeddedView.shown()) {
-            graphics.fill(0, BAR, width, height, 0xFF12151B);
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_loading"), width / 2, height / 2, 0xA0A0A0);
         }
     }

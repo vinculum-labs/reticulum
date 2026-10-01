@@ -24,17 +24,32 @@ import net.minecraft.client.Minecraft;
  * stays hidden until {@link #tick()} sees the first load finish.
  */
 final class WKWebViewHost {
-    private static final Function MSG_SEND;
-    private static final Function GET_CLASS;
-    private static final Function SELECTOR;
+    /**
+     * The native functions, loaded on first use inside {@link #show}, so a system without them falls back to the
+     * browser rather than failing wherever this class is first touched.
+     */
+    private static final class ObjC {
+        static final Function MSG_SEND;
+        static final Function GET_CLASS;
+        static final Function SELECTOR;
+        static final Function POOL_PUSH;
+        static final Function POOL_POP;
+        static final Function CG_COLOR_CREATE_SRGB;
+        static final Function CG_COLOR_RELEASE;
 
-    static {
-        NativeLibrary objc = NativeLibrary.getInstance("objc");
-        MSG_SEND = objc.getFunction("objc_msgSend");
-        GET_CLASS = objc.getFunction("objc_getClass");
-        SELECTOR = objc.getFunction("sel_registerName");
-        // Loads WebKit so its classes are registered with the runtime.
-        NativeLibrary.getInstance("WebKit");
+        static {
+            NativeLibrary objc = NativeLibrary.getInstance("objc");
+            MSG_SEND = objc.getFunction("objc_msgSend");
+            GET_CLASS = objc.getFunction("objc_getClass");
+            SELECTOR = objc.getFunction("sel_registerName");
+            POOL_PUSH = objc.getFunction("objc_autoreleasePoolPush");
+            POOL_POP = objc.getFunction("objc_autoreleasePoolPop");
+            NativeLibrary coreGraphics = NativeLibrary.getInstance("CoreGraphics");
+            CG_COLOR_CREATE_SRGB = coreGraphics.getFunction("CGColorCreateSRGB");
+            CG_COLOR_RELEASE = coreGraphics.getFunction("CGColorRelease");
+            // Loads WebKit so its classes are registered with the runtime.
+            NativeLibrary.getInstance("WebKit");
+        }
     }
 
     private static boolean failed;
@@ -123,8 +138,8 @@ final class WKWebViewHost {
         if (webView == null || loaded || !loading) {
             return;
         }
-        boolean busy = (MSG_SEND.invokeInt(new Object[] {webView, selector("isLoading")}) & 0xFF) != 0;
-        double progress = MSG_SEND.invokeDouble(new Object[] {webView, selector("estimatedProgress")});
+        boolean busy = (ObjC.MSG_SEND.invokeInt(new Object[] {webView, selector("isLoading")}) & 0xFF) != 0;
+        double progress = ObjC.MSG_SEND.invokeDouble(new Object[] {webView, selector("estimatedProgress")});
         if (!busy && progress >= 1.0) {
             loaded = true;
             loading = false;
@@ -141,14 +156,41 @@ final class WKWebViewHost {
         frame.height = 1;
         webView = msg(msg(objcClass("WKWebView"), "alloc"), "initWithFrame:configuration:", frame, config);
         msgVoid(config, "release");
-        msgVoid(webView, "setHidden:", (byte) 1);
-        msgVoid(msg(window(), "contentView"), "addSubview:", webView);
+        try {
+            msgVoid(webView, "setHidden:", (byte) 1);
+            paintBehindPage();
+            msgVoid(msg(window(), "contentView"), "addSubview:", webView);
+        } catch (RuntimeException | Error e) {
+            // Half made: drop it, so nothing reports a view that isn't there.
+            close();
+            throw e;
+        }
+    }
+
+    /**
+     * WKWebView fills the view with white before the page is composited; draw no background of its own and give its
+     * layer the placeholder's dark color instead, so showing the view never flashes white.
+     */
+    private static void paintBehindPage() {
+        if ((ObjC.MSG_SEND.invokeInt(args(webView, "respondsToSelector:", selector("_setDrawsBackground:"))) & 0xFF) != 0) {
+            msgVoid(webView, "_setDrawsBackground:", (byte) 0);
+        }
+        msgVoid(webView, "setWantsLayer:", (byte) 1);
+        Pointer color = ObjC.CG_COLOR_CREATE_SRGB.invokePointer(new Object[] {0x12 / 255.0, 0x15 / 255.0, 0x1B / 255.0, 1.0});
+        msgVoid(msg(webView, "layer"), "setBackgroundColor:", color);
+        ObjC.CG_COLOR_RELEASE.invokeVoid(new Object[] {color});
     }
 
     private static void load(String url) {
-        Pointer nsUrl = msg(objcClass("NSURL"), "URLWithString:", nsString(url));
-        Pointer request = msg(objcClass("NSURLRequest"), "requestWithURL:", nsUrl);
-        msg(webView, "loadRequest:", request);
+        // The string, URL, request and navigation are autoreleased, and nothing drains a pool around the game's code.
+        Pointer pool = ObjC.POOL_PUSH.invokePointer(new Object[0]);
+        try {
+            Pointer nsUrl = msg(objcClass("NSURL"), "URLWithString:", nsString(url));
+            Pointer request = msg(objcClass("NSURLRequest"), "requestWithURL:", nsUrl);
+            msg(webView, "loadRequest:", request);
+        } finally {
+            ObjC.POOL_POP.invokeVoid(new Object[] {pool});
+        }
         loading = true;
         loaded = false;
     }
@@ -168,11 +210,11 @@ final class WKWebViewHost {
     }
 
     private static double scale() {
-        return MSG_SEND.invokeDouble(new Object[] {window(), selector("backingScaleFactor")});
+        return ObjC.MSG_SEND.invokeDouble(new Object[] {window(), selector("backingScaleFactor")});
     }
 
     private static Pointer objcClass(String name) {
-        Pointer cls = GET_CLASS.invokePointer(new Object[] {name});
+        Pointer cls = ObjC.GET_CLASS.invokePointer(new Object[] {name});
         if (cls == null) {
             throw new IllegalStateException("Objective-C class " + name + " not found");
         }
@@ -180,7 +222,7 @@ final class WKWebViewHost {
     }
 
     private static Pointer selector(String name) {
-        return SELECTOR.invokePointer(new Object[] {name});
+        return ObjC.SELECTOR.invokePointer(new Object[] {name});
     }
 
     private static Object[] args(Pointer receiver, String selector, Object... args) {
@@ -192,11 +234,11 @@ final class WKWebViewHost {
     }
 
     private static Pointer msg(Pointer receiver, String selector, Object... args) {
-        return MSG_SEND.invokePointer(args(receiver, selector, args));
+        return ObjC.MSG_SEND.invokePointer(args(receiver, selector, args));
     }
 
     private static void msgVoid(Pointer receiver, String selector, Object... args) {
-        MSG_SEND.invokeVoid(args(receiver, selector, args));
+        ObjC.MSG_SEND.invokeVoid(args(receiver, selector, args));
     }
 
     private static Pointer nsString(String text) {
