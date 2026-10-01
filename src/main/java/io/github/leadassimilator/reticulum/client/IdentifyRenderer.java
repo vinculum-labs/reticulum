@@ -12,7 +12,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import io.github.leadassimilator.reticulum.Reticulum;
@@ -42,6 +41,8 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
  * distance a beam up to the sky; plus a short list on screen with distance and direction.
  */
 public final class IdentifyRenderer {
+    /** How far outside the block a face is drawn. */
+    private static final double MARGIN = 0.01;
     /** Lines that ignore depth, so they show through walls. */
     static final RenderType LINES_THROUGH_WALLS = RenderType.create("reticulum_identify_lines", DefaultVertexFormat.POSITION_COLOR_NORMAL,
             VertexFormat.Mode.LINES, 1536, false, false, RenderType.CompositeState.builder()
@@ -131,8 +132,8 @@ public final class IdentifyRenderer {
             float b = (marker.color() & 0xFF) / 255f;
             if (marker.face().isPresent()) {
                 Direction face = marker.face().get();
-                fillFace(pose.last().pose(), buffers.getBuffer(quads), pos, face, r, g, b, 0.35f * pulse);
-                LevelRenderer.renderLineBox(pose, buffers.getBuffer(lines), faceBox(pos, face), r, g, b, pulse);
+                WorldOverlay.fillFace(pose.last().pose(), buffers.getBuffer(quads), pos, face, MARGIN, r, g, b, 0.35f * pulse);
+                LevelRenderer.renderLineBox(pose, buffers.getBuffer(lines), WorldOverlay.faceBox(pos, face, MARGIN), r, g, b, pulse);
                 LevelRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.01), r, g, b, 0.35f * pulse);
             } else {
                 LevelRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.02), r, g, b, pulse);
@@ -168,41 +169,6 @@ public final class IdentifyRenderer {
         }
         buffers.endBatch();
         pose.popPose();
-    }
-
-    /** A flat box lying on the face, just outside the block. */
-    private static AABB faceBox(BlockPos pos, Direction side) {
-        AABB box = new AABB(pos);
-        double e = 0.01;
-        return switch (side) {
-            case DOWN -> new AABB(box.minX, box.minY - e, box.minZ, box.maxX, box.minY - e, box.maxZ);
-            case UP -> new AABB(box.minX, box.maxY + e, box.minZ, box.maxX, box.maxY + e, box.maxZ);
-            case NORTH -> new AABB(box.minX, box.minY, box.minZ - e, box.maxX, box.maxY, box.minZ - e);
-            case SOUTH -> new AABB(box.minX, box.minY, box.maxZ + e, box.maxX, box.maxY, box.maxZ + e);
-            case WEST -> new AABB(box.minX - e, box.minY, box.minZ, box.minX - e, box.maxY, box.maxZ);
-            case EAST -> new AABB(box.maxX + e, box.minY, box.minZ, box.maxX + e, box.maxY, box.maxZ);
-        };
-    }
-
-    private static void fillFace(Matrix4f matrix, VertexConsumer buffer, BlockPos pos, Direction side, float r, float g, float b, float a) {
-        AABB f = faceBox(pos, side);
-        float[][] c;
-        if (side.getAxis() == Direction.Axis.Y) {
-            c = new float[][] {{(float) f.minX, (float) f.minY, (float) f.minZ}, {(float) f.maxX, (float) f.minY, (float) f.minZ},
-                    {(float) f.maxX, (float) f.minY, (float) f.maxZ}, {(float) f.minX, (float) f.minY, (float) f.maxZ}};
-        } else if (side.getAxis() == Direction.Axis.Z) {
-            c = new float[][] {{(float) f.minX, (float) f.minY, (float) f.minZ}, {(float) f.maxX, (float) f.minY, (float) f.minZ},
-                    {(float) f.maxX, (float) f.maxY, (float) f.minZ}, {(float) f.minX, (float) f.maxY, (float) f.minZ}};
-        } else {
-            c = new float[][] {{(float) f.minX, (float) f.minY, (float) f.minZ}, {(float) f.minX, (float) f.minY, (float) f.maxZ},
-                    {(float) f.minX, (float) f.maxY, (float) f.maxZ}, {(float) f.minX, (float) f.maxY, (float) f.minZ}};
-        }
-        for (int i = 0; i < 4; i++) {
-            buffer.addVertex(matrix, c[i][0], c[i][1], c[i][2]).setColor(r, g, b, a);
-        }
-        for (int i = 3; i >= 0; i--) {
-            buffer.addVertex(matrix, c[i][0], c[i][1], c[i][2]).setColor(r, g, b, a);
-        }
     }
 
     // ---------------------------------------------------------------- on screen
