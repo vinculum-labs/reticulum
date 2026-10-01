@@ -234,7 +234,7 @@
         size="xs"
         value={deviceFilter}
         options={[
-          { value: "all", label: "All" },
+          { value: "all", label: `All (${snapshot.devices.length})` },
           { value: "unused", label: `Unused (${unusedCount})`, title: "Devices no sheet uses yet" },
         ]}
         onchange={setDeviceFilter}
