@@ -958,6 +958,66 @@ public final class EngineTests {
     }
 
     @GameTest(template = "empty")
+    public static void kitHonorsATotalKeepRule(GameTestHelper helper) {
+        // Keep 10 items in total: a kit of 2 iron + 2 gold from 6 + 6 would leave 8, so it mustn't move.
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.IRON_INGOT, 6));
+        rig.container(0).setItem(1, new ItemStack(Items.GOLD_INGOT, 6));
+        Node source = rig.source(0, ResourceKind.ITEM, List.of(new NodeSettings.Limit(NodeSettings.Scope.TOTAL, 10, "")), 64);
+        Node kit = rig.node(new NodeSettings.KitSettings(List.of(
+                new NodeSettings.KitLine("id:minecraft:iron_ingot", 2),
+                new NodeSettings.KitLine("id:minecraft:gold_ingot", 2)), 1));
+        rig.wire(source, kit);
+        rig.wire(kit, rig.sink(1, ResourceKind.ITEM, List.of()));
+        helper.runAfterDelay(20, () -> {
+            check(helper, rig.count(0, Items.IRON_INGOT) + rig.count(0, Items.GOLD_INGOT) == 12,
+                    "the kit took items below the keep amount: " + rig.count(1, Items.IRON_INGOT) + " iron, " + rig.count(1, Items.GOLD_INGOT) + " gold");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void emptyKitMovesNothing(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.IRON_INGOT, 6));
+        Node source = rig.source(0, ResourceKind.ITEM, List.of(), 64);
+        Node kit = rig.node(new NodeSettings.KitSettings(List.of(), 64));
+        rig.wire(source, kit);
+        rig.wire(kit, rig.sink(1, ResourceKind.ITEM, List.of()));
+        helper.runAfterDelay(20, () -> {
+            check(helper, rig.count(0, Items.IRON_INGOT) == 6, "an empty kit moved items");
+            check(helper, rig.runtime().backoff(kit.id()) > 1, "an empty kit counts as having moved, so it never backs off");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void hugeSourceIntervalDoesntStopTheNetwork(GameTestHelper helper) {
+        // interval x back-off used to wrap around to 0: a division by zero that aborted the whole network's tick.
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
+        // An empty source that idles: its back-off doubles to 8, and 536870912 x 8 wraps to 0 in int arithmetic.
+        rig.wire(rig.output(0, new NodeSettings.Output(ResourceKind.ITEM, List.of(), Optional.empty(), List.of(), 64, 536_870_912, 0)),
+                rig.sink(1, ResourceKind.ITEM, List.of()));
+        rig.container(2).setItem(0, new ItemStack(Items.COBBLESTONE, 10));
+        rig.wire(rig.source(2, ResourceKind.ITEM, List.of(), 64), rig.sink(3, ResourceKind.ITEM, List.of()));
+        helper.succeedWhen(() -> check(helper, rig.count(3, Items.COBBLESTONE) == 10, "the other flow stopped"));
+    }
+
+    @GameTest(template = "empty")
+    public static void redstoneGoesDarkWhenItsDeviceIsGone(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.LEVER, Blocks.BARREL, Blocks.REDSTONE_LAMP);
+        helper.setBlock(rig.devices().get(0), lever(true));
+        rig.signal(rig.redstoneFrom(rig.device(0)), rig.redstoneTo(rig.device(2)), 0);
+        BlockPos connector = new BlockPos(5, 1, 1);
+        var be = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(connector);
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, be.power(Direction.SOUTH) > 0, "connector not powering the lamp"))
+                .thenExecute(() -> helper.setBlock(rig.devices().get(2), Blocks.AIR))
+                .thenWaitUntil(() -> check(helper, be.power(Direction.SOUTH) == 0, "the connector still powers where the lamp was"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
     public static void kitNeedsRoomForEveryPart(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.IRON_INGOT, 10));

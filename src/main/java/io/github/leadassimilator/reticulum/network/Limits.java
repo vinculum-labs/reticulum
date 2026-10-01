@@ -25,6 +25,8 @@ public final class Limits {
     public static final int MEMBERS = 256;
     public static final int KIT_LINES = 64;
     public static final int KITS_PER_OPERATION = 64;
+    /** The largest weight of one splitter output. */
+    public static final int SPLITTER_WEIGHT = 10_000;
 
     private Limits() {
     }
@@ -57,6 +59,8 @@ public final class Limits {
             case NodeSettings.SheetPinSettings s when s.name().length() > NAME -> "A pin name can be at most " + NAME + " characters";
             case NodeSettings.KitSettings s when s.lines().size() > KIT_LINES -> "A kit can have at most " + KIT_LINES + " lines";
             case NodeSettings.KitSettings s when s.maxKits() > KITS_PER_OPERATION -> "A kit can move at most " + KITS_PER_OPERATION + " kits at a time";
+            case NodeSettings.SplitterSettings s when s.weights().stream().anyMatch(w -> w < 0 || w > SPLITTER_WEIGHT) ->
+                    "A splitter output's weight must be 0 to " + SPLITTER_WEIGHT;
             default -> null;
         };
     }

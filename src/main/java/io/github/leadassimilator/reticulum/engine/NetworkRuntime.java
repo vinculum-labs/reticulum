@@ -159,6 +159,11 @@ public final class NetworkRuntime {
         }
     }
 
+    /** Drops every compiled sheet, so they're compiled again on the next tick. */
+    void forgetCompiled() {
+        compiled.clear();
+    }
+
     /** The compiled form of a sheet, if the engine has compiled it (sheets are compiled while the network runs). */
     @Nullable
     public CompiledSheet compiledIfPresent(UUID sheetId) {
@@ -625,7 +630,8 @@ public final class NetworkRuntime {
                 case WEIGHTED -> {
                     double[] credit = credits.computeIfAbsent(branch.node(), k -> new double[branch.count()]);
                     double next = (branch.index() < credit.length ? credit[branch.index()] : 0) + branch.weight();
-                    yield (int) Math.round(-next * 1000);
+                    // Clamped so very large credits can't wrap around and reorder the outputs.
+                    yield (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, Math.round(-next * 1000)));
                 }
                 case NEAREST -> distance(route);
             };

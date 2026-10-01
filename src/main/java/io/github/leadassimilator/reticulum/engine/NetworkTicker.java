@@ -48,6 +48,16 @@ public final class NetworkTicker {
         RUNTIMES.clear();
     }
 
+    /**
+     * Tags (and recipes, for is:smeltable) can change with /reload: sheets are compiled again, so their filters
+     * don't keep answers worked out from the old ones.
+     */
+    public static void onTagsUpdated(net.neoforged.neoforge.event.TagsUpdatedEvent event) {
+        if (event.getUpdateCause() == net.neoforged.neoforge.event.TagsUpdatedEvent.UpdateCause.SERVER_DATA_LOAD) {
+            RUNTIMES.values().forEach(NetworkRuntime::forgetCompiled);
+        }
+    }
+
     /** Drops a deleted (or merged-away) network's runtime, stopping it first so its AE2 links and redstone end too. */
     public static void forget(MinecraftServer server, Network network) {
         NetworkRuntime runtime = RUNTIMES.remove(network.id());

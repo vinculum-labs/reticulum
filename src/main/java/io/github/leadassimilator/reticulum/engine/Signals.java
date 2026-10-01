@@ -1,6 +1,7 @@
 package io.github.leadassimilator.reticulum.engine;
 
 import java.util.ArrayDeque;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -52,6 +53,8 @@ final class Signals {
 
     /** Redstone the connectors currently give out, per device (and face). */
     private Map<Emit, Integer> emitting = Map.of();
+    /** Connectors that gave out redstone after the last update, so one whose device went away is still put out. */
+    private Set<UUID> poweredConnectors = Set.of();
     /** Condition results worked out this tick, so every sheet in one folder sees the same pulse. */
     private final Map<String, Verdict> verdicts = new HashMap<>();
     /** Nodes switched off by redstone this tick, and nodes whose pulse fired this tick. */
@@ -177,16 +180,19 @@ final class Signals {
         Map<String, Long> publishing = new HashMap<>();
         Map<Emit, Integer> emit = new HashMap<>();
         Map<Emit, Integer> dark = new HashMap<>();
+        Set<UUID> worked = new HashSet<>();
         for (List<CompiledSheet> group : List.of(sheets, dormant)) {
             for (CompiledSheet sheet : group) {
                 for (CompiledSheet.SignalNode node : sheet.signals()) {
                     values.put(node.node().id(), output(ctx, sheet, node, publishing, group == sheets ? emit : dark));
+                    worked.add(node.node().id());
                 }
                 for (CompiledSheet.SignalNode node : sheet.signals()) {
                     remember(ctx, node);
                 }
             }
         }
+        values.keySet().retainAll(worked);
         published = publishing;
         applyEmissions(ctx.server(), ctx.network(), emit);
     }
@@ -303,7 +309,9 @@ final class Signals {
             }
             case NodeSettings.CounterSettings counter -> {
                 boolean high = in(node, 0) > 0;
-                Boolean before = wasOn.put(key, high);
+                Boolean before = wasOn.containsKey(key) ? wasOn.get(key) : memory.getOrDefault(key + "/on", 0L) > 0;
+                wasOn.put(key, high);
+                store(ctx, key + "/on", high ? 1 : 0);
                 boolean rising = high && !Boolean.TRUE.equals(before);
                 long count = memory.getOrDefault(key, 0L);
                 store(ctx, key, in(node, 1) > 0 ? 0 : rising ? count + 1 : count);
@@ -381,32 +389,56 @@ final class Signals {
 
     /** Gives each connector's redstone to the devices it faces, touching only what changed. */
     void applyEmissions(MinecraftServer server, Network network, Map<Emit, Integer> emit) {
-        if (emit.isEmpty() && emitting.isEmpty()) {
+        if (emit.isEmpty() && emitting.isEmpty() && poweredConnectors.isEmpty()) {
             return;
         }
         Set<GlobalPos> devices = new HashSet<>();
         emit.keySet().forEach(e -> devices.add(e.device()));
         emitting.keySet().forEach(e -> devices.add(e.device()));
+        Set<UUID> powered = new HashSet<>();
         for (ConnectorRecord connector : network.connectors()) {
+            // Only connectors facing a device that gets (or got) redstone, or that gave some out last time.
+            if (!poweredConnectors.contains(connector.id()) && connector.devices().stream().noneMatch(devices::contains)) {
+                continue;
+            }
+            ServerLevel level = server.getLevel(connector.pos().dimension());
+            if (level == null || !level.isLoaded(connector.pos().pos())
+                    || !(level.getBlockEntity(connector.pos().pos()) instanceof ConnectorBlockEntity be)) {
+                continue;
+            }
+            Set<Direction> set = EnumSet.noneOf(Direction.class);
+            boolean changed = false;
             for (GlobalPos device : connector.devices()) {
                 if (!devices.contains(device) || !device.dimension().equals(connector.pos().dimension())) {
                     continue;
                 }
-                ServerLevel level = server.getLevel(device.dimension());
-                if (level == null || !level.isLoaded(connector.pos().pos())
-                        || !(level.getBlockEntity(connector.pos().pos()) instanceof ConnectorBlockEntity be)) {
-                    continue;
-                }
                 Direction toward = Direction.fromDelta(device.pos().getX() - connector.pos().pos().getX(),
                         device.pos().getY() - connector.pos().pos().getY(), device.pos().getZ() - connector.pos().pos().getZ());
+                if (toward == null) {
+                    continue;
+                }
                 // The device's face touching this connector is the opposite of the way the connector faces it.
-                int power = toward == null ? 0 : Math.max(emit.getOrDefault(new Emit(device, null), 0),
-                        emit.getOrDefault(new Emit(device, toward.getOpposite()), 0));
-                if (toward != null && be.setPower(toward, power)) {
-                    level.updateNeighborsAt(connector.pos().pos(), be.getBlockState().getBlock());
+                int power = Math.max(emit.getOrDefault(new Emit(device, null), 0), emit.getOrDefault(new Emit(device, toward.getOpposite()), 0));
+                set.add(toward);
+                changed |= be.setPower(toward, power);
+            }
+            // A side still powered whose device went away (broken, or its side detached) goes dark too.
+            for (Direction side : Direction.values()) {
+                if (!set.contains(side) && be.power(side) > 0) {
+                    changed |= be.setPower(side, 0);
+                }
+            }
+            if (changed) {
+                level.updateNeighborsAt(connector.pos().pos(), be.getBlockState().getBlock());
+            }
+            for (Direction side : Direction.values()) {
+                if (be.power(side) > 0) {
+                    powered.add(connector.id());
+                    break;
                 }
             }
         }
+        poweredConnectors = powered;
         emitting = emit;
     }
 
@@ -414,6 +446,8 @@ final class Signals {
     void stop(MinecraftServer server, Network network) {
         applyEmissions(server, network, Map.of());
         values.clear();
+        delays.clear();
+        pulseLeft.clear();
         published = Map.of();
     }
 

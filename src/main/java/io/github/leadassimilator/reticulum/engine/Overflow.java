@@ -68,14 +68,18 @@ final class Overflow {
     /** Tries to deliver buffered resources to any sink on the network whose route would accept them. */
     static void retry(NetworkRuntime.Context ctx, List<CompiledSheet> sheets) {
         Network network = ctx.network();
-        if (network.overflow().isEmpty()) {
+        if (network.overflow().isEmpty() || !ctx.runtime().powered()) {
             return;
         }
         boolean changed = false;
         for (CompiledSheet sheet : sheets) {
             for (CompiledSheet.Source source : sheet.sources()) {
-                for (CompiledSheet.Route route : source.routes()) {
-                    if (route.kit() != null) {
+                if (!ctx.runtime().active(source)) {
+                    continue;
+                }
+                // Only routes redstone leaves on, and only as much as their rate limits allow.
+                for (CompiledSheet.Route route : ctx.runtime().routes(source)) {
+                    if (route.kit() != null || ctx.runtime().available(route.rateLimits()) <= 0) {
                         continue;
                     }
                     ServerLevel level = ctx.server().getLevel(route.sinkSettings().port().device().dimension());
@@ -85,9 +89,9 @@ final class Overflow {
                     if (source.resource() == ResourceKind.ITEM) {
                         changed |= retryItems(ctx, sheet, route, level);
                     } else if (source.resource() == ResourceKind.FLUID) {
-                        changed |= retryFluids(ctx, route, level);
+                        changed |= retryFluids(ctx, sheet, route, level);
                     } else if (source.resource() == ResourceKind.CHEMICAL && Mods.MEKANISM) {
-                        changed |= ChemicalMover.retry(ctx, route, level);
+                        changed |= ChemicalMover.retry(ctx, sheet, route, level);
                     }
                 }
             }
@@ -110,13 +114,14 @@ final class Overflow {
             if (!ItemMover.passes(route.gates(), held, context)) {
                 continue;
             }
-            long room = to.limit(route.sinkSettings().caps(), sheet, held, context, false);
+            long room = Math.min(to.limit(route.sinkSettings().caps(), sheet, held, context, false), ctx.runtime().available(route.rateLimits()));
             if (room <= 0) {
                 continue;
             }
             ItemStack offer = held.copyWithCount((int) Math.min(held.getCount(), room));
             int placed = offer.getCount() - to.insert(offer, false).getCount();
             if (placed > 0) {
+                ctx.runtime().consume(route.rateLimits(), placed);
                 held.shrink(placed);
                 changed = true;
                 if (held.isEmpty()) {
@@ -127,26 +132,33 @@ final class Overflow {
         return changed;
     }
 
-    private static boolean retryFluids(NetworkRuntime.Context ctx, CompiledSheet.Route route, ServerLevel level) {
+    private static boolean retryFluids(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Route route, ServerLevel level) {
         List<IFluidHandler> to = ctx.runtime().fluids(ctx.server(), ctx.network(), route.sinkSettings().port());
+        List<IFluidHandler> view = ctx.runtime().fluidView(ctx.server(), ctx.network(), route.sinkSettings().port());
         boolean changed = false;
-        Filters.Context context = Filters.Context.of(level);
+        Filters.Context context = new Filters.Context(level, null, f -> ContinuousMover.contains(view, f));
         Iterator<FluidStack> it = ctx.network().overflowFluids().iterator();
         while (it.hasNext()) {
             FluidStack held = it.next();
             if (!ContinuousMover.passes(route.gates(), held, context)) {
                 continue;
             }
+            long room = Math.min(ContinuousMover.fluidLimit(sheet, route.sinkSettings().caps(), view, held, context, false),
+                    ctx.runtime().available(route.rateLimits()));
             for (IFluidHandler handler : to) {
-                int filled = handler.fill(held.copy(), IFluidHandler.FluidAction.EXECUTE);
+                if (room <= 0 || held.isEmpty()) {
+                    break;
+                }
+                int filled = handler.fill(held.copyWithAmount((int) Math.min(held.getAmount(), room)), IFluidHandler.FluidAction.EXECUTE);
                 if (filled > 0) {
+                    ctx.runtime().consume(route.rateLimits(), filled);
+                    room -= filled;
                     held.shrink(filled);
                     changed = true;
                 }
-                if (held.isEmpty()) {
-                    it.remove();
-                    break;
-                }
+            }
+            if (held.isEmpty()) {
+                it.remove();
             }
         }
         return changed;

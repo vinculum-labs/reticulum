@@ -98,6 +98,7 @@ final class ContinuousMover {
             demand[i] = Math.max(0, Math.min(max, free));
             room.put(port.device(), free - demand[i]);
         }
+        capByRateLimits(ctx.runtime(), routes, demand);
         long[] share = share(supply, demand, anyPriority(routes), weights(routes));
         long total = 0;
         for (int i = 0; i < routes.size(); i++) {
@@ -240,7 +241,9 @@ final class ContinuousMover {
             sinks.add(to);
             demands.add(demand);
         }
-        long[] share = share(supply, demands.stream().mapToLong(Long::longValue).toArray(), anyPriority(routes), weights(routes));
+        long[] demand = demands.stream().mapToLong(Long::longValue).toArray();
+        capByRateLimits(ctx.runtime(), routes, demand);
+        long[] share = share(supply, demand, anyPriority(routes), weights(routes));
         long total = 0;
         for (int i = 0; i < routes.size(); i++) {
             if (share[i] <= 0) {
@@ -301,7 +304,7 @@ final class ContinuousMover {
         return true;
     }
 
-    private static boolean contains(List<IFluidHandler> handlers, FluidStack like) {
+    static boolean contains(List<IFluidHandler> handlers, FluidStack like) {
         for (IFluidHandler handler : handlers) {
             for (int tank = 0; tank < handler.getTanks(); tank++) {
                 if (FluidStack.isSameFluidSameComponents(handler.getFluidInTank(tank), like)) {
@@ -313,7 +316,7 @@ final class ContinuousMover {
     }
 
     /** Room left by keep rules (source) or caps (sink) for one fluid kind, in mB. */
-    private static long fluidLimit(CompiledSheet sheet, List<NodeSettings.Limit> limits, List<IFluidHandler> handlers, FluidStack kind,
+    static long fluidLimit(CompiledSheet sheet, List<NodeSettings.Limit> limits, List<IFluidHandler> handlers, FluidStack kind,
             Filters.Context context, boolean keep) {
         long allowed = Long.MAX_VALUE;
         for (NodeSettings.Limit limit : limits) {
@@ -339,6 +342,24 @@ final class ContinuousMover {
     }
 
     // ---------------------------------------------------------------- sharing
+
+    /**
+     * Lowers demands so that routes sharing a rate limit (a limit before a splitter, say) together ask for no more
+     * than it has left, rather than each for all of it.
+     */
+    static void capByRateLimits(NetworkRuntime runtime, List<CompiledSheet.Route> routes, long[] demand) {
+        Map<UUID, Long> left = new HashMap<>();
+        for (int i = 0; i < routes.size(); i++) {
+            long allowed = demand[i];
+            for (var limit : routes.get(i).rateLimits()) {
+                allowed = Math.min(allowed, left.computeIfAbsent(limit.id(), id -> runtime.available(List.of(limit))));
+            }
+            demand[i] = Math.max(0, allowed);
+            for (var limit : routes.get(i).rateLimits()) {
+                left.merge(limit.id(), -demand[i], Long::sum);
+            }
+        }
+    }
 
     /** Filling in order: a priority or nearest-first splitter anywhere on the routes (they arrive already in that order). */
     static boolean anyPriority(List<CompiledSheet.Route> routes) {

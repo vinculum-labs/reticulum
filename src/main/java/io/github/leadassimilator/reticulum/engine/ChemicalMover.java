@@ -121,8 +121,9 @@ final class ChemicalMover {
             sinks.add(to);
             demands.add(demand);
         }
-        long[] share = ContinuousMover.share(supply, demands.stream().mapToLong(Long::longValue).toArray(), ContinuousMover.anyPriority(routes),
-                ContinuousMover.weights(routes));
+        long[] demand = demands.stream().mapToLong(Long::longValue).toArray();
+        ContinuousMover.capByRateLimits(ctx.runtime(), routes, demand);
+        long[] share = ContinuousMover.share(supply, demand, ContinuousMover.anyPriority(routes), ContinuousMover.weights(routes));
         long total = 0;
         for (int i = 0; i < routes.size(); i++) {
             if (share[i] <= 0) {
@@ -237,26 +238,43 @@ final class ChemicalMover {
     }
 
     /** Tries to deliver buffered chemicals along one route. */
-    static boolean retry(NetworkRuntime.Context ctx, CompiledSheet.Route route, ServerLevel level) {
+    static boolean retry(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Route route, ServerLevel level) {
         List<IChemicalHandler> to = handlers(ctx, route.sinkSettings().port());
+        List<IChemicalHandler> view = view(ctx, route.sinkSettings().port());
         boolean changed = false;
-        Filters.Context context = Filters.Context.of(level);
+        Filters.Context context = new Filters.Context(level, null, null, c -> contains(view, (ChemicalStack) c));
         Iterator<Map.Entry<ResourceLocation, Long>> it = ctx.network().overflow().chemicals().entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<ResourceLocation, Long> held = it.next();
-            ChemicalStack left = MekanismChemicals.stack(held.getKey(), held.getValue());
-            if (left == null || !passes(route.gates(), left, context)) {
+            ChemicalStack stack = MekanismChemicals.stack(held.getKey(), held.getValue());
+            if (stack == null) {
+                // A chemical whose mod is gone can never be delivered; keeping it would block chemical flows for good.
+                io.github.leadassimilator.reticulum.Reticulum.LOGGER.warn("Dropping {} mB of unknown chemical {} from {}'s overflow buffer",
+                        held.getValue(), held.getKey(), ctx.network().name());
+                it.remove();
+                changed = true;
                 continue;
             }
+            if (!passes(route.gates(), stack, context)) {
+                continue;
+            }
+            long room = Math.min(limit(sheet, route.sinkSettings().caps(), view, stack, context, false), ctx.runtime().available(route.rateLimits()));
+            if (room <= 0) {
+                continue;
+            }
+            ChemicalStack left = stack.copyWithAmount(Math.min(stack.getAmount(), room));
+            long offered = left.getAmount();
             for (IChemicalHandler handler : to) {
                 left = handler.insertChemical(left, Action.EXECUTE);
             }
-            if (left.getAmount() != held.getValue()) {
+            long placed = offered - left.getAmount();
+            if (placed > 0) {
+                ctx.runtime().consume(route.rateLimits(), placed);
                 changed = true;
-                if (left.isEmpty()) {
+                if (placed == held.getValue()) {
                     it.remove();
                 } else {
-                    held.setValue(left.getAmount());
+                    held.setValue(held.getValue() - placed);
                 }
             }
         }

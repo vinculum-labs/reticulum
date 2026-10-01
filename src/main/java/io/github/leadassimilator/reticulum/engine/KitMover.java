@@ -53,6 +53,9 @@ final class KitMover {
     /** Returns whether at least one kit moved. */
     static boolean operate(NetworkRuntime.Context ctx, CompiledSheet sheet, Node kitNode, List<CompiledSheet.Route> routes) {
         NodeSettings.KitSettings kit = (NodeSettings.KitSettings) kitNode.settings();
+        if (kit.lines().stream().noneMatch(line -> line.count() > 0)) {
+            return false;
+        }
         List<Filters.ItemFilter> lineFilters = new ArrayList<>();
         for (NodeSettings.KitLine line : kit.lines()) {
             try {
@@ -125,6 +128,7 @@ final class KitMover {
             List<Filters.ItemFilter> lineFilters, List<CompiledSheet.Route> routes, Filters.Context context) {
         List<Take> takes = new ArrayList<>();
         Map<IItemHandler, Map<Integer, Integer>> shadow = new HashMap<>();
+        Map<ItemStack, Integer> claimedStacks = new java.util.IdentityHashMap<>();
         for (int line = 0; line < kit.lines().size(); line++) {
             int needed = kit.lines().get(line).count();
             Filters.ItemFilter lineFilter = lineFilters.get(line);
@@ -143,13 +147,19 @@ final class KitMover {
                         if (stack.isEmpty() || !lineFilter.test(stack, context) || !ItemMover.passes(route.gates(), stack, context)) {
                             continue;
                         }
-                        int claimed = shadow.computeIfAbsent(handler, h -> new HashMap<>()).getOrDefault(slot, 0);
-                        long kept = from.limit(source.keep(), sheet, stack, context, true) - plannedLike(takes, stack);
+                        boolean live = handler.getStackInSlot(slot) == stack;
+                        int claimed = live ? claimedStacks.getOrDefault(stack, 0)
+                                : shadow.computeIfAbsent(handler, h -> new HashMap<>()).getOrDefault(slot, 0);
+                        long kept = keepAllowed(sheet, from, source, stack, context, takes);
                         int take = (int) Math.min(Math.min(needed, stack.getCount() - claimed), Math.max(0, kept));
                         if (take <= 0) {
                             continue;
                         }
-                        shadow.get(handler).merge(slot, take, Integer::sum);
+                        if (live) {
+                            claimedStacks.merge(stack, take, Integer::sum);
+                        } else {
+                            shadow.computeIfAbsent(handler, h -> new HashMap<>()).merge(slot, take, Integer::sum);
+                        }
                         takes.add(new Take(handler, slot, stack.copyWithCount(take), route));
                         needed -= take;
                     }
@@ -162,23 +172,38 @@ final class KitMover {
         return takes;
     }
 
-    private static long plannedLike(List<Take> takes, ItemStack like) {
-        long n = 0;
-        for (Take take : takes) {
-            if (ItemStack.isSameItemSameComponents(take.stack, like)) {
-                n += take.stack.getCount();
+    /** How many of {@code stack} the source's keep rules still allow, after what this kit already plans to take. */
+    private static long keepAllowed(CompiledSheet sheet, ItemPort from, NodeSettings.SourceSettings source, ItemStack stack,
+            Filters.Context context, List<Take> takes) {
+        long allowed = Long.MAX_VALUE;
+        for (NodeSettings.Limit rule : source.keep()) {
+            Filters.ItemFilter filter = sheet.itemFilter(rule);
+            if (!filter.test(stack, context)) {
+                continue;
             }
+            long planned = 0;
+            for (Take take : takes) {
+                boolean counted = rule.scope() == NodeSettings.Scope.PER_TYPE
+                        ? ItemStack.isSameItemSameComponents(take.stack, stack)
+                        : filter.test(take.stack, context);
+                if (counted && take.route.sourceSettings().port().equals(source.port())) {
+                    planned += take.stack.getCount();
+                }
+            }
+            allowed = Math.min(allowed, from.limit(List.of(rule), sheet, stack, context, true) - planned);
         }
-        return n;
+        return allowed;
     }
 
     private static boolean withinRateLimits(NetworkRuntime.Context ctx, List<Take> takes) {
-        Map<CompiledSheet.Route, Long> perRoute = new LinkedHashMap<>();
+        Map<Node, Long> perLimit = new LinkedHashMap<>();
         for (Take take : takes) {
-            perRoute.merge(take.route, (long) take.stack.getCount(), Long::sum);
+            for (Node limit : take.route.rateLimits()) {
+                perLimit.merge(limit, (long) take.stack.getCount(), Long::sum);
+            }
         }
-        for (Map.Entry<CompiledSheet.Route, Long> entry : perRoute.entrySet()) {
-            if (ctx.runtime().available(entry.getKey().rateLimits()) < entry.getValue()) {
+        for (Map.Entry<Node, Long> entry : perLimit.entrySet()) {
+            if (ctx.runtime().available(List.of(entry.getKey())) < entry.getValue()) {
                 return false;
             }
         }
@@ -215,11 +240,19 @@ final class KitMover {
     @Nullable
     private static List<Put> planInsertion(ItemPort to, List<Take> takes) {
         List<Put> slots = new ArrayList<>();
+        java.util.Set<ItemStack> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         for (IItemHandler handler : to.handlers) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
-                if (to.inRange(slot)) {
-                    slots.add(new Put(handler, slot, handler.getStackInSlot(slot).copy()));
+                if (!to.inRange(slot)) {
+                    continue;
                 }
+                ItemStack contents = handler.getStackInSlot(slot);
+                // A live, non-empty stack seen before is the same slot through another face (empty slots all share
+                // one EMPTY stack, so they can't be told apart this way; the simulation before committing catches those).
+                if (!contents.isEmpty() && handler.getStackInSlot(slot) == contents && !seen.add(contents)) {
+                    continue;
+                }
+                slots.add(new Put(handler, slot, contents.copy()));
             }
         }
         for (Take take : takes) {
@@ -235,6 +268,10 @@ final class KitMover {
                         continue;
                     }
                     int limit = Math.min(put.handler.getSlotLimit(put.slot), remaining.getMaxStackSize());
+                    if (current.getCount() > limit) {
+                        // Already more than a stack: storage that ignores stack sizes, limited only by the slot.
+                        limit = put.handler.getSlotLimit(put.slot);
+                    }
                     int room = limit - current.getCount();
                     if (room <= 0) {
                         continue;

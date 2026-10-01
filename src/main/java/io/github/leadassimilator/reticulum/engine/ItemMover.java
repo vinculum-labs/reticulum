@@ -60,7 +60,7 @@ final class ItemMover {
             }
             int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.sheet().interval();
             UUID id = source.node().id();
-            if (!direct.isEmpty() && (due(ctx, id, interval * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, direct))) {
+            if (!direct.isEmpty() && (due(ctx, id, (long) interval * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, direct))) {
                 if (!ctx.runtime().canAffordOperation()) {
                     ctx.runtime().status(sheet.owner(id), Status.NO_POWER);
                     continue;
@@ -74,7 +74,7 @@ final class ItemMover {
         }
         for (Map.Entry<UUID, List<CompiledSheet.Route>> kit : kits.entrySet()) {
             UUID id = kit.getKey();
-            if (due(ctx, id, sheet.sheet().interval() * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, kit.getValue())) {
+            if (due(ctx, id, (long) sheet.sheet().interval() * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, kit.getValue())) {
                 if (!ctx.runtime().canAffordOperation()) {
                     ctx.runtime().status(sheet.owner(id), Status.NO_POWER);
                     continue;
@@ -89,8 +89,8 @@ final class ItemMover {
     }
 
     /** Spreads nodes with the same interval over different ticks. */
-    private static boolean due(NetworkRuntime.Context ctx, UUID node, int interval) {
-        return Math.floorMod(ctx.runtime().ticks() + node.hashCode(), interval) == 0;
+    private static boolean due(NetworkRuntime.Context ctx, UUID node, long interval) {
+        return Math.floorMod(ctx.runtime().ticks() + node.hashCode(), Math.max(1, interval)) == 0;
     }
 
     /** Returns how many items moved. */
