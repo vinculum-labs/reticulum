@@ -42,8 +42,8 @@
   }
   .track {
     position: relative;
-    width: 26px;
-    height: 14px;
+    width: 28px;
+    height: 16px;
     border-radius: 999px;
     background: var(--line);
     transition: background 0.15s;
@@ -55,8 +55,8 @@
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background: var(--panel);
     transition: left 0.15s;

@@ -68,6 +68,8 @@ neoForge {
             // Serve the web editor straight from web/dist, so `npm run dev` changes show on a browser refresh.
             systemProperty 'reticulum.webRoot', file('web/dist').absolutePath
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            // The in-game editor (WebView2) opens DevTools' remote protocol on localhost:9222 for debugging.
+            environment 'WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS', '--remote-debugging-port=9222'
         }
 
         server {
