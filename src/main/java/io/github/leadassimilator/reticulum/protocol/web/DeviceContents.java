@@ -83,12 +83,12 @@ public final class DeviceContents {
     }
 
     /** Merges one handler's totals, keeping for each id the larger amount. */
-    static void keepLargest(Map<ResourceLocation, Long> totals, Map<ResourceLocation, Long> one) {
+    public static void keepLargest(Map<ResourceLocation, Long> totals, Map<ResourceLocation, Long> one) {
         one.forEach((id, amount) -> totals.merge(id, amount, Math::max));
     }
 
     /** The block's handlers of one kind on every side and no side, each distinct handler once. */
-    static <T> Set<T> handlers(ServerLevel level, BlockPos pos, BlockCapability<T, Direction> capability) {
+    public static <T> Set<T> handlers(ServerLevel level, BlockPos pos, BlockCapability<T, Direction> capability) {
         Set<T> found = Collections.newSetFromMap(new IdentityHashMap<>());
         add(found, level.getCapability(capability, pos, null));
         for (Direction side : Direction.values()) {
