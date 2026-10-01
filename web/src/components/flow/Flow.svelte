@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
   import { modals } from "../../lib/dialog.svelte";
+  import SheetErrors from "../inspector/SheetErrors.svelte";
   import { KIND_ICON, SparklesIcon, SplineIcon, ZapIcon } from "../../lib/icons";
   import MenuButton from "./MenuButton.svelte";
   import {
@@ -33,6 +34,16 @@
 
   const sheet = $derived(currentSheet());
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
+
+  // A node opened from the dashboard is brought into view once Svelte Flow has measured it.
+  $effect(() => {
+    const id = app.focusNode;
+    if (!id || !nodes.some((n) => n.id === id && n.measured)) return;
+    untrack(() => {
+      app.focusNode = null;
+      flow.fitView({ nodes: [{ id }], duration: 300, maxZoom: 1.2 });
+    });
+  });
 
   // A drag interrupted by the canvas going away (leaving the world) mustn't leave metrics held for good.
   onDestroy(() => holdMetrics(false));
@@ -382,9 +393,7 @@
     {/if}
     {#if sheet?.errors?.length}
       <Panel position="bottom-center">
-        <div class="max-w-xl rounded-lg border px-3 py-2 text-sm" style="background: var(--panel); border-color: var(--bad)">
-          {#each sheet.errors as error}<div>{error}</div>{/each}
-        </div>
+        <div class="max-w-xl"><SheetErrors errors={sheet.errors} overlay /></div>
       </Panel>
     {/if}
   </SvelteFlow>

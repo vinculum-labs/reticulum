@@ -8,6 +8,7 @@
   let cancelButton: HTMLButtonElement | undefined = $state();
   let confirmButton: HTMLButtonElement | undefined = $state();
   let value = $state("");
+  const formId = `dialog-${Math.random().toString(36).slice(2, 8)}`;
 
   const open = $derived(dialogs.open);
 
@@ -42,10 +43,9 @@
       height={multiline ? LARGE_HEIGHT : undefined}
       resizable={open.kind === "prompt"}
       minHeight={multiline ? 220 : 140}
-      label={open.title}
+      title={open.title}
     >
-      <form class="flex min-h-0 flex-1 flex-col gap-3 p-4" onsubmit={submit}>
-        <h2 class="text-base font-semibold">{open.title}</h2>
+      <form id={formId} class="flex min-h-0 flex-1 flex-col gap-3" onsubmit={submit}>
         {#if open.message}<p class="text-sm muted">{open.message}</p>{/if}
         {#if open.kind === "prompt"}
           {#if multiline}
@@ -55,20 +55,26 @@
               class="min-h-24 w-full flex-1 resize-none font-mono text-xs"
               placeholder={open.placeholder}
               spellcheck="false"
+              aria-label={open.title}
               onkeydown={onfieldkeydown}
             ></textarea>
           {:else}
-            <input bind:this={field} bind:value class="w-full" placeholder={open.placeholder} />
+            <input bind:this={field} bind:value class="w-full" placeholder={open.placeholder} aria-label={open.title} />
           {/if}
         {/if}
-        <div class="mt-auto flex justify-end gap-2">
-          {#if multiline}<span class="mr-auto self-center text-xs muted">Ctrl+Enter to confirm</span>{/if}
-          <button bind:this={cancelButton} type="button" class="btn" onclick={cancelDialog}>Cancel</button>
-          <button bind:this={confirmButton} type="submit" class="btn {open.kind === 'confirm' && open.danger ? 'btn-destructive' : 'btn-primary'}">
-            {open.confirm ?? "OK"}
-          </button>
-        </div>
       </form>
+      {#snippet footer()}
+        {#if multiline}<span class="mr-auto text-xs muted">Ctrl+Enter to confirm</span>{/if}
+        <button bind:this={cancelButton} type="button" class="btn" onclick={cancelDialog}>Cancel</button>
+        <button
+          bind:this={confirmButton}
+          type="submit"
+          form={formId}
+          class="btn {open.kind === 'confirm' && open.danger ? 'btn-destructive' : 'btn-primary'}"
+        >
+          {open.confirm ?? "OK"}
+        </button>
+      {/snippet}
     </Modal>
   {/key}
 {/if}

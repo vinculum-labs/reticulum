@@ -24,6 +24,7 @@
   import FilterField from "./FilterField.svelte";
   import { catalogKind } from "../../lib/catalog";
   import { resources, splitterBranches, upstreamDevices } from "../../lib/graph";
+  import { useSvelteFlow } from "@xyflow/svelte";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import DeviceNodeEditor from "./DeviceNodeEditor.svelte";
@@ -49,27 +50,31 @@
   const unit = $derived(s.kind === "device" && s.outputs?.[0] ? RESOURCE_UNIT[s.outputs[0].resource] : "units");
 
   /**
-   * Saves a device node. When an input or output was removed, its wires go and wires on later ones are
-   * renumbered (the server identifies them by number).
+   * Saves a device node. Removed inputs and outputs (by their old index) lose their wires, and wires on the ones
+   * after them are renumbered (the server identifies them by number).
    */
-  function saveDevice(next: DeviceNodeSettings, removed?: { direction: "in" | "out"; index: number }) {
+  function saveDevice(next: DeviceNodeSettings, removed?: { in?: number[]; out?: number[] }, label = "edit device") {
     const edits: Edit[] = [];
     const { after, before } = rebase(node, { ...node, settings: next });
     const undo: Edit[] = [{ type: "updateNode", sheet: sheet.id, node: before }];
-    if (removed) {
-      const onSide = (w: Wire) => (removed.direction === "in" ? w.to === node.id : w.from === node.id);
-      const index = (w: Wire) => (removed.direction === "in" ? (w.input ?? 0) : (w.output ?? 0));
-      for (const w of (sheet.wires ?? []).filter((w) => onSide(w) && index(w) >= removed.index)) {
+    for (const direction of ["in", "out"] as const) {
+      const gone = new Set(removed?.[direction] ?? []);
+      if (!gone.size) continue;
+      const onSide = (w: Wire) => (direction === "in" ? w.to === node.id : w.from === node.id);
+      const index = (w: Wire) => (direction === "in" ? (w.input ?? 0) : (w.output ?? 0));
+      const shift = (i: number) => [...gone].filter((g) => g < i).length;
+      for (const w of (sheet.wires ?? []).filter((w) => onSide(w) && (gone.has(index(w)) || shift(index(w)) > 0))) {
         edits.push({ type: "disconnect", sheet: sheet.id, wire: w.id });
         undo.push({ type: "connect", sheet: sheet.id, wire: w });
-        if (index(w) > removed.index) {
-          const moved = removed.direction === "in" ? { ...w, input: index(w) - 1 } : { ...w, output: index(w) - 1 };
+        if (!gone.has(index(w))) {
+          const to = index(w) - shift(index(w));
+          const moved = direction === "in" ? { ...w, input: to } : { ...w, output: to };
           edits.push({ type: "connect", sheet: sheet.id, wire: moved });
           undo.unshift({ type: "disconnect", sheet: sheet.id, wire: w.id });
         }
       }
     }
-    edit([...edits, { type: "updateNode", sheet: sheet.id, node: after }], undo, "edit device");
+    edit([...edits, { type: "updateNode", sheet: sheet.id, node: after }], undo, label);
   }
 
   function save(next: GraphNode, label = "edit node") {
@@ -105,14 +110,11 @@
     edit(edits, undo, "reorder outputs");
   }
 
+  const flow = useSvelteFlow();
+
+  /** Deletes the node the way the Delete key does, with its wires, as one undoable change. */
   function remove() {
-    const wires = (sheet.wires ?? []).filter((w) => w.from === node.id || w.to === node.id);
-    app.selectedNodes = [];
-    edit(
-      [{ type: "removeNode", sheet: sheet.id, node: node.id }],
-      [{ type: "addNode", sheet: sheet.id, node }, ...wires.map((w) => ({ type: "connect", sheet: sheet.id, wire: w }))],
-      "delete node",
-    );
+    flow.deleteElements({ nodes: [{ id: node.id }] });
   }
 
 </script>

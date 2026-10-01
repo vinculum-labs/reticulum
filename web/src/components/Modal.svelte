@@ -22,6 +22,8 @@
     minWidth = 320,
     minHeight = 220,
     label,
+    title,
+    footer,
     children,
   }: {
     onclose: () => void;
@@ -33,6 +35,10 @@
     minWidth?: number;
     minHeight?: number;
     label?: string;
+    /** Shown at the top, and names the dialog. */
+    title?: string;
+    /** The buttons, at the bottom right (Cancel first, the main action last). */
+    footer?: Snippet;
     children: Snippet;
   } = $props();
 
@@ -120,13 +126,15 @@
   bind:this={element}
   class="m-auto max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-lg border p-0"
   style="width: {shownWidth}; {shownHeight === undefined ? '' : `height: ${shownHeight};`} background: var(--panel); color: var(--ink); border-color: var(--line); box-shadow: 0 12px 40px rgb(0 0 0 / 0.35)"
-  aria-label={label}
+  aria-label={label ?? title}
   oncancel={(e) => (e.preventDefault(), onclose())}
   {onpointerdown}
   {onclick}
 >
-  <div class="flex flex-col {shownHeight === undefined ? '' : 'h-full'}">
-    {@render children()}
+  <div class="flex flex-col gap-3 p-4 {shownHeight === undefined ? '' : 'h-full'}">
+    {#if title}<h2 class="text-base font-semibold">{title}</h2>{/if}
+    <div class="flex min-h-0 flex-1 flex-col gap-3">{@render children()}</div>
+    {#if footer}<div class="flex items-center justify-end gap-2">{@render footer()}</div>{/if}
   </div>
   {#if resizable}
     {#each HANDLES as handle (handle.style)}

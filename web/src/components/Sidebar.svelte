@@ -1,10 +1,18 @@
 <script lang="ts">
-  import { app, edit, deviceName, openDevice, toast } from "../lib/state.svelte";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import Folder from "@lucide/svelte/icons/folder";
+  import Layers from "@lucide/svelte/icons/layers";
+  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
+  import Zap from "@lucide/svelte/icons/zap";
+  import { app, edit, deviceName, matchesDevice, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
   import { confirmDialog, promptDialog } from "../lib/dialog.svelte";
   import { posKey, type Sheet } from "../lib/types";
   import DeviceIcon from "./DeviceIcon.svelte";
   import IdentifyBadge from "./IdentifyBadge.svelte";
   import FilterField from "./inspector/FilterField.svelte";
+  import RemoveButton from "./controls/RemoveButton.svelte";
+  import TextField from "./controls/TextField.svelte";
 
   const snapshot = $derived(app.snapshot!);
   const canEdit = $derived(snapshot.canEdit);
@@ -17,10 +25,7 @@
 
   const devices = $derived(
     snapshot.devices
-      .filter((d) => {
-        const q = deviceSearch.trim().toLowerCase();
-        return !q || deviceName(d).toLowerCase().includes(q) || d.block.includes(q);
-      })
+      .filter((d) => matchesDevice(d, deviceSearch))
       .sort((a, b) => deviceName(a).localeCompare(deviceName(b))),
   );
 
@@ -55,11 +60,7 @@
   }
 
   function renameSheet(sheet: Sheet, name: string) {
-    renaming = null;
-    name = name.trim();
-    if (name && name !== sheet.name) {
-      edit([{ type: "updateSheet", sheet: sheet.id, name }], [{ type: "updateSheet", sheet: sheet.id, name: sheet.name }], "rename sheet");
-    }
+    edit([{ type: "updateSheet", sheet: sheet.id, name }], [{ type: "updateSheet", sheet: sheet.id, name: sheet.name }], "rename sheet");
   }
 
   async function deleteSheet(sheet: Sheet) {
@@ -140,8 +141,13 @@
       {#each rows as row (row.type === "folder" ? `f:${row.path}` : row.sheet.id)}
         {#if row.type === "folder"}
           <li class="flex items-center gap-1.5 rounded-md py-1 pr-2" style="padding-left: {row.depth * 14 + 4}px">
-            <button class="w-4 text-xs muted" onclick={() => toggleCollapsed(row.path)} title={collapsed.has(row.path) ? "Expand" : "Collapse"}
-              >{collapsed.has(row.path) ? "▸" : "▾"}</button
+            <button
+              class="flex w-4 justify-center muted"
+              onclick={() => toggleCollapsed(row.path)}
+              title={collapsed.has(row.path) ? "Expand" : "Collapse"}
+              aria-label={`${collapsed.has(row.path) ? "Expand" : "Collapse"} ${row.name}`}
+              aria-expanded={!collapsed.has(row.path)}
+              >{#if collapsed.has(row.path)}<ChevronRight size={14} />{:else}<ChevronDown size={14} />{/if}</button
             >
             <input
               type="checkbox"
@@ -155,7 +161,7 @@
                   "folder on/off",
                 )}
             />
-            <span class="truncate font-medium" style={folderOff(row.path) ? "color: var(--muted)" : ""}>📁 {row.name}</span>
+            <span class="flex min-w-0 items-center gap-1 truncate font-medium" class:muted={folderOff(row.path)}><Folder size={14} class="shrink-0 muted" />{row.name}</span>
           </li>
         {:else}
           {@const sheet = row.sheet}
@@ -168,48 +174,26 @@
               checked={sheet.enabled !== false}
               disabled={!canEdit}
               title="Sheet on/off"
-              onchange={(e) =>
-                edit(
-                  [{ type: "updateSheet", sheet: sheet.id, enabled: e.currentTarget.checked }],
-                  [{ type: "updateSheet", sheet: sheet.id, enabled: sheet.enabled !== false }],
-                  "sheet on/off",
-                )}
+              aria-label={`${sheet.name} on/off`}
+              onchange={(e) => setSheetEnabled(sheet, e.currentTarget.checked)}
             />
             {#if renaming === sheet.id}
-              <!-- svelte-ignore a11y_autofocus -->
-              <input
-                class="flex-1"
-                value={sheet.name}
-                autofocus
-                onblur={(e) => renameSheet(sheet, e.currentTarget.value)}
-                onkeydown={(e) => {
-                  if (e.key === "Enter") renameSheet(sheet, e.currentTarget.value);
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    renaming = null;
-                  }
-                }}
-              />
+              <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
             {:else}
               <button
-                class="flex-1 truncate text-left"
-                style={sheet.enabled === false || folderOff(sheet.folder ?? "") || app.sheetsOff.includes(sheet.id) ? "color: var(--muted)" : ""}
-                onclick={() => {
-                  app.sheetId = sheet.id;
-                  app.selectedNodes = [];
-                  app.selectedEdges = [];
-                  app.selectedDevice = null;
-                }}
+                class="flex min-w-0 flex-1 items-center gap-1 text-left"
+                class:muted={sheet.enabled === false || folderOff(sheet.folder ?? "") || app.sheetsOff.includes(sheet.id)}
+                onclick={() => openSheet(sheet.id)}
                 ondblclick={() => canEdit && (renaming = sheet.id)}
                 title={sheet.subsheet ? "Sub-sheet: runs only where it is placed. Double-click to rename." : "Double-click to rename"}
               >
-                {#if sheet.subsheet}<span class="muted">⧉ </span>{/if}{sheet.name}
-                {#if app.sheetsOff.includes(sheet.id)}<span style="color: var(--c-signal)" title="Switched off by redstone"> ⚡</span>{/if}
-                {#if sheet.errors?.length}<span style="color: var(--bad)" title={sheet.errors.join("\n")}> ⚠</span>{/if}
+                {#if sheet.subsheet}<Layers size={14} class="shrink-0 muted" />{/if}<span class="truncate">{sheet.name}</span>
+                {#if app.sheetsOff.includes(sheet.id)}<span class="shrink-0" style="color: var(--c-signal)" title="Switched off by redstone"><Zap size={12} /></span>{/if}
+                {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.join("\n")}><TriangleAlert size={12} /></span>{/if}
               </button>
             {/if}
             {#if canEdit}
-              <button class="invisible text-sm muted group-hover:visible" onclick={() => deleteSheet(sheet)} title="Delete sheet">✕</button>
+              <RemoveButton reveal label={`Delete sheet ${sheet.name}`} onclick={() => deleteSheet(sheet)} />
             {/if}
           </li>
         {/if}
@@ -232,21 +216,20 @@
     <ul class="flex flex-col gap-0.5">
       {#each devices as d (posKey(d.pos))}
         {@const key = posKey(d.pos)}
-        <li>
+        <li class="list-row group flex items-center gap-2 rounded-md pr-2" class:active={app.selectedDevice === key}>
           <button
-            class="group flex w-full items-center gap-2 rounded-md px-2 py-1 text-left"
-            style={app.selectedDevice === key ? "background: var(--panel-2)" : ""}
+            class="flex min-w-0 flex-1 items-center gap-2 py-1 pl-2 text-left"
             draggable={canEdit && d.state === "active"}
             ondragstart={(e) => dragDevice(e, key)}
             onclick={() => openDevice(d)}
             title={`${d.defaultName}\n${d.block}`}
           >
             <DeviceIcon item={d.icon} />
-            <span class="min-w-0 flex-1 truncate" style={d.state !== "active" ? "color: var(--muted)" : ""}>{deviceName(d)}</span>
-            <IdentifyBadge device={d} />
-            {#if d.state !== "active"}<span class="text-xs" style="color: var(--warn)">{d.state}</span>
-            {:else if d.outOfRange}<span class="text-xs" style="color: var(--warn)" title="Only wireless connectors the antenna doesn't reach reach it">out of range</span>{/if}
+            <span class="min-w-0 flex-1 truncate" class:muted={d.state !== "active"}>{deviceName(d)}</span>
+            {#if d.state !== "active"}<span class="text-xs text-warn">{d.state}</span>
+            {:else if d.outOfRange}<span class="text-xs text-warn" title="Only wireless connectors the antenna doesn't reach reach it">out of range</span>{/if}
           </button>
+          <IdentifyBadge device={d} />
         </li>
       {:else}
         <li class="text-sm muted">No devices. Place a connector next to a machine.</li>
@@ -262,26 +245,27 @@
         <li class="flex flex-col gap-1">
           <div class="flex items-center justify-between">
             <code>@{name}</code>
-            {#if canEdit}<button class="text-sm muted" onclick={() => saveFilter(name, null)} title="Delete template">✕</button>{/if}
+            {#if canEdit}<RemoveButton label={`Delete template @${name}`} onclick={() => saveFilter(name, null)} />{/if}
           </div>
           <FilterField value={expression} disabled={!canEdit} onchange={(v) => saveFilter(name, v)} />
         </li>
       {/each}
     </ul>
     {#if canEdit}
-      <div class="mt-2 flex flex-col gap-1">
-        <input placeholder="Template name" bind:value={newFilterName} />
+      <form
+        class="mt-2 flex flex-col gap-1"
+        onsubmit={(e) => {
+          e.preventDefault();
+          if (!newFilterName.trim()) return;
+          saveFilter(newFilterName, newFilterExpr);
+          newFilterName = "";
+          newFilterExpr = "";
+        }}
+      >
+        <input placeholder="Template name" aria-label="Template name" bind:value={newFilterName} />
         <FilterField value={newFilterExpr} onchange={(v) => (newFilterExpr = v)} placeholder="e.g. tag:c:ores" />
-        <button
-          class="btn self-start"
-          disabled={!newFilterName.trim()}
-          onclick={() => {
-            saveFilter(newFilterName, newFilterExpr);
-            newFilterName = "";
-            newFilterExpr = "";
-          }}>Save template</button
-        >
-      </div>
+        <button class="btn self-start" type="submit" disabled={!newFilterName.trim()}>Save template</button>
+      </form>
     {/if}
   </section>
 </aside>

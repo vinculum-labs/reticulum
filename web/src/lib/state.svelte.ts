@@ -100,6 +100,8 @@ export const app = $state({
   selectedNodes: [] as string[],
   selectedEdges: [] as string[],
   selectedDevice: null as string | null,
+  /** A node to bring into view once its sheet is on the canvas (opened from the dashboard). */
+  focusNode: null as string | null,
   /** A panel shown in place of the inspector ("network" = network settings). */
   panel: null as "network" | "identified" | "dashboard" | null,
   /** How long the network's ticks take, in ms (last 200 ticks). */
@@ -503,9 +505,15 @@ export function signalNames(): string[] {
   return [...names].sort();
 }
 
+/** Switches a sheet on or off, undoably. */
+export function setSheetEnabled(sheet: Sheet, on: boolean) {
+  return edit([{ type: "updateSheet", sheet: sheet.id, enabled: on }], [{ type: "updateSheet", sheet: sheet.id, enabled: sheet.enabled !== false }], "sheet on/off");
+}
+
 /** Shows a sheet, with nothing selected (or the given nodes), and the inspector for it. */
-export function openSheet(id: string, select: string[] = []): void {
+export function openSheet(id: string, select: string[] = [], focus = false): void {
   app.sheetId = id;
+  app.focusNode = focus && select.length ? select[0] : null;
   app.selectedNodes = select;
   app.selectedEdges = [];
   app.selectedDevice = null;

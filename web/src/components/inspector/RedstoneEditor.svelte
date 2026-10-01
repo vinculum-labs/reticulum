@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { app, deviceName } from "../../lib/state.svelte";
+  import { app, signalNames } from "../../lib/state.svelte";
   import { REDSTONE_MODE_LABEL } from "../../lib/kinds";
   import { SIDES, type Face, type Redstone, type RedstoneMode, type RedstoneSource } from "../../lib/types";
+  import TextField from "../controls/TextField.svelte";
   import DevicePicker from "./DevicePicker.svelte";
   import Field from "./Field.svelte";
 
@@ -23,16 +24,7 @@
   const devices = $derived(app.snapshot?.devices ?? []);
   const connectors = $derived(app.snapshot?.connectors ?? []);
 
-  /** Names transmitted anywhere on the network, plus names seen live. */
-  const signalNames = $derived.by(() => {
-    const names = new Set<string>(Object.keys(app.networkSignals));
-    for (const sheet of app.snapshot?.sheets ?? []) {
-      for (const node of sheet.nodes ?? []) {
-        if (node.settings.kind === "transmit" && node.settings.name) names.add(node.settings.name);
-      }
-    }
-    return [...names].sort();
-  });
+  const names = $derived(signalNames());
 
   /** Only the fields the chosen source uses are kept, so the saved condition stays small. */
   function set(patch: Partial<Redstone>) {
@@ -51,10 +43,9 @@
     return c.name || `Connector (${c.pos.pos.join(", ")})`;
   }
 
-  const listId = `signals-${Math.random().toString(36).slice(2, 8)}`;
 </script>
 
-<div class="flex flex-col gap-2 rounded-md border p-2" style="border-color: var(--line)">
+<div class="box flex flex-col gap-2">
   <Field label="Redstone" hint="Runs only while this allows it (and its on/off button is on). Pulse: once per rising edge.">
     <select value={mode} {disabled} onchange={(e) => set({ mode: e.currentTarget.value as RedstoneMode })}>
       {#each Object.entries(REDSTONE_MODE_LABEL) as [key, label]}<option value={key}>{label}</option>{/each}
@@ -78,14 +69,7 @@
       </Field>
     {:else if source === "face"}
       <Field label="Device">
-        {#if value?.device}
-          <DevicePicker {devices} value={value.device} {disabled} onchange={(d) => set({ device: d.pos })} />
-        {:else}
-          <select value="" {disabled} onchange={(e) => set({ device: devices[Number(e.currentTarget.value)]?.pos })}>
-            <option value="" disabled>Choose…</option>
-            {#each devices as d, i}<option value={i}>{deviceName(d)}</option>{/each}
-          </select>
-        {/if}
+        <DevicePicker {devices} value={value?.device} {disabled} onchange={(d) => set({ device: d.pos })} />
       </Field>
       <Field label="Face" hint="The signal the device gives out of that face; any face takes the strongest.">
         <select value={value?.face ?? ""} {disabled} onchange={(e) => set({ face: (e.currentTarget.value || undefined) as Face | undefined })}>
@@ -95,8 +79,7 @@
       </Field>
     {:else if source === "signal"}
       <Field label="Signal name" hint="Transmitted by a Transmitter node on any sheet.">
-        <input value={value?.signal ?? ""} {disabled} list={listId} placeholder="e.g. Furnaces full" onchange={(e) => set({ signal: e.currentTarget.value.trim() })} />
-        <datalist id={listId}>{#each signalNames as name}<option value={name}></option>{/each}</datalist>
+        <TextField value={value?.signal} {disabled} suggestions={names} placeholder="e.g. Furnaces full" oncommit={(v) => set({ signal: v })} />
       </Field>
     {/if}
   {/if}

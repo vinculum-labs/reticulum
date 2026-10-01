@@ -1,15 +1,13 @@
 <script lang="ts">
-  import { SvelteFlowProvider } from "@xyflow/svelte";
   import { app } from "../lib/state.svelte";
   import Flow from "./flow/Flow.svelte";
+  import EmptyState from "./EmptyState.svelte";
 </script>
 
 {#if app.sheetId}
-  <SvelteFlowProvider>
-    {#key app.sheetId}
-      <Flow />
-    {/key}
-  </SvelteFlowProvider>
+  {#key app.sheetId}
+    <Flow />
+  {/key}
 {:else}
-  <div class="grid h-full place-items-center muted">Add a sheet on the left to start building.</div>
+  <EmptyState fill message="Add a sheet on the left to start building." />
 {/if}

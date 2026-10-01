@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Segmented from "./controls/Segmented.svelte";
   import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
   import Lightbulb from "@lucide/svelte/icons/lightbulb";
   import Play from "@lucide/svelte/icons/circle-play";
@@ -80,7 +81,8 @@
     {#each app.networks as n (n.id)}
       <button
         class="btn flex items-center gap-2"
-        style={n.id === app.current ? "border-color: var(--accent); color: var(--accent)" : ""}
+        aria-current={n.id === app.current ? "page" : undefined}
+        aria-pressed={n.id === app.current}
         onclick={() => selectNetwork(n.id)}
         title={`${n.access}, owner ${n.owner || "none"}, your role: ${n.role}`}
       >
@@ -106,27 +108,31 @@
     </span>
     <button
       class="btn flex items-center gap-1"
-      style={app.panel === "dashboard" ? "border-color: var(--accent); color: var(--accent)" : ""}
+      aria-pressed={app.panel === "dashboard"}
       onclick={() => (app.panel = app.panel === "dashboard" ? null : "dashboard")}
       title="Busiest and waiting flows, what is switched off, tick cost and the overflow buffer"><LayoutDashboard size={14} />Dashboard</button
     >
     <button
       class="btn flex items-center gap-1"
-      style={app.panel === "identified" ? "border-color: var(--accent); color: var(--accent)" : ""}
+      aria-pressed={app.panel === "identified"}
       onclick={() => (app.panel = app.panel === "identified" ? null : "identified")}
       title="What is lit up in the world"><Lightbulb size={14} />Identified{app.snapshot?.identified?.length ? ` (${app.snapshot.identified.length})` : ""}</button
     >
     <button
       class="btn flex items-center gap-1"
-      style={app.panel === "network" ? "border-color: var(--accent); color: var(--accent)" : ""}
+      aria-pressed={app.panel === "network"}
       onclick={() => (app.panel = app.panel === "network" ? null : "network")}
       title="Name, access, password and members"><Settings size={14} />Settings</button
     >
-    <button
-      class="btn"
-      onclick={() => setRateUnit(app.rateUnit === "t" ? "s" : "t")}
-      title={app.rateUnit === "t" ? "Rates per tick (t); click for per second" : "Rates per second (s); click for per tick"}>{app.rateUnit}</button
-    >
+    <Segmented
+      label="Rates per"
+      value={app.rateUnit}
+      options={[
+        { value: "t", label: "/t", title: "Rates per tick" },
+        { value: "s", label: "/s", title: "Rates per second" },
+      ]}
+      onchange={setRateUnit}
+    />
     <button class="btn px-2" onclick={undo} disabled={app.undo.length === 0} title="Undo (Ctrl+Z)" aria-label="Undo"><Undo size={16} /></button>
     <button class="btn px-2" onclick={redo} disabled={app.redo.length === 0} title="Redo (Ctrl+Shift+Z)" aria-label="Redo"><Redo size={16} /></button>
     {#if snapshot.role === "owner"}

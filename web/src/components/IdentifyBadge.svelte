@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, deviceIdentifies, setIdentifies, setIdentify } from "../lib/state.svelte";
+  import { app, deviceIdentifies, identifyHex, setIdentifies, setIdentify } from "../lib/state.svelte";
   import type { Device } from "../lib/types";
 
   /**
@@ -9,7 +9,7 @@
   let { device }: { device: Device } = $props();
 
   const identifies = $derived(deviceIdentifies(device));
-  const hex = (color: number | undefined) => `#${(color ?? 0xffc830).toString(16).padStart(6, "0")}`;
+  const hex = identifyHex;
 
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
 

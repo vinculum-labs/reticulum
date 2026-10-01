@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { SvelteFlowProvider } from "@xyflow/svelte";
   import { app, start, undo, redo } from "./lib/state.svelte";
   import TopBar from "./components/TopBar.svelte";
   import Sidebar from "./components/Sidebar.svelte";
@@ -7,6 +8,7 @@
   import Inspector from "./components/Inspector.svelte";
   import Toasts from "./components/Toasts.svelte";
   import Dialog from "./components/Dialog.svelte";
+  import EmptyState from "./components/EmptyState.svelte";
   import { modals } from "./lib/dialog.svelte";
 
   onMount(start);
@@ -34,14 +36,15 @@
 <div class="flex h-full flex-col">
   <TopBar />
   {#if !app.socketOpen}
-    <div class="grid flex-1 place-items-center muted">Connecting to the game…</div>
+    <EmptyState fill loading message="Connecting to the game…" />
   {:else if !app.inWorld}
-    <div class="grid flex-1 place-items-center muted">Join a world in Minecraft to edit its networks.</div>
+    <EmptyState fill message="Join a world in Minecraft to edit its networks." />
   {:else if app.networks.length === 0}
-    <div class="grid flex-1 place-items-center muted">No networks you can see yet. Place a controller to start one.</div>
+    <EmptyState fill message="No networks you can see yet. Place a controller to start one." />
   {:else if !app.snapshot}
-    <div class="grid flex-1 place-items-center muted">Loading…</div>
+    <EmptyState fill loading message="Loading…" />
   {:else}
+    <SvelteFlowProvider>
     <div class="flex min-h-0 flex-1">
       <Sidebar />
       <main class="relative min-w-0 flex-1">
@@ -49,6 +52,7 @@
       </main>
       <Inspector />
     </div>
+    </SvelteFlowProvider>
   {/if}
   <Toasts />
   <Dialog />

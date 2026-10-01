@@ -13,7 +13,7 @@
   );
 
   function open(sheet: Sheet, node?: GraphNode) {
-    openSheet(sheet.id, node ? [node.id] : []);
+    openSheet(sheet.id, node ? [node.id] : [], true);
   }
 
   const top = $derived(

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Zap from "@lucide/svelte/icons/zap";
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
   import type { NodeData } from "../../lib/graph";
   import {
@@ -168,7 +169,7 @@ ${idleTitle}` : idleTitle}
           {KIND_LABEL[kind]}
         {/if}{offline ? ` · ${data.device?.outOfRange ? "out of range" : data.device?.state}` : ""}{disabled ? " · off" : ""}
       </div>
-      {#if redstone}<div class="truncate" style="font-size: 10px; color: var(--c-signal)" title={redstone}>⚡ {redstone}</div>{/if}
+      {#if redstone}<div class="flex items-center gap-0.5 truncate" style="font-size: 10px; color: var(--c-signal)" title={redstone}><Zap size={10} class="shrink-0" />{redstone}</div>{/if}
     </div>
     {#if data.device}<IdentifyBadge device={data.device} />{/if}
   </div>

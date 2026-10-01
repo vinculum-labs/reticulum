@@ -15,7 +15,8 @@
     type CatalogKind,
   } from "../../lib/catalog";
   import Modal, { LARGE_HEIGHT, LARGE_WIDTH } from "../Modal.svelte";
-  import FilterSyntax from "./FilterSyntax.svelte";
+  import Segmented from "../controls/Segmented.svelte";
+  import FilterInput from "./FilterInput.svelte";
   import { formatAmount } from "../../lib/kinds";
   import { app, deviceName, request } from "../../lib/state.svelte";
   import { posKey, type GlobalPos } from "../../lib/types";
@@ -72,7 +73,6 @@
   let error = $state<string | null>(null);
   let kind = $state<CatalogKind>(untrack(() => initialKind));
   let query = $state("");
-  let helping = $state(false);
   let selected = $state<CatalogEntry | null>(null);
   /** "" browses everything; otherwise a device's position key, to show what it holds. */
   let source = $state(untrack(() => (suggested[0] ? posKey(suggested[0]) : "")));
@@ -129,19 +129,6 @@
     return words.length ? list.filter((e) => matchesSearch(e, words)) : list;
   });
 
-  let checkTimer: ReturnType<typeof setTimeout> | undefined;
-  $effect(() => {
-    const expression = text;
-    clearTimeout(checkTimer);
-    checkTimer = setTimeout(async () => {
-      try {
-        const r = await request("checkFilter", { expression, resource: initialKind });
-        if (expression === text) error = r.valid ? null : r.message;
-      } catch {
-        error = null;
-      }
-    }, 250);
-  });
 
   function include(term: string, exclude: boolean) {
     text = exclude ? withExclusion(text, term) : withAlternative(text, term);
@@ -161,46 +148,24 @@
 </script>
 
 <!-- Esc or a click outside closes it, like Cancel. -->
-<Modal {onclose} width={LARGE_WIDTH} height={LARGE_HEIGHT} resizable minWidth={560} minHeight={360} label="Pick for filter">
-  <div class="flex min-h-0 flex-1 flex-col gap-2 p-3">
-    <div class="flex items-center gap-2">
-      <h2 class="flex-1 text-base font-semibold">Pick for filter</h2>
-      <button class="btn text-sm" onclick={onclose}>Cancel</button>
-      <button class="btn btn-primary text-sm" onclick={apply} disabled={!!error}>Apply</button>
-    </div>
-    <div class="flex flex-col gap-0.5">
-      <!-- Like every other filter box: ? beside it shows the syntax below. -->
-      <div class="flex gap-1">
-        <input
-          aria-label="Filter"
-          class="min-w-0 flex-1 font-mono text-sm"
-          style={error ? "border-color: var(--bad)" : ""}
-          bind:value={text}
-          placeholder="empty: matches anything (? for the syntax)"
-          spellcheck="false"
-        />
-        <button
-          class="btn shrink-0 px-2 text-sm"
-          class:btn-primary={helping}
-          title="Filter syntax"
-          aria-label="Filter syntax"
-          aria-expanded={helping}
-          onclick={() => (helping = !helping)}>?</button
-        >
-      </div>
-      {#if error}<span class="text-xs" style="color: var(--bad)">{error}</span>{/if}
-      {#if helping}<FilterSyntax />{/if}
-    </div>
+<Modal {onclose} width={LARGE_WIDTH} height={LARGE_HEIGHT} resizable minWidth={560} minHeight={360} title="Pick for filter">
+  {#snippet footer()}
+    <button class="btn" onclick={onclose}>Cancel</button>
+    <button class="btn btn-primary" onclick={apply} disabled={!!error}>Apply</button>
+  {/snippet}
+  <div class="flex min-h-0 flex-1 flex-col gap-2">
+    <FilterInput bind:text bind:error kind={initialKind} placeholder="empty: matches anything" />
 
     <!-- Same two columns as below: search and tabs over the grid, the source picker over the details panel. -->
     <div class="flex items-center gap-3">
       <div class="flex min-w-0 flex-1 items-center gap-2">
         <input bind:this={search} class="min-w-0 flex-1 text-sm" bind:value={query} placeholder="Search the list (@mod, #tag)" spellcheck="false" />
-        <div class="flex shrink-0 gap-1">
-          {#each kinds as k (k)}
-            <button class="btn text-sm" class:btn-primary={kind === k} onclick={() => ((kind = k), (selected = null))}>{CATALOG_KIND_LABEL[k]}</button>
-          {/each}
-        </div>
+        <Segmented
+          label="List"
+          value={kind}
+          options={kinds.map((k) => ({ value: k, label: CATALOG_KIND_LABEL[k] }))}
+          onchange={(k) => ((kind = k), (selected = null))}
+        />
       </div>
       <select class="w-56 shrink-0 text-sm" bind:value={source} title="Browse everything, or just what one device holds now">
         <option value="">Everything</option>

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { app, edit, nodeTitle } from "../../lib/state.svelte";
+  import { useSvelteFlow } from "@xyflow/svelte";
+  import { app, nodeTitle } from "../../lib/state.svelte";
   import { type Sheet, type Wire } from "../../lib/types";
   import Chart from "./Chart.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
@@ -12,9 +13,11 @@
   /** A filter's second output is where what doesn't match goes; other nodes' outputs are just numbered. */
   const rejects = $derived(from?.settings.kind === "filter" && wire.output === 1);
 
+  const flow = useSvelteFlow();
+
+  /** Deletes the wire the way the Delete key does. */
   function remove() {
-    app.selectedEdges = [];
-    edit([{ type: "disconnect", sheet: sheet.id, wire: wire.id }], [{ type: "connect", sheet: sheet.id, wire }], "delete wire");
+    flow.deleteElements({ edges: [{ id: wire.id }] });
   }
 </script>
 

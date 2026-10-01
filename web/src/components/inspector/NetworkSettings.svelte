@@ -1,7 +1,10 @@
 <script lang="ts">
   import { app, edit } from "../../lib/state.svelte";
   import type { Member } from "../../lib/types";
+  import RemoveButton from "../controls/RemoveButton.svelte";
+  import TextField from "../controls/TextField.svelte";
   import Field from "./Field.svelte";
+  import InspectorPanel from "./InspectorPanel.svelte";
   import RedstoneEditor from "./RedstoneEditor.svelte";
 
   const snapshot = $derived(app.snapshot!);
@@ -42,18 +45,10 @@
   }
 </script>
 
-<div class="flex flex-col gap-3">
-  <div class="flex items-center justify-between">
-    <h2 class="text-base font-semibold">Network settings</h2>
-    <button class="btn text-sm" onclick={() => (app.panel = null)}>Close</button>
-  </div>
-
+<InspectorPanel title="Network settings" onclose={() => (app.panel = null)}>
   <Field label="Name">
-    <input
-      value={snapshot.name}
-      disabled={!canEdit}
-      onchange={(e) => e.currentTarget.value.trim() && edit([{ type: "renameNetwork", name: e.currentTarget.value.trim() }], [{ type: "renameNetwork", name: snapshot.name }], "rename network")}
-    />
+    <TextField value={snapshot.name} required disabled={!canEdit}
+      oncommit={(v) => edit([{ type: "renameNetwork", name: v }], [{ type: "renameNetwork", name: snapshot.name }], "rename network")} />
   </Field>
 
   <RedstoneEditor
@@ -82,7 +77,7 @@
         <span>{power.stored.toLocaleString()} / {power.capacity.toLocaleString()} FE</span>
         <span>{power.upkeep} FE/t upkeep</span>
       </div>
-      {#if !power.powered}<p class="text-xs" style="color: var(--bad)">Not enough FE: only energy flows run until the controller is charged.</p>{/if}
+      {#if !power.powered}<p class="text-xs text-bad" role="status">Not enough FE: only energy flows run until the controller is charged.</p>{/if}
       <p class="text-xs muted">The controller takes FE from anything that pushes into it and pulls from FE sources next to it. Item operations cost extra.</p>
     </section>
   {/if}
@@ -130,7 +125,7 @@
           >
             {#each ROLES as r}<option value={r.value}>{r.label}</option>{/each}
           </select>
-          <button class="text-sm muted" title="Remove member" onclick={() => edit([{ type: "removeMember", id: member.id }], [{ type: "setMember", player: member.id, role: member.role }], "remove member")}>✕</button>
+          <RemoveButton label={`Remove ${member.name}`} onclick={() => edit([{ type: "removeMember", id: member.id }], [{ type: "setMember", player: member.id, role: member.role }], "remove member")} />
         </div>
       {:else}
         <p class="text-sm muted">No members yet.</p>
@@ -149,4 +144,4 @@
   {:else}
     <p class="text-sm muted">Only the network's admins can change access and members.</p>
   {/if}
-</div>
+</InspectorPanel>

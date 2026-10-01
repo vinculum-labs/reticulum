@@ -1,5 +1,7 @@
 <script lang="ts">
+  import Scissors from "@lucide/svelte/icons/scissors";
   import { app } from "../../lib/state.svelte";
+  import RemoveButton from "../controls/RemoveButton.svelte";
   import { offeredResources, sideLabel } from "../../lib/kinds";
   import { posKey, type DeviceInput, type DeviceNodeSettings, type DeviceOutput, type Resource, type Sheet } from "../../lib/types";
   import Field from "./Field.svelte";
@@ -19,7 +21,7 @@
     sheet: Sheet;
     nodeId: string;
     disabled: boolean;
-    onchange: (s: DeviceNodeSettings, removed?: { direction: "in" | "out"; index: number }) => void;
+    onchange: (s: DeviceNodeSettings, removed?: { in?: number[]; out?: number[] }, label?: string) => void;
   } = $props();
 
   const devices = $derived(app.snapshot?.devices ?? []);
@@ -43,7 +45,27 @@
   function removeSide(direction: "in" | "out", i: number) {
     const next =
       direction === "in" ? { ...settings, inputs: inputs.filter((_, j) => j !== i) } : { ...settings, outputs: outputs.filter((_, j) => j !== i) };
-    onchange(next, { direction, index: i });
+    onchange(next, direction === "in" ? { in: [i] } : { out: [i] }, `remove ${direction === "in" ? "input" : "output"}`);
+  }
+
+  /** Inputs and outputs with no wire on them. */
+  const unwired = $derived.by(() => {
+    const wires = sheet.wires ?? [];
+    return {
+      in: inputs.map((_, i) => i).filter((i) => !wires.some((w) => w.to === nodeId && (w.input ?? 0) === i)),
+      out: outputs.map((_, i) => i).filter((i) => !wires.some((w) => w.from === nodeId && (w.output ?? 0) === i)),
+    };
+  });
+  const unwiredCount = $derived(unwired.in.length + unwired.out.length);
+
+  /** Removes every input and output nothing is wired to, as one undoable change. */
+  function prune() {
+    const next = {
+      ...settings,
+      inputs: inputs.filter((_, i) => !unwired.in.includes(i)),
+      outputs: outputs.filter((_, i) => !unwired.out.includes(i)),
+    };
+    onchange(next, unwired, "prune");
   }
 </script>
 
@@ -51,17 +73,24 @@
   <DevicePicker {devices} value={settings.device} {disabled} onchange={(d) => onchange({ ...settings, device: d.pos })} />
 </Field>
 
+<button
+  class="btn flex items-center gap-1 self-start text-sm"
+  disabled={disabled || unwiredCount === 0}
+  title={unwiredCount
+    ? `Remove the ${unwiredCount} input${unwiredCount === 1 ? "" : "s"} and output${unwiredCount === 1 ? "" : "s"} nothing is wired to`
+    : "Every input and output has a wire"}
+  onclick={prune}><Scissors size={14} />Prune unwired{unwiredCount ? ` (${unwiredCount})` : ""}</button
+>
+
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
     <h3 class="panel-title">Inputs (left)</h3>
     <button class="btn text-sm" {disabled} onclick={() => onchange({ ...settings, inputs: [...inputs, { resource: primary }] })}>+ Input</button>
   </div>
   {#each inputs as input, i}
-    <details class="rounded-md border p-2" style="border-color: var(--line)" open={inputs.length === 1}>
-      <summary class="flex cursor-pointer items-center justify-between text-sm">
-        <span>Input {i + 1}: {sideLabel(input)}</span>
-        <button class="text-sm muted" {disabled} onclick={(e) => (e.preventDefault(), removeSide("in", i))} title="Remove input">✕</button>
-      </summary>
+    <details class="box relative" open={inputs.length === 1}>
+      <summary class="cursor-pointer pr-6 text-sm">Input {i + 1}: {sideLabel(input)}</summary>
+      <RemoveButton class="absolute top-1.5 right-1.5" label="Remove input {i + 1}" {disabled} onclick={() => removeSide("in", i)} />
       <div class="mt-2 flex flex-col gap-3">
         <SideEditor side={input} {device} {disabled} onchange={(side) => setInput(i, { ...input, ...side })} />
         {#if input.resource === "redstone"}
@@ -84,11 +113,9 @@
     <button class="btn text-sm" {disabled} onclick={() => onchange({ ...settings, outputs: [...outputs, { resource: primary, per_operation: 0 }] })}>+ Output</button>
   </div>
   {#each outputs as output, i}
-    <details class="rounded-md border p-2" style="border-color: var(--line)" open={outputs.length === 1}>
-      <summary class="flex cursor-pointer items-center justify-between text-sm">
-        <span>Output {i + 1}: {sideLabel(output)}</span>
-        <button class="text-sm muted" {disabled} onclick={(e) => (e.preventDefault(), removeSide("out", i))} title="Remove output">✕</button>
-      </summary>
+    <details class="box relative" open={outputs.length === 1}>
+      <summary class="cursor-pointer pr-6 text-sm">Output {i + 1}: {sideLabel(output)}</summary>
+      <RemoveButton class="absolute top-1.5 right-1.5" label="Remove output {i + 1}" {disabled} onclick={() => removeSide("out", i)} />
       <div class="mt-2 flex flex-col gap-3">
         <SideEditor side={output} {device} {disabled} onchange={(side) => setOutput(i, { ...output, ...side })} />
         {#if output.resource === "redstone"}

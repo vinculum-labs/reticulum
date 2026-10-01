@@ -7,6 +7,7 @@
   import NetworkSettings from "./inspector/NetworkSettings.svelte";
   import IdentifiedPanel from "./inspector/IdentifiedPanel.svelte";
   import Dashboard from "./inspector/Dashboard.svelte";
+  import EmptyState from "./EmptyState.svelte";
 
   const sheet = $derived(currentSheet());
   const node = $derived(app.selectedNodes.length === 1 ? sheet?.nodes?.find((n) => n.id === app.selectedNodes[0]) : undefined);
@@ -35,12 +36,12 @@
   {:else if wire && sheet}
     <WireInspector {wire} {sheet} />
   {:else if app.selectedNodes.length > 1}
-    <p class="muted">{app.selectedNodes.length} nodes selected. Drag to move them together, or press Delete.</p>
+    <EmptyState message={`${app.selectedNodes.length} nodes selected. Drag to move them together, or press Delete.`} />
   {:else if sheet}
     {#key sheet.id}
       <SheetInspector {sheet} />
     {/key}
   {:else}
-    <p class="muted">Nothing selected.</p>
+    <EmptyState message="Nothing selected." />
   {/if}
 </aside>
