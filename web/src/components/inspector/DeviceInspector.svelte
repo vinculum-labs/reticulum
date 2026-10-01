@@ -1,32 +1,32 @@
 <script lang="ts">
-  import { app, edit, deviceName, isIdentified, toggleIdentify } from "../../lib/state.svelte";
+  import { app, edit, deviceName } from "../../lib/state.svelte";
   import { RESOURCE_LABEL } from "../../lib/kinds";
   import { FACES, posKey, type Device, type Face, type Resource } from "../../lib/types";
-  import ArrowLeft from "@lucide/svelte/icons/arrow-left";
-  import DeviceIcon from "../DeviceIcon.svelte";
-  import Field from "./Field.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
+  import DeviceIcon from "../DeviceIcon.svelte";
+  import IdentifyToggle from "../controls/IdentifyToggle.svelte";
+  import TextField from "../controls/TextField.svelte";
+  import DevicePicker from "./DevicePicker.svelte";
+  import Field from "./Field.svelte";
+  import InspectorPanel from "./InspectorPanel.svelte";
 
   let { device }: { device: Device } = $props();
 
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
+  const activeDevices = $derived((app.snapshot?.devices ?? []).filter((d) => d.state === "active"));
 
   function rename(name: string) {
-    const value = name.trim() || null;
-    if (value === (device.name ?? null)) return;
+    const value = name || null;
     edit([{ type: "renameDevice", device: device.pos, name: value }], [{ type: "renameDevice", device: device.pos, name: device.name ?? null }], "rename device");
   }
 
   function renameFace(face: Face, name: string) {
-    const value = name.trim() || null;
+    const value = name || null;
     const before = device.faceNames[face] ?? null;
-    if (value === before) return;
     edit([{ type: "renameFace", device: device.pos, face, name: value }], [{ type: "renameFace", device: device.pos, face, name: before }], "rename face");
   }
 
-  async function relink(key: string) {
-    const target = app.snapshot?.devices.find((d) => posKey(d.pos) === key);
-    if (!target) return;
+  async function relink(target: Device) {
     const network = app.current;
     const ok = await confirmDialog({
       title: `Move “${deviceName(device)}” onto “${deviceName(target)}”?`,
@@ -34,7 +34,7 @@
       confirm: "Move",
     });
     if (!ok || app.current !== network) return;
-    app.selectedDevice = key;
+    app.selectedDevice = posKey(target.pos);
     edit([{ type: "relinkDevice", from: device.pos, to: target.pos }]);
   }
 
@@ -53,88 +53,57 @@
   }
 </script>
 
-<div class="flex flex-col gap-3">
-  {#if app.selectedNodes.length || app.selectedEdges.length}
-    <button class="btn flex items-center gap-1 self-start text-sm" onclick={() => (app.selectedDevice = null)}>
-      <ArrowLeft size={14} />Back to the selection
-    </button>
-  {/if}
-  <div class="flex items-center gap-2">
-    <DeviceIcon item={device.icon} size={32} />
-    <div class="min-w-0 flex-1">
-      <h2 class="truncate text-base font-semibold">{deviceName(device)}</h2>
-      <p class="truncate text-xs muted">{device.block} · {device.pos.pos.join(", ")}</p>
-    </div>
-    <button
-      class="btn shrink-0 text-sm"
-      style={isIdentified({ kind: "device", device: device.pos }) ? "border-color: var(--warn); color: var(--warn)" : ""}
-      disabled={!canEdit}
-      title="Light it up in the world until turned off"
-      onclick={() => toggleIdentify({ kind: "device", device: device.pos })}>ID</button
-    >
-  </div>
+<InspectorPanel
+  title={deviceName(device)}
+  subtitle={`${device.block} · ${device.pos.pos.join(", ")}`}
+  onback={app.selectedNodes.length || app.selectedEdges.length ? () => (app.selectedDevice = null) : undefined}
+  backLabel="Back to the selection"
+>
+  {#snippet icon()}<DeviceIcon item={device.icon} size={32} />{/snippet}
+  {#snippet actions()}<IdentifyToggle target={{ kind: "device", device: device.pos }} />{/snippet}
 
   {#if device.state === "active" && device.outOfRange}
-    <p class="rounded-md border p-2 text-sm" style="border-color: var(--warn)">
+    <p class="box box-warn text-sm" role="status">
       Out of range: only wireless connectors reach this device, and the controller's antenna doesn't reach them. Install a better antenna
       or run a cable to them.
     </p>
   {/if}
   {#if device.state !== "active"}
-    <div class="rounded-md border p-2 text-sm" style="border-color: var(--warn)">
-      {device.state === "orphaned" ? "No connector reaches this device any more." : "The block is gone."}
-      It is kept because it has a name{canEdit ? "; forget it when you no longer need it." : "."}
+    <div class="box box-warn flex flex-col gap-2 text-sm" role="status">
+      <span>
+        {device.state === "orphaned" ? "No connector reaches this device any more." : "The block is gone."}
+        It is kept because it has a name or flows use it{canEdit ? "; forget it when you no longer need it." : "."}
+      </span>
       {#if canEdit}
-        <div class="mt-2 flex flex-col gap-2">
-          <label class="flex flex-col gap-1">
-            <span class="text-xs muted">Moved or replaced it? Move its names and every flow onto the new block:</span>
-            <select
-              value=""
-              onchange={(e) => {
-                const key = e.currentTarget.value;
-                // Back to the placeholder; a cancelled move shouldn't look chosen.
-                e.currentTarget.value = "";
-                relink(key);
-              }}
-            >
-              <option value="" disabled>Choose the new block…</option>
-              {#each (app.snapshot?.devices ?? []).filter((d) => d.state === "active") as d (posKey(d.pos))}
-                <option value={posKey(d.pos)}>{deviceName(d)}</option>
-              {/each}
-            </select>
-          </label>
-          <button class="btn btn-danger self-start text-sm" onclick={deleteOrphan}>Forget device</button>
-        </div>
+        <Field label="Moved or replaced it? Move its names and every flow onto the new block:">
+          <DevicePicker devices={activeDevices} placeholder="Choose the new block…" onchange={relink} />
+        </Field>
+        <button class="btn btn-danger self-start text-sm" onclick={deleteOrphan}>Forget device</button>
       {/if}
     </div>
   {/if}
 
   <Field label="Name">
-    <input value={device.name ?? ""} placeholder={device.defaultName} disabled={!canEdit} onchange={(e) => rename(e.currentTarget.value)} />
+    <TextField value={device.name} placeholder={device.defaultName} disabled={!canEdit} oncommit={rename} />
   </Field>
 
-  <div class="flex flex-col gap-1">
-    <span class="text-xs font-medium muted">Face names</span>
+  <fieldset class="flex flex-col gap-1">
+    <legend class="field-label mb-1">Face names</legend>
     {#each FACES as face}
       <div class="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-2 text-sm">
         <span class="muted">{face}</span>
-        <input class="w-full min-w-0" value={device.faceNames[face] ?? ""} placeholder="—" disabled={!canEdit} onchange={(e) => renameFace(face, e.currentTarget.value)} />
+        <TextField class="w-full min-w-0" value={device.faceNames[face]} placeholder="—" disabled={!canEdit} title={`Name of the ${face} face`}
+          oncommit={(v) => renameFace(face, v)} />
         {#if face !== "unsided"}
-          <button
-            class="btn px-1.5 text-xs"
-            style={isIdentified({ kind: "face", device: device.pos, face }) ? "border-color: var(--warn); color: var(--warn)" : ""}
-            disabled={!canEdit}
-            title="Light this face up in the world until turned off"
-            onclick={() => toggleIdentify({ kind: "face", device: device.pos, face })}>ID</button
-          >
+          <IdentifyToggle target={{ kind: "face", device: device.pos, face }} title="Light this face up in the world until turned off" />
         {:else}<span></span>{/if}
       </div>
     {/each}
-  </div>
+  </fieldset>
 
   {#if device.resources}
     <div class="flex flex-col gap-1 text-sm">
-      <span class="text-xs font-medium muted">Offers</span>
+      <span class="field-label">Offers</span>
       {#each Object.entries(device.resources) as [resource, faces]}
         {#if faces?.length}
           <div><b>{RESOURCE_LABEL[resource as Resource]}</b> <span class="muted">on {faces.join(", ")}</span></div>
@@ -142,4 +111,4 @@
       {/each}
     </div>
   {/if}
-</div>
+</InspectorPanel>

@@ -5,6 +5,7 @@ import { Connection } from "./protocol";
 import type { Device, Edit, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face, Identify, PowerState } from "./types";
 import { posKey } from "./types";
 import { share } from "./share";
+import { KIND_LABEL } from "./kinds";
 
 export interface Toast {
   id: number;
@@ -475,6 +476,53 @@ export function toggleIdentify(target: Identify) {
 
 export function deviceName(device: Device | undefined): string {
   return device ? device.name || device.defaultName : "Unknown device";
+}
+
+/**
+ * What a node is called everywhere (its card, the inspector, the dashboard, wires): its label, else its device's
+ * name, else the sub-sheet it uses or its pin name, else its kind.
+ */
+export function nodeTitle(node: GraphNode | undefined): string {
+  if (!node) return "?";
+  if (node.label) return node.label;
+  const s = node.settings;
+  if (s.kind === "device") return deviceName(deviceAt(posKey(s.device)));
+  if (s.kind === "subsheet") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing sub-sheet";
+  if ((s.kind === "sheet_input" || s.kind === "sheet_output") && s.name) return s.name;
+  return KIND_LABEL[s.kind];
+}
+
+/** Every signal name the network uses: transmitted anywhere on it, or seen live. */
+export function signalNames(): string[] {
+  const names = new Set<string>(Object.keys(app.networkSignals));
+  for (const sheet of app.snapshot?.sheets ?? []) {
+    for (const node of sheet.nodes ?? []) {
+      if (node.settings.kind === "transmit" && node.settings.name) names.add(node.settings.name);
+    }
+  }
+  return [...names].sort();
+}
+
+/** Shows a sheet, with nothing selected (or the given nodes), and the inspector for it. */
+export function openSheet(id: string, select: string[] = []): void {
+  app.sheetId = id;
+  app.selectedNodes = select;
+  app.selectedEdges = [];
+  app.selectedDevice = null;
+  app.panel = null;
+}
+
+/** An identify's color as CSS (the default yellow when none is set). */
+export function identifyHex(color: number | undefined): string {
+  return `#${(color ?? 0xffc830).toString(16).padStart(6, "0")}`;
+}
+
+/** Whether a device matches a search: every word must appear in its name, default name, block id or position. */
+export function matchesDevice(device: Device, query: string): boolean {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const text = `${deviceName(device)} ${device.defaultName} ${device.block} ${device.pos.pos.join(" ")}`.toLowerCase();
+  return words.every((w) => text.includes(w));
 }
 
 export function nodeById(sheet: Sheet | null, id: string): GraphNode | undefined {

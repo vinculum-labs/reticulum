@@ -1,125 +1,133 @@
 <script lang="ts">
-  import { onEscape } from "../../lib/escape";
-  import { deviceName } from "../../lib/state.svelte";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import { deviceName, matchesDevice } from "../../lib/state.svelte";
+  import { ListNav } from "../../lib/listnav.svelte";
   import { posKey, type Device, type GlobalPos } from "../../lib/types";
+  import Popover from "../controls/Popover.svelte";
+  import { fieldId } from "../controls/field";
   import DeviceIcon from "../DeviceIcon.svelte";
 
+  /**
+   * Chooses one of the network's devices: a button showing the current one, opening a searchable list. The list
+   * only builds the rows in view, so a base with thousands of devices opens as quickly as one with ten.
+   */
   let {
     devices,
     value,
+    placeholder = "Choose a device",
     disabled = false,
     onchange,
-  }: { devices: Device[]; value: GlobalPos; disabled?: boolean; onchange: (device: Device) => void } = $props();
+  }: {
+    devices: Device[];
+    value?: GlobalPos;
+    placeholder?: string;
+    disabled?: boolean;
+    onchange: (device: Device) => void;
+  } = $props();
 
-  const LIMIT = 100;
+  /** One row's height in px; the list is virtual, so every row is this tall. */
+  const ROW = 40;
+  const id = fieldId();
 
   let open = $state(false);
-  // Esc closes the list while it is open, wherever the focus is.
-  $effect(() => {
-    if (open) return onEscape(() => (open = false));
-  });
   let query = $state("");
-  let active = $state(0);
-  let root: HTMLDivElement | undefined = $state();
-  let search: HTMLInputElement | undefined = $state();
+  let trigger: HTMLButtonElement | undefined = $state();
+  let list: HTMLDivElement | undefined = $state();
+  let popover: Popover | undefined = $state();
+  let scrollTop = $state(0);
+  let viewHeight = $state(288);
 
-  const current = $derived(devices.find((d) => posKey(d.pos) === posKey(value)));
+  const current = $derived(value ? devices.find((d) => posKey(d.pos) === posKey(value)) : undefined);
+  const matches = $derived(devices.filter((d) => matchesDevice(d, query)).sort((a, b) => deviceName(a).localeCompare(deviceName(b))));
+  const nav = new ListNav(() => matches.length, () => list);
 
-  /** Every word must appear in the name, default name, block id or coordinates. */
-  const matches = $derived.by(() => {
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    const found = devices.filter((d) => {
-      const text = `${deviceName(d)} ${d.defaultName} ${d.block} ${d.pos.pos.join(" ")}`.toLowerCase();
-      return words.every((w) => text.includes(w));
-    });
-    return found.sort((a, b) => deviceName(a).localeCompare(deviceName(b)));
-  });
+  const first = $derived(Math.max(0, Math.floor(scrollTop / ROW) - 4));
+  const last = $derived(Math.min(matches.length, Math.ceil((scrollTop + viewHeight) / ROW) + 4));
 
   function show() {
     if (disabled) return;
-    open = true;
     query = "";
-    active = Math.max(0, matches.findIndex((d) => posKey(d.pos) === posKey(value)));
-    queueMicrotask(() => search?.focus());
+    scrollTop = 0;
+    open = true;
+    nav.set(Math.max(0, matches.findIndex((d) => current && posKey(d.pos) === posKey(current.pos))));
   }
 
   function pick(device: Device) {
-    open = false;
-    if (posKey(device.pos) !== posKey(value)) onchange(device);
+    popover?.close(true);
+    if (!current || posKey(device.pos) !== posKey(current.pos)) onchange(device);
   }
 
   function onkeydown(e: KeyboardEvent) {
-    const shown = Math.min(matches.length, LIMIT);
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      active = Math.min(shown - 1, active + 1);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      active = Math.max(0, active - 1);
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (matches[active]) pick(matches[active]);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      open = false;
-    }
-  }
-
-  function onfocusout(e: FocusEvent) {
-    if (!root?.contains(e.relatedTarget as Node | null)) open = false;
+    nav.key(e, (i) => matches[i] && pick(matches[i]));
   }
 </script>
 
-<div class="relative" bind:this={root} {onfocusout}>
-  <button
-    type="button"
-    class="flex w-full items-center gap-2 rounded-md border px-2 py-1 text-left"
-    style="background: var(--field); border-color: var(--line)"
-    {disabled}
-    onclick={() => (open ? (open = false) : show())}
-    aria-haspopup="listbox"
-    aria-expanded={open}
-  >
-    <DeviceIcon item={current?.icon} size={18} />
-    <span class="min-w-0 flex-1 truncate">{current ? deviceName(current) : "Choose a device"}</span>
-    <span class="muted">▾</span>
-  </button>
+<button
+  bind:this={trigger}
+  type="button"
+  {id}
+  class="flex w-full items-center gap-2 rounded-md border px-2 py-1 text-left"
+  style="background: var(--field); border-color: var(--line)"
+  {disabled}
+  onclick={() => (open ? popover?.close(false) : show())}
+  aria-haspopup="listbox"
+  aria-expanded={open}
+>
+  <DeviceIcon item={current?.icon} size={18} />
+  <span class="min-w-0 flex-1 truncate" class:muted={!current}>{current ? deviceName(current) : placeholder}</span>
+  <ChevronDown size={14} class="muted" />
+</button>
 
-  {#if open}
-    <div class="absolute right-0 left-0 z-30 mt-1 rounded-md border shadow-lg" style="background: var(--panel); border-color: var(--line)">
-      <input
-        bind:this={search}
-        bind:value={query}
-        class="m-1 w-[calc(100%-0.5rem)]"
-        placeholder="Search by name, block or x y z"
-        oninput={() => (active = 0)}
-        {onkeydown}
-        aria-controls="device-picker-list"
-      />
-      <ul id="device-picker-list" role="listbox" class="max-h-72 overflow-y-auto py-1">
-        {#each matches.slice(0, LIMIT) as d, i (posKey(d.pos))}
-          <li role="option" aria-selected={i === active}>
+<Popover bind:this={popover} bind:open anchor={trigger} width={260} label="Devices">
+  <!-- svelte-ignore a11y_autofocus -->
+  <input
+    bind:value={query}
+    class="m-1 w-[calc(100%-0.5rem)]"
+    placeholder="Search by name, block or x y z"
+    autofocus
+    oninput={() => {
+      nav.set(0);
+      if (list) list.scrollTop = 0;
+    }}
+    {onkeydown}
+  />
+  <div
+    bind:this={list}
+    bind:clientHeight={viewHeight}
+    class="min-h-0 flex-1 overflow-y-auto"
+    style="max-height: 18rem"
+    role="listbox"
+    aria-label="Devices"
+    onscroll={() => (scrollTop = list?.scrollTop ?? 0)}
+  >
+    {#if matches.length === 0}
+      <p class="px-2 py-1 text-sm muted">No devices match.</p>
+    {:else}
+      <div class="relative" style="height: {matches.length * ROW}px">
+        <div class="absolute inset-x-0" style="top: {first * ROW}px">
+          {#each matches.slice(first, last) as d, j (posKey(d.pos))}
+            {@const i = first + j}
             <button
               type="button"
-              class="flex w-full items-center gap-2 px-2 py-1 text-left"
-              style={i === active ? "background: var(--panel-2)" : ""}
-              onmouseenter={() => (active = i)}
+              role="option"
+              aria-selected={i === nav.active}
+              data-index={i}
+              class="list-row flex w-full items-center gap-2 px-2 text-left"
+              class:active={i === nav.active}
+              style="height: {ROW}px"
+              tabindex="-1"
+              onpointerenter={() => (nav.active = i)}
               onclick={() => pick(d)}
             >
               <DeviceIcon item={d.icon} size={18} />
               <span class="min-w-0 flex-1">
                 <span class="block truncate">{deviceName(d)}</span>
-                <span class="block truncate text-xs muted">{d.pos.pos.join(", ")}{d.state !== "active" ? ` · ${d.state}` : ""}</span>
+                <span class="block truncate text-xs muted">{d.pos.pos.join(", ")}{d.state !== "active" ? ` · ${d.state}` : d.outOfRange ? " · out of range" : ""}</span>
               </span>
             </button>
-          </li>
-        {:else}
-          <li class="px-2 py-1 text-sm muted">No devices match.</li>
-        {/each}
-        {#if matches.length > LIMIT}
-          <li class="px-2 py-1 text-xs muted">{matches.length - LIMIT} more; keep typing to narrow it down.</li>
-        {/if}
-      </ul>
-    </div>
-  {/if}
-</div>
+          {/each}
+        </div>
+      </div>
+    {/if}
+  </div>
+</Popover>

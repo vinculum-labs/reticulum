@@ -2,6 +2,11 @@
 
 export type CatalogKind = "item" | "fluid" | "chemical";
 
+/** The picker's list for a resource; resources without one (energy, redstone) use items. */
+export function catalogKind(resource: string | null | undefined): CatalogKind {
+  return resource === "fluid" || resource === "chemical" ? resource : "item";
+}
+
 export interface CatalogEntry {
   id: string;
   name: string;

@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { app, deviceAt, deviceName } from "../../lib/state.svelte";
-  import { KIND_LABEL, STATUS_LABEL, formatRate } from "../../lib/kinds";
-  import { posKey, type GraphNode, type Sheet } from "../../lib/types";
+  import Folder from "@lucide/svelte/icons/folder";
+  import { app, nodeTitle, openSheet } from "../../lib/state.svelte";
+  import InspectorPanel from "./InspectorPanel.svelte";
+  import { STATUS_LABEL, formatRate } from "../../lib/kinds";
+  import type { GraphNode, Sheet } from "../../lib/types";
 
   const snapshot = $derived(app.snapshot!);
 
@@ -10,19 +12,8 @@
     snapshot.sheets.flatMap((sheet) => (sheet.nodes ?? []).map((node) => ({ sheet, node }))),
   );
 
-  function nodeName(node: GraphNode): string {
-    const s = node.settings;
-    if (node.label) return node.label;
-    if ("device" in s) return deviceName(deviceAt(posKey(s.device)));
-    return KIND_LABEL[s.kind];
-  }
-
   function open(sheet: Sheet, node?: GraphNode) {
-    app.sheetId = sheet.id;
-    app.selectedNodes = node ? [node.id] : [];
-    app.selectedEdges = [];
-    app.selectedDevice = null;
-    app.panel = null;
+    openSheet(sheet.id, node ? [node.id] : []);
   }
 
   const top = $derived(
@@ -49,16 +40,12 @@
   ]);
 </script>
 
+<InspectorPanel title="Dashboard" onclose={() => (app.panel = null)}>
 <div class="flex flex-col gap-4 text-sm">
-  <div class="flex items-center justify-between">
-    <h2 class="text-base font-semibold">Dashboard</h2>
-    <button class="btn text-sm" onclick={() => (app.panel = null)}>Close</button>
-  </div>
-
   <section class="flex flex-col gap-1">
     <h3 class="panel-title">Tick cost</h3>
     {#if app.tick}
-      <div class="tabular-nums" style={app.tick.average > 1 ? "color: var(--warn)" : ""}>
+      <div class="tabular-nums" class:text-warn={app.tick.average > 1}>
         {app.tick.average.toFixed(3)} ms average, {app.tick.longest.toFixed(3)} ms longest
       </div>
       <p class="text-xs muted">Over the last 200 ticks. A tick has 50 ms for everything on the server.</p>
@@ -70,8 +57,8 @@
   <section class="flex flex-col gap-1">
     <h3 class="panel-title">Busiest</h3>
     {#each top as x (x.node.id)}
-      <button class="flex justify-between gap-2 text-left" onclick={() => open(x.sheet, x.node)}>
-        <span class="truncate">{nodeName(x.node)} <span class="muted">· {x.sheet.name}</span></span>
+      <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
+        <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {x.sheet.name}</span></span>
         <span class="tabular-nums">{formatRate(app.rates[x.node.id] ?? 0, null, app.rateUnit)}</span>
       </button>
     {:else}
@@ -82,9 +69,9 @@
   <section class="flex flex-col gap-1">
     <h3 class="panel-title">Waiting ({blocked.length})</h3>
     {#each blocked as x (x.node.id)}
-      <button class="flex justify-between gap-2 text-left" onclick={() => open(x.sheet, x.node)}>
-        <span class="truncate">{nodeName(x.node)} <span class="muted">· {x.sheet.name}</span></span>
-        <span style="color: var(--warn)">{STATUS_LABEL[app.status[x.node.id]] ?? app.status[x.node.id]}</span>
+      <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
+        <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {x.sheet.name}</span></span>
+        <span class="text-warn">{STATUS_LABEL[app.status[x.node.id]] ?? app.status[x.node.id]}</span>
       </button>
     {:else}
       <p class="muted">Nothing is waiting.</p>
@@ -95,10 +82,10 @@
     <h3 class="panel-title">Switched off ({off.length})</h3>
     {#each off as x}
       {#if "folder" in x}
-        <div class="flex justify-between gap-2"><span class="truncate">📁 {x.folder}</span><span class="muted">{x.why}</span></div>
+        <div class="flex justify-between gap-2"><span class="flex min-w-0 items-center gap-1 truncate"><Folder size={14} class="shrink-0 muted" />{x.folder}</span><span class="muted">{x.why}</span></div>
       {:else}
-        <button class="flex justify-between gap-2 text-left" onclick={() => open(x.sheet, x.node)}>
-          <span class="truncate">{x.node ? nodeName(x.node) : x.sheet.name}{#if x.node}<span class="muted"> · {x.sheet.name}</span>{/if}</span>
+        <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
+          <span class="truncate">{x.node ? nodeTitle(x.node) : x.sheet.name}{#if x.node}<span class="muted"> · {x.sheet.name}</span>{/if}</span>
           <span class="muted">{x.why}</span>
         </button>
       {/if}
@@ -112,3 +99,4 @@
     {#each overflow as line}<div>{line}</div>{:else}<p class="muted">Empty.</p>{/each}
   </section>
 </div>
+</InspectorPanel>

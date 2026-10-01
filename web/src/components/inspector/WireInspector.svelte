@@ -1,37 +1,27 @@
 <script lang="ts">
-  import { app, edit, deviceName, deviceAt } from "../../lib/state.svelte";
-  import { KIND_LABEL, formatAgo, formatAverage, formatRate } from "../../lib/kinds";
-  import { posKey, type GraphNode, type Sheet, type Wire } from "../../lib/types";
+  import { app, edit, nodeTitle } from "../../lib/state.svelte";
+  import { type Sheet, type Wire } from "../../lib/types";
   import Chart from "./Chart.svelte";
+  import InspectorPanel from "./InspectorPanel.svelte";
+  import ThroughputSummary from "./ThroughputSummary.svelte";
 
   let { wire, sheet }: { wire: Wire; sheet: Sheet } = $props();
 
-  function name(id: string): string {
-    const n: GraphNode | undefined = sheet.nodes?.find((x) => x.id === id);
-    if (!n) return "?";
-    if (n.label) return n.label;
-    if (n.settings.kind === "device") return deviceName(deviceAt(posKey(n.settings.device)));
-    return KIND_LABEL[n.settings.kind];
+  const from = $derived(sheet.nodes?.find((n) => n.id === wire.from));
+  const to = $derived(sheet.nodes?.find((n) => n.id === wire.to));
+  /** A filter's second output is where what doesn't match goes; other nodes' outputs are just numbered. */
+  const rejects = $derived(from?.settings.kind === "filter" && wire.output === 1);
+
+  function remove() {
+    app.selectedEdges = [];
+    edit([{ type: "disconnect", sheet: sheet.id, wire: wire.id }], [{ type: "connect", sheet: sheet.id, wire }], "delete wire");
   }
 </script>
 
-<div class="flex flex-col gap-3">
-  <div class="flex items-center justify-between">
-    <h2 class="text-base font-semibold">Wire</h2>
-    {#if app.snapshot?.canEdit}
-      <button
-        class="btn btn-danger text-sm"
-        onclick={() => {
-          app.selectedEdges = [];
-          edit([{ type: "disconnect", sheet: sheet.id, wire: wire.id }], [{ type: "connect", sheet: sheet.id, wire }], "delete wire");
-        }}>Delete</button
-      >
-    {/if}
-  </div>
-  <p class="text-sm">{name(wire.from)} {wire.output === 1 ? "(rejects)" : ""} → {name(wire.to)}</p>
-  <p class="text-sm muted">
-    Now {formatRate(app.rates[wire.id] ?? 0, null, app.rateUnit)} · average {formatAverage(app.fiveMinutes[wire.id] ?? 0, null, app.rateUnit)} over 5 min ·
-    {app.ticksSinceMoved[wire.id] !== undefined ? `last moved ${formatAgo(app.ticksSinceMoved[wire.id])}` : "never moved"}
-  </p>
+<InspectorPanel title="Wire" subtitle={`${nodeTitle(from)}${rejects ? " (rejects)" : ""} → ${nodeTitle(to)}`}>
+  {#snippet actions()}
+    {#if app.snapshot?.canEdit}<button class="btn btn-danger text-sm" onclick={remove}>Delete</button>{/if}
+  {/snippet}
+  <ThroughputSummary id={wire.id} />
   <Chart item={wire.id} unit="" />
-</div>
+</InspectorPanel>

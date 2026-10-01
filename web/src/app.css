@@ -135,6 +135,53 @@ input[type="checkbox"] {
   color: var(--bad);
 }
 
+/* A bordered note or group in a panel; -warn and -bad for warnings and errors. */
+.box {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.5rem;
+}
+
+.box-warn {
+  border-color: var(--warn);
+}
+
+.box-bad {
+  border-color: var(--bad);
+}
+
+.text-warn {
+  color: var(--warn);
+}
+
+.text-bad {
+  color: var(--bad);
+}
+
+/* A toggle button that is on (aria-pressed): the same accent look everywhere. */
+.btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* A row of a list you pick from (menus, pickers, the sidebar): highlighted on hover and when keyboard-active. */
+.list-row {
+  cursor: pointer;
+}
+
+.list-row:hover,
+.list-row.active {
+  background: var(--panel-2);
+}
+
+/* The caption above a control (Field), and above a group of them. */
+.field-label {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
 .muted {
   color: var(--muted);
 }

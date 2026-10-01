@@ -3,6 +3,7 @@
   import uPlot from "uplot";
   import "uplot/dist/uPlot.min.css";
   import { app, request } from "../../lib/state.svelte";
+  import Segmented from "../controls/Segmented.svelte";
 
   let { item, unit }: { item: string; unit: string } = $props();
 
@@ -13,6 +14,7 @@
   let host: HTMLDivElement | undefined = $state();
   let window_ = $state<"second" | "minute">("second");
   let plot: uPlot | null = null;
+  let failed = $state(false);
   let timer: ReturnType<typeof setInterval> | undefined;
 
   function css(name: string): string {
@@ -24,7 +26,9 @@
     let values: number[];
     try {
       values = (await request("history", { item: itemId, window: window_ })).values;
+      failed = false;
     } catch {
+      failed = true;
       return;
     }
     const step = window_ === "second" ? 1 : 60;
@@ -74,13 +78,22 @@
 
 <div class="flex flex-col gap-1">
   <div class="flex items-center justify-between">
-    <span class="text-xs font-medium muted"
-      >Throughput{unit ? ` (${unit}` : " ("}/{app.rateUnit}, {window_ === "second" ? "last 5 min" : "last 24 h, per-minute averages"})</span
+    <span class="field-label"
+      >Throughput ({unit ? `${unit}/${app.rateUnit}` : app.rateUnit === "t" ? "per tick" : "per second"}, {window_ === "second"
+        ? "last 5 min"
+        : "last 24 h, per-minute averages"})</span
     >
-    <select bind:value={window_} class="text-xs">
-      <option value="second">5 min</option>
-      <option value="minute">24 h</option>
-    </select>
+    <Segmented
+      label="Chart window"
+      size="xs"
+      value={window_}
+      options={[
+        { value: "second", label: "5 min" },
+        { value: "minute", label: "24 h" },
+      ]}
+      onchange={(v) => (window_ = v)}
+    />
   </div>
+  {#if failed}<p class="text-xs muted" role="status">Couldn't load the history from the game.</p>{/if}
   <div bind:this={host} class="w-full"></div>
 </div>

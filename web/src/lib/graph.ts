@@ -33,6 +33,13 @@ export interface Activity {
 }
 
 /** The devices whose outputs reach a node through the sheet's wires (not gate wires), nearest first. */
+/** A splitter's outgoing wires in branch order: the engine's order (by order, then id). */
+export function splitterBranches(sheet: Sheet, nodeId: string): Wire[] {
+  return (sheet.wires ?? [])
+    .filter((w) => w.from === nodeId)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
 export function upstreamDevices(sheet: Sheet, nodeId: string): GlobalPos[] {
   const byId = new Map((sheet.nodes ?? []).map((n) => [n.id, n]));
   const found: GlobalPos[] = [];
@@ -174,10 +181,7 @@ export function toFlow(
   const branchNumber = new Map<string, number>();
   for (const n of sheet.nodes ?? []) {
     if (n.settings.kind !== "splitter") continue;
-    (sheet.wires ?? [])
-      .filter((w) => w.from === n.id)
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-      .forEach((w, i) => branchNumber.set(w.id, i + 1));
+    splitterBranches(sheet, n.id).forEach((w, i) => branchNumber.set(w.id, i + 1));
   }
   const edges: Edge[] = (sheet.wires ?? []).map((w) => {
     const rate = rates[w.id] ?? 0;

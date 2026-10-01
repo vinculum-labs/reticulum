@@ -1,6 +1,7 @@
 <script lang="ts">
   import { RESOURCE_LABEL, offeredResources } from "../../lib/kinds";
   import { SIDES, type Device, type Face, type Resource, type Side } from "../../lib/types";
+  import NumberField from "../controls/NumberField.svelte";
   import Field from "./Field.svelte";
 
   let { side, device, disabled, onchange }: { side: Side; device: Device | undefined; disabled: boolean; onchange: (side: Side) => void } =
@@ -29,10 +30,11 @@
     onchange({ ...side, faces: [...SIDES, "unsided" as Face].filter((f) => faces.has(f)) });
   }
 
-  function setSlots(first: string, last: string) {
+  /** Either end left empty: from the first slot, or to the last. Both empty: all slots. */
+  function setSlots(first: number | undefined, last: number | undefined) {
     const next = { ...side };
-    if (first === "" && last === "") delete next.slots;
-    else next.slots = { first: Math.max(0, Number(first) || 0), last: Math.max(0, last === "" ? 9999 : Number(last)) };
+    if (first === undefined && last === undefined) delete next.slots;
+    else next.slots = { first: first ?? 0, last: last ?? 9999 };
     onchange(next);
   }
 </script>
@@ -43,10 +45,10 @@
   </select>
 </Field>
 
-<div class="flex flex-col gap-1">
-  <span class="text-xs font-medium muted">Faces</span>
+<fieldset class="flex flex-col gap-1">
+  <legend class="field-label mb-1">Faces</legend>
   {#if offered.length === 0}
-    <span class="text-xs" style="color: var(--warn)">This device offers no {side.resource} on any face{device?.loaded === false ? " (not loaded)" : ""}.</span>
+    <span class="text-xs text-warn">This device offers no {side.resource} on any face{device?.loaded === false ? " (not loaded)" : ""}.</span>
   {:else}
     <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
       {#each offered as face}
@@ -58,18 +60,16 @@
     </div>
     <span class="text-xs muted">{chosen.size === 0 ? "None ticked: every face the device offers (its own side settings decide)." : "Only the ticked faces."}</span>
   {/if}
-</div>
+</fieldset>
 
 {#if side.resource === "item"}
-  <div class="flex flex-col gap-1">
-    <span class="text-xs font-medium muted">Slots</span>
+  <Field label="Slots" hint="Leave empty for all slots." group>
     <div class="flex items-center gap-2 text-sm">
-      <input type="number" min="0" class="w-20" placeholder="first" value={side.slots?.first ?? ""} {disabled}
-        onchange={(e) => setSlots(e.currentTarget.value, String(side.slots?.last ?? ""))} />
+      <NumberField value={side.slots?.first} min={0} max={9999} optional placeholder="first" {disabled} title="First slot"
+        oncommit={(v) => setSlots(v, side.slots?.last)} />
       to
-      <input type="number" min="0" class="w-20" placeholder="last" value={side.slots?.last ?? ""} {disabled}
-        onchange={(e) => setSlots(String(side.slots?.first ?? ""), e.currentTarget.value)} />
+      <NumberField value={side.slots?.last} min={0} max={9999} optional placeholder="last" {disabled} title="Last slot"
+        oncommit={(v) => setSlots(side.slots?.first, v)} />
     </div>
-    <span class="text-xs muted">Leave empty for all slots.</span>
-  </div>
+  </Field>
 {/if}
