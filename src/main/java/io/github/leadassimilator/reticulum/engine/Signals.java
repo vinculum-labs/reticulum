@@ -166,16 +166,25 @@ final class Signals {
 
     // ---------------------------------------------------------------- signal nodes
 
-    /** Works out every signal node of the running sheets, then applies Redstone out nodes to the connectors. */
-    void evaluate(NetworkRuntime.Context ctx, List<CompiledSheet> sheets) {
+    /**
+     * Works out every signal node of the running sheets, then applies Redstone out nodes to the connectors.
+     *
+     * <p>{@code dormant} sheets are switched off by their redstone condition (or the network's): their signal nodes
+     * are still worked out and still transmit, so a condition that reads a signal they send can turn them on again,
+     * but their Redstone out nodes give nothing.
+     */
+    void evaluate(NetworkRuntime.Context ctx, List<CompiledSheet> sheets, List<CompiledSheet> dormant) {
         Map<String, Long> publishing = new HashMap<>();
         Map<Emit, Integer> emit = new HashMap<>();
-        for (CompiledSheet sheet : sheets) {
-            for (CompiledSheet.SignalNode node : sheet.signals()) {
-                values.put(node.node().id(), output(ctx, sheet, node, publishing, emit));
-            }
-            for (CompiledSheet.SignalNode node : sheet.signals()) {
-                remember(ctx, node);
+        Map<Emit, Integer> dark = new HashMap<>();
+        for (List<CompiledSheet> group : List.of(sheets, dormant)) {
+            for (CompiledSheet sheet : group) {
+                for (CompiledSheet.SignalNode node : sheet.signals()) {
+                    values.put(node.node().id(), output(ctx, sheet, node, publishing, group == sheets ? emit : dark));
+                }
+                for (CompiledSheet.SignalNode node : sheet.signals()) {
+                    remember(ctx, node);
+                }
             }
         }
         published = publishing;

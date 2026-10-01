@@ -243,6 +243,29 @@ public final class EngineTests {
 
     // ---------------------------------------------------------------- redstone
 
+    @GameTest(template = "empty", timeoutTicks = 300)
+    public static void networkSwitchedOffBySignalItSendsComesBack(GameTestHelper helper) {
+        // A sensor sheet transmits "run" while the lever is on; the network runs while "run" is on. Once off, only the
+        // sensor (which keeps working while the network is off) can turn it on again.
+        Rig rig = rig(helper, Blocks.LEVER, Blocks.BARREL, Blocks.BARREL);
+        helper.setBlock(rig.devices().get(0), lever(true));
+        rig.signal(rig.redstoneFrom(rig.device(0)), rig.node(new NodeSettings.TransmitSettings("run")), 0);
+        rig.wire(rig.source(1, ResourceKind.ITEM, List.of(), 64), rig.sink(2, ResourceKind.ITEM, List.of()));
+        rig.network().switches().setRedstone(new Redstone(Redstone.Mode.HIGH, Redstone.Source.SIGNAL, Optional.empty(), Optional.empty(),
+                Optional.empty(), "run"));
+        rig.container(1).setItem(0, new ItemStack(Items.COBBLESTONE, 10));
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, rig.count(2, Items.COBBLESTONE) == 10, "items didn't move while the signal was on"))
+                .thenExecute(() -> helper.setBlock(rig.devices().get(0), lever(false)))
+                .thenExecuteAfter(10, () -> rig.container(1).setItem(0, new ItemStack(Items.COBBLESTONE, 10)))
+                .thenExecuteAfter(20, () -> {
+                    check(helper, rig.count(1, Items.COBBLESTONE) == 10, "items moved while the network was off");
+                    helper.setBlock(rig.devices().get(0), lever(true));
+                })
+                .thenWaitUntil(() -> check(helper, rig.count(2, Items.COBBLESTONE) == 20, "the network didn't come back when the signal did"))
+                .thenSucceed();
+    }
+
     @GameTest(template = "empty")
     public static void leverSwitchesLampThroughNot(GameTestHelper helper) {
         // A barrel keeps the lever and the lamp apart, so only the network links them.

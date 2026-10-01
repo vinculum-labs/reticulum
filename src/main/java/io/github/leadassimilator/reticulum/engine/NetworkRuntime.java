@@ -175,13 +175,14 @@ public final class NetworkRuntime {
         sheetsOff.clear();
         Signals.Verdict networkVerdict = signals.check(server, network, "network", network.switches().redstone(), null);
         if (networkVerdict == Signals.Verdict.OFF) {
-            stop(server, network);
+            dormant(server, network);
             return;
         }
         stopped = false;
         updateReach(server, network);
         payUpkeep(server, network);
         List<CompiledSheet> sheets = new ArrayList<>();
+        List<CompiledSheet> dormant = new ArrayList<>();
         for (Sheet sheet : network.sheets()) {
             if (!network.runs(sheet)) {
                 continue;
@@ -189,6 +190,7 @@ public final class NetworkRuntime {
             Signals.Verdict verdict = sheetVerdict(server, network, sheet);
             if (verdict == Signals.Verdict.OFF) {
                 sheetsOff.add(sheet.id());
+                dormant.add(compiled(sheet, network));
                 continue;
             }
             sheets.add(compiled(sheet, network));
@@ -197,7 +199,7 @@ public final class NetworkRuntime {
             }
         }
         Context context = new Context(server, network, this);
-        signals.evaluate(context, sheets);
+        signals.evaluate(context, sheets, dormant);
         if (meLinker != null) {
             List<CompiledSheet.MeLink> links = new ArrayList<>();
             sheets.forEach(sheet -> links.addAll(sheet.meLinks()));
@@ -229,6 +231,25 @@ public final class NetworkRuntime {
             Overflow.retry(context, sheets);
         }
         metrics.tick(ticks);
+    }
+
+    /**
+     * The network's redstone condition has it off: nothing moves and connectors give out no redstone, but its sheets'
+     * signal logic keeps working, so a condition reading a signal they send (a sensor sheet watching a battery) can
+     * turn the network on again.
+     */
+    private void dormant(MinecraftServer server, Network network) {
+        if (meLinker != null) {
+            meLinker.clear();
+        }
+        List<CompiledSheet> sheets = new ArrayList<>();
+        for (Sheet sheet : network.sheets()) {
+            if (network.runs(sheet)) {
+                sheetsOff.add(sheet.id());
+                sheets.add(compiled(sheet, network));
+            }
+        }
+        signals.evaluate(new Context(server, network, this), List.of(), sheets);
     }
 
     /** The network isn't running: connectors stop giving out redstone, once. */
