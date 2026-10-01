@@ -136,14 +136,14 @@ final class Overflow {
         List<IFluidHandler> to = ctx.runtime().fluids(ctx.server(), ctx.network(), route.sinkSettings().port());
         List<IFluidHandler> view = ctx.runtime().fluidView(ctx.server(), ctx.network(), route.sinkSettings().port());
         boolean changed = false;
-        Filters.Context context = new Filters.Context(level, null, f -> ContinuousMover.contains(view, f));
+        Filters.Context context = ContinuousMover.FLUIDS.context(level, view);
         Iterator<FluidStack> it = ctx.network().overflowFluids().iterator();
         while (it.hasNext()) {
             FluidStack held = it.next();
-            if (!ContinuousMover.passes(route.gates(), held, context)) {
+            if (!TankFlow.passes(ContinuousMover.FLUIDS, route.gates(), held, context)) {
                 continue;
             }
-            long room = Math.min(ContinuousMover.fluidLimit(sheet, route.sinkSettings().caps(), view, held, context, false),
+            long room = Math.min(TankFlow.limit(ContinuousMover.FLUIDS, sheet, route.sinkSettings().caps(), view, held, context, false),
                     ctx.runtime().available(route.rateLimits()));
             for (IFluidHandler handler : to) {
                 if (room <= 0 || held.isEmpty()) {

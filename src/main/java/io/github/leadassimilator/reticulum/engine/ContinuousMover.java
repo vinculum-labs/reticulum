@@ -11,16 +11,17 @@ import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.integration.Mods;
-import net.minecraft.core.GlobalPos;
+import io.github.leadassimilator.reticulum.network.Network;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
 /**
- * Energy, fluid and chemical flows, which behave like Mekanism pressurized tubes: every tick, each sink says how much it can
- * take right now, the source supplies what it can, and the supply is shared evenly (a sink needing less than its
- * share gives the rest to the others). A priority splitter anywhere on the routes switches to filling in order.
+ * Energy, fluid and chemical flows, which behave like Mekanism pressurized tubes (see {@link TankFlow}), and the
+ * sharing they use: each sink says how much it can take, the source supplies what it can, and the supply is shared
+ * evenly (a sink needing less than its share gives the rest to the others). A priority splitter anywhere on the
+ * routes switches to filling in order.
  */
 final class ContinuousMover {
     private ContinuousMover() {
@@ -36,310 +37,184 @@ final class ContinuousMover {
                 ctx.runtime().status(sheet.owner(source.node().id()), Status.NO_POWER);
                 continue;
             }
-            if (source.resource() == ResourceKind.ENERGY) {
-                energy(ctx, sheet, source);
-            } else if (source.resource() == ResourceKind.FLUID) {
-                if (Overflow.fluidsFull(ctx.network())) {
-                    ctx.runtime().status(sheet.owner(source.node().id()), Status.OVERFLOW_FULL);
-                } else {
-                    fluid(ctx, sheet, source);
+            switch (source.resource()) {
+                case ENERGY -> TankFlow.run(ctx, sheet, source, ENERGY);
+                case FLUID -> TankFlow.run(ctx, sheet, source, FLUIDS);
+                case CHEMICAL -> {
+                    if (Mods.MEKANISM) {
+                        ChemicalMover.run(ctx, sheet, source);
+                    }
                 }
-            } else if (source.resource() == ResourceKind.CHEMICAL && Mods.MEKANISM) {
-                ChemicalMover.run(ctx, sheet, source);
+                default -> {
+                }
             }
         }
     }
 
     // ---------------------------------------------------------------- energy
 
-    private static void energy(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source) {
-        UUID owner = sheet.owner(source.node().id());
-        List<IEnergyStorage> from = ctx.runtime().energy(ctx.server(), ctx.network(), source.settings().port());
-        if (from.isEmpty()) {
-            ctx.runtime().status(owner, Status.DEVICE_OFFLINE);
-            return;
+    /** Energy has one kind; every keep rule and cap counts all of it. */
+    enum Energy {
+        FE
+    }
+
+    static final TankFlow.Tank<IEnergyStorage, Energy> ENERGY = new TankFlow.Tank<>() {
+        @Override
+        public List<IEnergyStorage> handlers(NetworkRuntime.Context ctx, NodeSettings.Port port) {
+            return ctx.runtime().energy(ctx.server(), ctx.network(), port);
         }
-        // Faces often wrap one store (a Mekanism machine answers on every face), so what a source can give and a sink can
-        // take is the best single face's answer, and amounts are counted through the view, which sees each store once.
-        // Adding the faces up would ask for more than there is: the surplus would go back, or be lost if it can't.
-        long supply = 0;
-        for (IEnergyStorage storage : from) {
-            supply = Math.max(supply, storage.extractEnergy(Integer.MAX_VALUE, true));
+
+        @Override
+        public List<IEnergyStorage> view(NetworkRuntime.Context ctx, NodeSettings.Port port) {
+            return ctx.runtime().energyView(ctx.server(), ctx.network(), port);
         }
-        long stored = energyStored(ctx.runtime().energyView(ctx.server(), ctx.network(), source.settings().port()));
-        long keep = keepAmount(source.settings().keep());
-        if (keep > 0) {
-            supply = Math.min(supply, Math.max(0, stored - keep));
+
+        @Override
+        public List<Energy> kinds(List<IEnergyStorage> handlers) {
+            return List.of(Energy.FE);
         }
-        if (supply <= 0) {
-            ctx.runtime().status(owner, keep > 0 && stored > 0 ? Status.KEEP_RULE : Status.SOURCE_EMPTY);
-            return;
+
+        @Override
+        public long extract(IEnergyStorage handler, Energy kind, long max, boolean simulate) {
+            return handler.extractEnergy((int) Math.min(max, Integer.MAX_VALUE), simulate);
         }
-        List<CompiledSheet.Route> routes = ctx.runtime().ordered(ctx.runtime().routes(source));
-        List<List<IEnergyStorage>> sinks = new ArrayList<>();
-        long[] demand = new long[routes.size()];
-        // Room left in each target this tick: several routes may end at the same block (two inputs of one machine).
-        Map<GlobalPos, Long> room = new HashMap<>();
-        for (int i = 0; i < routes.size(); i++) {
-            CompiledSheet.Route route = routes.get(i);
-            NodeSettings.Port port = route.sinkSettings().port();
-            List<IEnergyStorage> to = ctx.runtime().energy(ctx.server(), ctx.network(), port);
-            sinks.add(to);
-            long max = Math.min(ReticulumConfig.ENERGY_PER_TICK.getAsInt(), ctx.runtime().available(route.rateLimits()));
-            long sinkStored = energyStored(ctx.runtime().energyView(ctx.server(), ctx.network(), port));
-            max = Math.min(max, capRoom(route.sinkSettings().caps(), sinkStored));
-            long free = room.computeIfAbsent(port.device(), device -> {
-                long best = 0;
-                for (IEnergyStorage storage : to) {
-                    best = Math.max(best, storage.receiveEnergy(Integer.MAX_VALUE, true));
+
+        @Override
+        public long insert(IEnergyStorage handler, Energy kind, long amount, boolean simulate) {
+            return handler.receiveEnergy((int) Math.min(amount, Integer.MAX_VALUE), simulate);
+        }
+
+        @Override
+        public void forEachStored(List<IEnergyStorage> handlers, TankFlow.StoredConsumer<Energy> action) {
+            for (IEnergyStorage storage : handlers) {
+                if (storage.getEnergyStored() > 0) {
+                    action.accept(Energy.FE, storage.getEnergyStored());
                 }
-                return best;
-            });
-            demand[i] = Math.max(0, Math.min(max, free));
-            room.put(port.device(), free - demand[i]);
-        }
-        capByRateLimits(ctx.runtime(), routes, demand);
-        long[] share = share(supply, demand, anyPriority(routes), weights(routes));
-        long total = 0;
-        for (int i = 0; i < routes.size(); i++) {
-            if (share[i] <= 0) {
-                continue;
-            }
-            long moved = moveEnergy(from, sinks.get(i), share[i]);
-            if (moved > 0) {
-                total += moved;
-                ctx.runtime().delivered(routes.get(i), moved);
-                ctx.runtime().advance(routes.get(i));
             }
         }
-        ctx.runtime().status(owner, total > 0 ? null : Status.TARGET_FULL);
-    }
 
-    private static long moveEnergy(List<IEnergyStorage> from, List<IEnergyStorage> to, long amount) {
-        long taken = 0;
-        for (IEnergyStorage storage : from) {
-            if (taken >= amount) {
-                break;
-            }
-            taken += storage.extractEnergy((int) Math.min(amount - taken, Integer.MAX_VALUE), false);
+        @Override
+        public boolean sameKind(Energy a, Energy b) {
+            return true;
         }
-        long left = taken;
-        for (IEnergyStorage storage : to) {
-            if (left <= 0) {
-                break;
-            }
-            left -= storage.receiveEnergy((int) Math.min(left, Integer.MAX_VALUE), false);
-        }
-        // Energy the sink refused after all goes back where it came from; FE is never held in transit.
-        for (IEnergyStorage storage : from) {
-            if (left <= 0) {
-                break;
-            }
-            left -= storage.receiveEnergy((int) Math.min(left, Integer.MAX_VALUE), false);
-        }
-        return taken - Math.max(0, left);
-    }
 
-    private static long energyStored(List<IEnergyStorage> view) {
-        long stored = 0;
-        for (IEnergyStorage storage : view) {
-            stored += storage.getEnergyStored();
+        @Override
+        public boolean passes(CompiledSheet.Gate gate, Energy kind, Filters.Context context) {
+            return true;
         }
-        return stored;
-    }
 
-    /** Energy has no types, so every keep rule counts the total stored. */
-    private static long keepAmount(List<NodeSettings.Limit> keep) {
-        long amount = 0;
-        for (NodeSettings.Limit limit : keep) {
-            amount = Math.max(amount, limit.amount());
+        @Override
+        public boolean matches(CompiledSheet sheet, NodeSettings.Limit limit, Energy kind, Filters.Context context) {
+            return true;
         }
-        return amount;
-    }
 
-    private static long capRoom(List<NodeSettings.Limit> caps, long stored) {
-        long room = Long.MAX_VALUE;
-        for (NodeSettings.Limit cap : caps) {
-            room = Math.min(room, Math.max(0, cap.amount() - stored));
+        @Override
+        public Filters.Context context(ServerLevel level, List<IEnergyStorage> sinkView) {
+            return Filters.Context.of(level);
         }
-        return room;
-    }
+
+        @Override
+        public long perTick() {
+            return ReticulumConfig.ENERGY_PER_TICK.getAsInt();
+        }
+
+        @Override
+        public boolean overflowFull(Network network) {
+            return false;
+        }
+
+        @Override
+        public void overflow(NetworkRuntime.Context ctx, Energy kind, long amount) {
+            // FE can't be held in transit; this only happens if a sink takes less than it said it would and the source
+            // takes none back.
+        }
+    };
 
     // ---------------------------------------------------------------- fluids
 
-    private static void fluid(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source) {
-        UUID owner = sheet.owner(source.node().id());
-        List<IFluidHandler> from = ctx.runtime().fluids(ctx.server(), ctx.network(), source.settings().port());
-        if (from.isEmpty()) {
-            ctx.runtime().status(owner, Status.DEVICE_OFFLINE);
-            return;
+    static final TankFlow.Tank<IFluidHandler, FluidStack> FLUIDS = new TankFlow.Tank<>() {
+        @Override
+        public List<IFluidHandler> handlers(NetworkRuntime.Context ctx, NodeSettings.Port port) {
+            return ctx.runtime().fluids(ctx.server(), ctx.network(), port);
         }
-        ServerLevel level = ctx.server().getLevel(source.settings().port().device().dimension());
-        List<FluidStack> kinds = new ArrayList<>();
-        for (IFluidHandler handler : from) {
-            for (int tank = 0; tank < handler.getTanks(); tank++) {
-                FluidStack fluid = handler.getFluidInTank(tank);
-                if (!fluid.isEmpty() && kinds.stream().noneMatch(k -> FluidStack.isSameFluidSameComponents(k, fluid))) {
+
+        @Override
+        public List<IFluidHandler> view(NetworkRuntime.Context ctx, NodeSettings.Port port) {
+            return ctx.runtime().fluidView(ctx.server(), ctx.network(), port);
+        }
+
+        @Override
+        public List<FluidStack> kinds(List<IFluidHandler> handlers) {
+            List<FluidStack> kinds = new ArrayList<>();
+            forEachStored(handlers, (fluid, amount) -> {
+                if (kinds.stream().noneMatch(k -> FluidStack.isSameFluidSameComponents(k, fluid))) {
                     kinds.add(fluid.copyWithAmount(1));
                 }
-            }
-        }
-        List<CompiledSheet.Route> ordered = ctx.runtime().ordered(ctx.runtime().routes(source));
-        long total = 0;
-        Status why = Status.SOURCE_EMPTY;
-        for (FluidStack kind : kinds) {
-            long moved = fluidKind(ctx, sheet, source, level, from, kind, ordered);
-            total += moved;
-            if (moved == 0) {
-                why = Status.furthest(why, Status.TARGET_FULL);
-            }
-        }
-        ctx.runtime().status(owner, total > 0 ? null : why);
-    }
-
-    /** Returns how much moved. */
-    private static long fluidKind(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, ServerLevel level,
-            List<IFluidHandler> from, FluidStack kind, List<CompiledSheet.Route> ordered) {
-        Filters.Context plain = Filters.Context.of(level);
-        // As for energy: the best single face's answer, and amounts counted through the view.
-        long supply = 0;
-        for (IFluidHandler handler : from) {
-            supply = Math.max(supply, handler.drain(kind.copyWithAmount(Integer.MAX_VALUE), IFluidHandler.FluidAction.SIMULATE).getAmount());
-        }
-        List<IFluidHandler> fromView = ctx.runtime().fluidView(ctx.server(), ctx.network(), source.settings().port());
-        supply = Math.min(supply, fluidLimit(sheet, source.settings().keep(), fromView, kind, plain, true));
-        if (supply <= 0) {
-            return 0;
-        }
-        List<CompiledSheet.Route> routes = new ArrayList<>();
-        List<List<IFluidHandler>> sinks = new ArrayList<>();
-        List<Long> demands = new ArrayList<>();
-        Map<GlobalPos, Long> room = new HashMap<>();
-        for (CompiledSheet.Route route : ordered) {
-            NodeSettings.Port port = route.sinkSettings().port();
-            List<IFluidHandler> to = ctx.runtime().fluids(ctx.server(), ctx.network(), port);
-            if (to.isEmpty()) {
-                continue;
-            }
-            List<IFluidHandler> toView = ctx.runtime().fluidView(ctx.server(), ctx.network(), port);
-            Filters.Context context = new Filters.Context(level, null, f -> contains(toView, f));
-            if (!passes(route.gates(), kind, context)) {
-                continue;
-            }
-            long max = Math.min(ReticulumConfig.FLUID_PER_TICK.getAsInt(), ctx.runtime().available(route.rateLimits()));
-            max = Math.min(max, fluidLimit(sheet, route.sinkSettings().caps(), toView, kind, context, false));
-            long free = room.computeIfAbsent(port.device(), device -> {
-                long best = 0;
-                for (IFluidHandler handler : to) {
-                    best = Math.max(best, handler.fill(kind.copyWithAmount(Integer.MAX_VALUE), IFluidHandler.FluidAction.SIMULATE));
-                }
-                return best;
             });
-            long demand = Math.max(0, Math.min(max, free));
-            room.put(port.device(), free - demand);
-            routes.add(route);
-            sinks.add(to);
-            demands.add(demand);
+            return kinds;
         }
-        long[] demand = demands.stream().mapToLong(Long::longValue).toArray();
-        capByRateLimits(ctx.runtime(), routes, demand);
-        long[] share = share(supply, demand, anyPriority(routes), weights(routes));
-        long total = 0;
-        for (int i = 0; i < routes.size(); i++) {
-            if (share[i] <= 0) {
-                continue;
-            }
-            long moved = moveFluid(ctx, from, sinks.get(i), kind, share[i]);
-            if (moved > 0) {
-                total += moved;
-                ctx.runtime().delivered(routes.get(i), moved);
-                ctx.runtime().advance(routes.get(i));
-            }
-        }
-        return total;
-    }
 
-    private static long moveFluid(NetworkRuntime.Context ctx, List<IFluidHandler> from, List<IFluidHandler> to, FluidStack kind, long amount) {
-        List<FluidStack> drained = new ArrayList<>();
-        long taken = 0;
-        for (IFluidHandler handler : from) {
-            if (taken >= amount) {
-                break;
-            }
-            FluidStack got = handler.drain(kind.copyWithAmount((int) Math.min(amount - taken, Integer.MAX_VALUE)), IFluidHandler.FluidAction.EXECUTE);
-            if (!got.isEmpty()) {
-                drained.add(got);
-                taken += got.getAmount();
-            }
+        @Override
+        public long extract(IFluidHandler handler, FluidStack kind, long max, boolean simulate) {
+            return handler.drain(kind.copyWithAmount((int) Math.min(max, Integer.MAX_VALUE)), action(simulate)).getAmount();
         }
-        long delivered = 0;
-        for (FluidStack stack : drained) {
-            FluidStack left = stack.copy();
-            for (IFluidHandler handler : to) {
-                if (left.isEmpty()) {
-                    break;
-                }
-                left.shrink(handler.fill(left.copy(), IFluidHandler.FluidAction.EXECUTE));
-            }
-            delivered += stack.getAmount() - left.getAmount();
-            for (IFluidHandler handler : from) {
-                if (left.isEmpty()) {
-                    break;
-                }
-                left.shrink(handler.fill(left.copy(), IFluidHandler.FluidAction.EXECUTE));
-            }
-            if (!left.isEmpty()) {
-                Overflow.add(ctx, left);
-            }
-        }
-        return delivered;
-    }
 
-    static boolean passes(List<CompiledSheet.Gate> gates, FluidStack stack, Filters.Context context) {
-        for (CompiledSheet.Gate gate : gates) {
-            if (gate.fluids().test(stack, context) == gate.reject()) {
-                return false;
-            }
+        @Override
+        public long insert(IFluidHandler handler, FluidStack kind, long amount, boolean simulate) {
+            return handler.fill(kind.copyWithAmount((int) Math.min(amount, Integer.MAX_VALUE)), action(simulate));
         }
-        return true;
-    }
 
-    static boolean contains(List<IFluidHandler> handlers, FluidStack like) {
-        for (IFluidHandler handler : handlers) {
-            for (int tank = 0; tank < handler.getTanks(); tank++) {
-                if (FluidStack.isSameFluidSameComponents(handler.getFluidInTank(tank), like)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /** Room left by keep rules (source) or caps (sink) for one fluid kind, in mB. */
-    static long fluidLimit(CompiledSheet sheet, List<NodeSettings.Limit> limits, List<IFluidHandler> handlers, FluidStack kind,
-            Filters.Context context, boolean keep) {
-        long allowed = Long.MAX_VALUE;
-        for (NodeSettings.Limit limit : limits) {
-            Filters.FluidFilter filter = sheet.fluidFilter(limit);
-            if (!filter.test(kind, context)) {
-                continue;
-            }
-            long present = 0;
+        @Override
+        public void forEachStored(List<IFluidHandler> handlers, TankFlow.StoredConsumer<FluidStack> action) {
             for (IFluidHandler handler : handlers) {
                 for (int tank = 0; tank < handler.getTanks(); tank++) {
                     FluidStack fluid = handler.getFluidInTank(tank);
-                    boolean counted = limit.scope() == NodeSettings.Scope.PER_TYPE
-                            ? FluidStack.isSameFluidSameComponents(fluid, kind)
-                            : !fluid.isEmpty() && filter.test(fluid, context);
-                    if (counted) {
-                        present += fluid.getAmount();
+                    if (!fluid.isEmpty()) {
+                        action.accept(fluid, fluid.getAmount());
                     }
                 }
             }
-            allowed = Math.min(allowed, Math.max(0, keep ? present - limit.amount() : limit.amount() - present));
         }
-        return allowed;
-    }
+
+        @Override
+        public boolean sameKind(FluidStack a, FluidStack b) {
+            return FluidStack.isSameFluidSameComponents(a, b);
+        }
+
+        @Override
+        public boolean passes(CompiledSheet.Gate gate, FluidStack kind, Filters.Context context) {
+            return gate.fluids().test(kind, context) != gate.reject();
+        }
+
+        @Override
+        public boolean matches(CompiledSheet sheet, NodeSettings.Limit limit, FluidStack kind, Filters.Context context) {
+            return sheet.fluidFilter(limit).test(kind, context);
+        }
+
+        @Override
+        public Filters.Context context(ServerLevel level, List<IFluidHandler> sinkView) {
+            return new Filters.Context(level, null, f -> TankFlow.contains(this, sinkView, f));
+        }
+
+        @Override
+        public long perTick() {
+            return ReticulumConfig.FLUID_PER_TICK.getAsInt();
+        }
+
+        @Override
+        public boolean overflowFull(Network network) {
+            return Overflow.fluidsFull(network);
+        }
+
+        @Override
+        public void overflow(NetworkRuntime.Context ctx, FluidStack kind, long amount) {
+            Overflow.add(ctx, kind.copyWithAmount((int) Math.min(amount, Integer.MAX_VALUE)));
+        }
+
+        private static IFluidHandler.FluidAction action(boolean simulate) {
+            return simulate ? IFluidHandler.FluidAction.SIMULATE : IFluidHandler.FluidAction.EXECUTE;
+        }
+    };
 
     // ---------------------------------------------------------------- sharing
 

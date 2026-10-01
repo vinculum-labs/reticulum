@@ -1203,6 +1203,77 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /** mB of fluid a block holds, counted once (its unsided handler, or the first face that answers). */
+    private static long fluidStored(GameTestHelper helper, BlockPos rel) {
+        BlockPos pos = helper.absolutePos(rel);
+        var handler = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, null);
+        for (Direction side : Direction.values()) {
+            if (handler != null) {
+                break;
+            }
+            handler = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, side);
+        }
+        long total = 0;
+        for (int tank = 0; handler != null && tank < handler.getTanks(); tank++) {
+            total += handler.getFluidInTank(tank).getAmount();
+        }
+        return total;
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 300)
+    public static void fluidCapStopsAtTheCap(GameTestHelper helper) {
+        if (!Mods.MEKANISM) {
+            helper.succeed();
+            return;
+        }
+        Block tank = MekanismTestSupport.block("basic_fluid_tank");
+        Rig rig = rig(helper, tank, tank);
+        BlockPos from = helper.absolutePos(rig.devices().get(0));
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), from);
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
+        // Mekanism's unsided handler is read-only: fill through the faces.
+        int left = 10_000;
+        for (Direction side : Direction.values()) {
+            var handler = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, from, side);
+            if (handler != null && left > 0) {
+                left -= handler.fill(new net.neoforged.neoforge.fluids.FluidStack(net.minecraft.world.level.material.Fluids.WATER, left),
+                        net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
+            }
+        }
+        check(helper, fluidStored(helper, rig.devices().get(0)) == 10_000, "couldn't fill the source tank");
+        rig.wire(rig.source(0, ResourceKind.FLUID, List.of(), 0),
+                rig.sink(1, ResourceKind.FLUID, List.of(new NodeSettings.Limit(NodeSettings.Scope.TOTAL, 3000, ""))));
+        helper.startSequence()
+                .thenExecuteAfter(200, () -> {
+                    check(helper, fluidStored(helper, rig.devices().get(1)) == 3000, "capped at 3000 mB, the target holds " + fluidStored(helper, rig.devices().get(1)));
+                    check(helper, fluidStored(helper, rig.devices().get(0)) == 7000, "the source holds " + fluidStored(helper, rig.devices().get(0)));
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 300)
+    public static void chemicalKeepLeavesTheRest(GameTestHelper helper) {
+        if (!Mods.MEKANISM) {
+            helper.succeed();
+            return;
+        }
+        Block tank = MekanismTestSupport.block("basic_chemical_tank");
+        Rig rig = rig(helper, tank, tank);
+        BlockPos from = helper.absolutePos(rig.devices().get(0));
+        BlockPos to = helper.absolutePos(rig.devices().get(1));
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), from);
+        MekanismTestSupport.placedByPlayer(helper.getLevel(), to);
+        check(helper, MekanismTestSupport.fill(helper.getLevel(), from, "hydrogen", 4000) == 4000, "couldn't fill the source tank");
+        rig.wire(rig.source(0, ResourceKind.CHEMICAL, List.of(new NodeSettings.Limit(NodeSettings.Scope.PER_TYPE, 1000, "")), 0),
+                rig.sink(1, ResourceKind.CHEMICAL, List.of()));
+        helper.startSequence()
+                .thenExecuteAfter(200, () -> {
+                    check(helper, MekanismTestSupport.stored(helper.getLevel(), from) == 1000, "keeping 1000 mB, the source holds " + MekanismTestSupport.stored(helper.getLevel(), from));
+                    check(helper, MekanismTestSupport.stored(helper.getLevel(), to) == 3000, "the target holds " + MekanismTestSupport.stored(helper.getLevel(), to));
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = "empty")
     public static void evenShareHandsOutRemainder(GameTestHelper helper) {
         long[] share = shareFor(10, new long[] {100, 100, 100}, false);
