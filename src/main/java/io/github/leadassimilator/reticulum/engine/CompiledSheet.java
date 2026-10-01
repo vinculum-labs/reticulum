@@ -761,13 +761,16 @@ public final class CompiledSheet {
     }
 
     private void compileLimits(Node node, Map<String, String> templates) {
-        List<NodeSettings.Limit> limits = switch (node.settings()) {
-            case NodeSettings.SourceSettings s -> s.keep();
-            case NodeSettings.SinkSettings s -> s.caps();
+        // Every filter a node uses besides a Filter node's own: keep rules, caps, kit lines and Level sensors. Compiled
+        // once here, so a bad one is reported in the editor (and matches nothing) instead of failing quietly each tick.
+        List<String> expressions = switch (node.settings()) {
+            case NodeSettings.SourceSettings s -> s.keep().stream().map(NodeSettings.Limit::filter).toList();
+            case NodeSettings.SinkSettings s -> s.caps().stream().map(NodeSettings.Limit::filter).toList();
+            case NodeSettings.KitSettings s -> s.lines().stream().map(NodeSettings.KitLine::filter).toList();
+            case NodeSettings.LevelSettings s -> List.of(s.filter());
             default -> List.of();
         };
-        for (NodeSettings.Limit limit : limits) {
-            String expression = limit.filter();
+        for (String expression : expressions) {
             try {
                 if (!itemLimitFilters.containsKey(expression)) {
                     itemLimitFilters.put(expression, Filters.items(expression, templates));
@@ -782,15 +785,28 @@ public final class CompiledSheet {
 
     /** The compiled filter of a keep rule or cap. Rules whose filter failed to compile match nothing. */
     public Filters.ItemFilter itemFilter(NodeSettings.Limit limit) {
-        return itemLimitFilters.getOrDefault(limit.filter(), (s, c) -> false);
+        return itemFilter(limit.filter());
     }
 
     public Filters.FluidFilter fluidFilter(NodeSettings.Limit limit) {
-        return fluidLimitFilters.getOrDefault(limit.filter(), (s, c) -> false);
+        return fluidFilter(limit.filter());
     }
 
     public Filters.ChemicalFilter chemicalFilter(NodeSettings.Limit limit) {
-        return chemicalLimitFilters.getOrDefault(limit.filter(), Filters.ChemicalFilter.NONE);
+        return chemicalFilter(limit.filter());
+    }
+
+    /** A node's compiled filter (keep rule, cap, kit line, Level sensor); one that failed to compile matches nothing. */
+    public Filters.ItemFilter itemFilter(String expression) {
+        return itemLimitFilters.getOrDefault(expression, (s, c) -> false);
+    }
+
+    public Filters.FluidFilter fluidFilter(String expression) {
+        return fluidLimitFilters.getOrDefault(expression, (s, c) -> false);
+    }
+
+    public Filters.ChemicalFilter chemicalFilter(String expression) {
+        return chemicalLimitFilters.getOrDefault(expression, Filters.ChemicalFilter.NONE);
     }
 
     static String describe(Node node) {

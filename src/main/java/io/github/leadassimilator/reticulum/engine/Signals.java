@@ -352,38 +352,34 @@ final class Signals {
         }
         Filters.Context context = Filters.Context.of(world);
         String expression = level.filter();
-        try {
-            return switch (level.resource()) {
-                case ITEM -> {
-                    Filters.ItemFilter filter = Filters.items(expression, ctx.network().filters());
-                    yield ctx.runtime().itemPort(ctx.server(), ctx.network(), port).count(stack -> filter.test(stack, context));
-                }
-                case FLUID -> {
-                    Filters.FluidFilter filter = Filters.fluids(expression, ctx.network().filters());
-                    long total = 0;
-                    for (IFluidHandler handler : ctx.runtime().fluidView(ctx.server(), ctx.network(), port)) {
-                        for (int tank = 0; tank < handler.getTanks(); tank++) {
-                            FluidStack fluid = handler.getFluidInTank(tank);
-                            if (!fluid.isEmpty() && filter.test(fluid, context)) {
-                                total += fluid.getAmount();
-                            }
+        return switch (level.resource()) {
+            case ITEM -> {
+                Filters.ItemFilter filter = sheet.itemFilter(expression);
+                yield ctx.runtime().itemPort(ctx.server(), ctx.network(), port).count(stack -> filter.test(stack, context));
+            }
+            case FLUID -> {
+                Filters.FluidFilter filter = sheet.fluidFilter(expression);
+                long total = 0;
+                for (IFluidHandler handler : ctx.runtime().fluidView(ctx.server(), ctx.network(), port)) {
+                    for (int tank = 0; tank < handler.getTanks(); tank++) {
+                        FluidStack fluid = handler.getFluidInTank(tank);
+                        if (!fluid.isEmpty() && filter.test(fluid, context)) {
+                            total += fluid.getAmount();
                         }
                     }
-                    yield total;
                 }
-                case ENERGY -> {
-                    long total = 0;
-                    for (IEnergyStorage storage : ctx.runtime().energyView(ctx.server(), ctx.network(), port)) {
-                        total += storage.getEnergyStored();
-                    }
-                    yield total;
+                yield total;
+            }
+            case ENERGY -> {
+                long total = 0;
+                for (IEnergyStorage storage : ctx.runtime().energyView(ctx.server(), ctx.network(), port)) {
+                    total += storage.getEnergyStored();
                 }
-                case REDSTONE, ME -> 0;
-                case CHEMICAL -> Mods.MEKANISM ? ChemicalMover.count(ctx, port, Filters.chemicals(expression, ctx.network().filters()), context) : 0;
-            };
-        } catch (FilterException e) {
-            return 0;
-        }
+                yield total;
+            }
+            case REDSTONE, ME -> 0;
+            case CHEMICAL -> Mods.MEKANISM ? ChemicalMover.count(ctx, port, sheet.chemicalFilter(expression), context) : 0;
+        };
     }
 
     // ---------------------------------------------------------------- redstone out

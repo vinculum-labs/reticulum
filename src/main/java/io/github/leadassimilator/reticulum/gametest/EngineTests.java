@@ -266,6 +266,24 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void levelSensorCountsWhatItsFilterMatches(GameTestHelper helper) {
+        // A Level node counting only cobblestone in a barrel lights a lamp; dirt in the barrel doesn't count.
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.REDSTONE_LAMP);
+        rig.container(0).setItem(0, new ItemStack(Items.DIRT, 64));
+        Node level = rig.node(new NodeSettings.LevelSettings(ResourceKind.ITEM, rig.device(0), List.of(), "minecraft:cobblestone"));
+        rig.signal(level, rig.redstoneTo(rig.device(2)), 0);
+        BlockPos lamp = rig.devices().get(2);
+        helper.startSequence()
+                .thenExecuteAfter(10, () -> {
+                    check(helper, rig.compiled().errors().isEmpty(), "errors: " + rig.compiled().errors());
+                    check(helper, !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "the lamp lit for dirt the filter doesn't count");
+                    rig.container(0).setItem(1, new ItemStack(Items.COBBLESTONE, 5));
+                })
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "the lamp didn't light for the cobblestone"))
+                .thenSucceed();
+    }
+
     @GameTest(template = "empty")
     public static void leverSwitchesLampThroughNot(GameTestHelper helper) {
         // A barrel keeps the lever and the lamp apart, so only the network links them.

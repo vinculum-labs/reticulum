@@ -56,13 +56,10 @@ final class KitMover {
         if (kit.lines().stream().noneMatch(line -> line.count() > 0)) {
             return false;
         }
+        // Compiled with the sheet; a line whose filter failed matches nothing (and the editor shows why).
         List<Filters.ItemFilter> lineFilters = new ArrayList<>();
         for (NodeSettings.KitLine line : kit.lines()) {
-            try {
-                lineFilters.add(Filters.items(line.filter(), ctx.network().filters()));
-            } catch (FilterException e) {
-                return false;
-            }
+            lineFilters.add(sheet.itemFilter(line.filter()));
         }
         // Sinks in splitter order, each with the routes that reach it from the kit's sources.
         Map<UUID, List<CompiledSheet.Route>> bySink = new LinkedHashMap<>();
