@@ -73,7 +73,7 @@
           <textarea
             bind:this={field}
             bind:value
-            class="h-40 w-full font-mono text-xs"
+            class="h-40 w-full resize-y font-mono text-xs"
             placeholder={open.placeholder}
             spellcheck="false"
             onkeydown={onfieldkeydown}
