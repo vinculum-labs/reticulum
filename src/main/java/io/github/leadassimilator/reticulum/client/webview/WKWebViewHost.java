@@ -176,7 +176,8 @@ final class WKWebViewHost {
             msgVoid(webView, "_setDrawsBackground:", (byte) 0);
         }
         msgVoid(webView, "setWantsLayer:", (byte) 1);
-        Pointer color = ObjC.CG_COLOR_CREATE_SRGB.invokePointer(new Object[] {0x12 / 255.0, 0x15 / 255.0, 0x1B / 255.0, 1.0});
+        Pointer color = ObjC.CG_COLOR_CREATE_SRGB.invokePointer(new Object[] {(EmbeddedView.BACKGROUND >> 16 & 0xFF) / 255.0,
+                (EmbeddedView.BACKGROUND >> 8 & 0xFF) / 255.0, (EmbeddedView.BACKGROUND & 0xFF) / 255.0, 1.0});
         msgVoid(msg(webView, "layer"), "setBackgroundColor:", color);
         ObjC.CG_COLOR_RELEASE.invokeVoid(new Object[] {color});
     }

@@ -278,9 +278,9 @@ final class WebView2Host {
         }
         Color color = new Color();
         color.a = (byte) 0xFF;
-        color.r = (byte) 0x12;
-        color.g = (byte) 0x15;
-        color.b = (byte) 0x1B;
+        color.r = (byte) (EmbeddedView.BACKGROUND >> 16);
+        color.g = (byte) (EmbeddedView.BACKGROUND >> 8);
+        color.b = (byte) EmbeddedView.BACKGROUND;
         call(controller2.getValue(), CTL2_PUT_DEFAULT_BACKGROUND_COLOR, color);
         call(controller2.getValue(), 2);
     }

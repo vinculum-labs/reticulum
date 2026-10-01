@@ -65,7 +65,7 @@ public class EditorScreen extends Screen {
         // would flash through.
         graphics.fill(0, 0, width, BAR, 0xFF1A1E26);
         graphics.fill(0, BAR - 1, width, BAR, 0xFF2F3542);
-        graphics.fill(0, BAR, width, height, 0xFF12151B);
+        graphics.fill(0, BAR, width, height, 0xFF000000 | EmbeddedView.BACKGROUND);
         if (Minecraft.getInstance().getWindow().isFullscreen() && EmbeddedView.hiddenByFullscreen()) {
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen"), width / 2, height / 2 - 6, 0xE3E7EF);
             graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen_hint"), width / 2, height / 2 + 6, 0xA0A0A0);
