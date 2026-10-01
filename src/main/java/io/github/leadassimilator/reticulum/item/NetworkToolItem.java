@@ -192,7 +192,7 @@ public class NetworkToolItem extends Item {
         }
         Identify target = Identifies.deviceOrFace(device, face);
         boolean on = offOnly ? Identifies.set(level.getServer(), network, target, false) : Identifies.toggle(level.getServer(), network, target);
-        String name = Identifies.deviceName(level.getServer(), network, device) + " › " + face.getSerializedName();
+        String name = Identifies.label(level.getServer(), network, target);
         player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", name), true);
     }
 

@@ -104,35 +104,36 @@ public final class Identifies {
 
     @Nullable
     private static Payloads.IdentifyMarker marker(MinecraftServer server, Network network, Identify identify) {
+        String label = label(server, network, identify);
         return switch (identify.kind()) {
-            case CONNECTOR -> {
-                ConnectorRecord record = identify.connector().map(network::connector).orElse(null);
-                if (record == null) {
-                    yield null;
-                }
-                String name = record.name() != null ? record.name()
-                        : "Connector (" + record.pos().pos().getX() + ", " + record.pos().pos().getY() + ", " + record.pos().pos().getZ() + ")";
-                yield new Payloads.IdentifyMarker(record.pos(), Optional.empty(), identify.color(), name);
-            }
-            case DEVICE -> identify.device()
-                    .map(pos -> new Payloads.IdentifyMarker(pos, Optional.empty(), identify.color(), deviceName(server, network, pos)))
+            case CONNECTOR -> identify.connector().map(network::connector)
+                    .map(record -> new Payloads.IdentifyMarker(record.pos(), Optional.empty(), identify.color(), label))
                     .orElse(null);
-            case FACE -> {
-                if (identify.device().isEmpty() || identify.face().isEmpty()) {
-                    yield null;
-                }
-                GlobalPos pos = identify.device().get();
-                FaceKey face = identify.face().get();
-                DeviceRecord record = network.device(pos);
-                String faceName = record != null && record.faceName(face) != null ? record.faceName(face) : face.getSerializedName();
-                yield new Payloads.IdentifyMarker(pos, Optional.ofNullable(face.direction()), identify.color(),
-                        deviceName(server, network, pos) + " › " + faceName);
-            }
+            case DEVICE -> identify.device()
+                    .map(pos -> new Payloads.IdentifyMarker(pos, Optional.empty(), identify.color(), label))
+                    .orElse(null);
+            case FACE -> identify.device().isEmpty() || identify.face().isEmpty() ? null
+                    : new Payloads.IdentifyMarker(identify.device().get(), Optional.ofNullable(identify.face().get().direction()), identify.color(), label);
         };
     }
 
     private static String clip(String label) {
         return label.length() > MAX_LABEL ? label.substring(0, MAX_LABEL) : label;
+    }
+
+    /** What an identify is called everywhere: the connector's or device's name, and for a face, the face's too. */
+    public static String label(MinecraftServer server, Network network, Identify identify) {
+        return switch (identify.kind()) {
+            case CONNECTOR -> identify.connector().map(network::connector).map(ConnectorRecord::displayName).orElse("Missing connector");
+            case DEVICE -> identify.device().map(pos -> deviceName(server, network, pos)).orElse("?");
+            case FACE -> identify.device().map(pos -> deviceName(server, network, pos)).orElse("?") + " › "
+                    + identify.face().map(face -> faceName(network.device(identify.device().orElse(null)), face)).orElse("?");
+        };
+    }
+
+    /** A face's own name, else its side. */
+    public static String faceName(@Nullable DeviceRecord record, FaceKey face) {
+        return record != null && record.faceName(face) != null ? record.faceName(face) : face.getSerializedName();
     }
 
     public static String deviceName(MinecraftServer server, Network network, GlobalPos pos) {

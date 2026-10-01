@@ -283,18 +283,9 @@ final class Snapshots {
         };
     }
 
-    /** The name shown for an identify in the editor's Identified panel. */
+    /** The name shown for an identify in the editor's Identified panel (the same as above it in the world). */
     private static String label(MinecraftServer server, Network network, io.github.leadassimilator.reticulum.network.Identify identify) {
-        return switch (identify.kind()) {
-            case CONNECTOR -> identify.connector().map(network::connector)
-                    .map(c -> c.name() != null ? c.name() : "Connector (" + c.pos().pos().toShortString() + ")").orElse("Missing connector");
-            case DEVICE -> identify.device().map(pos -> io.github.leadassimilator.reticulum.network.Identifies.deviceName(server, network, pos)).orElse("?");
-            case FACE -> identify.device().map(pos -> io.github.leadassimilator.reticulum.network.Identifies.deviceName(server, network, pos)).orElse("?")
-                    + " › " + identify.face().map(f -> {
-                        DeviceRecord record = identify.device().map(network::device).orElse(null);
-                        return record != null && record.faceName(f) != null ? record.faceName(f) : f.getSerializedName();
-                    }).orElse("?");
-        };
+        return io.github.leadassimilator.reticulum.network.Identifies.label(server, network, identify);
     }
 
     /** The controller's antenna tier, or 0 when it has none or isn't loaded. */

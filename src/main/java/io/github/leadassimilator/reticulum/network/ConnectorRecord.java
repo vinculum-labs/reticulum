@@ -55,6 +55,16 @@ public final class ConnectorRecord {
         return name;
     }
 
+    /** Its name, or where it is when it has none. */
+    public String displayName() {
+        return name != null ? name : defaultName(pos.pos());
+    }
+
+    /** What an unnamed connector is called: where it is. */
+    public static String defaultName(net.minecraft.core.BlockPos pos) {
+        return "Connector (" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + ")";
+    }
+
     public void setName(@Nullable String name) {
         this.name = DeviceRecord.blankToNull(name);
     }

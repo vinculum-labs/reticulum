@@ -126,7 +126,7 @@ public final class LookAt {
                 continue;
             }
             lines.add(Component.literal(Devices.displayName(record, level, pos)).withStyle(ChatFormatting.WHITE));
-            String faceName = face == null ? null : record.faceName(faceKey(face));
+            String faceName = face == null ? null : record.faceName(FaceKey.of(face));
             if (faceName != null) {
                 lines.add(Component.translatable("lookat.reticulum.face", faceName).withStyle(ChatFormatting.GRAY));
             }
@@ -198,14 +198,4 @@ public final class LookAt {
         return Component.literal(network.name()).withStyle(ChatFormatting.AQUA);
     }
 
-    private static FaceKey faceKey(Direction face) {
-        return switch (face) {
-            case DOWN -> FaceKey.DOWN;
-            case UP -> FaceKey.UP;
-            case NORTH -> FaceKey.NORTH;
-            case SOUTH -> FaceKey.SOUTH;
-            case WEST -> FaceKey.WEST;
-            case EAST -> FaceKey.EAST;
-        };
-    }
 }

@@ -171,7 +171,7 @@ public final class Screens {
         for (Direction dir : Direction.values()) {
             sides.add(sideView(level, pos, be, dir, network));
         }
-        String defaultName = connector ? "Connector (" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + ")" : "";
+        String defaultName = connector ? ConnectorRecord.defaultName(pos) : "";
         String customName = "";
         if (be instanceof ConnectorBlockEntity c && network != null) {
             ConnectorRecord record = network.connector(c.connectorId());
