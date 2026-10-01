@@ -119,9 +119,11 @@
     const nodeIds = n.map((x) => x.id);
     const edgeIds = e.map((x) => x.id);
     if (rebuilding && nodeIds.length === 0 && edgeIds.length === 0) return;
+    const changed = !sameIds(nodeIds, app.selectedNodes) || !sameIds(edgeIds, app.selectedEdges);
     if (!sameIds(nodeIds, app.selectedNodes)) app.selectedNodes = nodeIds;
     if (!sameIds(edgeIds, app.selectedEdges)) app.selectedEdges = edgeIds;
-    if (n.length || e.length) app.selectedDevice = null;
+    // Picking something else on the canvas closes an open device; the same selection reported again doesn't.
+    if (changed && (n.length || e.length)) app.selectedDevice = null;
   }
 
   function nodeOf(id: string): GraphNode | undefined {

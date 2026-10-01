@@ -38,6 +38,9 @@
 </script>
 
 <div class="flex flex-col gap-3">
+  {#if app.selectedNodes.length || app.selectedEdges.length}
+    <button class="self-start text-sm muted" onclick={() => (app.selectedDevice = null)}>← Back to the selection</button>
+  {/if}
   <div class="flex items-center gap-2">
     <DeviceIcon item={device.icon} size={32} />
     <div class="min-w-0 flex-1">

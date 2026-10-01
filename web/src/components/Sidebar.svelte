@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, edit, deviceName, toast } from "../lib/state.svelte";
+  import { app, edit, deviceName, openDevice, toast } from "../lib/state.svelte";
   import { posKey, type Sheet } from "../lib/types";
   import DeviceIcon from "./DeviceIcon.svelte";
   import IdentifyBadge from "./IdentifyBadge.svelte";
@@ -222,12 +222,7 @@
             style={app.selectedDevice === key ? "background: var(--panel-2)" : ""}
             draggable={canEdit && d.state === "active"}
             ondragstart={(e) => dragDevice(e, key)}
-            onclick={() => {
-              app.selectedDevice = key;
-              app.selectedNodes = [];
-              app.selectedEdges = [];
-              app.panel = null;
-            }}
+            onclick={() => openDevice(d)}
             title={`${d.defaultName}\n${d.block}`}
           >
             <DeviceIcon item={d.icon} />

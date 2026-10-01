@@ -24,6 +24,10 @@
     <IdentifiedPanel />
   {:else if app.panel === "dashboard" && app.snapshot}
     <Dashboard />
+  {:else if device}
+    {#key app.selectedDevice}
+      <DeviceInspector {device} />
+    {/key}
   {:else if node && sheet}
     {#key node.id}
       <NodeInspector {node} {sheet} />
@@ -32,10 +36,6 @@
     <WireInspector {wire} {sheet} />
   {:else if app.selectedNodes.length > 1}
     <p class="muted">{app.selectedNodes.length} nodes selected. Drag to move them together, or press Delete.</p>
-  {:else if device}
-    {#key app.selectedDevice}
-      <DeviceInspector {device} />
-    {/key}
   {:else if sheet}
     {#key sheet.id}
       <SheetInspector {sheet} />

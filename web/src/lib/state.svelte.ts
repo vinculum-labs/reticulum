@@ -350,10 +350,12 @@ export function deviceBeside(connectorId: string, side: string): Device | undefi
 
 
 /** Shows a device's names (and face names) in the inspector. */
+/**
+ * Shows a device's names in the side panel. The canvas selection is left alone: clearing it would have the canvas
+ * report it again and close the device straight away. The device covers a selected node until the selection changes.
+ */
 export function openDevice(device: Device) {
   app.selectedDevice = posKey(device.pos);
-  app.selectedNodes = [];
-  app.selectedEdges = [];
   app.panel = null;
 }
 
