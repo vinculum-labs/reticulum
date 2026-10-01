@@ -2,15 +2,19 @@
   import { deviceIdentifies, setIdentify } from "../lib/state.svelte";
   import type { Device } from "../lib/types";
 
-  /** A pulsing dot in each identify color while a device (or one of its faces) is lit up in the world; click turns them off. */
+  /**
+   * A pulsing dot in each identify color while a device (or one of its faces) is lit up in the world; click turns them
+   * off. Otherwise a dim ID shows while hovering its row or header (a `group`), and click lights the whole device.
+   */
   let { device }: { device: Device } = $props();
 
   const identifies = $derived(deviceIdentifies(device));
   const hex = (color: number | undefined) => `#${(color ?? 0xffc830).toString(16).padStart(6, "0")}`;
 
-  function off(e: Event) {
+  function toggle(e: Event) {
     e.stopPropagation();
-    for (const identify of identifies) setIdentify(identify, false);
+    if (identifies.length) for (const identify of identifies) setIdentify(identify, false);
+    else setIdentify({ kind: "device", device: device.pos }, true);
   }
 </script>
 
@@ -21,10 +25,22 @@
     role="button"
     tabindex="0"
     title={`Identified in the world: ${identifies.map((x) => (x.kind === "face" ? `${x.face} face` : "whole device")).join(", ")}. Click to turn off.`}
-    onclick={off}
-    onkeydown={(e) => (e.key === "Enter" || e.key === " ") && off(e)}
+    onclick={toggle}
+    onkeydown={(e) => (e.key === "Enter" || e.key === " ") && toggle(e)}
   >
     {#each identifies as identify, i (i)}<span class="identify-dot" style="background: {hex(identify.color)}"></span>{/each}<span class="identify-text">ID</span>
+  </span>
+{:else}
+  <span
+    class="nodrag invisible flex shrink-0 cursor-pointer items-center rounded px-1 muted group-hover:visible focus:visible"
+    style="height: 14px; font-size: 9px; font-weight: 600; line-height: 1; border: 1px solid var(--line)"
+    role="button"
+    tabindex="0"
+    title="Identify in the world"
+    onclick={toggle}
+    onkeydown={(e) => (e.key === "Enter" || e.key === " ") && toggle(e)}
+  >
+    <span class="identify-text">ID</span>
   </span>
 {/if}
 

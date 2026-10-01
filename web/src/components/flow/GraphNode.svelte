@@ -134,7 +134,7 @@
     ? '0 0 0 1px var(--accent)'
     : '0 1px 3px rgb(0 0 0 / 0.25)'}; opacity: {disabled ? 0.5 : 1}"
 >
-  <div class="flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
+  <div class="group flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
     {#if data.device}
       <DeviceIcon item={data.device.icon} size={16} />
     {:else}

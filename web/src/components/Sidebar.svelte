@@ -218,7 +218,7 @@
         {@const key = posKey(d.pos)}
         <li>
           <button
-            class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left"
+            class="group flex w-full items-center gap-2 rounded-md px-2 py-1 text-left"
             style={app.selectedDevice === key ? "background: var(--panel-2)" : ""}
             draggable={canEdit && d.state === "active"}
             ondragstart={(e) => dragDevice(e, key)}
