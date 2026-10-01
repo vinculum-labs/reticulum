@@ -2,6 +2,7 @@
   import { app, edit, setSheetEnabled, toast } from "../../lib/state.svelte";
   import type { Sheet } from "../../lib/types";
   import NumberField from "../controls/NumberField.svelte";
+  import Switch from "../controls/Switch.svelte";
   import TextField from "../controls/TextField.svelte";
   import Field from "./Field.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
@@ -33,10 +34,7 @@
   <Field label="Name">
     <TextField value={sheet.name} required disabled={!canEdit} oncommit={(v) => update({ name: v }, { name: sheet.name }, "rename sheet")} />
   </Field>
-  <label class="flex items-center gap-2 text-sm">
-    <input type="checkbox" checked={sheet.enabled !== false} disabled={!canEdit} onchange={(e) => setSheetEnabled(sheet, e.currentTarget.checked)} />
-    On
-  </label>
+  <Switch label="On" checked={sheet.enabled !== false} disabled={!canEdit} onchange={(on) => setSheetEnabled(sheet, on)} />
   <Field label="Item operations every" hint="Ticks between item operations; sources can override it. Fluids, chemicals and energy move every tick.">
     <NumberField value={sheet.interval ?? 10} min={1} max={72_000} width="md" disabled={!canEdit}
       oncommit={(v) => update({ interval: v }, { interval: sheet.interval ?? 10 }, "sheet interval")} />

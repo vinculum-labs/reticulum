@@ -13,6 +13,7 @@
   import FilterField from "./inspector/FilterField.svelte";
   import RemoveButton from "./controls/RemoveButton.svelte";
   import TextField from "./controls/TextField.svelte";
+  import Switch from "./controls/Switch.svelte";
 
   const snapshot = $derived(app.snapshot!);
   const canEdit = $derived(snapshot.canEdit);
@@ -149,14 +150,14 @@
               aria-expanded={!collapsed.has(row.path)}
               >{#if collapsed.has(row.path)}<ChevronRight size={14} />{:else}<ChevronDown size={14} />{/if}</button
             >
-            <input
-              type="checkbox"
+            <Switch
+              hideLabel
+              label={`Folder ${row.name} on/off: every sheet in it`}
               checked={!snapshot.disabledFolders.includes(row.path)}
               disabled={!canEdit}
-              title="Folder on/off: every sheet in it"
-              onchange={(e) =>
+              onchange={(on) =>
                 edit(
-                  [{ type: "setFolderEnabled", folder: row.path, enabled: e.currentTarget.checked }],
+                  [{ type: "setFolderEnabled", folder: row.path, enabled: on }],
                   [{ type: "setFolderEnabled", folder: row.path, enabled: !snapshot.disabledFolders.includes(row.path) }],
                   "folder on/off",
                 )}
@@ -169,14 +170,7 @@
             class="group flex items-center gap-2 rounded-md py-1 pr-2"
             style="padding-left: {row.depth * 14 + 8}px; {sheet.id === app.sheetId ? 'background: var(--panel-2)' : ''}"
           >
-            <input
-              type="checkbox"
-              checked={sheet.enabled !== false}
-              disabled={!canEdit}
-              title="Sheet on/off"
-              aria-label={`${sheet.name} on/off`}
-              onchange={(e) => setSheetEnabled(sheet, e.currentTarget.checked)}
-            />
+            <Switch hideLabel label={`Sheet ${sheet.name} on/off`} checked={sheet.enabled !== false} disabled={!canEdit} onchange={(on) => setSheetEnabled(sheet, on)} />
             {#if renaming === sheet.id}
               <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
             {:else}

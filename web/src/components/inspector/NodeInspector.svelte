@@ -33,6 +33,7 @@
   import ThroughputSummary from "./ThroughputSummary.svelte";
   import IdentifyToggle from "../controls/IdentifyToggle.svelte";
   import NumberField from "../controls/NumberField.svelte";
+  import Switch from "../controls/Switch.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
   import TextField from "../controls/TextField.svelte";
 
@@ -140,10 +141,7 @@
     <TextField value={node.label} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
   </Field>
 
-  <label class="flex items-center gap-2 text-sm">
-    <input type="checkbox" checked={node.enabled !== false} disabled={!canEdit} onchange={(e) => save({ ...node, enabled: e.currentTarget.checked }, "node on/off")} />
-    On
-  </label>
+  <Switch label="On" checked={node.enabled !== false} disabled={!canEdit} onchange={(on) => save({ ...node, enabled: on }, "node on/off")} />
 
   {#if !signal && s.kind !== "sheet_input" && s.kind !== "sheet_output"}
     <RedstoneEditor

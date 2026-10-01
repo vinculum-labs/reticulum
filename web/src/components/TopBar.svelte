@@ -1,5 +1,6 @@
 <script lang="ts">
   import Segmented from "./controls/Segmented.svelte";
+  import Switch from "./controls/Switch.svelte";
   import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
   import Lightbulb from "@lucide/svelte/icons/lightbulb";
   import Play from "@lucide/svelte/icons/circle-play";
@@ -92,15 +93,13 @@
     {/each}
   </nav>
   {#if snapshot}
-    <label class="flex items-center gap-1 text-sm" title="Switch the whole network on or off">
-      <input
-        type="checkbox"
-        checked={snapshot.enabled}
-        disabled={!snapshot.canEdit}
-        onchange={(e) => edit([{ type: "setNetworkEnabled", enabled: e.currentTarget.checked }], [{ type: "setNetworkEnabled", enabled: snapshot.enabled }], "network on/off")}
-      />
-      On
-    </label>
+    <Switch
+      label="On"
+      title="Switch the whole network on or off"
+      checked={snapshot.enabled}
+      disabled={!snapshot.canEdit}
+      onchange={(on) => edit([{ type: "setNetworkEnabled", enabled: on }], [{ type: "setNetworkEnabled", enabled: snapshot.enabled }], "network on/off")}
+    />
     <!-- One fixed-size icon for the network's state, so nothing beside it shifts when the state changes. -->
     {@const status = networkStatus(snapshot.running, snapshot.enabled, !!power?.enabled && !power.powered)}
     <span class="flex h-5 w-5 shrink-0 items-center justify-center" style="color: {status.color}" title={status.title} role="img" aria-label={status.title}>
