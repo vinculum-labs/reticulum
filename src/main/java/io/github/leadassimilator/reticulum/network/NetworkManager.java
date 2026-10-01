@@ -106,6 +106,21 @@ public final class NetworkManager {
     }
 
     /**
+     * The network's controller, if its chunk is loaded and it still belongs to this network (following merges);
+     * never loads the chunk.
+     */
+    @Nullable
+    public static io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity controller(MinecraftServer server, Network network) {
+        GlobalPos at = network.controller();
+        ServerLevel level = at == null ? null : server.getLevel(at.dimension());
+        if (level == null || !level.isLoaded(at.pos())
+                || !(level.getBlockEntity(at.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity controller)) {
+            return null;
+        }
+        return network(server, controller.networkId()) == network ? controller : null;
+    }
+
+    /**
      * Whether any sheet uses the device (a node on it, a redstone condition reading it): such a record is kept when
      * the block goes, so its flows can be moved onto the block that replaces it.
      */

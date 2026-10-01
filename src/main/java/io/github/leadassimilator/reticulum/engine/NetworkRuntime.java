@@ -23,6 +23,7 @@ import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Network;
+import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
@@ -282,14 +283,13 @@ public final class NetworkRuntime {
         if (!power.enabled()) {
             return;
         }
-        GlobalPos at = network.controller();
-        ServerLevel level = at == null ? null : server.getLevel(at.dimension());
-        if (level == null || !(level.getBlockEntity(at.pos()) instanceof ControllerBlockEntity controller)) {
+        ControllerBlockEntity controller = NetworkManager.controller(server, network);
+        if (controller == null) {
             powered = false;
             return;
         }
         powerSource = controller;
-        pullFromNeighbors(level, at.pos(), controller);
+        pullFromNeighbors((ServerLevel) controller.getLevel(), controller.getBlockPos(), controller);
         int tier = controller.antennaTier();
         lastUpkeep = power.base() + power.perConnector() * network.connectors().size()
                 + wirelessConnectors * (tier <= 1 ? power.wirelessTier1() : power.wirelessTier2())
@@ -352,9 +352,8 @@ public final class NetworkRuntime {
 
     /** For the editor and the controller screen: whether power costs anything, what is stored and what upkeep costs per tick. */
     public PowerState powerState(MinecraftServer server, Network network) {
-        GlobalPos at = network.controller();
-        ServerLevel level = at == null ? null : server.getLevel(at.dimension());
-        long stored = level != null && level.isLoaded(at.pos()) && level.getBlockEntity(at.pos()) instanceof ControllerBlockEntity c ? c.energy() : 0;
+        ControllerBlockEntity controller = NetworkManager.controller(server, network);
+        long stored = controller == null ? 0 : controller.energy();
         return new PowerState(Power.current().enabled(), powered, stored, ControllerBlockEntity.capacity(), lastUpkeep);
     }
 
@@ -373,7 +372,8 @@ public final class NetworkRuntime {
         if (level == null) {
             return;
         }
-        int tier = level.getBlockEntity(controller.pos()) instanceof ControllerBlockEntity c ? c.antennaTier() : 0;
+        ControllerBlockEntity loaded = NetworkManager.controller(server, network);
+        int tier = loaded == null ? 0 : loaded.antennaTier();
         rescanSomeConnectors(server, network);
         if (reachVersion == Topology.version(network.id()) && reachTier == tier) {
             return;

@@ -72,12 +72,6 @@ public final class NetworkTicker {
 
     /** A network runs while it is switched on and its controller is placed and loaded. */
     public static boolean isRunning(MinecraftServer server, Network network) {
-        GlobalPos controller = network.controller();
-        if (!network.enabled() || controller == null) {
-            return false;
-        }
-        ServerLevel level = server.getLevel(controller.dimension());
-        return level != null && level.isLoaded(controller.pos())
-                && level.getBlockEntity(controller.pos()) instanceof ControllerBlockEntity be && network.id().equals(be.networkId());
+        return network.enabled() && NetworkManager.controller(server, network) != null;
     }
 }

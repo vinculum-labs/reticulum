@@ -22,6 +22,7 @@ import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Network;
+import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
 import net.minecraft.core.BlockPos;
@@ -298,11 +299,8 @@ final class Snapshots {
 
     /** The controller's antenna tier, or 0 when it has none or isn't loaded. */
     static int antennaTier(MinecraftServer server, Network network) {
-        GlobalPos controller = network.controller();
-        ServerLevel level = controller == null ? null : server.getLevel(controller.dimension());
-        return level != null && level.isLoaded(controller.pos())
-                && level.getBlockEntity(controller.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity c
-                ? c.antennaTier() : 0;
+        var controller = NetworkManager.controller(server, network);
+        return controller == null ? 0 : controller.antennaTier();
     }
 
     static boolean visible(Network network, net.minecraft.world.entity.player.Player player) {
