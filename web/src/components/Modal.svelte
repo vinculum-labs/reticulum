@@ -1,3 +1,9 @@
+<script lang="ts" module>
+  /** The size of the large dialogs (the filter picker, pasting a sheet): most of the window, up to 760 × 640. */
+  export const LARGE_WIDTH = "min(760px, 80vw)";
+  export const LARGE_HEIGHT = "min(640px, 80vh)";
+</script>
+
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { onEscape } from "../lib/escape";
@@ -18,10 +24,10 @@
     children,
   }: {
     onclose: () => void;
-    /** Starting width in CSS pixels. */
-    width: number;
-    /** Starting height in CSS pixels; fits the content when absent. */
-    height?: number;
+    /** Starting width: CSS pixels, or any CSS length (e.g. LARGE_WIDTH, a share of the window). */
+    width: number | string;
+    /** Starting height, likewise; fits the content when absent. */
+    height?: number | string;
     resizable?: boolean;
     minWidth?: number;
     minHeight?: number;
@@ -100,15 +106,16 @@
     target.addEventListener("pointercancel", end);
   }
 
-  const shownWidth = $derived(size?.width ?? width);
-  const shownHeight = $derived(size?.height ?? height);
+  const css = (length: number | string) => (typeof length === "number" ? `${length}px` : length);
+  const shownWidth = $derived(size ? `${size.width}px` : css(width));
+  const shownHeight = $derived(size ? `${size.height}px` : height === undefined ? undefined : css(height));
 </script>
 
 <!-- Esc goes through the page's Esc stack; the dialog's own cancel is only a fallback. -->
 <dialog
   bind:this={element}
   class="m-auto max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-lg border p-0"
-  style="width: {shownWidth}px; {shownHeight === undefined ? '' : `height: ${shownHeight}px;`} background: var(--panel); color: var(--ink); border-color: var(--line); box-shadow: 0 12px 40px rgb(0 0 0 / 0.35)"
+  style="width: {shownWidth}; {shownHeight === undefined ? '' : `height: ${shownHeight};`} background: var(--panel); color: var(--ink); border-color: var(--line); box-shadow: 0 12px 40px rgb(0 0 0 / 0.35)"
   aria-label={label}
   oncancel={(e) => (e.preventDefault(), onclose())}
   {onpointerdown}

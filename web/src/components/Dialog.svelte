@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { answerDialog, cancelDialog, dialogs, type OpenDialog } from "../lib/dialog.svelte";
-  import Modal from "./Modal.svelte";
+  import Modal, { LARGE_HEIGHT, LARGE_WIDTH } from "./Modal.svelte";
 
   /** The confirm and prompt dialogs (lib/dialog.svelte.ts opens them). A prompt takes input, so it can be resized. */
   let field: HTMLInputElement | HTMLTextAreaElement | undefined = $state();
@@ -36,7 +36,14 @@
   <!-- Keyed, so each dialog starts at its own size. -->
   {#key open}
     {@const multiline = open.kind === "prompt" && !!open.multiline}
-    <Modal onclose={cancelDialog} width={multiline ? 560 : 440} resizable={open.kind === "prompt"} minHeight={multiline ? 220 : 140} label={open.title}>
+    <Modal
+      onclose={cancelDialog}
+      width={multiline ? LARGE_WIDTH : 440}
+      height={multiline ? LARGE_HEIGHT : undefined}
+      resizable={open.kind === "prompt"}
+      minHeight={multiline ? 220 : 140}
+      label={open.title}
+    >
       <form class="flex min-h-0 flex-1 flex-col gap-3 p-4" onsubmit={submit}>
         <h2 class="text-base font-semibold">{open.title}</h2>
         {#if open.message}<p class="text-sm muted">{open.message}</p>{/if}
@@ -46,7 +53,6 @@
               bind:this={field}
               bind:value
               class="min-h-24 w-full flex-1 resize-none font-mono text-xs"
-              style="height: 12rem"
               placeholder={open.placeholder}
               spellcheck="false"
               onkeydown={onfieldkeydown}

@@ -14,7 +14,7 @@
     type CatalogEntry,
     type CatalogKind,
   } from "../../lib/catalog";
-  import Modal from "../Modal.svelte";
+  import Modal, { LARGE_HEIGHT, LARGE_WIDTH } from "../Modal.svelte";
   import FilterSyntax from "./FilterSyntax.svelte";
   import { formatAmount } from "../../lib/kinds";
   import { app, deviceName, request } from "../../lib/state.svelte";
@@ -161,7 +161,7 @@
 </script>
 
 <!-- Esc or a click outside closes it, like Cancel. -->
-<Modal {onclose} width={760} height={640} resizable minWidth={560} minHeight={360} label="Pick for filter">
+<Modal {onclose} width={LARGE_WIDTH} height={LARGE_HEIGHT} resizable minWidth={560} minHeight={360} label="Pick for filter">
   <div class="flex min-h-0 flex-1 flex-col gap-2 p-3">
     <div class="flex items-center gap-2">
       <h2 class="flex-1 text-base font-semibold">Pick for filter</h2>
