@@ -31,7 +31,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * Picks what the facades in hand look like: any block that can be a facade, owned or not, with the ones in the
  * player's inventory first. With JEI, a block can also be dragged in from its list (see the JEI plugin).
  */
-public class FacadeScreen extends Screen {
+public class FacadeScreen extends QuickScreen {
     private static final int COLUMNS = 9;
     private static final int ROWS = 6;
     private static final int CELL = 18;

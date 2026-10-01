@@ -26,13 +26,15 @@ public final class ClientPayloadHandler {
             screen.update(view);
             return;
         }
-        if (!refresh) {
+        if (!refresh && mayReplace(mc)) {
             mc.setScreen(new BlockScreen(view));
         }
     }
 
     public static void openNetworkPicker(io.github.leadassimilator.reticulum.protocol.Payloads.OpenNetworkPicker payload) {
-        Minecraft.getInstance().setScreen(new io.github.leadassimilator.reticulum.client.screen.NetworkPickerScreen(payload.connector(), payload.choices()));
+        if (mayReplace(Minecraft.getInstance())) {
+            Minecraft.getInstance().setScreen(new io.github.leadassimilator.reticulum.client.screen.NetworkPickerScreen(payload.connector(), payload.choices()));
+        }
     }
 
     /** Sneak + scroll with the network tool in hand switches its mode instead of the hotbar slot. */
@@ -54,8 +56,16 @@ public final class ClientPayloadHandler {
             screen.update(view);
             return;
         }
-        if (!refresh) {
+        if (!refresh && mayReplace(mc)) {
             mc.setScreen(new ControllerScreen(view));
         }
+    }
+
+    /**
+     * A screen the server opens (in answer to a click, a moment later) replaces nothing but our own screens: not the
+     * inventory or chat the player opened meanwhile.
+     */
+    private static boolean mayReplace(Minecraft mc) {
+        return mc.screen == null || mc.screen instanceof io.github.leadassimilator.reticulum.client.screen.QuickScreen;
     }
 }

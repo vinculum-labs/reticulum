@@ -18,7 +18,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * Lists the networks the player can bind to (for the network tool, or for one connector). Password networks ask
  * for their password first; entering it joins the network as a User.
  */
-public class NetworkPickerScreen extends Screen {
+public class NetworkPickerScreen extends QuickScreen {
     private static final int WIDTH = 260;
     private static final int ROW = 22;
     private static final int VISIBLE = 8;
@@ -121,11 +121,13 @@ public class NetworkPickerScreen extends Screen {
             choose(needsPassword, password.getValue());
             return true;
         }
-        if (ScreenKeys.isInventoryKey(this, keyCode, scanCode)) {
-            onClose();
-            return true;
-        }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    /** Picking for a connector: closes once that connector is gone or out of reach. */
+    @Override
+    protected BlockPos block() {
+        return connector.orElse(null);
     }
 
     @Override

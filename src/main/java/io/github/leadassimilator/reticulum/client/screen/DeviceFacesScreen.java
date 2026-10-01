@@ -17,7 +17,7 @@ import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /** Names the faces (six sides plus unsided) of one device reached by a connector. */
-public class DeviceFacesScreen extends Screen {
+public class DeviceFacesScreen extends QuickScreen {
     private static final int WIDTH = 260;
     private static final int ROW = 22;
 
@@ -42,7 +42,25 @@ public class DeviceFacesScreen extends Screen {
     public void update(Views.BlockView view) {
         this.view = view;
         parent.update(view);
-        rebuildWidgets();
+        rebuildKeepingInput();
+    }
+
+    @Override
+    protected BlockPos block() {
+        return view.pos();
+    }
+
+    @Override
+    protected void commit() {
+        sendRenames();
+    }
+
+    @Override
+    protected void closeAll() {
+        // Everything, not just back to the connector screen.
+        sendRenames();
+        parent.commit();
+        minecraft.setScreen(null);
     }
 
     @Override
@@ -53,16 +71,12 @@ public class DeviceFacesScreen extends Screen {
         Views.SideView device = view.side(side);
         int y = top + 30;
         for (FaceKey face : FaceKey.values()) {
-            EditBox box = new SeeThroughTextBox(font, left + 80, y, WIDTH - 80 - 26, 18, Component.translatable("screen.reticulum.face." + face.getSerializedName()));
             if (face.direction() != null) {
-                addRenderableWidget(parent.idButton(left + WIDTH - 22, y - 1, device.faceIdentified(face), java.util.Optional.of(side), java.util.Optional.of(face)));
+                addRenderableWidget(BlockScreen.idButton(this, view.pos(), left + WIDTH - 22, y - 1, device.faceIdentified(face), java.util.Optional.of(side),
+                        java.util.Optional.of(face)));
             }
-            box.setMaxLength(64);
-            box.setValue(device.faceName(face));
-            box.setHint(Component.translatable("screen.reticulum.face." + face.getSerializedName()));
-            box.setEditable(view.canEdit());
-            faces.put(face, box);
-            addRenderableWidget(box);
+            Component name = Component.translatable("screen.reticulum.face." + face.getSerializedName());
+            faces.put(face, nameBox("face/" + face.getSerializedName(), left + 80, y, WIDTH - 80 - 26, name, device.faceName(face), name, view.canEdit()));
             y += ROW;
         }
         addRenderableWidget(Button.builder(Component.translatable("gui.back"), b -> onClose())
@@ -80,33 +94,9 @@ public class DeviceFacesScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) {
-            // Enter commits the edit and leaves the text box, like pressing Done on a form field.
-            sendRenames();
-            setFocused(null);
-            return true;
-        }
-        if (ScreenKeys.isInventoryKey(this, keyCode, scanCode)) {
-            // Close everything, not just back to the connector screen.
-            sendRenames();
-            parent.sendRenames();
-            minecraft.setScreen(null);
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    @Override
     public void onClose() {
         sendRenames();
         minecraft.setScreen(parent);
-    }
-
-    /** Dims the world instead of blurring it, so the highlighted face stays visible. */
-    @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderTransparentBackground(graphics);
     }
 
     @Override
@@ -121,7 +111,7 @@ public class DeviceFacesScreen extends Screen {
         }
         io.github.leadassimilator.reticulum.client.ScreenHighlight.set(devicePos, focusedFace);
         super.render(graphics, mouseX, mouseY, partialTick);
-        Compass.render(graphics, font, width - 40, 40, 24);
+        renderCompass(graphics, left, WIDTH, top);
         Views.SideView device = view.side(side);
         graphics.drawString(font, title, left, top, 0xFFFFFF);
         if (!device.icon().isEmpty()) {
@@ -135,8 +125,4 @@ public class DeviceFacesScreen extends Screen {
         }
     }
 
-    @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
 }

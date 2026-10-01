@@ -17,7 +17,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * Controller quick screen, in two tabs. Settings: network name, access mode, password and a short summary. Network:
  * the network's on/off button and redstone mode, its sheets with an on/off button each, and the overflow buffer.
  */
-public class ControllerScreen extends Screen {
+public class ControllerScreen extends QuickScreen {
     private static final int WIDTH = 260;
 
     private Views.ControllerView view;
@@ -45,16 +45,10 @@ public class ControllerScreen extends Screen {
 
     /** A fresh view from the server; what is being typed and not yet saved is kept. */
     public void update(Views.ControllerView view) {
-        String typedName = name != null && !name.getValue().equals(this.view.networkName()) ? name.getValue() : null;
-        String typedPassword = password == null ? "" : password.getValue();
         AccessMode pickedMode = mode != this.view.mode() ? mode : view.mode();
         this.view = view;
         this.mode = pickedMode;
-        rebuildWidgets();
-        if (typedName != null) {
-            name.setValue(typedName);
-        }
-        password.setValue(typedPassword);
+        rebuildKeepingInput();
     }
 
     @Override
@@ -79,11 +73,8 @@ public class ControllerScreen extends Screen {
             initNetworkTab();
             // The settings widgets still exist (hidden) so saving and Enter keep working the same way.
         }
-        name = new EditBox(font, left + 90, top + 20, WIDTH - 90, 18, Component.translatable("screen.reticulum.network_name"));
-        name.setMaxLength(64);
-        name.setValue(view.networkName());
-        name.setEditable(view.canEdit());
-        addRenderableWidget(name);
+        name = nameBox("name", left + 90, top + 20, WIDTH - 90, Component.translatable("screen.reticulum.network_name"), view.networkName(),
+                Component.empty(), view.canEdit());
 
         modeButton = Button.builder(modeLabel(), b -> {
             mode = mode.next();
@@ -99,7 +90,7 @@ public class ControllerScreen extends Screen {
         password.setFormatter((text, start) -> net.minecraft.util.FormattedCharSequence.forward("*".repeat(text.length()), net.minecraft.network.chat.Style.EMPTY));
         password.visible = mode == AccessMode.PASSWORD;
         password.setEditable(view.canAdmin());
-        addRenderableWidget(password);
+        addRenderableWidget(kept("password", password));
 
         addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.open_editor"), b -> {
             onClose();
@@ -161,17 +152,13 @@ public class ControllerScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if ((keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) && getFocused() instanceof EditBox) {
-            save();
-            setFocused(null);
-            return true;
-        }
-        if (ScreenKeys.isInventoryKey(this, keyCode, scanCode)) {
-            onClose();
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+    protected BlockPos block() {
+        return view.pos();
+    }
+
+    @Override
+    protected void commit() {
+        save();
     }
 
     /** Sends the settings when they changed; called on Enter, on switching tabs and on closing (there is no Save button). */
@@ -186,11 +173,6 @@ public class ControllerScreen extends Screen {
         password.setValue("");
     }
 
-    @Override
-    public void onClose() {
-        save();
-        super.onClose();
-    }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
@@ -265,8 +247,4 @@ public class ControllerScreen extends Screen {
         }
     }
 
-    @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
 }

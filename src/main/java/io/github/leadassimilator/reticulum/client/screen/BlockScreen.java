@@ -19,7 +19,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * Quick screen for a connector or a cable: one row per side. Connector rows for devices carry an editable name,
  * an attach/detach switch and a button to name the device's faces (icon buttons); rows for neighboring network blocks connect or disconnect the joint.
  */
-public class BlockScreen extends Screen {
+public class BlockScreen extends QuickScreen {
     private static final int WIDTH = 340;
     private static final int ROW = 24;
 
@@ -41,7 +41,17 @@ public class BlockScreen extends Screen {
 
     public void update(Views.BlockView view) {
         this.view = view;
-        rebuildWidgets();
+        rebuildKeepingInput();
+    }
+
+    @Override
+    protected BlockPos block() {
+        return view.pos();
+    }
+
+    @Override
+    protected void commit() {
+        sendRenames();
     }
 
     @Override
@@ -52,13 +62,9 @@ public class BlockScreen extends Screen {
         int top = Math.max(8, (height - (6 * ROW + 90)) / 2);
         int y = top + 24;
         if (view.connector()) {
-            connectorName = new SeeThroughTextBox(font, left + 90, y, WIDTH - 90, 18, Component.translatable("screen.reticulum.connector_name"));
-            connectorName.setMaxLength(64);
-            connectorName.setValue(view.customName());
-            connectorName.setHint(Component.literal(view.defaultName()));
             connectorNameEditable = view.canEdit() && !view.networkName().isEmpty();
-            connectorName.setEditable(connectorNameEditable);
-            addRenderableWidget(connectorName);
+            connectorName = nameBox("connector", left + 90, y, WIDTH - 90, Component.translatable("screen.reticulum.connector_name"), view.customName(),
+                    Component.literal(view.defaultName()), connectorNameEditable);
             if (!view.networkName().isEmpty()) {
                 // Shrink the name box to make room for the connector's own ID button.
                 connectorName.setWidth(connectorName.getWidth() - 26);
@@ -90,16 +96,12 @@ public class BlockScreen extends Screen {
         switch (side.kind()) {
             case DEVICE -> {
                 // Name box, then icon buttons: attach/detach, faces, ID.
-                EditBox name = new SeeThroughTextBox(font, x, y, 186, 18, Component.translatable("screen.reticulum.device_name"));
-                name.setMaxLength(64);
-                name.setValue(side.customName());
-                name.setHint(Component.literal(side.defaultName()));
                 boolean editable = view.canEdit() && side.enabled() && !view.networkName().isEmpty();
-                name.setEditable(editable);
+                EditBox name = nameBox("device/" + side.side().getSerializedName(), x, y, 186, Component.translatable("screen.reticulum.device_name"),
+                        side.customName(), Component.literal(side.defaultName()), editable);
                 if (editable) {
                     deviceNames.put(side.side(), name);
                 }
-                addRenderableWidget(name);
                 Button toggle = new IconButton(x + 190, y - 1, 20, 20, side.enabled() ? "link_connected" : "link_disconnected",
                         Component.translatable(side.enabled() ? "screen.reticulum.attached" : "screen.reticulum.detached"),
                         Component.translatable(side.enabled() ? "screen.reticulum.attached_tip" : "screen.reticulum.detached_tip"),
@@ -129,11 +131,17 @@ public class BlockScreen extends Screen {
     }
 
     /** A small ID toggle: lights up the connector, a device or a face in the world until switched off. */
-    Button idButton(int x, int y, boolean on, java.util.Optional<Direction> side, java.util.Optional<io.github.leadassimilator.reticulum.network.FaceKey> face) {
+    private Button idButton(int x, int y, boolean on, java.util.Optional<Direction> side, java.util.Optional<io.github.leadassimilator.reticulum.network.FaceKey> face) {
+        return idButton(this, view.pos(), x, y, on, side, face);
+    }
+
+    /** The ID toggle for any of the connector screens; it saves what that screen has typed first. */
+    static Button idButton(QuickScreen screen, BlockPos pos, int x, int y, boolean on, java.util.Optional<Direction> side,
+            java.util.Optional<io.github.leadassimilator.reticulum.network.FaceKey> face) {
         return new IconButton(x, y, 22, 20, on ? "identify_on" : "identify_off", Component.literal("ID"),
                 Component.translatable(on ? "screen.reticulum.identify_off" : "screen.reticulum.identify_on"), b -> {
-                    sendRenames();
-                    PacketDistributor.sendToServer(new Payloads.ToggleIdentify(view.pos(), side, face));
+                    screen.commit();
+                    PacketDistributor.sendToServer(new Payloads.ToggleIdentify(pos, side, face));
                 });
     }
 
@@ -162,33 +170,6 @@ public class BlockScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) {
-            // Enter commits the edit and leaves the text box, like pressing Done on a form field.
-            sendRenames();
-            setFocused(null);
-            return true;
-        }
-        if (ScreenKeys.isInventoryKey(this, keyCode, scanCode)) {
-            onClose();
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    @Override
-    public void onClose() {
-        sendRenames();
-        super.onClose();
-    }
-
-    /** Dims the world instead of blurring it, so the highlighted block stays visible. */
-    @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderTransparentBackground(graphics);
-    }
-
-    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // Show in the world what the focused name box names: the connector itself, or the device on that side.
         BlockPos highlight = null;
@@ -202,8 +183,8 @@ public class BlockScreen extends Screen {
         }
         io.github.leadassimilator.reticulum.client.ScreenHighlight.set(highlight, null);
         super.render(graphics, mouseX, mouseY, partialTick);
-        Compass.render(graphics, font, width - 40, 40, 24);
         int top = rowsTop - (view.connector() ? 50 : 24);
+        renderCompass(graphics, left, WIDTH, top);
         graphics.drawString(font, title, left, top, 0xFFFFFF);
         Component network = view.networkName().isEmpty()
                 ? Component.translatable("screen.reticulum.no_network")
@@ -228,8 +209,4 @@ public class BlockScreen extends Screen {
         }
     }
 
-    @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
 }
