@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
+import io.github.leadassimilator.reticulum.item.NetworkStamp;
 import io.github.leadassimilator.reticulum.security.NetworkAdmin;
 import io.github.leadassimilator.reticulum.security.Access;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
@@ -55,15 +56,10 @@ public final class Linking {
 
     /** The network tool in hand forgets its network. */
     public static void unlinkTool(ServerPlayer player) {
-        for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
-            net.minecraft.world.item.ItemStack stack = player.getItemInHand(hand);
-            if (stack.getItem() instanceof io.github.leadassimilator.reticulum.item.NetworkToolItem
-                    && stack.has(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get())) {
-                stack.remove(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get());
-                stack.remove(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_NAME.get());
-                player.displayClientMessage(Component.translatable("message.reticulum.tool_cleared"), true);
-                return;
-            }
+        ItemStack stack = NetworkToolItem.held(player);
+        if (NetworkStamp.has(stack)) {
+            NetworkStamp.clear(stack);
+            player.displayClientMessage(Component.translatable("message.reticulum.tool_cleared"), true);
         }
     }
 
@@ -100,8 +96,7 @@ public final class Linking {
 
     /** Stores a network in the tool, for pasting onto connectors. */
     public static void link(ItemStack tool, Network network) {
-        tool.set(ModDataComponents.NETWORK_ID.get(), network.id());
-        tool.set(ModDataComponents.NETWORK_NAME.get(), network.name());
+        NetworkStamp.set(tool, network);
     }
 
     public static void cycleMode(ServerPlayer player, int step) {
@@ -115,13 +110,7 @@ public final class Linking {
     }
 
     private static ItemStack heldTool(ServerPlayer player) {
-        for (InteractionHand hand : InteractionHand.values()) {
-            ItemStack stack = player.getItemInHand(hand);
-            if (stack.getItem() instanceof NetworkToolItem) {
-                return stack;
-            }
-        }
-        return ItemStack.EMPTY;
+        return NetworkToolItem.held(player);
     }
 
     private static boolean canReachConnector(ServerPlayer player, BlockPos pos) {

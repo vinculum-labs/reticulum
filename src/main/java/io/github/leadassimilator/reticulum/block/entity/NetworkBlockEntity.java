@@ -77,6 +77,23 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    /** The network the item it was placed from carried; taken once, when it joins. */
+    @javax.annotation.Nullable
+    private java.util.UUID itemNetworkId;
+
+    @javax.annotation.Nullable
+    public java.util.UUID takeItemNetworkId() {
+        java.util.UUID id = itemNetworkId;
+        itemNetworkId = null;
+        return id;
+    }
+
+    @Override
+    protected void applyImplicitComponents(DataComponentInput input) {
+        super.applyImplicitComponents(input);
+        itemNetworkId = input.get(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get());
+    }
+
     /** Loaded from data saved at another position (a copy), so it gets ids of its own. */
     protected boolean copied;
 

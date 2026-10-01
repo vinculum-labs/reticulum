@@ -88,14 +88,7 @@ public class NetworkPickerScreen extends QuickScreen {
         if (player == null) {
             return false;
         }
-        for (var hand : net.minecraft.world.InteractionHand.values()) {
-            var stack = player.getItemInHand(hand);
-            if (stack.getItem() instanceof io.github.leadassimilator.reticulum.item.NetworkToolItem
-                    && stack.has(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get())) {
-                return true;
-            }
-        }
-        return false;
+        return io.github.leadassimilator.reticulum.item.NetworkStamp.has(io.github.leadassimilator.reticulum.item.NetworkToolItem.held(player));
     }
 
     private void choose(Payloads.NetworkChoice choice, String secret) {

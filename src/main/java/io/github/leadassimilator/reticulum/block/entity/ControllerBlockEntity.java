@@ -15,9 +15,6 @@ import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class ControllerBlockEntity extends NetworkBlockEntity {
-    /** Network remembered by the controller item this block was placed from; consumed by topology. */
-    @Nullable
-    private UUID itemNetworkId;
     /** Installed antenna upgrade, 0 (none) to 3. */
     private int antennaTier;
     /** FE held to run the network (only used when the server's power preset charges for it). */
@@ -64,13 +61,6 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
 
     public ControllerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.CONTROLLER.get(), pos, state);
-    }
-
-    @Nullable
-    public UUID takeItemNetworkId() {
-        UUID id = itemNetworkId;
-        itemNetworkId = null;
-        return id;
     }
 
     public IEnergyStorage energyStorage() {
@@ -129,7 +119,6 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     @Override
     protected void applyImplicitComponents(DataComponentInput input) {
         super.applyImplicitComponents(input);
-        itemNetworkId = input.get(ModDataComponents.NETWORK_ID.get());
         // Only the field: the block state already has the tier (set as it was placed).
         antennaTier = input.getOrDefault(ModDataComponents.ANTENNA_TIER.get(), 0);
         energy = Math.max(0, input.getOrDefault(ModDataComponents.STORED_ENERGY.get(), 0L));

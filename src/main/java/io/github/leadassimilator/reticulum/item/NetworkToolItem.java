@@ -93,6 +93,17 @@ public class NetworkToolItem extends Item {
         return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
     }
 
+    /** The network tool the player holds, in either hand (the main hand first), or empty. */
+    public static ItemStack held(net.minecraft.world.entity.player.Player player) {
+        for (InteractionHand hand : InteractionHand.values()) {
+            ItemStack stack = player.getItemInHand(hand);
+            if (stack.getItem() instanceof NetworkToolItem) {
+                return stack;
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
     @Override
     public InteractionResult useOn(UseOnContext context) {
         if (!(context.getLevel().getBlockEntity(context.getClickedPos()) instanceof NetworkBlockEntity)) {

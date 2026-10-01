@@ -92,7 +92,7 @@ public final class LookHud {
 
     @Nullable
     private static BlockHitResult target(Minecraft mc) {
-        if (!enabled() || mc.player == null || mc.level == null || !(mc.player.getMainHandItem().getItem() instanceof NetworkToolItem)) {
+        if (!enabled() || mc.player == null || mc.level == null || NetworkToolItem.held(mc.player).isEmpty()) {
             return null;
         }
         if (mc.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {

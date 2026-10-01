@@ -27,12 +27,13 @@ public final class ToolHighlight {
         if (mc.player == null || mc.level == null) {
             return;
         }
-        var held = mc.player.getMainHandItem().getItem();
-        if (!(held instanceof NetworkToolItem) && !(held instanceof net.minecraft.world.item.BlockItem)) {
+        // The tool in either hand; a block to place only in the main hand (that's the hand that places it).
+        var tool = NetworkToolItem.held(mc.player);
+        if (tool.isEmpty() && !(mc.player.getMainHandItem().getItem() instanceof net.minecraft.world.item.BlockItem)) {
             return;
         }
         // Link and Identify modes act on whole blocks, not on one joint.
-        if (held instanceof NetworkToolItem && NetworkToolItem.mode(mc.player.getMainHandItem()) != io.github.leadassimilator.reticulum.item.ToolMode.CONFIGURE) {
+        if (!tool.isEmpty() && NetworkToolItem.mode(tool) != io.github.leadassimilator.reticulum.item.ToolMode.CONFIGURE) {
             return;
         }
         BlockPos pos = event.getTarget().getBlockPos();

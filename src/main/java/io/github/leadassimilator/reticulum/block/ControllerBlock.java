@@ -155,8 +155,7 @@ public class ControllerBlock extends NetworkBlock {
         if (network == null) {
             return;
         }
-        stack.set(ModDataComponents.NETWORK_ID.get(), network.id());
-        stack.set(ModDataComponents.NETWORK_NAME.get(), network.name());
+        io.github.leadassimilator.reticulum.item.NetworkStamp.set(stack, network);
         player.displayClientMessage(Component.translatable("message.reticulum.stack_bound", stack.getCount(), network.name()), true);
     }
 

@@ -49,7 +49,7 @@ public final class FacadeXray {
     public static void onRenderLevel(RenderLevelStageEvent event) {
         Minecraft mc = Minecraft.getInstance();
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || FACADED.isEmpty() || mc.player == null || mc.level == null
-                || !(mc.player.getMainHandItem().getItem() instanceof NetworkToolItem || mc.player.getOffhandItem().getItem() instanceof NetworkToolItem)) {
+                || NetworkToolItem.held(mc.player).isEmpty()) {
             return;
         }
         Vec3 camera = event.getCamera().getPosition();

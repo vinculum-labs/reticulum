@@ -20,9 +20,6 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     private int disabledDevices;
     /** Redstone given out towards each side (Redstone out nodes); not saved, the network sets it every tick. */
     private final byte[] power = new byte[6];
-    /** Network of the bound connector item this block was placed from; consumed by topology. */
-    @Nullable
-    private UUID itemNetworkId;
     /** The AE2 endpoints (integration.ae2.MeEndpoints) when AE2 is installed; typed loosely so AE2 is optional. */
     @Nullable
     private Object meEndpoints;
@@ -82,19 +79,6 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
         if (Mods.AE2 && level != null && !level.isClientSide) {
             Ae2Integration.refresh(this);
         }
-    }
-
-    @Nullable
-    public UUID takeItemNetworkId() {
-        UUID id = itemNetworkId;
-        itemNetworkId = null;
-        return id;
-    }
-
-    @Override
-    protected void applyImplicitComponents(DataComponentInput input) {
-        super.applyImplicitComponents(input);
-        itemNetworkId = input.get(ModDataComponents.NETWORK_ID.get());
     }
 
     /** Redstone this connector gives to the block on that side. */
