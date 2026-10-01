@@ -65,12 +65,22 @@ public final class ReticulumSavedData extends SavedData {
     /** The network with this id, or the one it was merged into. */
     @Nullable
     public Network network(@Nullable UUID id) {
+        UUID asked = id;
         for (int hops = 0; id != null && hops < 16; hops++) {
             Network network = networks.get(id);
             if (network != null) {
+                if (hops > 1) {
+                    // A chain of merges: point straight at where it ended, so chains stay short.
+                    aliases.put(asked, network.id());
+                    setDirty();
+                }
                 return network;
             }
             id = aliases.get(id);
+        }
+        if (asked != null && aliases.remove(asked) != null) {
+            // Merged into a network since deleted: the alias leads nowhere.
+            setDirty();
         }
         return null;
     }

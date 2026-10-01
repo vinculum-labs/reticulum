@@ -103,7 +103,12 @@ public final class Topology {
                     networks.add(network.networkId());
                 }
             }
-            networks.forEach(Topology::touch);
+            // Blocks of merged-away networks still carry the old id: the network to refresh is the one it became.
+            var server = chunk.getLevel().getServer();
+            networks.forEach(id -> {
+                Network network = server == null ? null : NetworkManager.network(server, id);
+                touch(network == null ? id : network.id());
+            });
         }
     }
 
@@ -447,8 +452,8 @@ public final class Topology {
     }
 
     public static void onRemoved(ServerLevel level, BlockPos pos, Removed removed) {
-        touch(removed.networkId());
         Network network = NetworkManager.network(level.getServer(), removed.networkId());
+        touch(network == null ? removed.networkId() : network.id());
         if (network != null) {
             if (removed.connectorId() != null) {
                 NetworkManager.removeConnector(level.getServer(), network, removed.connectorId());

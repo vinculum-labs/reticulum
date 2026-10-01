@@ -47,10 +47,14 @@ public class ModBlockStates extends BlockStateProvider {
         MultiPartBlockStateBuilder builder = getMultipartBuilder(block);
         builder.part().modelFile(existing(core)).addModel().end();
         for (Map.Entry<Direction, EnumProperty<Link>> side : block.linkProperties().entrySet()) {
-            for (Map.Entry<Link, String> part : parts.entrySet()) {
-                builder.part().modelFile(existing(part.getValue()))
-                        .rotationX(rotationX(side.getKey())).rotationY(rotationY(side.getKey())).addModel()
-                        .condition(side.getValue(), part.getKey()).end();
+            // In Link order, so the generated file comes out the same every run (Map.of has no fixed order).
+            for (Link link : Link.values()) {
+                String model = parts.get(link);
+                if (model != null) {
+                    builder.part().modelFile(existing(model))
+                            .rotationX(rotationX(side.getKey())).rotationY(rotationY(side.getKey())).addModel()
+                            .condition(side.getValue(), link).end();
+                }
             }
         }
     }
