@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Folder from "@lucide/svelte/icons/folder";
   import { app, nodeTitle, openSheet } from "../../lib/state.svelte";
+  import { offReason, sheetPath } from "../../lib/tree";
   import InspectorPanel from "./InspectorPanel.svelte";
   import { STATUS_LABEL, formatRate } from "../../lib/kinds";
   import type { GraphNode, Sheet } from "../../lib/types";
@@ -23,14 +23,19 @@
       .slice(0, 10),
   );
   const blocked = $derived(nodes.filter((x) => app.status[x.node.id] && app.status[x.node.id] !== "switched_off"));
-  /** Everything switched off, so nothing stays off by accident. */
+  /**
+   * Everything switched off, so nothing stays off by accident: sheets (by their own switch, a sheet above, or a gate),
+   * then nodes (sheet nodes are listed as their sheets).
+   */
   const off = $derived([
-    ...snapshot.sheets
-      .filter((s) => !s.subsheet && (s.enabled === false || app.sheetsOff.includes(s.id)))
-      .map((s) => ({ sheet: s, node: undefined as GraphNode | undefined, why: s.enabled === false ? "sheet off" : "sheet off by redstone" })),
-    ...snapshot.disabledFolders.map((folder) => ({ folder, why: "folder off" })),
+    ...snapshot.sheets.flatMap((s) => {
+      const why = offReason(snapshot, s, app.sheetsOff);
+      if (!why || why.kind === "network") return [];
+      const text = why.kind === "self" ? "sheet off" : why.kind === "parent" ? `inside “${why.sheet.name}”, off` : "off by a gate or redstone";
+      return [{ sheet: s, node: undefined as GraphNode | undefined, why: text }];
+    }),
     ...nodes
-      .filter((x) => x.node.enabled === false || app.status[x.node.id] === "switched_off")
+      .filter((x) => x.node.settings.kind !== "sheet" && (x.node.enabled === false || app.status[x.node.id] === "switched_off"))
       .map((x) => ({ sheet: x.sheet, node: x.node, why: x.node.enabled === false ? "node off" : "off by redstone" })),
   ]);
   const overflow = $derived([
@@ -58,7 +63,7 @@
     <h3 class="panel-title">Busiest</h3>
     {#each top as x (x.node.id)}
       <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
-        <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {x.sheet.name}</span></span>
+        <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {sheetPath(snapshot, x.sheet)}</span></span>
         <span class="tabular-nums">{formatRate(app.rates[x.node.id] ?? 0, null, app.rateUnit)}</span>
       </button>
     {:else}
@@ -70,7 +75,7 @@
     <h3 class="panel-title">Waiting ({blocked.length})</h3>
     {#each blocked as x (x.node.id)}
       <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
-        <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {x.sheet.name}</span></span>
+        <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {sheetPath(snapshot, x.sheet)}</span></span>
         <span class="text-warn">{STATUS_LABEL[app.status[x.node.id]] ?? app.status[x.node.id]}</span>
       </button>
     {:else}
@@ -81,14 +86,10 @@
   <section class="flex flex-col gap-1">
     <h3 class="panel-title">Switched off ({off.length})</h3>
     {#each off as x}
-      {#if "folder" in x}
-        <div class="flex justify-between gap-2"><span class="flex min-w-0 items-center gap-1 truncate"><Folder size={14} class="shrink-0 muted" />{x.folder}</span><span class="muted">{x.why}</span></div>
-      {:else}
-        <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
-          <span class="truncate">{x.node ? nodeTitle(x.node) : x.sheet.name}{#if x.node}<span class="muted"> · {x.sheet.name}</span>{/if}</span>
-          <span class="muted">{x.why}</span>
-        </button>
-      {/if}
+      <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
+        <span class="truncate">{x.node ? nodeTitle(x.node) : sheetPath(snapshot, x.sheet)}{#if x.node}<span class="muted"> · {sheetPath(snapshot, x.sheet)}</span>{/if}</span>
+        <span class="muted">{x.why}</span>
+      </button>
     {:else}
       <p class="muted">Everything is on.</p>
     {/each}

@@ -8,6 +8,7 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   rate_limit: "Rate limit",
   splitter: "Splitter",
   kit: "Kit",
+  sheet: "Sheet",
   subsheet: "Sub-sheet",
   sheet_input: "Sheet input",
   sheet_output: "Sheet output",
@@ -29,9 +30,10 @@ export const KIND_HINT: Record<NodeKind, string> = {
   rate_limit: "Caps how much passes per tick (or per second)",
   splitter: "Shares between outputs: in turn, in order, by weight, or nearest first",
   kit: "Moves a set of items all together or not at all",
+  sheet: "A sheet inside this one: double-click to open it. Its switch and gate switch everything in it",
   subsheet: "A copy of a sheet marked as a sub-sheet, used like one node",
-  sheet_input: "Inside a sub-sheet: where resources come in (a pin on the left of the sub-sheet node)",
-  sheet_output: "Inside a sub-sheet: where resources go out (a pin on the right of the sub-sheet node)",
+  sheet_input: "Where resources or signals come into this sheet: a pin on the left of its node",
+  sheet_output: "Where resources or signals leave this sheet: a pin on the right of its node",
   level: "How much of a resource a device holds",
   compare: "15 when A compares true against B (or a number), else 0",
   logic: "AND, OR, NOT / NOR, XOR, NAND or XNOR of every wire into it",
@@ -198,6 +200,7 @@ export function defaultSettings(
     case "receive":
       return { kind, name: "" };
     case "subsheet":
+    case "sheet":
       return { kind, sheet: subsheet ?? "" };
     case "sheet_input":
     case "sheet_output":
@@ -324,9 +327,11 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
       return s.lines.map((l) => `${l.count}× ${l.filter || "anything"}`).join(" + ") + (s.max_kits && s.max_kits > 1 ? `, up to ${s.max_kits}` : "");
     case "subsheet":
       return "sub-sheet";
+    case "sheet":
+      return "sheet";
     case "sheet_input":
     case "sheet_output":
-      return s.name || "unnamed pin";
+      return `${s.name || "unnamed pin"}${s.resource ? ` · ${RESOURCE_LABEL[s.resource].toLowerCase()}` : ""}`;
     case "level":
       return `${RESOURCE_UNIT[s.resource]}${s.filter ? ` · ${s.filter}` : ""}`;
     case "compare":

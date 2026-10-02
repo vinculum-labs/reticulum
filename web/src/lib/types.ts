@@ -86,16 +86,27 @@ export interface DeviceNodeSettings {
   outputs?: DeviceOutput[];
 }
 
+/** A child sheet placed on its parent; its pins are the child's Sheet input and Sheet output nodes. */
+export interface SheetNodeSettings {
+  kind: "sheet";
+  sheet: string;
+}
+
 /** A copy of a sub-sheet; its pins are that sheet's Sheet input and Sheet output nodes. */
 export interface SubSheetSettings {
   kind: "subsheet";
   sheet: string;
 }
 
-/** A named pin of a sub-sheet, placed inside it. */
+/**
+ * A pin on a sheet's edge, placed inside it. Wires on the sheet's node attach by {@code slot} (fixed when the pin is
+ * made); {@code resource} is what it carries (none: anything).
+ */
 export interface SheetPinSettings {
   kind: "sheet_input" | "sheet_output";
   name?: string;
+  resource?: Resource;
+  slot?: number;
 }
 
 // Signal nodes pass integers along signal wires; above 0 counts as on, and yes/no answers are 15 or 0.
@@ -180,6 +191,7 @@ export type NodeSettings =
   | SplitterSettings
   | KitSettings
   | DeviceNodeSettings
+  | SheetNodeSettings
   | SubSheetSettings
   | SheetPinSettings
   | SignalNodeSettings;
@@ -225,13 +237,17 @@ export interface Wire {
 export interface Sheet {
   id: string;
   name: string;
-  folder?: string;
+  /** The network's top sheet: every other sheet sits in it, or in one inside it. Switched by the network. */
+  root?: boolean;
+  /** The sheet it sits in, and its sheet node there (both absent for the root and sub-sheets). */
+  parent?: string;
+  node?: string;
+  /** Its own switch: its sheet node's (the network's, for the root). Sheets above it may still be off. */
   enabled?: boolean;
   interval?: number;
   priority?: number;
   /** A sub-sheet never runs on its own; other sheets place copies of it. */
   subsheet?: boolean;
-  redstone?: Redstone;
   nodes?: GraphNode[];
   wires?: Wire[];
   errors?: SheetError[];
@@ -296,7 +312,8 @@ export interface Snapshot extends NetworkSummary {
   canEdit: boolean;
   canAdmin: boolean;
   hasPassword: boolean;
-  disabledFolders: string[];
+  /** The root sheet's id. */
+  root: string;
   redstone?: Redstone;
   /** What running the network costs, when the server charges for it. */
   power?: PowerState;
@@ -304,8 +321,6 @@ export interface Snapshot extends NetworkSummary {
   identified?: Identify[];
   /** Antenna upgrade in the controller, 0 (none) to 3. */
   antenna?: number;
-  /** Redstone conditions of folders, by folder path. */
-  folderRedstone?: Record<string, Redstone>;
   /** Only sent to admins. */
   members?: Member[];
   controller?: GlobalPos;
@@ -357,12 +372,18 @@ export function samePos(a: GlobalPos, b: GlobalPos): boolean {
   return posKey(a) === posKey(b);
 }
 
-/** A sub-sheet's Sheet input (or output) nodes in pin order: top to bottom, then left to right (as the server orders them). */
+/** A sheet's Sheet input (or output) nodes in pin order: top to bottom, then left to right (as the server orders them). */
 export function sheetPins(sheet: Sheet | undefined, input: boolean): GraphNode[] {
   const kind = input ? "sheet_input" : "sheet_output";
   return (sheet?.nodes ?? [])
     .filter((n) => n.settings.kind === kind)
     .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+/** A pin's slot (wires on the sheet's node attach by it); pins the server hasn't numbered yet count by their order. */
+export function pinSlot(node: GraphNode, index: number): number {
+  const s = node.settings;
+  return (s.kind === "sheet_input" || s.kind === "sheet_output") && s.slot !== undefined && s.slot >= 0 ? s.slot : index;
 }
 
 export function pinName(node: GraphNode, index: number): string {

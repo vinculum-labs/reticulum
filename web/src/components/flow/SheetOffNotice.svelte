@@ -1,52 +1,28 @@
 <script lang="ts">
   import Power from "@lucide/svelte/icons/power";
-  import { app, edit, setSheetEnabled } from "../../lib/state.svelte";
+  import { app, edit, setSheetEnabled, showNode } from "../../lib/state.svelte";
+  import { offReason } from "../../lib/tree";
   import type { Sheet, Snapshot } from "../../lib/types";
 
   /** Says on the canvas when the open sheet isn't running and why, so a sheet left off isn't mistaken for a broken one. */
   let { sheet, snapshot }: { sheet: Sheet; snapshot: Snapshot } = $props();
 
   const canEdit = $derived(snapshot.canEdit);
-  /** The outermost folder holding this sheet that is switched off. */
-  const offFolder = $derived.by(() => {
-    const parts = (sheet.folder ?? "").split("/").filter(Boolean);
-    for (let i = 1; i <= parts.length; i++) {
-      const path = parts.slice(0, i).join("/");
-      if (snapshot.disabledFolders.includes(path)) return path;
-    }
-    return null;
-  });
-  const why = $derived(
-    sheet.subsheet
-      ? null
-      : !snapshot.enabled
-        ? "network"
-        : sheet.enabled === false
-          ? "sheet"
-          : offFolder !== null
-            ? "folder"
-            : app.sheetsOff.includes(sheet.id)
-              ? "redstone"
-              : null,
-  );
-  /** Redstone holding the sheet off: its own condition, else the network's. */
-  const sheetRedstone = $derived(!!sheet.redstone?.mode && sheet.redstone.mode !== "ignored");
+  const why = $derived(offReason(snapshot, sheet, app.sheetsOff));
 
   function switchOn() {
-    if (why === "network") {
+    if (why?.kind === "network") {
       edit([{ type: "setNetworkEnabled", enabled: true }], [{ type: "setNetworkEnabled", enabled: false }], "network on/off");
-    } else if (why === "sheet") {
+    } else if (why?.kind === "self") {
       setSheetEnabled(sheet, true);
-    } else if (why === "folder" && offFolder !== null) {
-      edit([{ type: "setFolderEnabled", folder: offFolder, enabled: true }], [{ type: "setFolderEnabled", folder: offFolder, enabled: false }], "folder on/off");
+    } else if (why?.kind === "parent") {
+      setSheetEnabled(why.sheet, true);
     }
   }
 
-  function showCondition() {
-    app.selectedNodes = [];
-    app.selectedEdges = [];
-    app.selectedDevice = null;
-    app.panel = sheetRedstone ? null : "network";
+  /** The node whose gate or redstone holds this sheet off: its own node, in the sheet above. */
+  function showGate() {
+    if (sheet.parent && sheet.node) showNode(sheet.parent, sheet.node);
   }
 </script>
 
@@ -54,13 +30,13 @@
   <div class="box box-warn flex items-center gap-2 text-sm" style="background: var(--panel)" role="status">
     <span class="shrink-0 text-warn"><Power size={16} /></span>
     <span>
-      {#if why === "network"}The network is switched off, so nothing on this sheet runs.
-      {:else if why === "sheet"}This sheet is switched off.
-      {:else if why === "folder"}This sheet is off: its folder “{offFolder}” is switched off.
-      {:else}Redstone is holding this sheet off ({sheetRedstone ? "its own condition" : "the network's condition"}).{/if}
+      {#if why.kind === "network"}The network is switched off, so nothing on this sheet runs.
+      {:else if why.kind === "self"}This sheet is switched off.
+      {:else if why.kind === "parent"}This sheet is off: the sheet “{why.sheet.name}” above it is switched off.
+      {:else}A gate or redstone on this sheet's node holds it off.{/if}
     </span>
-    {#if why === "redstone"}
-      <button class="btn shrink-0 text-xs" onclick={showCondition}>Show condition</button>
+    {#if why.kind === "gate"}
+      {#if sheet.parent}<button class="btn shrink-0 text-xs" onclick={showGate}>Show its node</button>{/if}
     {:else if canEdit}
       <button class="btn shrink-0 text-xs" onclick={switchOn}>Switch on</button>
     {/if}

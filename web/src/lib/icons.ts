@@ -1,5 +1,6 @@
 import type { Component } from "svelte";
 import Activity from "@lucide/svelte/icons/activity";
+import AppWindow from "@lucide/svelte/icons/app-window";
 import Binary from "@lucide/svelte/icons/binary";
 import Box from "@lucide/svelte/icons/box";
 import Clock from "@lucide/svelte/icons/clock";
@@ -30,6 +31,7 @@ export const KIND_ICON: Record<NodeKind, Component<{ size?: number | string; cla
   rate_limit: Hourglass,
   splitter: Split,
   kit: Package,
+  sheet: AppWindow,
   subsheet: Layers,
   sheet_input: LogIn,
   sheet_output: LogOut,

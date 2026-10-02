@@ -2,9 +2,10 @@
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Zap from "@lucide/svelte/icons/zap";
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import type { NodeData } from "../../lib/graph";
+  import type { HolderPin, NodeData } from "../../lib/graph";
   import {
     KIND_LABEL,
+    RESOURCE_LABEL,
     RESOURCE_VAR,
     STATUS_LABEL,
     formatAgo,
@@ -34,15 +35,24 @@
   const s = $derived(data.node.settings);
   const kind = $derived(s.kind);
   const signal = $derived(isSignal(s.kind));
+  /** A typed sheet pin shows what it carries; other nodes the resource flowing through them. */
+  const pinType = $derived(s.kind === "sheet_input" || s.kind === "sheet_output" ? s.resource : undefined);
   const color = $derived(
-    signal ? "var(--c-signal)" : data.resource ? RESOURCE_VAR[data.resource] : "var(--muted)",
+    signal || pinType === "redstone"
+      ? "var(--c-signal)"
+      : pinType
+        ? RESOURCE_VAR[pinType]
+        : data.resource
+          ? RESOURCE_VAR[data.resource]
+          : "var(--muted)",
   );
+  const holds = $derived(kind === "sheet" || kind === "subsheet");
   const title = $derived(
     data.node.label ||
       (data.device
         ? deviceName(data.device)
-        : kind === "subsheet"
-          ? (data.subsheet?.sheet?.name ?? "Missing sub-sheet")
+        : holds
+          ? (data.holder?.sheet?.name ?? (kind === "sheet" ? "Missing sheet" : "Missing sub-sheet"))
           : (s.kind === "sheet_input" || s.kind === "sheet_output") && s.name
             ? s.name
             : KIND_LABEL[kind]),
@@ -50,26 +60,38 @@
   const offline = $derived(data.device && (data.device.state !== "active" || data.device.outOfRange));
   const disabled = $derived(data.node.enabled === false);
 
-  /** Labeled pin rows: a device's inputs and outputs, or a sub-sheet's pins. */
-  const leftRows = $derived<{ label: string; title: string; color: string }[]>(
+  type Row = { label: string; title: string; color: string; handle: string };
+
+  /** A sheet or sub-sheet's pin as a row: its handle is its slot, so wires stay on it whatever the order. */
+  function holderRow(pin: HolderPin, input: boolean): Row {
+    return {
+      label: pin.name,
+      title: `${pin.name}${pin.resource ? ` (${RESOURCE_LABEL[pin.resource]})` : ""}`,
+      color: pin.resource ? RESOURCE_VAR[pin.resource] : "var(--muted)",
+      handle: `${input ? "in" : "out"}:${pin.slot}`,
+    };
+  }
+
+  /** Labeled pin rows: a device's inputs and outputs, or a sheet's (or sub-sheet's) pins. */
+  const leftRows = $derived<Row[]>(
     s.kind === "device"
-      ? (s.inputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/in/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource] }))
-      : kind === "subsheet"
-        ? (data.subsheet?.inputs ?? []).map((name) => ({ label: name, title: name, color }))
+      ? (s.inputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/in/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource], handle: `in:${i}` }))
+      : holds
+        ? (data.holder?.inputs ?? []).map((pin) => holderRow(pin, true))
         : signal
-          ? signalInputs(kind).map((name) => ({ label: name, title: name, color }))
+          ? signalInputs(kind).map((name, i) => ({ label: name, title: name, color, handle: `in:${i}` }))
           : [],
   );
-  const rightRows = $derived<{ label: string; title: string; color: string }[]>(
+  const rightRows = $derived<Row[]>(
     s.kind === "device"
-      ? (s.outputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/out/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource] }))
-      : kind === "subsheet"
-        ? (data.subsheet?.outputs ?? []).map((name) => ({ label: name, title: name, color }))
+      ? (s.outputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/out/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource], handle: `out:${i}` }))
+      : holds
+        ? (data.holder?.outputs ?? []).map((pin) => holderRow(pin, false))
         : signal && signalOutput(kind)
-          ? [{ label: "out", title: "Output", color }]
+          ? [{ label: "out", title: "Output", color, handle: "out:0" }]
           : [],
   );
-  const pinned = $derived(kind === "device" || kind === "subsheet" || signal);
+  const pinned = $derived(kind === "device" || holds || signal);
   /**
    * The other cards' pins (filter, rate limit, splitter, kit, sheet pins), as labeled rows like the pinned cards: the
    * input on the left, the outputs on the right, each pin beside its label. Ids are the handles' (wires keep them).
@@ -121,7 +143,7 @@
   // Re-measure the handles only when the pins or the header actually change. The row arrays are rebuilt with the
   // node's data (every metrics update), so depending on them directly re-measured every node — a forced layout each —
   // once a second.
-  const pinLayout = $derived(`${leftRows.length}:${rightRows.length}:${HEADER}`);
+  const pinLayout = $derived(`${leftRows.map((r) => r.handle).join()}|${rightRows.map((r) => r.handle).join()}:${HEADER}`);
   $effect(() => {
     void pinLayout;
     updateInternals(id);
@@ -145,7 +167,7 @@
     ? 'var(--accent)'
     : data.problem
       ? 'var(--bad)'
-      : 'var(--line)'}; border-style: {kind === 'subsheet' ? 'double' : 'solid'}; border-width: {kind === 'subsheet' ? 3 : 1}px; box-shadow: {selected
+      : 'var(--line)'}; border-style: {kind === 'subsheet' ? 'double' : 'solid'}; border-width: {kind === 'subsheet' ? 3 : kind === 'sheet' ? 2 : 1}px; box-shadow: {selected
     ? '0 0 0 1px var(--accent)'
     : data.problem
       ? '0 0 0 1px var(--bad)'
@@ -234,11 +256,11 @@ ${idleTitle}` : idleTitle}
   />
 {/if}
 {#if pinned}
-  {#each leftRows as row, i}
-    <Handle type="target" position={Position.Left} id={`in:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}" />
+  {#each leftRows as row, i (row.handle)}
+    <Handle type="target" position={Position.Left} id={row.handle} style="top: {HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}" />
   {/each}
-  {#each rightRows as row, i}
-    <Handle type="source" position={Position.Right} id={`out:${i}`} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}" />
+  {#each rightRows as row, i (row.handle)}
+    <Handle type="source" position={Position.Right} id={row.handle} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}" />
   {/each}
 {:else}
   {#if flowIn}

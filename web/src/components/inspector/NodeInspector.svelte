@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app, deviceAt, deviceName, edit, nodeTitle, openDevice, openSheet, rebase, signalNames } from "../../lib/state.svelte";
+  import { childSheets } from "../../lib/tree";
   import { KIND_HINT, KIND_LABEL, OP_SYMBOL, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, isSignal } from "../../lib/kinds";
   import {
     SIDES,
@@ -230,7 +231,32 @@
     <DeviceNodeEditor settings={s} {sheet} nodeId={node.id} disabled={!canEdit} onchange={saveDevice} />
   {/if}
 
-  {#if s.kind === "subsheet"}
+  {#if s.kind === "sheet"}
+    {@const held = app.snapshot?.sheets.find((x) => x.id === s.sheet)}
+    {#if held}
+      {@const inside = app.snapshot ? childSheets(app.snapshot, held.id).length : 0}
+      <Field label="Sheet name">
+        <TextField
+          value={held.name}
+          required
+          disabled={!canEdit}
+          oncommit={(name) => edit([{ type: "updateSheet", sheet: held.id, name }], [{ type: "updateSheet", sheet: held.id, name: held.name }], "rename sheet")}
+        />
+      </Field>
+      <div class="text-sm">
+        <div><span class="muted">Holds:</span> {held.nodes?.length ?? 0} node{(held.nodes?.length ?? 0) === 1 ? "" : "s"}{inside ? `, ${inside} sheet${inside === 1 ? "" : "s"}` : ""}</div>
+        <div><span class="muted">Inputs:</span> {sheetPins(held, true).map(pinName).join(", ") || "none"}</div>
+        <div><span class="muted">Outputs:</span> {sheetPins(held, false).map(pinName).join(", ") || "none"}</div>
+      </div>
+      <p class="text-xs muted">
+        Its switch above switches everything in it, sheets inside included; so does a signal into its gate. Add Sheet input and
+        Sheet output nodes inside it for its pins.
+      </p>
+      <button class="btn self-start text-sm" onclick={() => openSheet(held.id)}>Open “{held.name}”</button>
+    {:else}
+      <p class="text-sm text-bad">The sheet this node held is gone.</p>
+    {/if}
+  {:else if s.kind === "subsheet"}
     {@const choices = (app.snapshot?.sheets ?? []).filter((x) => x.subsheet && x.id !== sheet.id)}
     {@const used = app.snapshot?.sheets.find((x) => x.id === s.sheet)}
     <Field label="Sub-sheet" hint="Only sheets marked “Use as sub-sheet” are listed. Double-click the node to open it.">
@@ -252,9 +278,23 @@
   {:else if s.kind === "sheet_input" || s.kind === "sheet_output"}
     <Field
       label="Pin name"
-      hint={`Shown on the ${s.kind === "sheet_input" ? "left" : "right"} of sub-sheet nodes that use this sheet. Pins are ordered top to bottom as placed here.`}
+      hint={`Shown on the ${s.kind === "sheet_input" ? "left" : "right"} of this sheet's node. Pins are ordered top to bottom as placed here.`}
     >
       <TextField value={s.name} disabled={!canEdit} placeholder="e.g. ores" oncommit={(v) => settings({ name: v })} />
+    </Field>
+    <Field label="Carries" hint="Wires of other kinds won't connect to it. Anything: whatever is wired to it.">
+      <Select
+        value={s.resource ?? ""}
+        disabled={!canEdit}
+        options={[
+          { value: "", label: "Anything" },
+          ...(["item", "fluid", "energy", "chemical", "redstone", "me"] as Resource[]).map((r) => ({
+            value: r as string,
+            label: r === "redstone" ? "Signal (redstone)" : RESOURCE_LABEL[r],
+          })),
+        ]}
+        onchange={(v) => settings({ resource: (v || undefined) as Resource | undefined })}
+      />
     </Field>
   {/if}
 

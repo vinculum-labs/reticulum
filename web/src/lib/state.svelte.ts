@@ -6,6 +6,7 @@ import type { Device, Edit, GlobalPos, GraphNode, NetworkSummary, Sheet, Snapsho
 import { posKey } from "./types";
 import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
+import { rootSheet, sheetPath } from "./tree";
 
 export interface Toast {
   id: number;
@@ -91,7 +92,7 @@ export const app = $state({
   signals: {} as Record<string, number>,
   /** Transmitted network signals, by name. */
   networkSignals: {} as Record<string, number>,
-  /** Sheets their redstone condition currently switches off. */
+  /** Sheets a gate or redstone currently switches off (on their node, or on a sheet node above them). */
   sheetsOff: [] as string[],
   /** What running the network costs and what the controller holds, updated once a second. */
   power: null as PowerState | null,
@@ -265,7 +266,7 @@ function setSnapshot(snapshot: Snapshot): void {
   if (merged !== app.snapshot) app.snapshot = merged;
   const summary = app.networks.find((n) => n.id === snapshot.id);
   if (summary) Object.assign(summary, { name: snapshot.name, running: snapshot.running, enabled: snapshot.enabled });
-  if (!snapshot.sheets.some((s) => s.id === app.sheetId)) app.sheetId = snapshot.sheets[0]?.id ?? null;
+  if (!snapshot.sheets.some((s) => s.id === app.sheetId)) app.sheetId = rootSheet(snapshot)?.id ?? snapshot.sheets[0]?.id ?? null;
 }
 
 // ---------------------------------------------------------------- edits
@@ -492,11 +493,12 @@ export function nodeTitle(node: GraphNode | undefined): string {
   const s = node.settings;
   if (s.kind === "device") return deviceName(deviceAt(posKey(s.device)));
   if (s.kind === "subsheet") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing sub-sheet";
+  if (s.kind === "sheet") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing sheet";
   if ((s.kind === "sheet_input" || s.kind === "sheet_output") && s.name) return s.name;
   return KIND_LABEL[s.kind];
 }
 
-/** One place a device is used: a sheet (which opens it), or the network's or a folder's redstone condition. */
+/** One place a device is used: a sheet (which opens it), or the network's redstone condition. */
 export interface DeviceUse {
   label: string;
   sheetId?: string;
@@ -504,7 +506,7 @@ export interface DeviceUse {
 
 /**
  * Where each device is used, by its position key: every sheet with a node on it (a device, Level or redstone node)
- * or a redstone condition reading it, and the network's and folders' conditions. A device absent here is unused.
+ * or a redstone condition reading it, and the network's condition. A device absent here is unused.
  */
 export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
   const uses = new Map<string, DeviceUse[]>();
@@ -516,17 +518,13 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
     uses.set(key, list);
   };
   for (const sheet of snapshot.sheets) {
-    const use = { label: sheet.folder ? `${sheet.folder.replaceAll("/", " › ")} › ${sheet.name}` : sheet.name, sheetId: sheet.id };
-    add(sheet.redstone?.device, use);
+    const use = { label: sheetPath(snapshot, sheet), sheetId: sheet.id };
     for (const node of sheet.nodes ?? []) {
       if ("device" in node.settings) add(node.settings.device as GlobalPos, use);
       add(node.redstone?.device, use);
     }
   }
   add(snapshot.redstone?.device, { label: "The network's redstone condition" });
-  for (const [folder, redstone] of Object.entries(snapshot.folderRedstone ?? {})) {
-    add(redstone.device, { label: `Folder ${folder.replaceAll("/", " › ")}'s redstone condition` });
-  }
   return uses;
 }
 
@@ -541,9 +539,28 @@ export function signalNames(): string[] {
   return [...names].sort();
 }
 
-/** Switches a sheet on or off, undoably. */
+/** Switches a sheet on or off (its sheet node's switch; the network's, for the root), undoably. */
 export function setSheetEnabled(sheet: Sheet, on: boolean) {
   return edit([{ type: "updateSheet", sheet: sheet.id, enabled: on }], [{ type: "updateSheet", sheet: sheet.id, enabled: sheet.enabled !== false }], "sheet on/off");
+}
+
+/**
+ * Makes a new sheet inside {@code parent} (a sheet node there, at {@code at}), opening it unless told not to.
+ * Returns its id.
+ */
+export async function createSheet(parent: Sheet | null, name: string, at?: { x: number; y: number }, open = true): Promise<string | null> {
+  const results = await edit([
+    { type: "createSheet", name, ...(parent ? { parent: parent.id } : {}), ...(at ? { x: Math.round(at.x), y: Math.round(at.y) } : {}) },
+  ]);
+  const id = (results?.[0] as string | undefined) ?? null;
+  if (id && open) openSheet(id);
+  return id;
+}
+
+/** Moves a sheet (with everything in it) into another sheet. */
+export function moveSheet(sheet: Sheet, parent: Sheet) {
+  const from = sheet.parent;
+  return edit([{ type: "moveSheet", sheet: sheet.id, parent: parent.id }], from ? [{ type: "moveSheet", sheet: sheet.id, parent: from }] : undefined, "move sheet");
 }
 
 /** Shows a sheet, with nothing selected (or the given nodes), and the inspector for it. */

@@ -1,11 +1,11 @@
 <script lang="ts">
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
-  import Folder from "@lucide/svelte/icons/folder";
   import Layers from "@lucide/svelte/icons/layers";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Zap from "@lucide/svelte/icons/zap";
-  import { app, deviceUses, edit, deviceName, matchesDevice, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
+  import { app, createSheet, deviceUses, edit, deviceName, matchesDevice, moveSheet, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
+  import { childSheets, descendants, offReason, rootSheet } from "../lib/tree";
   import Segmented from "./controls/Segmented.svelte";
   import { confirmDialog, promptDialog } from "../lib/dialog.svelte";
   import { posKey, type Sheet } from "../lib/types";
@@ -52,11 +52,26 @@
       .sort((a, b) => deviceName(a).localeCompare(deviceName(b))),
   );
 
+  /** Where a new sheet goes: inside the open sheet (the root while a sub-sheet is open). */
+  const newSheetParent = $derived.by(() => {
+    const open = snapshot.sheets.find((s) => s.id === app.sheetId);
+    return open && !open.subsheet ? open : rootSheet(snapshot) ?? null;
+  });
+
+  /** A new sheet inside the open one, its node placed right of what is there. */
   async function addSheet() {
-    const name = newSheet.trim() || `Sheet ${snapshot.sheets.length + 1}`;
+    const name = newSheet.trim() || `Sheet ${snapshot.sheets.length}`;
     newSheet = "";
-    const results = await edit([{ type: "createSheet", name }]);
-    if (results?.[0]) app.sheetId = results[0] as string;
+    const parent = newSheetParent;
+    const nodes = parent?.nodes ?? [];
+    const right = nodes.length ? Math.max(...nodes.map((n) => n.x ?? 0)) + 260 : 40;
+    const top = nodes.length ? Math.min(...nodes.map((n) => n.y ?? 0)) : 40;
+    await createSheet(parent, name, { x: right, y: top });
+  }
+
+  async function addSubsheet() {
+    const results = await edit([{ type: "createSheet", name: `Sub-sheet ${snapshot.sheets.filter((s) => s.subsheet).length + 1}`, subsheet: true }]);
+    if (results?.[0]) openSheet(results[0] as string);
   }
 
   /** Pastes a sheet copied with "Copy as JSON" (from this or another world) as a new sheet. */
@@ -88,9 +103,14 @@
 
   async function deleteSheet(sheet: Sheet) {
     const nodes = sheet.nodes?.length ?? 0;
+    const inside = descendants(snapshot, sheet).length;
+    const parts = [
+      nodes ? `its ${nodes} node${nodes === 1 ? "" : "s"} and their wires` : "",
+      inside ? `the ${inside} sheet${inside === 1 ? "" : "s"} inside it` : "",
+    ].filter(Boolean);
     const ok = await confirmDialog({
       title: `Delete the sheet “${sheet.name}”?`,
-      message: nodes ? `Its ${nodes} node${nodes === 1 ? "" : "s"} and their wires go with it.` : undefined,
+      message: parts.length ? `${parts.join(" and ")[0].toUpperCase()}${parts.join(" and ").slice(1)} go with it.` : undefined,
       confirm: "Delete sheet",
       danger: true,
     });
@@ -108,47 +128,48 @@
       expression === null ? "delete filter template" : "filter template");
   }
 
-  // ---------------------------------------------------------------- folders
+  // ---------------------------------------------------------------- the sheet tree
 
-  type Row = { type: "folder"; path: string; name: string; depth: number } | { type: "sheet"; sheet: Sheet; depth: number };
+  type Row = { sheet: Sheet; depth: number; children: number };
 
   let collapsed = $state(new Set<string>());
 
-  /** Folders (from the sheets' folder paths) and sheets, as an indented list; folders first, then sheets. */
+  /** The tree as an indented list: the root, then each sheet followed by the ones inside it (by name). */
   const rows = $derived.by(() => {
-    const folders = new Set<string>();
-    for (const sheet of snapshot.sheets) {
-      const parts = (sheet.folder ?? "").split("/").filter(Boolean);
-      for (let i = 1; i <= parts.length; i++) folders.add(parts.slice(0, i).join("/"));
-    }
     const out: Row[] = [];
-    const add = (parent: string, depth: number) => {
-      const children = [...folders]
-        .filter((f) => (parent ? f.startsWith(parent + "/") && !f.slice(parent.length + 1).includes("/") : !f.includes("/")))
-        .sort((a, b) => a.localeCompare(b));
-      for (const folder of children) {
-        out.push({ type: "folder", path: folder, name: folder.split("/").pop()!, depth });
-        if (!collapsed.has(folder)) add(folder, depth + 1);
-      }
-      for (const sheet of snapshot.sheets.filter((x) => (x.folder ?? "") === parent)) out.push({ type: "sheet", sheet, depth });
+    const root = rootSheet(snapshot);
+    if (!root) return out;
+    const add = (sheet: Sheet, depth: number) => {
+      const children = childSheets(snapshot, sheet.id);
+      out.push({ sheet, depth, children: children.length });
+      if (!collapsed.has(sheet.id) && depth < 32) for (const child of children) add(child, depth + 1);
     };
-    add("", 0);
+    add(root, 0);
     return out;
   });
 
-  /** A folder, or a sheet's folder, is off when it or any folder above it is switched off. */
-  function folderOff(path: string): boolean {
-    const parts = path.split("/").filter(Boolean);
-    for (let i = 1; i <= parts.length; i++) {
-      if (snapshot.disabledFolders.includes(parts.slice(0, i).join("/"))) return true;
-    }
-    return false;
+  const subsheets = $derived(snapshot.sheets.filter((s) => s.subsheet).sort((a, b) => a.name.localeCompare(b.name)));
+
+  function toggleCollapsed(id: string) {
+    const next = new Set(collapsed);
+    next.has(id) ? next.delete(id) : next.add(id);
+    collapsed = next;
   }
 
-  function toggleCollapsed(path: string) {
-    const next = new Set(collapsed);
-    next.has(path) ? next.delete(path) : next.add(path);
-    collapsed = next;
+  // Dragging a sheet onto another moves it inside that one.
+  let dragged = $state<string | null>(null);
+  let dropOn = $state<string | null>(null);
+
+  function canDrop(target: Sheet): boolean {
+    const sheet = snapshot.sheets.find((s) => s.id === dragged);
+    return !!sheet && sheet.id !== target.id && sheet.parent !== target.id && !descendants(snapshot, sheet).includes(target);
+  }
+
+  function dropSheet(target: Sheet) {
+    const sheet = snapshot.sheets.find((s) => s.id === dragged);
+    dragged = null;
+    dropOn = null;
+    if (sheet && canDrop(target)) moveSheet(sheet, target);
   }
 
   function dragDevice(e: DragEvent, key: string) {
@@ -161,67 +182,109 @@
   <section class="p-3">
     <h2 class="panel-title mb-2">Sheets</h2>
     <ul class="flex flex-col gap-0.5">
-      {#each rows as row (row.type === "folder" ? `f:${row.path}` : row.sheet.id)}
-        {#if row.type === "folder"}
-          <li class="flex items-center gap-1.5 rounded-md py-1 pr-2" style="padding-left: {row.depth * 14 + 4}px">
+      {#each rows as row (row.sheet.id)}
+        {@const sheet = row.sheet}
+        {@const off = offReason(snapshot, sheet, app.sheetsOff)}
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <li
+          class="group flex items-center gap-1.5 rounded-md py-1 pr-2"
+          class:drop-target={dropOn === sheet.id}
+          style="padding-left: {row.depth * 14 + 4}px; {sheet.id === app.sheetId ? 'background: var(--panel-2)' : ''}"
+          draggable={canEdit && !sheet.root}
+          ondragstart={(e) => {
+            dragged = sheet.id;
+            e.dataTransfer?.setData("application/x-reticulum-sheet", sheet.id);
+            e.dataTransfer!.effectAllowed = "move";
+          }}
+          ondragend={() => ((dragged = null), (dropOn = null))}
+          ondragover={(e) => {
+            if (dragged && canDrop(sheet)) {
+              e.preventDefault();
+              dropOn = sheet.id;
+            }
+          }}
+          ondragleave={() => dropOn === sheet.id && (dropOn = null)}
+          ondrop={(e) => {
+            e.preventDefault();
+            dropSheet(sheet);
+          }}
+        >
+          {#if row.children}
             <button
-              class="flex w-4 justify-center muted"
-              onclick={() => toggleCollapsed(row.path)}
-              title={collapsed.has(row.path) ? "Expand" : "Collapse"}
-              aria-label={`${collapsed.has(row.path) ? "Expand" : "Collapse"} ${row.name}`}
-              aria-expanded={!collapsed.has(row.path)}
-              >{#if collapsed.has(row.path)}<ChevronRight size={14} />{:else}<ChevronDown size={14} />{/if}</button
+              class="flex w-4 shrink-0 justify-center muted"
+              onclick={() => toggleCollapsed(sheet.id)}
+              title={collapsed.has(sheet.id) ? "Expand" : "Collapse"}
+              aria-label={`${collapsed.has(sheet.id) ? "Expand" : "Collapse"} ${sheet.name}`}
+              aria-expanded={!collapsed.has(sheet.id)}
+              >{#if collapsed.has(sheet.id)}<ChevronRight size={14} />{:else}<ChevronDown size={14} />{/if}</button
             >
-            <Switch
-              hideLabel
-              label={`Folder ${row.name} on/off: every sheet in it`}
-              checked={!snapshot.disabledFolders.includes(row.path)}
-              disabled={!canEdit}
-              onchange={(on) =>
-                edit(
-                  [{ type: "setFolderEnabled", folder: row.path, enabled: on }],
-                  [{ type: "setFolderEnabled", folder: row.path, enabled: !snapshot.disabledFolders.includes(row.path) }],
-                  "folder on/off",
-                )}
-            />
-            <span class="flex min-w-0 items-center gap-1 truncate font-medium" class:muted={folderOff(row.path)}><Folder size={14} class="shrink-0 muted" /><span class="trim-text truncate">{row.name}</span></span>
-          </li>
-        {:else}
-          {@const sheet = row.sheet}
-          <li
-            class="group flex items-center gap-2 rounded-md py-1 pr-2"
-            style="padding-left: {row.depth * 14 + 8}px; {sheet.id === app.sheetId ? 'background: var(--panel-2)' : ''}"
-          >
-            <Switch hideLabel label={`Sheet ${sheet.name} on/off`} checked={sheet.enabled !== false} disabled={!canEdit} onchange={(on) => setSheetEnabled(sheet, on)} />
-            {#if renaming === sheet.id}
-              <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
-            {:else}
-              <button
-                class="flex min-w-0 flex-1 items-center gap-1 text-left"
-                class:muted={sheet.enabled === false || folderOff(sheet.folder ?? "") || app.sheetsOff.includes(sheet.id)}
-                onclick={() => openSheet(sheet.id)}
-                ondblclick={() => canEdit && (renaming = sheet.id)}
-                title={sheet.subsheet ? "Sub-sheet: runs only where it is placed. Double-click to rename." : "Double-click to rename"}
-              >
-                {#if sheet.subsheet}<Layers size={14} class="shrink-0 muted" />{/if}<span class="trim-text truncate">{sheet.name}</span>
-                {#if app.sheetsOff.includes(sheet.id)}<span class="shrink-0 text-signal" title="Switched off by redstone"><Zap size={12} /></span>{/if}
-                {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
-              </button>
-            {/if}
-            {#if canEdit}
-              <RemoveButton reveal label={`Delete sheet ${sheet.name}`} onclick={() => deleteSheet(sheet)} />
-            {/if}
-          </li>
-        {/if}
+          {:else}
+            <span class="w-4 shrink-0"></span>
+          {/if}
+          <Switch
+            hideLabel
+            label={sheet.root ? "The network on/off" : `Sheet ${sheet.name} on/off: everything in it`}
+            checked={sheet.enabled !== false}
+            disabled={!canEdit}
+            onchange={(on) => setSheetEnabled(sheet, on)}
+          />
+          {#if renaming === sheet.id}
+            <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
+          {:else}
+            <button
+              class="flex min-w-0 flex-1 items-center gap-1 text-left"
+              class:font-medium={sheet.root}
+              class:muted={off !== null}
+              onclick={() => openSheet(sheet.id)}
+              ondblclick={() => canEdit && (renaming = sheet.id)}
+              title={sheet.root ? "The network's top sheet. Double-click to rename." : "Double-click to rename; drag onto another sheet to move it inside"}
+            >
+              <span class="trim-text truncate">{sheet.name}</span>
+              {#if off?.kind === "gate"}<span class="shrink-0 text-signal" title="Switched off by a gate or redstone"><Zap size={12} /></span>{/if}
+              {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
+            </button>
+          {/if}
+          {#if canEdit && !sheet.root}
+            <RemoveButton reveal label={`Delete sheet ${sheet.name}`} onclick={() => deleteSheet(sheet)} />
+          {/if}
+        </li>
       {/each}
     </ul>
-    <p class="mt-1 text-xs muted">Put sheets in folders from their settings (the inspector with nothing selected).</p>
     {#if canEdit}
       <form class="mt-2 flex gap-2" onsubmit={(e) => (e.preventDefault(), addSheet())}>
-        <input class="flex-1" placeholder="New sheet" bind:value={newSheet} />
+        <input class="min-w-0 flex-1" placeholder={`New sheet in ${newSheetParent?.name ?? "the network"}`} bind:value={newSheet} />
         <button class="btn" type="submit">Add</button>
       </form>
       <button class="btn mt-2 text-sm" onclick={importSheet} title="Paste a sheet copied with “Copy as JSON”">Import sheet…</button>
+    {/if}
+
+    <h2 class="panel-title mt-4 mb-2">Sub-sheets</h2>
+    <ul class="flex flex-col gap-0.5">
+      {#each subsheets as sheet (sheet.id)}
+        <li class="group flex items-center gap-1.5 rounded-md py-1 pr-2 pl-2" style={sheet.id === app.sheetId ? "background: var(--panel-2)" : ""}>
+          {#if renaming === sheet.id}
+            <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
+          {:else}
+            <button
+              class="flex min-w-0 flex-1 items-center gap-1 text-left"
+              onclick={() => openSheet(sheet.id)}
+              ondblclick={() => canEdit && (renaming = sheet.id)}
+              title="Runs only where it is placed. Double-click to rename."
+            >
+              <Layers size={14} class="shrink-0 muted" /><span class="trim-text truncate">{sheet.name}</span>
+              {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
+            </button>
+          {/if}
+          {#if canEdit}
+            <RemoveButton reveal label={`Delete sub-sheet ${sheet.name}`} onclick={() => deleteSheet(sheet)} />
+          {/if}
+        </li>
+      {:else}
+        <li class="text-xs muted">None yet. A sub-sheet is used by placing copies of it, like one node.</li>
+      {/each}
+    </ul>
+    {#if canEdit}
+      <button class="btn mt-2 text-sm" onclick={addSubsheet}>New sub-sheet</button>
     {/if}
   </section>
 
@@ -299,3 +362,10 @@
     {/if}
   </section>
 </aside>
+
+<style>
+  .drop-target {
+    outline: 1px dashed var(--accent);
+    outline-offset: -1px;
+  }
+</style>

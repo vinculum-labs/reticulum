@@ -3,7 +3,7 @@
 import type { Edge, Node } from "@xyflow/svelte";
 import type { Device, GlobalPos, GraphNode, MeUsage, Resource, Sheet, Wire } from "./types";
 export type { MeUsage };
-import { GATE, pinName, posKey, sheetPins } from "./types";
+import { GATE, pinName, pinSlot, posKey, sheetPins } from "./types";
 import { RESOURCE_VAR, formatRate, isSignal } from "./kinds";
 
 export interface NodeData extends Record<string, unknown> {
@@ -15,8 +15,8 @@ export interface NodeData extends Record<string, unknown> {
   fiveMinutes: number;
   /** Why it moved nothing on its last attempt. */
   status?: string;
-  /** For a sub-sheet node: the sheet it copies and its pin names. */
-  subsheet?: { sheet?: Sheet; inputs: string[]; outputs: string[] };
+  /** For a sheet or sub-sheet node: the sheet it holds (or copies) and its pins, in order. */
+  holder?: { sheet?: Sheet; inputs: HolderPin[]; outputs: HolderPin[]; problems: number };
   /** For a signal node: its output as last reported. */
   signal?: number;
   /** A wire is plugged into its gate (the gate pin shows only then, or on hover). */
@@ -24,6 +24,21 @@ export interface NodeData extends Record<string, unknown> {
   /** What is wrong with it, one error per line, as the server compiled the sheet. */
   problem?: string;
 
+}
+
+/** One pin of a sheet or sub-sheet node: its name, the slot wires attach by, and what it carries (none: anything). */
+export interface HolderPin {
+  name: string;
+  slot: number;
+  resource?: Resource;
+}
+
+/** A sheet's pins as its node shows them: its Sheet input (or output) nodes in order, each with its slot. */
+export function holderPins(sheet: Sheet | undefined, input: boolean): HolderPin[] {
+  return sheetPins(sheet, input).map((pin, i) => {
+    const s = pin.settings;
+    return { name: pinName(pin, i), slot: pinSlot(pin, i), resource: s.kind === "sheet_input" || s.kind === "sheet_output" ? s.resource : undefined };
+  });
 }
 
 export interface Activity {
@@ -68,7 +83,7 @@ export function upstreamDevices(sheet: Sheet, nodeId: string): GlobalPos[] {
  * Which resource each wire carries: what its source or device output emits, passed on through filters, rate
  * limits and the like. Also returns a resource per node for coloring.
  */
-export function resources(sheet: Sheet): { wires: Map<string, Resource>; nodes: Map<string, Resource> } {
+export function resources(sheet: Sheet, sheets: Sheet[] = []): { wires: Map<string, Resource>; nodes: Map<string, Resource> } {
   const wires = new Map<string, Resource>();
   const nodes = new Map<string, Resource>();
   const byId = new Map((sheet.nodes ?? []).map((n) => [n.id, n]));
@@ -94,9 +109,19 @@ export function resources(sheet: Sheet): { wires: Map<string, Resource>; nodes: 
       }
     }
   };
+  const flows = (r: Resource | undefined): r is Resource => !!r && r !== "redstone" && r !== "me";
   for (const n of sheet.nodes ?? []) {
     const s = n.settings;
-    if (s.kind === "device") (s.outputs ?? []).forEach((o, i) => o.resource !== "redstone" && o.resource !== "me" && emit(n.id, o.resource, i));
+    if (s.kind === "device") (s.outputs ?? []).forEach((o, i) => flows(o.resource) && emit(n.id, o.resource, i));
+    // A typed pin into this sheet brings its resource in; a sheet node's typed outputs bring theirs out.
+    if (s.kind === "sheet_input" && flows(s.resource)) {
+      nodes.set(n.id, s.resource);
+      emit(n.id, s.resource);
+    }
+    if (s.kind === "sheet" || s.kind === "subsheet") {
+      const held = sheets.find((x) => x.id === s.sheet);
+      for (const pin of holderPins(held, false)) if (flows(pin.resource)) emit(n.id, pin.resource, pin.slot);
+    }
   }
   while (queue.length) {
     const [id, resource] = queue.shift()!;
@@ -105,16 +130,25 @@ export function resources(sheet: Sheet): { wires: Map<string, Resource>; nodes: 
   return { wires, nodes };
 }
 
-/** What a device node's input or output pin carries (null for other nodes). */
-export function pinResource(node: GraphNode | undefined, direction: "in" | "out", index: number): Resource | null {
+/**
+ * What a pin carries: a device node's input or output; a sheet or sub-sheet node's pin by slot (from the sheet it
+ * holds, in {@code sheets}); a Sheet input's output or Sheet output's input. Null when it isn't fixed.
+ */
+export function pinResource(node: GraphNode | undefined, direction: "in" | "out", index: number, sheets: Sheet[] = []): Resource | null {
   const s = node?.settings;
-  if (s?.kind !== "device") return null;
-  return (direction === "in" ? s.inputs?.[index]?.resource : s.outputs?.[index]?.resource) ?? null;
+  if (s?.kind === "device") return (direction === "in" ? s.inputs?.[index]?.resource : s.outputs?.[index]?.resource) ?? null;
+  if (s?.kind === "sheet" || s?.kind === "subsheet") {
+    const held = sheets.find((x) => x.id === s.sheet);
+    return holderPins(held, direction === "in").find((p) => p.slot === index)?.resource ?? null;
+  }
+  if ((s?.kind === "sheet_input" && direction === "out") || (s?.kind === "sheet_output" && direction === "in")) return s.resource ?? null;
+  return null;
 }
 
-/** Kinds whose inputs and outputs are numbered pins ("in:0", "out:1"). */
+/** Kinds whose inputs and outputs are numbered pins ("in:0", "out:1"); a sheet node's numbers are its pins' slots. */
 function numbered(node: GraphNode | undefined): boolean {
-  return node?.settings.kind === "device" || node?.settings.kind === "subsheet" || isSignal(node?.settings.kind);
+  const kind = node?.settings.kind;
+  return kind === "device" || kind === "sheet" || kind === "subsheet" || isSignal(kind);
 }
 
 export function sourceHandle(node: GraphNode | undefined, output: number): string {
@@ -136,6 +170,21 @@ export function handleIndex(handle: string | null | undefined): number {
   return match ? Number(match[1]) : 0;
 }
 
+/** Problems in a sheet and every sheet inside it, for its node's badge. */
+function problemsInside(sheets: Sheet[], sheet: Sheet): number {
+  let count = 0;
+  const todo = [sheet];
+  const seen = new Set<string>();
+  while (todo.length) {
+    const at = todo.shift()!;
+    if (seen.has(at.id)) continue;
+    seen.add(at.id);
+    count += at.errors?.length ?? 0;
+    todo.push(...sheets.filter((x) => x.parent === at.id));
+  }
+  return count;
+}
+
 export function toFlow(
   sheet: Sheet,
   sheets: Sheet[],
@@ -147,7 +196,7 @@ export function toFlow(
 ): { nodes: Node<NodeData>[]; edges: Edge[] } {
   const rates = activity.rates;
   const byKey = new Map(devices.map((d) => [posKey(d.pos), d]));
-  const kinds = resources(sheet);
+  const kinds = resources(sheet, sheets);
   const problems = new Map<string, string>();
   for (const error of sheet.errors ?? []) {
     if (error.node) problems.set(error.node, problems.has(error.node) ? `${problems.get(error.node)}\n${error.message}` : error.message);
@@ -155,13 +204,14 @@ export function toFlow(
   const nodes: Node<NodeData>[] = (sheet.nodes ?? []).map((n) => {
     const s = n.settings;
     const device = "device" in s ? byKey.get(posKey(s.device)) : undefined;
-    let subsheet: NodeData["subsheet"];
-    if (s.kind === "subsheet") {
+    let holder: NodeData["holder"];
+    if (s.kind === "subsheet" || s.kind === "sheet") {
       const used = sheets.find((x) => x.id === s.sheet);
-      subsheet = {
+      holder = {
         sheet: used,
-        inputs: sheetPins(used, true).map(pinName),
-        outputs: sheetPins(used, false).map(pinName),
+        inputs: holderPins(used, true),
+        outputs: holderPins(used, false),
+        problems: s.kind === "sheet" && used ? problemsInside(sheets, used) : 0,
       };
     }
     return {
@@ -176,10 +226,11 @@ export function toFlow(
         rate: rates[n.id] ?? 0,
         fiveMinutes: activity.fiveMinutes[n.id] ?? 0,
         status: activity.status[n.id],
-        subsheet,
+        holder,
         signal: isSignal(s.kind) ? (activity.signals[n.id] ?? 0) : undefined,
         gateWired: (sheet.wires ?? []).some((w) => w.to === n.id && (w.input ?? 0) === GATE) || undefined,
-        problem: problems.get(n.id),
+        // A sheet node also shows what is wrong inside its sheet (open it to see).
+        problem: problems.get(n.id) ?? (holder?.problems ? `${holder.problems} problem${holder.problems === 1 ? "" : "s"} inside this sheet` : undefined),
       },
     };
   });
@@ -194,9 +245,9 @@ export function toFlow(
     const rate = rates[w.id] ?? 0;
     const resource = kinds.wires.get(w.id) ?? null;
     const fromNode = byId.get(w.from);
-    const signal = isSignal(fromNode?.settings.kind) || pinResource(fromNode, "out", w.output ?? 0) === "redstone";
+    const signal = isSignal(fromNode?.settings.kind) || pinResource(fromNode, "out", w.output ?? 0, sheets) === "redstone";
     const on = signal && (activity.signals[isSignal(fromNode?.settings.kind) ? w.from : `${w.from}/out/${w.output ?? 0}`] ?? 0) > 0;
-    const pin = pinResource(fromNode, "out", w.output ?? 0);
+    const pin = pinResource(fromNode, "out", w.output ?? 0, sheets);
     const color = signal || pin === "redstone" ? "var(--c-signal)" : pin === "me" ? "var(--c-me)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
     return {
       id: w.id,

@@ -17,7 +17,10 @@
     type Node,
     type Connection,
   } from "@xyflow/svelte";
-  import { app, currentSheet, deviceAt, edit, resync, toast, uuid, holdMetrics, setWireStyle, WIRE_STYLE_LABEL, type WireStyle } from "../../lib/state.svelte";
+  import { app, createSheet, currentSheet, deviceAt, edit, openSheet, resync, toast, uuid, holdMetrics, setWireStyle, WIRE_STYLE_LABEL, type WireStyle } from "../../lib/state.svelte";
+  import { confirmDialog } from "../../lib/dialog.svelte";
+  import { heldSheet, descendants } from "../../lib/tree";
+  import Breadcrumbs from "./Breadcrumbs.svelte";
   import { handleIndex, pinResource, toFlow, type NodeData } from "../../lib/graph";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Wire } from "../../lib/types";
@@ -149,20 +152,24 @@
   }
 
   /**
-   * Signals go into signal inputs or a node's gate; resources go into resource inputs. Sheet pins carry either,
-   * so they are left to the server to check.
+   * Signals go into signal inputs or a node's gate; resources go into resource inputs. A sheet's pins carry what
+   * their type says; an untyped pin carries anything, so the server checks those.
    */
   function validConnection(c: Connection | Edge): boolean {
     const from = nodeOf(c.source);
     const to = nodeOf(c.target);
     if (!from || !to || c.source === c.target) return false;
-    const pin = (k: string) => k === "sheet_input" || k === "sheet_output";
-    // What each end carries: a device pin's resource, "signal" for signal nodes, "flow" for routing nodes.
-    const fromPin = pinResource(from, "out", handleIndex(c.sourceHandle));
-    const toPin = c.targetHandle === "gate" ? "signal" : pinResource(to, "in", handleIndex(c.targetHandle));
+    const sheets = app.snapshot?.sheets ?? [];
+    const untypedPin = (node: GraphNode, p: Resource | null) =>
+      !p && ["sheet_input", "sheet_output", "sheet", "subsheet"].includes(node.settings.kind);
+    // What each end carries: a pin's resource, "signal" for signal nodes, "flow" for routing nodes.
+    const fromPin = pinResource(from, "out", handleIndex(c.sourceHandle), sheets);
+    const toPin = c.targetHandle === "gate" ? "signal" : pinResource(to, "in", handleIndex(c.targetHandle), sheets);
     const kindOf = (node: GraphNode, p: Resource | null | "signal") =>
       p === "redstone" || p === "signal" ? "signal" : p === "me" ? "me" : p ? "flow" : isSignal(node.settings.kind) ? "signal" : "flow";
-    if (pin(from.settings.kind) || pin(to.settings.kind)) return true;
+    if (untypedPin(from, fromPin) || (toPin !== "signal" && untypedPin(to, toPin))) return true;
+    // Two typed resource pins must carry the same thing.
+    if (fromPin && toPin && toPin !== "signal" && kindOf(from, fromPin) === "flow" && kindOf(to, toPin) === "flow") return fromPin === toPin;
     return kindOf(from, fromPin) === kindOf(to, toPin);
   }
 
@@ -175,8 +182,26 @@
     await edit([{ type: "connect", sheet: sheet.id, wire }], [{ type: "disconnect", sheet: sheet.id, wire: wire.id }], "connect");
   }
 
+  /**
+   * Deletes what was selected. A sheet node takes its sheet and everything in it along, which can't be undone, so it
+   * asks first; the rest is undoable as usual.
+   */
   async function remove({ nodes: gone, edges: cut }: { nodes: Node[]; edges: Edge[] }) {
     if (!sheet) return;
+    const held = gone.map((n) => heldSheet(app.snapshot, nodeOf(n.id))).filter((x): x is NonNullable<typeof x> => !!x);
+    if (held.length) {
+      const inside = held.reduce((count, h) => count + descendants(app.snapshot!, h).length, 0);
+      const ok = await confirmDialog({
+        title: held.length === 1 ? `Delete the sheet “${held[0].name}”?` : `Delete ${held.length} sheets?`,
+        message: `Everything in ${held.length === 1 ? "it" : "them"}${inside ? `, ${inside} sheet${inside === 1 ? "" : "s"} inside included,` : ""} goes too. This can't be undone.`,
+        confirm: held.length === 1 ? "Delete sheet" : "Delete sheets",
+        danger: true,
+      });
+      if (!ok) {
+        resync.count++;
+        return;
+      }
+    }
     const goneIds = new Set(gone.map((n) => n.id));
     const edits: Edit[] = [];
     const undo: Edit[] = [];
@@ -184,7 +209,8 @@
       const node = nodeOf(n.id);
       if (!node) continue;
       edits.push({ type: "removeNode", sheet: sheet.id, node: n.id });
-      undo.push({ type: "addNode", sheet: sheet.id, node });
+      // A sheet node can't come back (its sheet is gone with it).
+      if (node.settings.kind !== "sheet") undo.push({ type: "addNode", sheet: sheet.id, node });
     }
     // Restore every wire that touched a removed node, plus wires cut on their own.
     for (const w of sheet.wires ?? []) {
@@ -221,6 +247,15 @@
 
   async function addNode(kind: NodeKind, at: { x: number; y: number }, device: Device | null = null) {
     if (!sheet) return;
+    if (kind === "sheet") {
+      // A new sheet inside this one, its node where asked; it stays closed until double-clicked.
+      const id = await createSheet(sheet, `Sheet ${app.snapshot?.sheets.length ?? 1}`, at, false);
+      if (id) {
+        const placed = app.snapshot?.sheets.find((s) => s.id === id)?.node;
+        if (placed) app.selectedNodes = [placed];
+      }
+      return;
+    }
     const needsDevice = kind === "device" || kind === "level";
     if (needsDevice && !device) {
       device = (app.selectedDevice && deviceAt(app.selectedDevice)) || app.snapshot?.devices.find((d) => d.state === "active") || null;
@@ -278,17 +313,19 @@
     "rate_limit",
     "splitter",
     "kit",
+    // Sheets go inside sheets in the tree, never inside a sub-sheet.
+    ...(sheet?.subsheet ? [] : (["sheet"] as NodeKind[])),
     ...(subsheets.length ? (["subsheet"] as NodeKind[]) : []),
-    ...(sheet?.subsheet ? (["sheet_input", "sheet_output"] as NodeKind[]) : []),
+    // The root has no edge to pin: nothing is outside it.
+    ...(sheet && !sheet.root ? (["sheet_input", "sheet_output"] as NodeKind[]) : []),
   ]);
 
-  /** Double-click a sub-sheet node to open the sheet it copies. */
+  /** Double-click a sheet node to open its sheet, or a sub-sheet node to open the sub-sheet it copies. */
   function nodeClick({ node, event }: { node: Node<NodeData>; event: MouseEvent | TouchEvent }) {
     const s = node.data.node.settings;
-    if (event instanceof MouseEvent && event.detail === 2 && s.kind === "subsheet" && app.snapshot?.sheets.some((x) => x.id === s.sheet)) {
-      app.sheetId = s.sheet;
-      app.selectedNodes = [];
-      app.selectedEdges = [];
+    if (event instanceof MouseEvent && event.detail === 2 && (s.kind === "subsheet" || s.kind === "sheet")
+        && app.snapshot?.sheets.some((x) => x.id === s.sheet)) {
+      openSheet(s.sheet);
     }
   }
 
@@ -390,6 +427,11 @@
             <SparklesIcon size={14} />Tidy up
           </button>
         </div>
+      </Panel>
+    {/if}
+    {#if sheet && app.snapshot && (!sheet.root || sheet.subsheet)}
+      <Panel position="top-right">
+        <Breadcrumbs {sheet} snapshot={app.snapshot} />
       </Panel>
     {/if}
     {#if sheet && app.snapshot}
