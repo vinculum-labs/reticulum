@@ -47,9 +47,13 @@
           : "var(--muted)",
   );
   const holds = $derived(kind === "sheet" || kind === "copy");
+  /** A Level sensor reads a device: titled as a sensor, the device it reads named below. */
+  const sensor = $derived(kind === "level");
   const title = $derived(
     data.node.label ||
-      (data.slot && !data.device
+      (sensor
+        ? KIND_LABEL.level
+        : data.slot && !data.device
         ? `${blockName(data.slot.block)} slot`
         : data.device
         ? deviceName(data.device)
@@ -186,7 +190,7 @@
       : '0 1px 3px rgb(0 0 0 / 0.25)'}; opacity: {disabled ? 0.5 : 1}"
 >
   <div class="group flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
-    {#if data.device}
+    {#if data.device && !sensor}
       <DeviceIcon item={data.device.icon} size={16} />
     {:else if data.slot?.block}
       <!-- A slot shows the kind of block it takes, faded until a block fills it. -->
@@ -211,7 +215,7 @@ ${idleTitle}` : idleTitle}
           {data.slot.filled === undefined ? "slot" : data.slot.filled ? `fills a slot${data.slot.turns ? `, turned ${(data.slot.turns % 4) * 90}°` : ""}` : "empty slot"}
         {:else if signal}
           <span class="tabular-nums" style="color: {(data.signal ?? 0) > 0 ? color : 'var(--muted)'}">{data.signal ?? 0}</span>
-          · {summary(data.node, app.rateUnit)}
+          · {sensor && data.device ? `${deviceName(data.device)} · ` : ""}{summary(data.node, app.rateUnit)}
         {:else if data.rate > 0}
           <span class="tabular-nums" style="color: {color}">{formatRate(data.rate, data.resource, app.rateUnit)}</span>
         {:else if data.status}
