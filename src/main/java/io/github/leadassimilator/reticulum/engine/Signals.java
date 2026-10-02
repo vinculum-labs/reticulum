@@ -59,6 +59,8 @@ final class Signals {
     private final Map<String, Verdict> verdicts = new HashMap<>();
     /** Nodes switched off by redstone this tick, and nodes whose pulse fired this tick. */
     private final Set<UUID> off = new HashSet<>();
+    /** Sheet nodes that were off at the end of last tick: the logic in their sheets sleeps this tick. */
+    private Set<UUID> asleep = Set.of();
     private final Set<UUID> pulsed = new HashSet<>();
 
     enum Verdict {
@@ -184,18 +186,65 @@ final class Signals {
         Set<UUID> worked = new HashSet<>();
         for (List<CompiledSheet> group : List.of(sheets, dormant)) {
             for (CompiledSheet sheet : group) {
+                // Switched-off sheets: their own switch, or a gate or redstone on their node as of last tick.
+                Set<UUID> sleeping = new HashSet<>(sheet.disabledHolders());
+                sleeping.addAll(asleep);
+                Set<UUID> slept = new HashSet<>();
                 for (CompiledSheet.SignalNode node : sheet.signals()) {
-                    values.put(node.node().id(), output(ctx, sheet, node, publishing, group == sheets ? emit : dark));
-                    worked.add(node.node().id());
+                    UUID id = node.node().id();
+                    if (!sheet.keepRunning().contains(id) && sheet.inside(id, sleeping)) {
+                        values.put(id, whileOff(sheet, node, group == sheets ? emit : dark));
+                        slept.add(id);
+                    } else {
+                        values.put(id, output(ctx, sheet, node, publishing, group == sheets ? emit : dark));
+                    }
+                    worked.add(id);
                 }
                 for (CompiledSheet.SignalNode node : sheet.signals()) {
-                    remember(ctx, node);
+                    if (!slept.contains(node.node().id())) {
+                        remember(ctx, node);
+                    }
                 }
             }
         }
         values.keySet().retainAll(worked);
         published = publishing;
         applyEmissions(ctx.server(), ctx.network(), emit);
+    }
+
+    /**
+     * A signal node in a switched-off sheet: it keeps its last value (outputs set to a fixed value give that), and a
+     * device's redstone input keeps giving its device what that value says.
+     */
+    private long whileOff(CompiledSheet sheet, CompiledSheet.SignalNode node, Map<Emit, Integer> emit) {
+        UUID id = node.node().id();
+        NodeSettings.OffBehavior behavior = sheet.whileOff(id);
+        long value = behavior != null && behavior.mode() == NodeSettings.WhileOff.FIXED ? behavior.value() : values.getOrDefault(id, 0L);
+        if (node.node().settings() instanceof NodeSettings.RedstoneOutSettings out) {
+            int level = (int) Math.max(0, Math.min(15, value));
+            if (out.faces().isEmpty()) {
+                emit.merge(new Emit(out.device(), null), level, Math::max);
+            } else {
+                for (FaceKey face : out.faces()) {
+                    if (face.direction() != null) {
+                        emit.merge(new Emit(out.device(), face.direction()), level, Math::max);
+                    }
+                }
+            }
+            return level;
+        }
+        return value;
+    }
+
+    /** After switching: the sheet nodes now off, whose sheets' logic sleeps next tick. */
+    void noteAsleep(CompiledSheet sheet) {
+        Set<UUID> now = new HashSet<>();
+        for (UUID holder : sheet.sheetNodes().values()) {
+            if (off.contains(holder)) {
+                now.add(holder);
+            }
+        }
+        asleep = now;
     }
 
     private long in(CompiledSheet.SignalNode node, int input) {
@@ -451,6 +500,8 @@ final class Signals {
 
     /** Works out which nodes of a sheet redstone switches off this tick, and which pulse. */
     void switchNodes(MinecraftServer server, Network network, CompiledSheet sheet) {
+        // Sheets switched off by their own switch: everything in them is off.
+        off.addAll(sheet.disabledHolders());
         for (Map.Entry<UUID, CompiledSheet.Condition> entry : sheet.conditions().entrySet()) {
             Verdict verdict = check(server, network, "node:" + entry.getKey(), entry.getValue().redstone(), entry.getValue().device());
             if (verdict == Verdict.OFF) {

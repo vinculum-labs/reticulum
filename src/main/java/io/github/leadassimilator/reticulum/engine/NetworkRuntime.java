@@ -213,6 +213,7 @@ public final class NetworkRuntime {
                     }
                 }
             }
+            signals.noteAsleep(sheet);
             noteSheetsOff(sheet);
         }
         refillTokens(sheets);

@@ -317,7 +317,7 @@ public final class CompiledSheet {
             for (int i = 0; i < device.inputs().size(); i++) {
                 NodeSettings.Input in = device.inputs().get(i);
                 NodeSettings settings = switch (in.resource()) {
-                    case REDSTONE -> new NodeSettings.RedstoneOutSettings(device.device(), in.faces());
+                    case REDSTONE -> new NodeSettings.RedstoneOutSettings(device.device(), in.faces(), in.whileOff());
                     case ME -> mePort(network, node, device.device(), in.faces(), "input " + (i + 1));
                     default -> null;
                 };
@@ -438,7 +438,7 @@ public final class CompiledSheet {
 
     /** Whether anything on the sheet can be switched by redstone, so the engine can skip the checks otherwise. */
     public boolean switchable() {
-        return !conditions.isEmpty() || !switchedBy.isEmpty();
+        return !conditions.isEmpty() || !switchedBy.isEmpty() || !disabledHolders.isEmpty();
     }
 
     /** Latches, counters and delays give what they remembered, so wires into them never make a loop. */
@@ -537,6 +537,30 @@ public final class CompiledSheet {
                 }
             }
         }
+        // What each signal output does while its sheet is off; those set to keep running keep their feeders working.
+        Map<UUID, SignalNode> byNode = new LinkedHashMap<>();
+        ordered.forEach(n -> byNode.put(n.node().id(), n));
+        for (SignalNode n : ordered) {
+            NodeSettings.OffBehavior behavior = switch (n.node().settings()) {
+                case NodeSettings.SheetPinSettings pin when !pin.input() -> pin.whileOff();
+                case NodeSettings.RedstoneOutSettings out -> out.whileOff();
+                default -> null;
+            };
+            if (behavior == null) {
+                continue;
+            }
+            whileOff.put(n.node().id(), behavior);
+            if (behavior.mode() == NodeSettings.WhileOff.RUN) {
+                java.util.ArrayDeque<UUID> todo = new java.util.ArrayDeque<>(List.of(n.node().id()));
+                while (!todo.isEmpty()) {
+                    SignalNode at = byNode.get(todo.poll());
+                    if (at == null || !keepRunning.add(at.node().id())) {
+                        continue;
+                    }
+                    at.inputs().forEach(todo::addAll);
+                }
+            }
+        }
         if (ordered.size() < carriers.size()) {
             Set<UUID> placed = new HashSet<>();
             ordered.forEach(n -> placed.add(n.node().id()));
@@ -567,6 +591,42 @@ public final class CompiledSheet {
 
     /** For every node pasted in from a child sheet: that sheet's sheet node. Not an owner: the node shows as itself. */
     private final Map<UUID, UUID> containers = new LinkedHashMap<>();
+    /** Sheet nodes whose own switch is off: what is in them is compiled but stays off. */
+    private final Set<UUID> disabledHolders = new java.util.HashSet<>();
+    /** Signal outputs (a sheet's output pins, devices' redstone inputs) by what they do while their sheet is off. */
+    private final Map<UUID, NodeSettings.OffBehavior> whileOff = new LinkedHashMap<>();
+    /** Signal nodes that keep working while their sheet is off: those feeding an output set to keep running. */
+    private final Set<UUID> keepRunning = new java.util.HashSet<>();
+
+    public Set<UUID> disabledHolders() {
+        return disabledHolders;
+    }
+
+    /** What a signal output does while its sheet is off (null for other signal nodes: they hold). */
+    @Nullable
+    public NodeSettings.OffBehavior whileOff(UUID node) {
+        return whileOff.get(node);
+    }
+
+    public Set<UUID> keepRunning() {
+        return keepRunning;
+    }
+
+    /** Whether a node sits in one of these sheet nodes' sheets (or in a sheet inside one of them). */
+    public boolean inside(UUID node, Set<UUID> holders) {
+        if (holders.isEmpty()) {
+            return false;
+        }
+        UUID current = node;
+        for (int hops = 0; current != null && hops < 256; hops++) {
+            if (holders.contains(current)) {
+                return true;
+            }
+            UUID next = owners.get(current);
+            current = next != null ? next : containers.get(current);
+        }
+        return false;
+    }
 
     /** Node ids of the sources and sinks a device node is made of, mapped back to the device node (for metrics). */
     private final Map<UUID, UUID> owners = new LinkedHashMap<>();
@@ -614,11 +674,15 @@ public final class CompiledSheet {
      */
     private void paste(Network network, List<Node> from, List<Node> out, List<Wire> wires, List<UUID> using, UUID on) {
         for (Node node : from) {
-            if (!node.enabled()) {
+            boolean child = node.settings() instanceof NodeSettings.SheetSettings;
+            // A switched-off sheet still compiles (marked off), so its signal outputs can hold while it is off.
+            if (!node.enabled() && !child) {
                 continue;
             }
+            if (!node.enabled()) {
+                disabledHolders.add(node.id());
+            }
             nodeSheet.putIfAbsent(node.id(), on);
-            boolean child = node.settings() instanceof NodeSettings.SheetSettings;
             if (!child && !(node.settings() instanceof NodeSettings.SubSheetSettings)) {
                 out.add(node);
                 continue;

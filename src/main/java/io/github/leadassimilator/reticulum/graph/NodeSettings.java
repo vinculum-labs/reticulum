@@ -195,13 +195,42 @@ public sealed interface NodeSettings {
         }
     }
 
-    /** One way into a device node: what it takes, through which faces, and when to stop. */
-    record Input(ResourceKind resource, List<FaceKey> faces, Optional<SlotRange> slots, List<Limit> caps) {
+    /** What a signal output does while the sheet it is in is switched off. */
+    enum WhileOff implements LowercaseName {
+        /** Stays at its last value (the logic feeding it stops with the sheet). */
+        HOLD,
+        /** Goes to a set value, 0 to 15. */
+        FIXED,
+        /** The logic feeding it keeps working as if the sheet were on. */
+        RUN;
+
+        public static final Codec<WhileOff> CODEC = StringRepresentable.fromEnum(WhileOff::values);
+    }
+
+    /** {@code mode}, and for {@link WhileOff#FIXED} the value it goes to. */
+    record OffBehavior(WhileOff mode, int value) {
+        public static final OffBehavior HOLD = new OffBehavior(WhileOff.HOLD, 0);
+        public static final Codec<OffBehavior> CODEC = RecordCodecBuilder.create(i -> i.group(
+                WhileOff.CODEC.optionalFieldOf("mode", WhileOff.HOLD).forGetter(OffBehavior::mode),
+                Codec.INT.optionalFieldOf("value", 0).forGetter(OffBehavior::value)
+        ).apply(i, OffBehavior::new));
+    }
+
+    /**
+     * One way into a device node: what it takes, through which faces, and when to stop. {@code whileOff}: for a
+     * redstone input (the redstone given to the device), what it gives while the node's sheet is switched off.
+     */
+    record Input(ResourceKind resource, List<FaceKey> faces, Optional<SlotRange> slots, List<Limit> caps, OffBehavior whileOff) {
+        public Input(ResourceKind resource, List<FaceKey> faces, Optional<SlotRange> slots, List<Limit> caps) {
+            this(resource, faces, slots, caps, OffBehavior.HOLD);
+        }
+
         public static final Codec<Input> CODEC = RecordCodecBuilder.create(i -> i.group(
                 ResourceKind.CODEC.fieldOf("resource").forGetter(Input::resource),
                 FaceKey.CODEC.listOf().optionalFieldOf("faces", List.of()).forGetter(Input::faces),
                 SlotRange.CODEC.optionalFieldOf("slots").forGetter(Input::slots),
-                Limit.CODEC.listOf().optionalFieldOf("caps", List.of()).forGetter(Input::caps)
+                Limit.CODEC.listOf().optionalFieldOf("caps", List.of()).forGetter(Input::caps),
+                OffBehavior.CODEC.optionalFieldOf("while_off", OffBehavior.HOLD).forGetter(Input::whileOff)
         ).apply(i, Input::new));
     }
 
@@ -278,9 +307,9 @@ public sealed interface NodeSettings {
      * the sheet's node attach by {@code slot}, a number fixed when the pin is made, so adding or removing a pin never
      * moves the wires on the others. {@code resource} is what it carries (empty: anything, as older pins did).
      */
-    record SheetPinSettings(boolean input, String name, Optional<ResourceKind> resource, int slot) implements NodeSettings {
+    record SheetPinSettings(boolean input, String name, Optional<ResourceKind> resource, int slot, OffBehavior whileOff) implements NodeSettings {
         public SheetPinSettings(boolean input, String name) {
-            this(input, name, Optional.empty(), -1);
+            this(input, name, Optional.empty(), -1, OffBehavior.HOLD);
         }
 
         public static final MapCodec<SheetPinSettings> INPUT_CODEC = codec(true);
@@ -290,12 +319,13 @@ public sealed interface NodeSettings {
             return RecordCodecBuilder.mapCodec(i -> i.group(
                     Codec.STRING.optionalFieldOf("name", "").forGetter(SheetPinSettings::name),
                     ResourceKind.CODEC.optionalFieldOf("resource").forGetter(SheetPinSettings::resource),
-                    Codec.INT.optionalFieldOf("slot", -1).forGetter(SheetPinSettings::slot)
-            ).apply(i, (name, resource, slot) -> new SheetPinSettings(input, name, resource, slot)));
+                    Codec.INT.optionalFieldOf("slot", -1).forGetter(SheetPinSettings::slot),
+                    OffBehavior.CODEC.optionalFieldOf("while_off", OffBehavior.HOLD).forGetter(SheetPinSettings::whileOff)
+            ).apply(i, (name, resource, slot, whileOff) -> new SheetPinSettings(input, name, resource, slot, whileOff)));
         }
 
         public SheetPinSettings withSlot(int slot) {
-            return new SheetPinSettings(input, name, resource, slot);
+            return new SheetPinSettings(input, name, resource, slot, whileOff);
         }
 
         @Override
@@ -344,7 +374,7 @@ public sealed interface NodeSettings {
      * Engine-internal form of a device's redstone input pin: the connectors touching the chosen faces (all of them
      * when none are chosen) give the device the pin's input, 0 to 15.
      */
-    record RedstoneOutSettings(GlobalPos device, List<FaceKey> faces) implements NodeSettings {
+    record RedstoneOutSettings(GlobalPos device, List<FaceKey> faces, OffBehavior whileOff) implements NodeSettings {
         @Override
         public Kind kind() {
             return Kind.REDSTONE_OUT;

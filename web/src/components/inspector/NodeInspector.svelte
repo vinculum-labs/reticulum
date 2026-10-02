@@ -37,6 +37,7 @@
   import Switch from "../controls/Switch.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
   import Select from "../controls/Select.svelte";
+  import WhileOffField from "./WhileOffField.svelte";
   import TextField from "../controls/TextField.svelte";
 
   let { node, sheet }: { node: GraphNode; sheet: Sheet } = $props();
@@ -296,6 +297,9 @@
         onchange={(v) => settings({ resource: (v || undefined) as Resource | undefined })}
       />
     </Field>
+    {#if s.kind === "sheet_output" && (!s.resource || s.resource === "redstone")}
+      <WhileOffField value={s.while_off} disabled={!canEdit} onchange={(while_off) => settings({ while_off })} />
+    {/if}
   {/if}
 
   {#if s.kind === "filter"}

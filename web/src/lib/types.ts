@@ -57,12 +57,21 @@ export interface Side {
   slots?: { first: number; last: number };
 }
 
+/** What a signal output does while its sheet is switched off. */
+export interface OffBehavior {
+  mode?: "hold" | "fixed" | "run";
+  /** For "fixed": 0 to 15. */
+  value?: number;
+}
+
 /** One way into a device node. */
 export interface DeviceInput {
   resource: Resource;
   faces?: Face[];
   slots?: { first: number; last: number };
   caps?: Limit[];
+  /** A redstone input: what it gives the device while the node's sheet is off. */
+  while_off?: OffBehavior;
 }
 
 /** One way out of a device node; the same options as a source. */
@@ -107,6 +116,8 @@ export interface SheetPinSettings {
   name?: string;
   resource?: Resource;
   slot?: number;
+  /** An output pin carrying signals: what it gives while this sheet is off. */
+  while_off?: OffBehavior;
 }
 
 // Signal nodes pass integers along signal wires; above 0 counts as on, and yes/no answers are 15 or 0.

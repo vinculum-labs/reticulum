@@ -1548,6 +1548,69 @@ public final class EngineTests {
         });
     }
 
+    /** A lever wired to a lamp on the test sheet, the lamp's input set to {@code whileOff}; the lamp is lit once it runs. */
+    private static Rig leverToLamp(GameTestHelper helper, NodeSettings.OffBehavior whileOff) {
+        Rig rig = rig(helper, Blocks.LEVER, Blocks.BARREL, Blocks.REDSTONE_LAMP);
+        helper.setBlock(rig.devices().get(0), lever(true));
+        Node in = rig.redstoneFrom(rig.device(0));
+        Node out = rig.node(new NodeSettings.DeviceSettings(rig.device(2),
+                List.of(new NodeSettings.Input(ResourceKind.REDSTONE, List.of(), Optional.empty(), List.of(), whileOff)), List.of()));
+        rig.signal(in, out, 0);
+        return rig;
+    }
+
+    private static boolean lit(Rig rig) {
+        return rig.helper().getBlockState(rig.devices().get(2)).getValue(RedstoneLampBlock.LIT);
+    }
+
+    /** Switched off, a sheet's redstone output holds: the lamp stays lit though the lever goes off, until the sheet is back on. */
+    @GameTest(template = "empty")
+    public static void switchedOffSheetHoldsItsRedstone(GameTestHelper helper) {
+        Rig rig = leverToLamp(helper, NodeSettings.OffBehavior.HOLD);
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, lit(rig), "the lamp never lit"))
+                .thenExecute(() -> {
+                    rig.sheetNode();
+                    rig.network().setSheetEnabled(rig.sheet(), false);
+                })
+                .thenExecuteAfter(5, () -> helper.setBlock(rig.devices().get(0), lever(false)))
+                .thenExecuteAfter(10, () -> {
+                    check(helper, lit(rig), "the lamp went out while its sheet was off (it should hold)");
+                    rig.network().setSheetEnabled(rig.sheet(), true);
+                })
+                .thenWaitUntil(() -> check(helper, !lit(rig), "the lamp didn't follow the lever once the sheet was back on"))
+                .thenSucceed();
+    }
+
+    /** Set to a fixed value while off, the output goes to it: 0 puts the lamp out as soon as the sheet is off. */
+    @GameTest(template = "empty")
+    public static void switchedOffSheetGivesItsFixedValue(GameTestHelper helper) {
+        Rig rig = leverToLamp(helper, new NodeSettings.OffBehavior(NodeSettings.WhileOff.FIXED, 0));
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, lit(rig), "the lamp never lit"))
+                .thenExecute(() -> {
+                    rig.sheetNode();
+                    rig.network().setSheetEnabled(rig.sheet(), false);
+                })
+                .thenWaitUntil(() -> check(helper, !lit(rig), "the lamp stayed lit, though its output goes to 0 while the sheet is off"))
+                .thenSucceed();
+    }
+
+    /** Set to keep running, the logic feeding the output works on while its sheet is off: the lamp follows the lever. */
+    @GameTest(template = "empty")
+    public static void switchedOffSheetKeepsRunningWhatFeedsAnOutput(GameTestHelper helper) {
+        Rig rig = leverToLamp(helper, new NodeSettings.OffBehavior(NodeSettings.WhileOff.RUN, 0));
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, lit(rig), "the lamp never lit"))
+                .thenExecute(() -> {
+                    rig.sheetNode();
+                    rig.network().setSheetEnabled(rig.sheet(), false);
+                })
+                .thenExecuteAfter(5, () -> helper.setBlock(rig.devices().get(0), lever(false)))
+                .thenWaitUntil(() -> check(helper, !lit(rig), "the lamp didn't follow the lever, though its output keeps running"))
+                .thenSucceed();
+    }
+
     /** The tree puts itself right: unplaced sheets go into the root, a second node for one sheet and loops come out. */
     @GameTest(template = "empty")
     public static void sheetTreeRepairsItself(GameTestHelper helper) {

@@ -9,6 +9,7 @@
   import LimitsEditor from "./LimitsEditor.svelte";
   import AmountEditor from "./AmountEditor.svelte";
   import DevicePicker from "./DevicePicker.svelte";
+  import WhileOffField from "./WhileOffField.svelte";
 
   let {
     settings,
@@ -95,6 +96,7 @@
         <SideEditor side={input} {device} {disabled} onchange={(side) => setInput(i, { ...input, ...side })} />
         {#if input.resource === "redstone"}
           <p class="text-xs muted">The connectors touching the ticked faces (all of them when none are ticked) power the device with what is wired in, 0 to 15.</p>
+          <WhileOffField value={input.while_off} {disabled} onchange={(while_off) => setInput(i, { ...input, while_off })} />
         {:else if input.resource === "me"}
           <p class="text-xs muted">Wire an ME output of another device here to join the two AE2 networks through the connectors touching these faces.</p>
         {:else}
