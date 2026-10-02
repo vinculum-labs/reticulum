@@ -56,20 +56,18 @@ export function heldSheet(snapshot: Snapshot | null, node: GraphNode | undefined
 }
 
 /**
- * Why a sheet isn't running: the network's switch, another network's Network node, its own switch, a sheet above it,
- * or a signal into its node's gate.
+ * Why a sheet isn't running: the network's switch, its own switch, a sheet above it, or a signal into its node's
+ * gate.
  */
 export type OffReason =
   | { kind: "network" }
-  | { kind: "held"; by: string }
   | { kind: "self" }
   | { kind: "parent"; sheet: Sheet }
   | { kind: "gate" };
 
-export function offReason(snapshot: Snapshot, sheet: Sheet, sheetsOff: string[], heldOn = true): OffReason | null {
+export function offReason(snapshot: Snapshot, sheet: Sheet, sheetsOff: string[]): OffReason | null {
   if (sheet.blueprint) return null;
   if (!snapshot.enabled) return { kind: "network" };
-  if (snapshot.heldBy && !heldOn) return { kind: "held", by: snapshot.heldBy.name };
   if (!sheet.root && sheet.enabled === false) return { kind: "self" };
   const above = ancestors(snapshot, sheet).find((s) => !s.root && s.enabled === false);
   if (above) return { kind: "parent", sheet: above };

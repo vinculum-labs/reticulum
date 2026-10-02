@@ -112,12 +112,6 @@ export interface CopySettings {
   bindings?: Record<string, Binding>;
 }
 
-/** Another network, switched on and off by this node's gate. */
-export interface NetworkNodeSettings {
-  kind: "network";
-  network: string;
-}
-
 /** The block filling a slot of a copy, and how far the set is turned from the blueprint's (quarter turns clockwise). */
 export interface Binding {
   device: GlobalPos;
@@ -207,7 +201,6 @@ export type NodeSettings =
   | DeviceNodeSettings
   | SheetNodeSettings
   | CopySettings
-  | NetworkNodeSettings
   | SheetPinSettings
   | SignalNodeSettings;
 export type NodeKind = NodeSettings["kind"];
@@ -323,8 +316,6 @@ export interface Snapshot extends NetworkSummary {
   /** The root sheet's id. */
   root: string;
   redstone?: ControllerRedstone;
-  /** A Network node in another network switches this one (whether it is on now comes with the metrics: app.heldOn). */
-  heldBy?: { network: string; name: string };
   /** What running the network costs, when the server charges for it. */
   power?: PowerState;
   /** What is lit up in the world. */

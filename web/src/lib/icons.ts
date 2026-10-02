@@ -11,7 +11,6 @@ import Hourglass from "@lucide/svelte/icons/hourglass";
 import Layers from "@lucide/svelte/icons/layers";
 import LogIn from "@lucide/svelte/icons/log-in";
 import LogOut from "@lucide/svelte/icons/log-out";
-import Network from "@lucide/svelte/icons/network";
 import Package from "@lucide/svelte/icons/package";
 import Scale from "@lucide/svelte/icons/scale";
 import Split from "@lucide/svelte/icons/split";
@@ -32,7 +31,6 @@ export const KIND_ICON: Record<NodeKind, Component<{ size?: number | string; cla
   kit: Package,
   sheet: AppWindow,
   copy: Layers,
-  network: Network,
   sheet_input: LogIn,
   sheet_output: LogOut,
   level: Gauge,

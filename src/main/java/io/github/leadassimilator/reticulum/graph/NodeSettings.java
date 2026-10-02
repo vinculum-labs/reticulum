@@ -33,8 +33,6 @@ public sealed interface NodeSettings {
         /** A child sheet, placed on its parent: its pins are its Sheet input and Sheet output nodes. */
         SHEET(SheetSettings.CODEC, false),
         COPY(CopySettings.CODEC, false),
-        /** Another network, switched by this node's gate. */
-        NETWORK(NetworkNodeSettings.CODEC, false),
         SHEET_INPUT(SheetPinSettings.INPUT_CODEC, false),
         SHEET_OUTPUT(SheetPinSettings.OUTPUT_CODEC, false),
         /** Engine-internal: a device's redstone output pin. Never saved or sent. */
@@ -311,21 +309,6 @@ public sealed interface NodeSettings {
         @Override
         public Kind kind() {
             return Kind.COPY;
-        }
-    }
-
-    /**
-     * Another network, placed here as a node: its gate switches that network on and off (on while the signal is). The
-     * network keeps the last setting while this one stops running.
-     */
-    record NetworkNodeSettings(UUID network) implements NodeSettings {
-        public static final MapCodec<NetworkNodeSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Ids.UUID_CODEC.fieldOf("network").forGetter(NetworkNodeSettings::network)
-        ).apply(i, NetworkNodeSettings::new));
-
-        @Override
-        public Kind kind() {
-            return Kind.NETWORK;
         }
     }
 

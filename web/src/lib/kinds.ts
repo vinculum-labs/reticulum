@@ -10,7 +10,6 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   kit: "Kit",
   sheet: "Sheet",
   copy: "Blueprint",
-  network: "Network",
   sheet_input: "Input pin",
   sheet_output: "Output pin",
   level: "Level sensor",
@@ -31,7 +30,6 @@ export const KIND_HINT: Record<NodeKind, string> = {
   kit: "Moves a set of items all together or not at all",
   sheet: "A sheet inside this one: double-click to open it. Its switch and gate switch everything in it",
   copy: "A copy of a blueprint, used like one node: double-click it to fill its slots with blocks",
-  network: "Another network, switched on and off by a signal into this node's gate (you must be its admin)",
   sheet_input: "Where resources or signals come into this sheet: a pin on its left edge (and its node's)",
   sheet_output: "Where resources or signals leave this sheet: a pin on its right edge (and its node's)",
   level: "How much of a resource a device holds",
@@ -175,8 +173,6 @@ export function defaultSettings(
     case "copy":
     case "sheet":
       return { kind, sheet: blueprint ?? "" };
-    case "network":
-      return { kind, network: blueprint ?? "" };
     case "sheet_input":
     case "sheet_output":
       return { kind, name: "" };
@@ -302,8 +298,6 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
       return s.lines.map((l) => `${l.count}× ${l.filter || "anything"}`).join(" + ") + (s.max_kits && s.max_kits > 1 ? `, up to ${s.max_kits}` : "");
     case "copy":
       return "blueprint";
-    case "network":
-      return "switched by its gate";
     case "sheet":
       return "sheet";
     case "sheet_input":

@@ -562,13 +562,9 @@
         return;
       }
     }
-    const blueprint = kind === "copy" ? blueprints[0]?.id : kind === "network" ? switchable[0]?.id : undefined;
+    const blueprint = kind === "copy" ? blueprints[0]?.id : undefined;
     if (kind === "copy" && !blueprint) {
       toast("Make a blueprint first: from a sheet (in its settings), or New blueprint in the list.");
-      return;
-    }
-    if (kind === "network" && !blueprint) {
-      toast("No other network to switch: you must be an admin of one, and it mustn't switch this one already.");
       return;
     }
     const node: GraphNode = {
@@ -644,9 +640,6 @@
     app.selectedNodes = [slot.id];
   }
 
-  /** Other networks a Network node here could switch: ones this player admins. */
-  const switchable = $derived(app.networks.filter((n) => n.id !== app.current && (n.role === "admin" || n.role === "owner")));
-
   /**
    * A wire dragged from a node past the edge of the frame it sits in (and dropped on nothing) makes a pin there: an
    * output pin past the right edge, an input pin past the left, named and typed after the node, as one change.
@@ -706,8 +699,6 @@
     // Sheets go inside sheets in the tree, never inside a blueprint.
     ...(sheet?.blueprint ? [] : (["sheet"] as NodeKind[])),
     ...(blueprints.length ? (["copy"] as NodeKind[]) : []),
-    // Other networks to switch: only from the tree, never from a blueprint (each copy would switch the same one).
-    ...(sheet?.blueprint ? [] : (["network"] as NodeKind[])),
   ]);
 
   /**

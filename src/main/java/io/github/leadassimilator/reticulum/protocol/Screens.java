@@ -101,7 +101,7 @@ public final class Screens {
                 network.connectors().size(), network.devices().size(), NetworkManager.orphanCount(network),
                 Security.canEdit(network, player), Security.canAdmin(network, player),
                 player.serverLevel().getBlockEntity(pos) instanceof ControllerBlockEntity controller ? controller.antennaTier() : 0,
-                network.enabled(), io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(player.server, network) && network.switches().heldOn(),
+                network.enabled(), io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(player.server, network),
                 network.switches().redstone(), sheetEntries(player, network), overflowLines(player, network), powerLine(player, network));
     }
 

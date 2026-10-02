@@ -55,8 +55,6 @@
         ? deviceName(data.device)
         : holds
           ? (data.holder?.sheet?.name ?? (kind === "sheet" ? "Missing sheet" : "Missing blueprint"))
-          : s.kind === "network"
-          ? (app.networks.find((n) => n.id === s.network)?.name ?? "Another network")
           : (s.kind === "sheet_input" || s.kind === "sheet_output") && s.name
             ? s.name
             : KIND_LABEL[kind]),
@@ -100,14 +98,14 @@
    * The other cards' pins (filter, rate limit, splitter, kit, sheet pins), as labeled rows like the pinned cards: the
    * input on the left, the outputs on the right, each pin beside its label. Ids are the handles' (wires keep them).
    */
-  const flowIn = $derived(kind !== "sheet_input" && kind !== "network");
+  const flowIn = $derived(kind !== "sheet_input");
   const flowOuts = $derived<{ id: string; label: string; color: string }[]>(
     kind === "filter"
       ? [
           { id: "match", label: "match", color: "var(--good)" },
           { id: "reject", label: "other", color: "var(--bad)" },
         ]
-      : kind === "sheet_output" || kind === "network"
+      : kind === "sheet_output"
         ? []
         : [{ id: "out", label: "out", color }],
   );

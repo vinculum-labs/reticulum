@@ -90,7 +90,6 @@ exist show as offline until you pick local ones for them.
 | **Level sensor** | How much of a resource a device holds. |
 | **Compare, Logic, Timer, Pulse, Latch, Counter, Delay** | Redstone-style logic on signals of 0–15. |
 | **Sheet, Blueprint** | A sheet inside this one, or a copy of a blueprint, as one node with the sheet's pins. |
-| **Network** | Another network, switched on and off by this node's gate. Only that network's admins can place one; the other network keeps the last setting while this one stops. |
 
 ### Filters
 
@@ -136,7 +135,9 @@ Every node that moves things, and every sheet, blueprint and network node, has a
 left. Wire a signal into it to switch the node (a sheet node switches its whole sheet). A gate runs its node **while on**, or does **one operation per pulse**, so a
 button moves exactly one stack.
 
-The controller block takes redstone too: the network can ignore it, run only while powered, or stop while powered.
+The controller block takes redstone too: the network can ignore it, run only while powered, or stop while powered. To
+let one network switch another, place a connector bound to the first network (Link mode) against the other's
+controller: it stays on its own network and drives that controller's redstone like any device.
 
 ## Wireless
 

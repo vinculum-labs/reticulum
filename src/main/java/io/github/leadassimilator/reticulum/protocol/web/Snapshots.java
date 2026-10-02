@@ -70,14 +70,6 @@ final class Snapshots {
         out.addProperty("hasPassword", network.passwordHash() != null);
         out.addProperty("root", network.root().id().toString());
         out.addProperty("redstone", network.switches().redstone().getSerializedName());
-        var held = network.switches().held();
-        if (held != null) {
-            JsonObject by = new JsonObject();
-            by.addProperty("network", held.network().toString());
-            Network from = NetworkManager.network(server, held.network());
-            by.addProperty("name", from == null ? "another network" : from.name());
-            out.add("heldBy", by);
-        }
         JsonArray identified = new JsonArray();
         for (io.github.leadassimilator.reticulum.network.Identify identify : network.identified()) {
             JsonObject json = encode(server, io.github.leadassimilator.reticulum.network.Identify.CODEC, identify).getAsJsonObject();

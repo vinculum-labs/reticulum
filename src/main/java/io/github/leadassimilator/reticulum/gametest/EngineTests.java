@@ -1518,35 +1518,6 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
-    /** A lever into a Network node's gate switches the network it names; that network stops while held off. */
-    @GameTest(template = "empty", timeoutTicks = 300)
-    public static void networkNodeSwitchesAnotherNetwork(GameTestHelper helper) {
-        Rig rig = rig(helper, Blocks.LEVER);
-        helper.setBlock(rig.devices().get(0), lever(false));
-        Network other = io.github.leadassimilator.reticulum.network.NetworkManager.create(helper.getLevel().getServer(), null);
-        Node node = rig.node(new NodeSettings.NetworkNodeSettings(other.id()));
-        rig.signal(rig.redstoneFrom(rig.device(0)), node, Wire.GATE);
-        other.switches().setHeld(new io.github.leadassimilator.reticulum.network.Switches.Held(rig.network().id(), node.id(), true));
-        helper.startSequence()
-                .thenWaitUntil(() -> check(helper, !other.switches().heldOn(), "the other network wasn't switched off with the lever off"))
-                .thenExecute(() -> helper.setBlock(rig.devices().get(0), lever(true)))
-                .thenWaitUntil(() -> check(helper, other.switches().heldOn(), "the other network wasn't switched on with the lever"))
-                .thenSucceed();
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 200)
-    public static void networkHeldOffMovesNothing(GameTestHelper helper) {
-        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
-        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
-        rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
-        // Held off by a node in another network (a made-up one: let go of after a while, as it doesn't exist).
-        rig.network().switches().setHeld(new io.github.leadassimilator.reticulum.network.Switches.Held(UUID.randomUUID(), UUID.randomUUID(), false));
-        helper.startSequence()
-                .thenExecuteAfter(30, () -> check(helper, rig.count(1, Items.COBBLESTONE) == 0, "items moved while the network was held off"))
-                .thenWaitUntil(() -> check(helper, rig.count(1, Items.COBBLESTONE) == 64, "the network didn't run once its holder was found gone"))
-                .thenSucceed();
-    }
-
     /** Puts the test sheet inside a new sheet, "smelting", placed in the root; returns smelting. */
     private static Sheet nestInSmelting(Rig rig) {
         Node node = rig.sheetNode();

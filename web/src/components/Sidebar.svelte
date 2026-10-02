@@ -186,7 +186,7 @@
     <ul class="flex flex-col gap-0.5">
       {#each rows as row (row.sheet.id)}
         {@const sheet = row.sheet}
-        {@const off = offReason(snapshot, sheet, app.sheetsOff, app.heldOn)}
+        {@const off = offReason(snapshot, sheet, app.sheetsOff)}
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <li
           class="group flex items-center gap-1.5 rounded-md py-1 pr-2"
