@@ -143,7 +143,7 @@ public class ModLanguage extends LanguageProvider {
         add("reticulum.configuration.webPort", "Web editor port");
         add("reticulum.configuration.keepRunningWhileEditing", "Keep running while the editor is open");
         add("reticulum.configuration.rememberLogin", "Stay logged in to the web editor");
-        add("reticulum.configuration.editorInGame", "Open the editor inside the game (Windows, macOS)");
+        add("reticulum.configuration.editorInGame", "Open the editor inside the game");
         add("reticulum.configuration.editorDisplay", "In-game editor display (Windows)");
         add("screen.reticulum.editor", "Reticulum editor");
         add("screen.reticulum.editor_close", "Close");

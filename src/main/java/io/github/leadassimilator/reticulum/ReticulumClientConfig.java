@@ -32,9 +32,9 @@ public final class ReticulumClientConfig {
             .define("rememberLogin", true);
 
     public static final ModConfigSpec.BooleanValue EDITOR_IN_GAME = BUILDER
-            .comment("On Windows and macOS, open the editor inside the game window (with the system's own web view: Edge's",
-                    "WebView2 or Safari's WKWebView) instead of the browser. Falls back to the browser when that isn't available,",
-                    "and on Linux.")
+            .comment("Open the editor inside the game window, with the system's own web view (Edge's WebView2 on Windows,",
+                    "Safari's WKWebView on macOS, WebKitGTK on Linux), instead of the browser. Falls back to the browser when",
+                    "that isn't available (on Linux, without the libwebkit2gtk-4.1 package).")
             .define("editorInGame", true);
 
     /** How the in-game editor shows on Windows. */

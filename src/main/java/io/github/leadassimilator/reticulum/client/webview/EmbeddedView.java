@@ -354,6 +354,11 @@ public final class EmbeddedView {
             public void key(int key, int scancode, int modifiers, boolean down) {
                 WebKitGtkHost.key(scancode, modifiers, down);
             }
+
+            @Override
+            public int cursor() {
+                return WebKitGtkHost.cursor();
+            }
         };
     }
 

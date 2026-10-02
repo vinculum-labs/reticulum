@@ -267,7 +267,51 @@ final class WebKitGtkHost {
             event.setDouble(64, x);
             event.setDouble(72, y);
             dispatch(event, pointer());
+            cursorShape = cursorShape(target);
         });
+    }
+
+    /** The GLFW cursor shape the page asks for (0 for the default arrow), as of the last mouse move. */
+    static int cursor() {
+        return drawnByGame() ? cursorShape : 0;
+    }
+
+    private static volatile int cursorShape;
+    /** Cursors by the names WebKit asks GTK for (CSS cursor names, and older X ones), to the GLFW shapes they show as. */
+    private static final String[][] CURSORS = {
+        {"text", "vertical-text", "xterm"},
+        {"pointer", "hand2", "hand1"},
+        {"crosshair", "cell", "cross"},
+        {"ew-resize", "col-resize", "e-resize", "w-resize", "sb_h_double_arrow"},
+        {"ns-resize", "row-resize", "n-resize", "s-resize", "sb_v_double_arrow"},
+        {"nwse-resize", "nw-resize", "se-resize"},
+        {"nesw-resize", "ne-resize", "sw-resize"},
+        {"move", "all-scroll", "fleur"},
+        {"not-allowed", "no-drop", "crossed_circle"},
+    };
+    private static final int[] CURSOR_SHAPES = {GLFW.GLFW_IBEAM_CURSOR, GLFW.GLFW_POINTING_HAND_CURSOR, GLFW.GLFW_CROSSHAIR_CURSOR,
+        GLFW.GLFW_RESIZE_EW_CURSOR, GLFW.GLFW_RESIZE_NS_CURSOR, GLFW.GLFW_RESIZE_NWSE_CURSOR, GLFW.GLFW_RESIZE_NESW_CURSOR,
+        GLFW.GLFW_RESIZE_ALL_CURSOR, GLFW.GLFW_NOT_ALLOWED_CURSOR};
+    /** GTK's cursor objects for those names, made once; GTK keeps one per name, so WebKit's is the same object. */
+    @Nullable
+    private static java.util.Map<Pointer, Integer> knownCursors;
+
+    /** On the GTK thread: the shape of the cursor WebKit set on the view's window. */
+    private static int cursorShape(Pointer viewWindow) {
+        if (knownCursors == null) {
+            knownCursors = new java.util.HashMap<>();
+            for (int i = 0; i < CURSORS.length; i++) {
+                for (String name : CURSORS[i]) {
+                    Pointer cursor = gdk().getFunction("gdk_cursor_new_from_name").invokePointer(new Object[] {display(), name});
+                    // Kept (never unreferenced), so GTK keeps the same object for the name.
+                    if (cursor != null) {
+                        knownCursors.putIfAbsent(cursor, CURSOR_SHAPES[i]);
+                    }
+                }
+            }
+        }
+        Pointer current = gdk().getFunction("gdk_window_get_cursor").invokePointer(new Object[] {viewWindow});
+        return current == null ? 0 : knownCursors.getOrDefault(current, 0);
     }
 
     static void mouseLeave() {
@@ -300,6 +344,7 @@ final class WebKitGtkHost {
             event.setDouble(72, y);
             heldMask = down ? heldMask | BUTTON_MASK[button] : heldMask & ~BUTTON_MASK[button];
             dispatch(event, pointer());
+            cursorShape = cursorShape(target);
         });
     }
 

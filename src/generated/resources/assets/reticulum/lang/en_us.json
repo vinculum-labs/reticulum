@@ -105,7 +105,7 @@
   "reticulum.configuration.costWirelessTier1": "Cost per wireless connector, tier 1 (FE/t)",
   "reticulum.configuration.costWirelessTier2": "Cost per wireless connector, tier 2+ (FE/t)",
   "reticulum.configuration.editorDisplay": "In-game editor display (Windows)",
-  "reticulum.configuration.editorInGame": "Open the editor inside the game (Windows, macOS)",
+  "reticulum.configuration.editorInGame": "Open the editor inside the game",
   "reticulum.configuration.energyPerTick": "Energy per route per tick",
   "reticulum.configuration.fluidPerTick": "Fluid per route per tick",
   "reticulum.configuration.identify": "Identify",
