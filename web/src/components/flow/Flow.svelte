@@ -452,6 +452,17 @@
       if (width * height < target.area) target = { sheet: held, frame, area: width * height };
     }
     const from = app.snapshot.sheets.find((x) => x.id === [...owners][0]);
+    // Out past the open sheet's own frame (Alt held, so it didn't grow): up into the sheet around this one.
+    let intoParent: { x: number; y: number } | null = null;
+    const box = view.sheetFrame;
+    const parent = sheet.parent ? app.snapshot.sheets.find((x) => x.id === sheet.parent) : undefined;
+    if (target.sheet === sheet && event.altKey && box && parent && sheet.node
+        && (p.x < box.x || p.y < box.y || p.x > box.x + box.width || p.y > box.y + box.height)) {
+      const holder = parent.nodes?.find((n) => n.id === sheet.node);
+      target = { sheet: parent, area: Infinity };
+      // Beside this sheet's node there, on the side it was dropped.
+      intoParent = { x: (holder?.x ?? 0) + (p.x < box.x ? -260 : 260), y: holder?.y ?? 0 };
+    }
     if (!from || from.id === target.sheet.id) return false;
     const nodesMoved = cards.map((n) => nodeOf(n.id)).filter((n): n is GraphNode => !!n);
     if (nodesMoved.some((n) => n.settings.kind === "sheet" || isPin(n))) {
@@ -460,8 +471,11 @@
       return true;
     }
     // Where each lands in the other sheet: from where it is on the canvas.
+    const first = flow.getInternalNode(nodesMoved[0].id)?.internals.positionAbsolute ?? { x: 0, y: 0 };
     const items = nodesMoved.map((node) => {
       const abs = flow.getInternalNode(node.id)?.internals.positionAbsolute ?? { x: node.x ?? 0, y: node.y ?? 0 };
+      // Into the sheet around this one (not on the canvas): beside this sheet's node, keeping their spacing.
+      if (intoParent) return { node, x: intoParent.x + abs.x - first.x, y: intoParent.y + abs.y - first.y };
       const f = target.frame;
       return { node, x: f ? abs.x - f.ax + f.dx : abs.x, y: f ? abs.y - f.ay + f.dy : abs.y };
     });
@@ -471,7 +485,8 @@
       resync.count++;
       return true;
     }
-    await edit(change.edits, change.undo, nodesMoved.length === 1 ? `move to ${target.sheet.name}` : `move ${nodesMoved.length} to ${target.sheet.name}`);
+    const ok = await edit(change.edits, change.undo, nodesMoved.length === 1 ? `move to ${target.sheet.name}` : `move ${nodesMoved.length} to ${target.sheet.name}`);
+    if (ok && intoParent) toast(`Moved to “${target.sheet.name}”, beside this sheet's node (undo puts it back).`, "info");
     return true;
   }
 
@@ -571,7 +586,8 @@
   function keepPinsOnEdges() {
     const frameOf = new Map(nodes.filter((n) => n.data?.frame).map((n) => [n.id, n]));
     let backdrop = nodes.find((n) => n.type === "sheetFrame");
-    if (backdrop && view.sheetFrame) {
+    // With Alt held, the open sheet's frame doesn't grow either: cards dropped outside it leave the sheet.
+    if (backdrop && view.sheetFrame && !altDown) {
       // The open sheet's frame: as big as it was built, or more to take in the cards dragged past it.
       let { x, y, width, height } = view.sheetFrame;
       for (const n of nodes) {
