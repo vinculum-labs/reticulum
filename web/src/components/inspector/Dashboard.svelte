@@ -29,7 +29,7 @@
    */
   const off = $derived([
     ...snapshot.sheets.flatMap((s) => {
-      const why = offReason(snapshot, s, app.sheetsOff);
+      const why = offReason(snapshot, s, app.sheetsOff, app.heldOn);
       if (!why || why.kind === "network" || why.kind === "held") return [];
       const text = why.kind === "self" ? "sheet off" : why.kind === "parent" ? `inside “${why.sheet.name}”, off` : "off by a gate or redstone";
       return [{ sheet: s, node: undefined as GraphNode | undefined, why: text }];

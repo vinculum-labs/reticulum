@@ -612,11 +612,17 @@ public final class CompiledSheet {
             UUID current = id;
             for (int hops = 0; current != null && hops < 256; hops++) {
                 out.add(current);
-                UUID next = owners.get(current);
-                current = next != null ? next : containers.get(current);
+                current = holder(current);
             }
         }
         return out;
+    }
+
+    /** What holds a compiled node: its device or copy node, else the sheet node of the sheet it was pasted from. */
+    @Nullable
+    private UUID holder(UUID node) {
+        UUID owner = owners.get(node);
+        return owner != null ? owner : containers.get(node);
     }
 
     /** For every node pasted in from a child sheet: that sheet's sheet node. Not an owner: the node shows as itself. */
@@ -652,8 +658,7 @@ public final class CompiledSheet {
             if (holders.contains(current)) {
                 return true;
             }
-            UUID next = owners.get(current);
-            current = next != null ? next : containers.get(current);
+            current = holder(current);
         }
         return false;
     }
@@ -727,7 +732,8 @@ public final class CompiledSheet {
                         : ": the blueprint it uses no longer exists or is no longer marked as a blueprint"));
                 continue;
             }
-            if (using.contains(used.id()) || using.size() > MAX_COPY_DEPTH) {
+            long copyDepth = using.stream().map(network::sheet).filter(s -> s != null && s.blueprint()).count();
+            if (using.contains(used.id()) || (!child && copyDepth >= MAX_COPY_DEPTH)) {
                 error(node, describe(node) + ": " + (child ? "sheet" : "blueprint") + " '" + used.name() + "' contains itself");
                 continue;
             }
@@ -785,11 +791,6 @@ public final class CompiledSheet {
             deeper.add(used.id());
             paste(network, copies, out, wires, deeper, child ? used.id() : on);
         }
-    }
-
-    /** A sheet's Sheet input (or output) nodes in pin order: top to bottom, then left to right. */
-    public static List<Node> pins(Sheet sheet, boolean input) {
-        return sheet.pins(input);
     }
 
     private static UUID side(UUID device, String direction, int index) {

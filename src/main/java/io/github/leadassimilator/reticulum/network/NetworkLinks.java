@@ -1,7 +1,9 @@
 package io.github.leadassimilator.reticulum.network;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -20,35 +22,40 @@ public final class NetworkLinks {
     private NetworkLinks() {
     }
 
-    /** The Network node with this id on any of a network's sheets (blueprints aside), or null. */
-    @Nullable
-    public static Node node(Network network, UUID id) {
+    /** A network's Network nodes, on the sheets of its tree (never in blueprints). */
+    private static List<Node> networkNodes(Network network) {
+        List<Node> out = new ArrayList<>();
         for (Sheet sheet : network.sheets()) {
-            if (sheet.blueprint()) {
-                continue;
-            }
-            Node node = sheet.node(id);
-            if (node != null && node.settings() instanceof NodeSettings.NetworkNodeSettings) {
-                return node;
+            if (!sheet.blueprint()) {
+                sheet.nodes().stream().filter(n -> n.settings() instanceof NodeSettings.NetworkNodeSettings).forEach(out::add);
             }
         }
-        return null;
+        return out;
+    }
+
+    /** The Network node with this id on one of a network's sheets, or null. */
+    @Nullable
+    public static Node node(Network network, UUID id) {
+        return networkNodes(network).stream().filter(n -> n.id().equals(id)).findFirst().orElse(null);
     }
 
     /** The networks a network's Network nodes switch. */
     public static Set<UUID> switched(Network network) {
         Set<UUID> out = new HashSet<>();
-        for (Sheet sheet : network.sheets()) {
-            if (sheet.blueprint()) {
-                continue;
-            }
-            for (Node node : sheet.nodes()) {
-                if (node.settings() instanceof NodeSettings.NetworkNodeSettings settings) {
-                    out.add(settings.network());
-                }
+        networkNodes(network).forEach(n -> out.add(((NodeSettings.NetworkNodeSettings) n.settings()).network()));
+        return out;
+    }
+
+    /** A Network node gone, or pointed elsewhere: the network it held runs freely again. */
+    public static void letGo(MinecraftServer server, Network network, Node node) {
+        if (node.settings() instanceof NodeSettings.NetworkNodeSettings settings) {
+            Network target = NetworkManager.network(server, settings.network());
+            Switches.Held held = target == null ? null : target.switches().held();
+            if (held != null && held.network().equals(network.id()) && held.node().equals(node.id())) {
+                target.switches().setHeld(null);
+                NetworkManager.changed(server, target);
             }
         }
-        return out;
     }
 
     /** Whether {@code from} switches {@code to}, directly or through networks it switches. */
@@ -88,7 +95,9 @@ public final class NetworkLinks {
             return false;
         }
         target.switches().setHeld(new Switches.Held(from.id(), node.id(), on));
-        NetworkManager.changed(server, target);
+        // Saved, but no new snapshot: a clock on the gate would resend the whole network each flip. The editor gets
+        // the setting with the metrics.
+        NetworkManager.data(server).setDirty();
         return true;
     }
 

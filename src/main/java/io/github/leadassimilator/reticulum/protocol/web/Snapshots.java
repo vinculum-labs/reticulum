@@ -76,7 +76,6 @@ final class Snapshots {
             by.addProperty("network", held.network().toString());
             Network from = NetworkManager.network(server, held.network());
             by.addProperty("name", from == null ? "another network" : from.name());
-            by.addProperty("on", held.on());
             out.add("heldBy", by);
         }
         JsonArray identified = new JsonArray();

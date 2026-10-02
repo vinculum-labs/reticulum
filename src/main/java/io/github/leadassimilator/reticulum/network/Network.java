@@ -451,9 +451,14 @@ public final class Network {
                         && settings.device().equals(device)) {
                     return new Home(sheet, node);
                 }
-                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.CopySettings copy
-                        && copy.bindings().values().stream().anyMatch(b -> b.device().equals(device))) {
-                    return new Home(sheet, node);
+                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.CopySettings copy) {
+                    Sheet blueprint = sheet(copy.sheet());
+                    for (var binding : copy.bindings().entrySet()) {
+                        // Only slots the blueprint still has: one taken out leaves its block free.
+                        if (binding.getValue().device().equals(device) && blueprint != null && blueprint.node(binding.getKey()) != null) {
+                            return new Home(sheet, node);
+                        }
+                    }
                 }
             }
         }
@@ -462,15 +467,6 @@ public final class Network {
 
     /** The sheet a device lives in, and its device node there. */
     public record Home(Sheet sheet, io.github.leadassimilator.reticulum.graph.Node node) {
-    }
-
-    /** Whether a sheet's own switch is on (the root's is the network's); its parents may still be off. */
-    public boolean sheetEnabled(Sheet sheet) {
-        if (sheet.root()) {
-            return enabled();
-        }
-        Placement placement = placement(sheet.id());
-        return placement != null && placement.node().enabled();
     }
 
     public int revision() {

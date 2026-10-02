@@ -323,8 +323,8 @@ export interface Snapshot extends NetworkSummary {
   /** The root sheet's id. */
   root: string;
   redstone?: ControllerRedstone;
-  /** A Network node in another network switches this one: that network, and what the node last said. */
-  heldBy?: { network: string; name: string; on: boolean };
+  /** A Network node in another network switches this one (whether it is on now comes with the metrics: app.heldOn). */
+  heldBy?: { network: string; name: string };
   /** What running the network costs, when the server charges for it. */
   power?: PowerState;
   /** What is lit up in the world. */

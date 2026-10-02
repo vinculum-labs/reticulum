@@ -51,10 +51,12 @@ public final class NetworkRuntime {
     /** Why each node last moved nothing; absent once it moves again. Keyed by the node the editor shows. */
     private final Map<UUID, Status> statuses = new HashMap<>();
     private final Signals signals = new Signals();
-    /** Sheets switched off this tick by a gate or redstone (theirs or a sheet's above them), for the editor. */
+    /** Sheets switched off this tick by a gate (on their node or on a sheet node above them), for the editor. */
     private final Set<UUID> sheetsOff = new java.util.HashSet<>();
     /** Blueprints compiled on their own, only to show their problems in the editor (they never run on their own). */
     private final Map<UUID, CompiledSheet> templates = new HashMap<>();
+    /** The network revision the tree was last checked at. */
+    private int treeRevision = -1;
     private boolean stopped = true;
     private long ticks;
 
@@ -162,6 +164,7 @@ public final class NetworkRuntime {
     /** Drops every compiled sheet, so they're compiled again on the next tick. */
     void forgetCompiled() {
         compiled.clear();
+        templates.clear();
     }
 
     /** The network as compiled, if the engine has compiled it (it is compiled while the network runs). */
@@ -174,8 +177,12 @@ public final class NetworkRuntime {
 
     public void tick(MinecraftServer server, Network network) {
         ticks++;
-        if (network.ensureTree()) {
-            NetworkManager.changed(server, network);
+        // Edits put the tree right themselves; this catches anything else that changed the network.
+        if (network.revision() != treeRevision) {
+            if (network.ensureTree()) {
+                NetworkManager.changed(server, network);
+            }
+            treeRevision = network.revision();
         }
         signals.startTick();
         statuses.values().removeIf(status -> status == Status.SWITCHED_OFF);
@@ -247,7 +254,7 @@ public final class NetworkRuntime {
         signals.evaluate(new Context(server, network, this), List.of(), List.of(compiled));
     }
 
-    /** Sheets whose sheet node, or a sheet node above it, a gate or redstone switched off this tick. */
+    /** Sheets whose sheet node, or a sheet node above it, a gate switched off this tick. */
     private void noteSheetsOff(CompiledSheet compiled) {
         if (signals.off().isEmpty()) {
             return;
@@ -476,14 +483,14 @@ public final class NetworkRuntime {
         return sheetsOff;
     }
 
-    // ---------------------------------------------------------------- redstone switching
+    // ---------------------------------------------------------------- switching
 
-    /** Whether a source is on: nothing that controls it is switched off by redstone. */
+    /** Whether a source is on: nothing that controls it is switched off. */
     boolean active(CompiledSheet.Source source) {
         return signals.off().isEmpty() || disjoint(source.controls(), signals.off());
     }
 
-    /** A source's routes that redstone leaves on. */
+    /** A source's routes that are not switched off. */
     List<CompiledSheet.Route> routes(CompiledSheet.Source source) {
         if (signals.off().isEmpty()) {
             return source.routes();
@@ -497,7 +504,7 @@ public final class NetworkRuntime {
         return on;
     }
 
-    /** Whether a redstone pulse fired for these routes this tick, so their item operation runs now. */
+    /** Whether a pulse gate fired for these routes this tick, so their item operation runs now. */
     boolean forced(CompiledSheet sheet, List<CompiledSheet.Route> routes) {
         if (signals.pulsed().isEmpty()) {
             return false;

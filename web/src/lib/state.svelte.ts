@@ -119,6 +119,8 @@ export const app = $state({
   signals: {} as Record<string, number>,
   /** Sheets a gate or redstone currently switches off (on their node, or on a sheet node above them). */
   sheetsOff: [] as string[],
+  /** Whether the network holding this one (if any) lets it run, as of the last metrics update. */
+  heldOn: true,
   /** What running the network costs and what the controller holds, updated once a second. */
   power: null as PowerState | null,
   /** Channel use of each ME port node. */
@@ -233,6 +235,7 @@ function applyMetrics(m: any) {
     status: m.status ?? {},
     signals: m.signals ?? {},
     sheetsOff: m.sheetsOff ?? [],
+    heldOn: m.heldOn ?? true,
     me: m.me ?? {},
     power: m.power ?? null,
     tick: m.tick ?? null,
@@ -270,6 +273,7 @@ export async function selectNetwork(id: string): Promise<void> {
   app.status = {};
   app.signals = {};
   app.sheetsOff = [];
+  app.heldOn = true;
   app.me = {};
   app.selectedNodes = [];
   app.selectedEdges = [];

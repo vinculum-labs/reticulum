@@ -8,7 +8,7 @@
   let { sheet, snapshot }: { sheet: Sheet; snapshot: Snapshot } = $props();
 
   const canEdit = $derived(snapshot.canEdit);
-  const why = $derived(offReason(snapshot, sheet, app.sheetsOff));
+  const why = $derived(offReason(snapshot, sheet, app.sheetsOff, app.heldOn));
 
   function switchOn() {
     if (why?.kind === "network") {

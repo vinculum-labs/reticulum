@@ -235,8 +235,8 @@ public class ControllerScreen extends QuickScreen {
         for (int i = sheetScroll; i < Math.min(sheets.size(), sheetScroll + SHEET_ROWS); i++) {
             Views.SheetEntry sheet = sheets.get(i);
             String marks = (sheet.parentOff() ? "  " + Component.translatable("screen.reticulum.parent_off").getString() : "")
-                    + (sheet.redstoneOff() ? "  ⚡" : "") + (sheet.errors() > 0 ? "  ⚠ " + sheet.errors() : "");
-            int color = sheet.enabled() && !sheet.parentOff() && !sheet.redstoneOff() ? 0xE0E0E0 : 0x909090;
+                    + (sheet.gateOff() ? "  ⚡" : "") + (sheet.errors() > 0 ? "  ⚠ " + sheet.errors() : "");
+            int color = sheet.enabled() && !sheet.parentOff() && !sheet.gateOff() ? 0xE0E0E0 : 0x909090;
             int x = left + 42 + indent(sheet);
             graphics.drawString(font, font.plainSubstrByWidth(sheet.name(), left + WIDTH - x - font.width(marks)) + marks, x, y + 4, color);
             y += 18;

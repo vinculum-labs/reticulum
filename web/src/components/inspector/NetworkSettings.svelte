@@ -54,7 +54,7 @@
 
   {#if snapshot.heldBy}
     <p class="box text-sm" role="status">
-      Switched by the network “{snapshot.heldBy.name}” (a Network node there): {snapshot.heldBy.on ? "on" : "off"} for now. It keeps the last
+      Switched by the network “{snapshot.heldBy.name}” (a Network node there): {app.heldOn ? "on" : "off"} for now. It keeps the last
       setting while that network stops.
     </p>
   {/if}

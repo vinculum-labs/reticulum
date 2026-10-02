@@ -268,7 +268,7 @@ final class Signals {
                 ArrayDeque<Long> queue = delays.get(id);
                 yield queue != null && queue.size() >= Math.max(1, delay.ticks()) ? queue.peekFirst() : 0;
             }
-            // Sheet pins pass signals through a blueprint's edge.
+            // Sheet pins pass signals through a sheet's (or blueprint copy's) edge.
             default -> {
                 long best = 0;
                 for (int i = 0; i < node.inputs().size(); i++) {

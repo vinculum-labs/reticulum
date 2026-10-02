@@ -298,6 +298,9 @@ public final class WebApi {
                     String name = Limits.name(pasted.name());
                     Sheet sheet = pasted.copyWithNewIds(name == null ? "Imported sheet" : name);
                     sheet.setRoot(false);
+                    // Network nodes are left out: switching another network takes its admins' say (see checkNetworkNode).
+                    List.copyOf(sheet.nodes()).stream().filter(n -> n.settings() instanceof NodeSettings.NetworkNodeSettings)
+                            .forEach(n -> sheet.remove(n.id()));
                     network.sheets().add(sheet);
                     if (!sheet.blueprint()) {
                         place(network, sheet, parentOf(network, edit), edit);
@@ -334,6 +337,9 @@ public final class WebApi {
                         throw new RequestException("Sheets can't go inside a blueprint");
                     }
                     if (parent != placement.parent()) {
+                        if (parent.nodes().size() >= Limits.NODES_PER_SHEET) {
+                            throw new RequestException("A sheet can have at most " + Limits.NODES_PER_SHEET + " nodes");
+                        }
                         placement.parent().remove(placement.node().id());
                         float x = edit.has("x") ? edit.get("x").getAsFloat() : placement.node().x();
                         float y = edit.has("y") ? edit.get("y").getAsFloat() : placement.node().y();
@@ -374,9 +380,9 @@ public final class WebApi {
                     admin(network, player);
                     network.members().remove(uuid(edit, "id"));
                 }
-                case "deleteSheet" -> deleteSheet(network, sheet(network, edit));
+                case "deleteSheet" -> deleteSheet(server, network, sheet(network, edit));
                 case "makeBlueprint" -> {
-                    Sheet made = makeBlueprint(network, sheet(network, edit), edit.has("keep") && edit.get("keep").getAsBoolean());
+                    Sheet made = makeBlueprint(server, network, sheet(network, edit), edit.has("keep") && edit.get("keep").getAsBoolean());
                     return new com.google.gson.JsonPrimitive(made.id().toString());
                 }
                 case "convertCopy" -> {
@@ -405,6 +411,7 @@ public final class WebApi {
                     checkHome(network, sheet, node);
                     checkNetworkNode(player, network, sheet, node);
                     check(Limits.check(node));
+                    Node before = sheet.node(node.id());
                     if (type.equals("addNode")) {
                         if (sheet.node(node.id()) != null) {
                             throw new RequestException("A node with that id already exists");
@@ -419,6 +426,7 @@ public final class WebApi {
                         }
                         sheet.replace(node);
                     }
+                    holdFor(server, network, before, node);
                     return new com.google.gson.JsonPrimitive(node.id().toString());
                 }
                 case "removeNode" -> {
@@ -426,11 +434,11 @@ public final class WebApi {
                     Sheet sheet = sheet(network, edit);
                     Node node = sheet.node(id);
                     if (node != null) {
-                        letGo(server, network, node);
+                        io.github.leadassimilator.reticulum.network.NetworkLinks.letGo(server, network, node);
                     }
                     if (node != null && node.settings() instanceof NodeSettings.SheetSettings child && network.sheet(child.sheet()) != null) {
                         // A sheet node goes with its sheet and everything in it.
-                        deleteSheet(network, network.sheet(child.sheet()));
+                        deleteSheet(server, network, network.sheet(child.sheet()));
                     }
                     sheet.remove(id);
                     forgetSignalMemory(network, id);
@@ -625,13 +633,17 @@ public final class WebApi {
          * and an existing one can't be pointed at another sheet. Sheets can't go inside blueprints.
          */
         private static void checkSheetNode(Network network, Sheet sheet, Node node, boolean adding) throws RequestException {
+            Node existing = sheet.node(node.id());
+            if (!adding && existing != null && existing.settings() instanceof NodeSettings.SheetSettings
+                    && !(node.settings() instanceof NodeSettings.SheetSettings)) {
+                throw new RequestException("A sheet node stays one: delete it to delete its sheet");
+            }
             if (!(node.settings() instanceof NodeSettings.SheetSettings child)) {
                 return;
             }
             if (sheet.blueprint()) {
                 throw new RequestException("Sheets can't go inside a blueprint");
             }
-            Node existing = sheet.node(node.id());
             if (adding || existing == null || !(existing.settings() instanceof NodeSettings.SheetSettings was) || !was.sheet().equals(child.sheet())) {
                 throw new RequestException("Sheets are added with New sheet and moved with Move to");
             }
@@ -673,12 +685,15 @@ public final class WebApi {
          * kinds of block. Unless {@code keep}, the sheet becomes the blueprint's first copy, its slots filled with the
          * sheet's own blocks, so nothing stops running. Sheets with sheets inside them are refused for now.
          */
-        private static Sheet makeBlueprint(Network network, Sheet sheet, boolean keep) throws RequestException {
+        private static Sheet makeBlueprint(MinecraftServer server, Network network, Sheet sheet, boolean keep) throws RequestException {
             if (sheet.root() || sheet.blueprint()) {
                 throw new RequestException("Only a sheet in the tree can become a blueprint");
             }
             if (!network.descendants(sheet).isEmpty()) {
                 throw new RequestException("A sheet with sheets inside it can't become a blueprint yet: move them out first");
+            }
+            if (sheet.nodes().stream().anyMatch(n -> n.settings() instanceof NodeSettings.NetworkNodeSettings)) {
+                throw new RequestException("A sheet with a Network node can't become a blueprint: each copy would switch the same network. Move it out first");
             }
             roomForSheet(network);
             Map<UUID, UUID> ids = new HashMap<>();
@@ -696,8 +711,7 @@ public final class WebApi {
             network.sheets().add(blueprint);
             Network.Placement placement = network.placement(sheet.id());
             if (!keep && placement != null) {
-                network.sheets().remove(sheet);
-                sheet.nodes().forEach(n -> forgetSignalMemory(network, n.id()));
+                forget(server, network, sheet);
                 // Same node, same wires: the blueprint's pins keep their slots.
                 placement.parent().replace(placement.node().with(new NodeSettings.CopySettings(blueprint.id(), bindings)));
             }
@@ -746,9 +760,6 @@ public final class WebApi {
             Node existing = sheet.node(node.id());
             UUID before = existing != null && existing.settings() instanceof NodeSettings.NetworkNodeSettings was ? was.network() : null;
             if (!(node.settings() instanceof NodeSettings.NetworkNodeSettings settings)) {
-                if (before != null) {
-                    letGo(player.server, network, existing);
-                }
                 return;
             }
             if (settings.network().equals(before)) {
@@ -776,28 +787,36 @@ public final class WebApi {
                 Network by = NetworkManager.network(player.server, held.network());
                 throw new RequestException(target.name() + " is already switched by a Network node in " + (by == null ? "another network" : by.name()));
             }
-            if (before != null) {
-                letGo(player.server, network, existing);
-            }
-            // Held on until the node's gate says otherwise.
-            target.switches().setHeld(new io.github.leadassimilator.reticulum.network.Switches.Held(network.id(), node.id(), true));
-            NetworkManager.changed(player.server, target);
         }
 
-        /** A Network node gone or pointed elsewhere: the network it held runs freely again. */
-        private static void letGo(MinecraftServer server, Network network, Node node) {
+        /**
+         * Once a node is stored: a Network node pointed elsewhere (or replaced) lets go of the network it held, and one
+         * pointed at a network takes hold of it, on until its gate says otherwise.
+         */
+        private static void holdFor(MinecraftServer server, Network network, @Nullable Node before, Node node) {
+            if (before != null && !before.settings().equals(node.settings())) {
+                io.github.leadassimilator.reticulum.network.NetworkLinks.letGo(server, network, before);
+            }
             if (node.settings() instanceof NodeSettings.NetworkNodeSettings settings) {
                 Network target = NetworkManager.network(server, settings.network());
-                var held = target == null ? null : target.switches().held();
-                if (held != null && held.network().equals(network.id()) && held.node().equals(node.id())) {
-                    target.switches().setHeld(null);
+                if (target != null && target.switches().held() == null) {
+                    target.switches().setHeld(new io.github.leadassimilator.reticulum.network.Switches.Held(network.id(), node.id(), true));
                     NetworkManager.changed(server, target);
                 }
             }
         }
 
+        /** Takes a sheet out of the network: what its latches remembered goes, and networks its Network nodes held run freely. */
+        private static void forget(MinecraftServer server, Network network, Sheet sheet) {
+            network.sheets().remove(sheet);
+            for (Node node : sheet.nodes()) {
+                forgetSignalMemory(network, node.id());
+                io.github.leadassimilator.reticulum.network.NetworkLinks.letGo(server, network, node);
+            }
+        }
+
         /** Deletes a sheet with every sheet inside it, and its sheet node. The root stays. */
-        private static void deleteSheet(Network network, Sheet sheet) throws RequestException {
+        private static void deleteSheet(MinecraftServer server, Network network, Sheet sheet) throws RequestException {
             if (sheet.root()) {
                 throw new RequestException("The network's top sheet can't be deleted");
             }
@@ -805,8 +824,7 @@ public final class WebApi {
             List<Sheet> gone = new ArrayList<>(network.descendants(sheet));
             gone.add(sheet);
             for (Sheet each : gone) {
-                network.sheets().remove(each);
-                each.nodes().forEach(node -> forgetSignalMemory(network, node.id()));
+                forget(server, network, each);
             }
             if (placement != null) {
                 placement.parent().remove(placement.node().id());
@@ -967,6 +985,7 @@ public final class WebApi {
         JsonArray sheetsOff = new JsonArray();
         runtime.sheetsOff().forEach(id -> sheetsOff.add(id.toString()));
         out.add("sheetsOff", sheetsOff);
+        out.addProperty("heldOn", network.switches().heldOn());
         return out;
     }
 

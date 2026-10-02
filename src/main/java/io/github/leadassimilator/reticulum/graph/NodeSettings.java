@@ -295,8 +295,8 @@ public sealed interface NodeSettings {
     }
 
     /**
-     * A copy of another sheet (one marked as a blueprint) placed here. Its pins are that sheet's Sheet input nodes
-     * (inputs, left) and Sheet output nodes (outputs, right), each ordered top to bottom as laid out in it.
+     * A copy of a blueprint placed here, {@code bindings} saying which block fills each of its slots. Its pins are the
+     * blueprint's Sheet input nodes (inputs, left) and Sheet output nodes (outputs, right); wires attach to them by slot.
      */
     record CopySettings(UUID sheet, Map<UUID, Binding> bindings) implements NodeSettings {
         public CopySettings(UUID sheet) {

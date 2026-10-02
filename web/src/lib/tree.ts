@@ -66,10 +66,10 @@ export type OffReason =
   | { kind: "parent"; sheet: Sheet }
   | { kind: "gate" };
 
-export function offReason(snapshot: Snapshot, sheet: Sheet, sheetsOff: string[]): OffReason | null {
+export function offReason(snapshot: Snapshot, sheet: Sheet, sheetsOff: string[], heldOn = true): OffReason | null {
   if (sheet.blueprint) return null;
   if (!snapshot.enabled) return { kind: "network" };
-  if (snapshot.heldBy && !snapshot.heldBy.on) return { kind: "held", by: snapshot.heldBy.name };
+  if (snapshot.heldBy && !heldOn) return { kind: "held", by: snapshot.heldBy.name };
   if (!sheet.root && sheet.enabled === false) return { kind: "self" };
   const above = ancestors(snapshot, sheet).find((s) => !s.root && s.enabled === false);
   if (above) return { kind: "parent", sheet: above };
