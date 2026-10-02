@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, currentSheet, deviceAt } from "../lib/state.svelte";
+  import { app, currentSheet, deviceAt, sheetHolding } from "../lib/state.svelte";
   import NodeInspector from "./inspector/NodeInspector.svelte";
   import WireInspector from "./inspector/WireInspector.svelte";
   import DeviceInspector from "./inspector/DeviceInspector.svelte";
@@ -10,10 +10,11 @@
   import EmptyState from "./EmptyState.svelte";
 
   const sheet = $derived(currentSheet());
-  const node = $derived(app.selectedNodes.length === 1 ? sheet?.nodes?.find((n) => n.id === app.selectedNodes[0]) : undefined);
-  const wire = $derived(
-    !node && app.selectedEdges.length === 1 ? sheet?.wires?.find((w) => w.id === app.selectedEdges[0]) : undefined,
-  );
+  // What is selected may sit in a sheet opened in place (a frame on the canvas): it is inspected on its own sheet.
+  const nodeSheet = $derived(app.selectedNodes.length === 1 ? sheetHolding(app.selectedNodes[0]) : undefined);
+  const node = $derived(nodeSheet?.nodes?.find((n) => n.id === app.selectedNodes[0]));
+  const wireSheet = $derived(!node && app.selectedEdges.length === 1 ? sheetHolding(app.selectedEdges[0]) : undefined);
+  const wire = $derived(wireSheet?.wires?.find((w) => w.id === app.selectedEdges[0]));
   const device = $derived(app.selectedDevice ? deviceAt(app.selectedDevice) : undefined);
 </script>
 
@@ -29,12 +30,12 @@
     {#key app.selectedDevice}
       <DeviceInspector {device} />
     {/key}
-  {:else if node && sheet}
+  {:else if node && nodeSheet}
     {#key node.id}
-      <NodeInspector {node} {sheet} />
+      <NodeInspector {node} sheet={nodeSheet} />
     {/key}
-  {:else if wire && sheet}
-    <WireInspector {wire} {sheet} />
+  {:else if wire && wireSheet}
+    <WireInspector {wire} sheet={wireSheet} />
   {:else if app.selectedNodes.length > 1}
     <EmptyState message={`${app.selectedNodes.length} nodes selected. Drag to move them together, or press Delete.`} />
   {:else if sheet}

@@ -61,6 +61,25 @@ export function setWireStyle(style: WireStyle): void {
   }
 }
 
+function storedFrames(): string[] {
+  try {
+    const stored = JSON.parse(localStorage.getItem("reticulum.frames") ?? "[]");
+    return Array.isArray(stored) ? stored.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Opens a sheet node in place, as a frame showing its sheet, or closes it again. Remembered per browser. */
+export function toggleFrame(nodeId: string): void {
+  app.frames = app.frames.includes(nodeId) ? app.frames.filter((x) => x !== nodeId) : [...app.frames, nodeId];
+  try {
+    localStorage.setItem("reticulum.frames", JSON.stringify(app.frames));
+  } catch {
+    // Private windows and blocked storage: frames stay open until the page closes.
+  }
+}
+
 export function setRateUnit(unit: RateUnit): void {
   app.rateUnit = unit;
   try {
@@ -74,6 +93,8 @@ export const app = $state({
   /** Rates are shown per tick by default, or per second. */
   rateUnit: storedRateUnit(),
   wireStyle: storedWireStyle(),
+  /** Sheet nodes shown open in place, as frames with their sheet inside (by node id). */
+  frames: storedFrames(),
   socketOpen: false,
   inWorld: false,
   player: "",
@@ -399,6 +420,11 @@ export function request(op: string, payload: Record<string, unknown> = {}): Prom
 
 export function currentSheet(): Sheet | null {
   return app.snapshot?.sheets.find((s) => s.id === app.sheetId) ?? null;
+}
+
+/** The sheet a node or wire is on (node and wire ids are unique across the network). */
+export function sheetHolding(id: string): Sheet | undefined {
+  return app.snapshot?.sheets.find((s) => s.nodes?.some((n) => n.id === id) || s.wires?.some((w) => w.id === id));
 }
 
 export function deviceAt(key: string): Device | undefined {

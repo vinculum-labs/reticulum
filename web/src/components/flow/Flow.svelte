@@ -17,13 +17,14 @@
     type Node,
     type Connection,
   } from "@xyflow/svelte";
-  import { app, createSheet, currentSheet, deviceAt, edit, openSheet, resync, toast, uuid, holdMetrics, setWireStyle, WIRE_STYLE_LABEL, type WireStyle } from "../../lib/state.svelte";
+  import { app, createSheet, currentSheet, deviceAt, edit, nodeTitle, openSheet, resync, toast, uuid, holdMetrics, setWireStyle, WIRE_STYLE_LABEL, type WireStyle } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
-  import { handleIndex, pinResource, toFlow, type NodeData } from "../../lib/graph";
+  import { handleIndex, pinResource, toFlow, type FlowView, type NodeData } from "../../lib/graph";
+  import { crossWire } from "../../lib/crossing";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
-  import type { Device, Edit, GraphNode, NodeKind, Resource, Wire } from "../../lib/types";
+  import type { Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
   import { layout, type PinPositions } from "../../lib/layout";
 
@@ -32,6 +33,10 @@
 
   let nodes = $state.raw<Node<NodeData>[]>([]);
   let edges = $state.raw<Edge[]>([]);
+  /** Which sheet each node and wire on the canvas is on, and the frames open (sheets shown in place). */
+  let view: FlowView = { nodes: [], edges: [], owner: new Map(), frames: new Map() };
+  /** The card sizes the frames were last sized with. */
+  let sizedWith = new Map<string, { width: number; height: number }>();
   let dragging = false;
   let wiring = $state(false);
   let container: HTMLDivElement | undefined = $state();
@@ -68,8 +73,14 @@
     // The selection is carried into the rebuilt nodes but isn't a reason to rebuild: the canvas already shows it.
     const selected = untrack(() => new Set([...app.selectedNodes, ...app.selectedEdges]));
     const unit = app.rateUnit;
+    const open = new Set(app.frames);
     if (!s || dragging) return;
-    const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle);
+    // Frames are sized from their cards as last measured (a guess until then; see below).
+    const sizes = new Map<string, { width: number; height: number }>();
+    for (const n of untrack(() => nodes)) if (n.measured?.width && !n.data.frame) sizes.set(n.id, { width: n.measured.width, height: n.measured.height ?? 0 });
+    const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes);
+    view = built;
+    sizedWith = sizes;
     rebuilding = true;
     // Unchanged nodes and wires keep their objects, so Svelte Flow skips them (it compares by identity) instead of
     // re-rendering and re-measuring the whole sheet on every metrics update.
@@ -84,6 +95,18 @@
       return old && sameEdge(old, e) ? old : e;
     });
     queueMicrotask(() => (rebuilding = false));
+  });
+
+  // Cards in a frame measured at another size than the frame was sized for: size it again (settles in a pass or two).
+  $effect(() => {
+    const list = nodes;
+    if (!list.some((n) => n.parentId)) return;
+    const off = list.some((n) => {
+      if (!n.parentId || n.data.frame || !n.measured?.width) return false;
+      const used = sizedWith.get(n.id);
+      return !used || Math.abs(used.width - n.measured.width) > 1 || Math.abs(used.height - (n.measured.height ?? 0)) > 1;
+    });
+    if (off) untrack(() => resync.count++);
   });
 
   // Selections made here in code (a node just added, a device picked) shown on the canvas without a rebuild;
@@ -108,7 +131,7 @@
   }
 
   function sameNode(a: Node<NodeData>, b: Node<NodeData>): boolean {
-    if (a.type !== b.type || !!a.selected !== !!b.selected || a.position.x !== b.position.x || a.position.y !== b.position.y) return false;
+    if (a.type !== b.type || a.parentId !== b.parentId || !!a.selected !== !!b.selected || a.position.x !== b.position.x || a.position.y !== b.position.y) return false;
     const keys = new Set([...Object.keys(a.data), ...Object.keys(b.data)]) as Set<keyof NodeData>;
     for (const key of keys) if (!sameValue(a.data[key], b.data[key])) return false;
     return true;
@@ -147,8 +170,21 @@
     if (changed && (n.length || e.length)) app.selectedDevice = null;
   }
 
+  /** The sheet a node or wire on the canvas is on: this one, or one open in a frame. */
+  function sheetOf(id: string): Sheet | undefined {
+    const owner = view.owner.get(id);
+    return owner ? app.snapshot?.sheets.find((x) => x.id === owner) : undefined;
+  }
+
   function nodeOf(id: string): GraphNode | undefined {
-    return sheet?.nodes?.find((n) => n.id === id);
+    return sheetOf(id)?.nodes?.find((n) => n.id === id);
+  }
+
+  /** The frames around a node on the canvas, innermost first. */
+  function framesAround(id: string): string[] {
+    const out: string[] = [];
+    for (let at = nodes.find((n) => n.id === id)?.parentId; at && out.length < 16; at = nodes.find((n) => n.id === at)?.parentId) out.push(at);
+    return out;
   }
 
   /**
@@ -159,6 +195,8 @@
     const from = nodeOf(c.source);
     const to = nodeOf(c.target);
     if (!from || !to || c.source === c.target) return false;
+    // A frame's own pins are for wires outside it; inside, wire to its Sheet input and output nodes.
+    if (framesAround(c.source).includes(c.target) || framesAround(c.target).includes(c.source)) return false;
     const sheets = app.snapshot?.sheets ?? [];
     const untypedPin = (node: GraphNode, p: Resource | null) =>
       !p && ["sheet_input", "sheet_output", "sheet", "subsheet"].includes(node.settings.kind);
@@ -173,13 +211,29 @@
     return kindOf(from, fromPin) === kindOf(to, toPin);
   }
 
+  /**
+   * Wires two pins. Across frame edges (between sheets open in place) each edge crossed gets a pin, all in one
+   * change.
+   */
   async function connect(c: Connection) {
-    if (!sheet) return;
+    const from = sheetOf(c.source);
+    const to = sheetOf(c.target);
+    if (!from || !to || !app.snapshot) return;
     const output = handleIndex(c.sourceHandle);
     const input = handleIndex(c.targetHandle);
-    const order = (sheet.wires ?? []).filter((w) => w.from === c.source && (w.output ?? 0) === output).length;
+    if (from.id !== to.id) {
+      const crossing = crossWire(app.snapshot, { sheet: from, node: c.source, index: output }, { sheet: to, node: c.target, index: input }, nodeTitle(nodeOf(c.source)), uuid);
+      if (!crossing) {
+        toast("Those two can't be wired together.");
+        resync.count++;
+        return;
+      }
+      await edit(crossing.edits, crossing.undo, "connect across sheets");
+      return;
+    }
+    const order = (from.wires ?? []).filter((w) => w.from === c.source && (w.output ?? 0) === output).length;
     const wire: Wire = { id: uuid(), from: c.source, output, to: c.target, input, order };
-    await edit([{ type: "connect", sheet: sheet.id, wire }], [{ type: "disconnect", sheet: sheet.id, wire: wire.id }], "connect");
+    await edit([{ type: "connect", sheet: from.id, wire }], [{ type: "disconnect", sheet: from.id, wire: wire.id }], "connect");
   }
 
   /**
@@ -202,22 +256,33 @@
         return;
       }
     }
+    // What sits in a sheet being deleted goes with it (Svelte Flow hands over a frame's cards along with it).
+    const deleted = new Set(held.flatMap((h) => [h.id, ...descendants(app.snapshot!, h).map((x) => x.id)]));
     const goneIds = new Set(gone.map((n) => n.id));
     const edits: Edit[] = [];
     const undo: Edit[] = [];
+    const touchedSheets = new Map<string, Sheet>();
     for (const n of gone) {
+      const on = sheetOf(n.id);
       const node = nodeOf(n.id);
-      if (!node) continue;
-      edits.push({ type: "removeNode", sheet: sheet.id, node: n.id });
+      if (!on || !node || deleted.has(on.id)) continue;
+      touchedSheets.set(on.id, on);
+      edits.push({ type: "removeNode", sheet: on.id, node: n.id });
       // A sheet node can't come back (its sheet is gone with it).
-      if (node.settings.kind !== "sheet") undo.push({ type: "addNode", sheet: sheet.id, node });
+      if (node.settings.kind !== "sheet") undo.push({ type: "addNode", sheet: on.id, node });
+    }
+    for (const e of cut) {
+      const on = sheetOf(e.id);
+      if (on && !deleted.has(on.id)) touchedSheets.set(on.id, on);
     }
     // Restore every wire that touched a removed node, plus wires cut on their own.
-    for (const w of sheet.wires ?? []) {
-      const touched = goneIds.has(w.from) || goneIds.has(w.to);
-      const cutAlone = cut.some((e) => e.id === w.id) && !touched;
-      if (cutAlone) edits.push({ type: "disconnect", sheet: sheet.id, wire: w.id });
-      if (touched || cutAlone) undo.push({ type: "connect", sheet: sheet.id, wire: w });
+    for (const on of touchedSheets.values()) {
+      for (const w of on.wires ?? []) {
+        const touched = goneIds.has(w.from) || goneIds.has(w.to);
+        const cutAlone = cut.some((e) => e.id === w.id) && !touched;
+        if (cutAlone) edits.push({ type: "disconnect", sheet: on.id, wire: w.id });
+        if (touched || cutAlone) undo.push({ type: "connect", sheet: on.id, wire: w });
+      }
     }
     app.selectedNodes = [];
     app.selectedEdges = [];
@@ -230,23 +295,73 @@
       holdMetrics(false);
       return;
     }
-    const positions = moved.map((n) => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) }));
-    const before = moved.map((n) => {
-      const node = nodeOf(n.id);
-      return { id: n.id, x: node?.x ?? 0, y: node?.y ?? 0 };
-    });
-    await edit([{ type: "moveNodes", sheet: sheet.id, positions }], [{ type: "moveNodes", sheet: sheet.id, positions: before }], "move");
+    const { edits, undo } = moves(moved);
+    await edit(edits, undo, "move");
     // Only now: held metrics applied before the move is saved would rebuild the canvas from the old positions, and
     // the node would jump back for a moment.
     holdMetrics(false);
+  }
+
+  /**
+   * Saves where cards were dragged to, on the sheet each is on (a card in a frame: in its sheet's own coordinates).
+   * A frame whose contents' corner moved moves by as much, so its other cards stay where they are on screen.
+   */
+  function moves(moved: Node[]): { edits: Edit[]; undo: Edit[] } {
+    const placed = new Map<string, Map<string, { x: number; y: number }>>();
+    const put = (sheetId: string, id: string, x: number, y: number) => {
+      if (!placed.has(sheetId)) placed.set(sheetId, new Map());
+      placed.get(sheetId)!.set(id, { x: Math.round(x), y: Math.round(y) });
+    };
+    for (const n of moved) {
+      const on = sheetOf(n.id);
+      if (!on) continue;
+      const frame = n.parentId ? view.frames.get(n.parentId) : undefined;
+      put(on.id, n.id, n.position.x + (frame?.dx ?? 0), n.position.y + (frame?.dy ?? 0));
+    }
+    // Frames whose contents moved, innermost first: moving a frame can shift the one around it in turn.
+    const settled = new Set<string>();
+    for (let pass = 0; pass < 8; pass++) {
+      let shifted = false;
+      for (const [frameId, frame] of view.frames) {
+        const inside = placed.get(frame.sheet);
+        const held = app.snapshot?.sheets.find((x) => x.id === frame.sheet);
+        const outer = sheetOf(frameId);
+        const node = nodeOf(frameId);
+        if (!inside || !held?.nodes?.length || !outer || !node || settled.has(frameId)) continue;
+        settled.add(frameId);
+        const spot = (n: GraphNode) => inside.get(n.id) ?? { x: n.x ?? 0, y: n.y ?? 0 };
+        const dx = Math.min(...held.nodes.map((n) => spot(n).x)) - Math.min(...held.nodes.map((n) => n.x ?? 0));
+        const dy = Math.min(...held.nodes.map((n) => spot(n).y)) - Math.min(...held.nodes.map((n) => n.y ?? 0));
+        if (dx || dy) {
+          const at = placed.get(outer.id)?.get(frameId) ?? { x: node.x ?? 0, y: node.y ?? 0 };
+          put(outer.id, frameId, at.x + dx, at.y + dy);
+          shifted = true;
+        }
+      }
+      if (!shifted) break;
+    }
+    const edits: Edit[] = [];
+    const undo: Edit[] = [];
+    for (const [sheetId, spots] of placed) {
+      const on = app.snapshot?.sheets.find((x) => x.id === sheetId);
+      if (!on) continue;
+      const positions = [...spots].map(([id, p]) => ({ id, ...p }));
+      const before = positions.map((p) => {
+        const node = on.nodes?.find((n) => n.id === p.id);
+        return { id: p.id, x: node?.x ?? 0, y: node?.y ?? 0 };
+      });
+      edits.push({ type: "moveNodes", sheet: sheetId, positions });
+      undo.push({ type: "moveNodes", sheet: sheetId, positions: before });
+    }
+    return { edits, undo };
   }
 
   function offered(device: Device): Resource {
     return offeredResources(device.resources)[0] ?? "item";
   }
 
-  async function addNode(kind: NodeKind, at: { x: number; y: number }, device: Device | null = null) {
-    if (!sheet) return;
+  async function addNode(kind: NodeKind, at: { x: number; y: number }, device: Device | null = null, into: Sheet | null = sheet) {
+    if (!into) return;
     if (kind === "sheet") {
       // A new sheet inside this one, its node where asked; it stays closed until double-clicked.
       const id = await createSheet(sheet, `Sheet ${app.snapshot?.sheets.length ?? 1}`, at, false);
@@ -275,7 +390,7 @@
       x: Math.round(at.x),
       y: Math.round(at.y),
     };
-    const ok = await edit([{ type: "addNode", sheet: sheet.id, node }], [{ type: "removeNode", sheet: sheet.id, node: node.id }], "add node");
+    const ok = await edit([{ type: "addNode", sheet: into.id, node }], [{ type: "removeNode", sheet: into.id, node: node.id }], "add node");
     if (ok) {
       app.selectedNodes = [node.id];
       app.selectedEdges = [];
@@ -302,7 +417,19 @@
     if (!device) return;
     e.preventDefault();
     const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    addNode("device", { x: p.x - 70, y: p.y - 17 }, device);
+    // Dropped in a frame: onto the sheet open there (the innermost frame under the pointer).
+    let into: { sheet: Sheet; x: number; y: number; area: number } | null = null;
+    for (const [frameId, frame] of view.frames) {
+      const internal = flow.getInternalNode(frameId);
+      const box = internal?.internals.positionAbsolute;
+      const width = internal?.measured.width ?? 0;
+      const height = internal?.measured.height ?? 0;
+      const held = app.snapshot?.sheets.find((x) => x.id === frame.sheet);
+      if (!box || !held || p.x < box.x || p.y < box.y || p.x > box.x + width || p.y > box.y + height) continue;
+      if (!into || width * height < into.area) into = { sheet: held, x: p.x - box.x + frame.dx, y: p.y - box.y + frame.dy, area: width * height };
+    }
+    if (into) addNode("device", { x: into.x - 70, y: into.y - 17 }, device, into.sheet);
+    else addNode("device", { x: p.x - 70, y: p.y - 17 }, device);
   }
 
   /** Sheets that can be placed here as sub-sheets: marked as one, and not this sheet. */

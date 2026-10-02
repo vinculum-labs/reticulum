@@ -1,8 +1,10 @@
 <script lang="ts">
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Zap from "@lucide/svelte/icons/zap";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import type { HolderPin, NodeData } from "../../lib/graph";
+  import { CARD_HEADER, CARD_ROW, type HolderPin, type NodeData } from "../../lib/graph";
   import {
     KIND_LABEL,
     RESOURCE_LABEL,
@@ -21,7 +23,7 @@
     signalOutput,
     summary,
   } from "../../lib/kinds";
-  import { app, deviceName } from "../../lib/state.svelte";
+  import { app, deviceName, toggleFrame } from "../../lib/state.svelte";
   import DeviceIcon from "../DeviceIcon.svelte";
   import { KIND_ICON } from "../../lib/icons";
   import IdentifyBadge from "../IdentifyBadge.svelte";
@@ -29,8 +31,8 @@
   let { id, data, selected }: { id: string; data: NodeData; selected?: boolean } = $props();
   const updateInternals = useUpdateNodeInternals();
 
-  const BASE_HEADER = 34;
-  const ROW = 18;
+  const BASE_HEADER = CARD_HEADER;
+  const ROW = CARD_ROW;
 
   const s = $derived(data.node.settings);
   const kind = $derived(s.kind);
@@ -163,7 +165,10 @@
 <div
   bind:this={card}
   class="rounded-md border text-left text-xs"
-  style="width: max-content; min-width: {pinned ? 140 : 110}px; max-width: {pinned ? 220 : 180}px; background: var(--panel); border-color: {selected
+  class:frame={!!data.frame}
+  style="{data.frame
+    ? `width: ${data.frame.width}px; height: ${data.frame.height}px`
+    : `width: max-content; min-width: ${pinned ? 140 : 110}px; max-width: ${pinned ? 220 : 180}px`}; background: var(--panel); border-color: {selected
     ? 'var(--accent)'
     : data.problem
       ? 'var(--bad)'
@@ -210,6 +215,22 @@ ${idleTitle}` : idleTitle}
       {#if redstone}<div class="flex items-center gap-0.5 truncate text-signal" style="font-size: 10px" title={redstone}><Zap size={10} class="shrink-0" />{redstone}</div>{/if}
     </div>
     {#if data.device}<IdentifyBadge device={data.device} />{/if}
+    {#if kind === "sheet" && data.holder?.sheet}
+      <!-- Opens the sheet in place, as a frame with its nodes inside, or closes it back to a card. -->
+      <button
+        class="nodrag shrink-0 rounded p-0.5 hover:bg-line"
+        title={data.frame ? "Close: show it as a card" : "Open here: show what is inside on this sheet"}
+        aria-label={data.frame ? "Close the sheet" : "Open the sheet here"}
+        aria-expanded={!!data.frame}
+        onclick={(e) => {
+          e.stopPropagation();
+          toggleFrame(id);
+        }}
+        ondblclick={(e) => e.stopPropagation()}
+      >
+        {#if data.frame}<ChevronDown size={14} />{:else}<ChevronRight size={14} />{/if}
+      </button>
+    {/if}
   </div>
   {#if pinned}
     <div class="grid grid-cols-2 gap-2" style="height: {rows * ROW}px; font-size: 10px">
@@ -272,6 +293,10 @@ ${idleTitle}` : idleTitle}
 {/if}
 
 <style>
+  /* An open sheet: a frame its nodes sit in, a shade off the canvas so they stand out from it. */
+  .frame {
+    background: color-mix(in srgb, var(--panel) 55%, transparent) !important;
+  }
   /* On the card's corner, outside it, so a node with an error can be spotted among many. */
   .problem-badge {
     position: absolute;

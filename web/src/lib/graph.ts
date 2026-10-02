@@ -4,7 +4,7 @@ import type { Edge, Node } from "@xyflow/svelte";
 import type { Device, GlobalPos, GraphNode, MeUsage, Resource, Sheet, Wire } from "./types";
 export type { MeUsage };
 import { GATE, pinName, pinSlot, posKey, sheetPins } from "./types";
-import { RESOURCE_VAR, formatRate, isSignal } from "./kinds";
+import { RESOURCE_VAR, formatRate, isSignal, redstoneSummary } from "./kinds";
 
 export interface NodeData extends Record<string, unknown> {
   node: GraphNode;
@@ -23,7 +23,40 @@ export interface NodeData extends Record<string, unknown> {
   gateWired?: boolean;
   /** What is wrong with it, one error per line, as the server compiled the sheet. */
   problem?: string;
+  /** A sheet node opened in place: drawn as a frame this big, its sheet's nodes inside it. */
+  frame?: { width: number; height: number };
+}
 
+/** A card's header height and pin row height, as GraphNode draws them. */
+export const CARD_HEADER = 34;
+export const CARD_ROW = 18;
+/** Room around a frame's contents. */
+const FRAME_PAD = 24;
+/** A card's size before Svelte Flow has measured it. */
+const GUESS = { width: 160, height: 60 };
+
+/** Where a frame's contents start below its top edge: under its header and pin rows. */
+function frameTop(node: GraphNode, holder: { inputs: HolderPin[]; outputs: HolderPin[] }): number {
+  const header = CARD_HEADER + (redstoneSummary(node.redstone) ? 13 : 0);
+  return header + Math.max(holder.inputs.length, holder.outputs.length, 1) * CARD_ROW + FRAME_PAD;
+}
+
+/**
+ * A sheet node opened in place: the sheet inside it, and the offset from a node's spot in that sheet to its spot in
+ * the frame (sheet x = position in the frame + dx).
+ */
+export interface Frame {
+  sheet: string;
+  dx: number;
+  dy: number;
+}
+
+/** What the canvas shows: nodes and wires, the sheet each one is on, and the open frames by sheet node id. */
+export interface FlowView {
+  nodes: Node<NodeData>[];
+  edges: Edge[];
+  owner: Map<string, string>;
+  frames: Map<string, Frame>;
 }
 
 /** One pin of a sheet or sub-sheet node: its name, the slot wires attach by, and what it carries (none: anything). */
@@ -185,6 +218,10 @@ function problemsInside(sheets: Sheet[], sheet: Sheet): number {
   return count;
 }
 
+/**
+ * Builds the canvas for a sheet. Sheet nodes listed in {@code open} show their sheet in place, as a frame with its
+ * nodes and wires inside (and the frames open in those); {@code sizes} are the cards' measured sizes, for sizing frames.
+ */
 export function toFlow(
   sheet: Sheet,
   sheets: Sheet[],
@@ -193,9 +230,95 @@ export function toFlow(
   selected: Set<string>,
   unit: "t" | "s",
   wireStyle: string = "default",
+  open: Set<string> = new Set(),
+  sizes: Map<string, { width: number; height: number }> = new Map(),
+): FlowView {
+  const view: FlowView = { nodes: [], edges: [], owner: new Map(), frames: new Map() };
+  const byKey = new Map(devices.map((d) => [posKey(d.pos), d]));
+  const byId = new Map(sheets.map((x) => [x.id, x]));
+
+  /**
+   * Adds a sheet's nodes and wires (inside frame {@code parent} when given, shifted by {@code shift}); returns the
+   * box its nodes cover, in sheet coordinates.
+   */
+  function build(at: Sheet, parent: string | undefined, shift: { dx: number; dy: number }, depth: number, seen: Set<string>) {
+    const { nodes, edges } = sheetFlow(at, sheets, byKey, activity, selected, unit, wireStyle);
+    // Frames first, inside out: a frame's size is its contents'.
+    const sizeOf = new Map<string, { width: number; height: number }>();
+    const inner: (() => void)[] = [];
+    for (const n of nodes) {
+      const s = n.data.node.settings;
+      const held = s.kind === "sheet" ? byId.get(s.sheet) : undefined;
+      if (!held || !open.has(n.id) || depth >= 8 || seen.has(held.id)) continue;
+      const holder = n.data.holder!;
+      const top = frameTop(n.data.node, holder);
+      // Measure the contents without adding them yet: they go after this frame, which Svelte Flow needs first.
+      const probe = contentBox(held, sheets, open, sizes, depth + 1, new Set([...seen, held.id]));
+      const frame: Frame = { sheet: held.id, dx: probe.minX - FRAME_PAD, dy: probe.minY - top };
+      view.frames.set(n.id, frame);
+      const width = Math.max(probe.maxX - probe.minX + 2 * FRAME_PAD, 220);
+      const height = top + probe.maxY - probe.minY + FRAME_PAD;
+      n.data.frame = { width, height };
+      sizeOf.set(n.id, { width, height });
+      inner.push(() => build(held, n.id, frame, depth + 1, new Set([...seen, held.id])));
+    }
+    for (const n of nodes) {
+      n.position = { x: n.position.x - shift.dx, y: n.position.y - shift.dy };
+      if (parent) n.parentId = parent;
+      view.owner.set(n.id, at.id);
+      view.nodes.push(n);
+    }
+    for (const e of edges) {
+      view.owner.set(e.id, at.id);
+      view.edges.push(e);
+    }
+    for (const add of inner) add();
+  }
+  build(sheet, undefined, { dx: 0, dy: 0 }, 0, new Set([sheet.id]));
+  return view;
+}
+
+/** The box a sheet's nodes cover, frames opened in it included (an empty sheet: a small box at 0, 0). */
+function contentBox(
+  sheet: Sheet,
+  sheets: Sheet[],
+  open: Set<string>,
+  sizes: Map<string, { width: number; height: number }>,
+  depth: number,
+  seen: Set<string>,
+): { minX: number; minY: number; maxX: number; maxY: number } {
+  const list = sheet.nodes ?? [];
+  if (!list.length) return { minX: 0, minY: 0, maxX: 200, maxY: 80 };
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of list) {
+    let size = sizes.get(n.id) ?? GUESS;
+    const s = n.settings;
+    const held = s.kind === "sheet" ? sheets.find((x) => x.id === s.sheet) : undefined;
+    if (held && open.has(n.id) && depth < 8 && !seen.has(held.id)) {
+      const box = contentBox(held, sheets, open, sizes, depth + 1, new Set([...seen, held.id]));
+      const holder = { inputs: holderPins(held, true), outputs: holderPins(held, false) };
+      size = { width: Math.max(box.maxX - box.minX + 2 * FRAME_PAD, 220), height: frameTop(n, holder) + box.maxY - box.minY + FRAME_PAD };
+    }
+    const x = n.x ?? 0, y = n.y ?? 0;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + size.width);
+    maxY = Math.max(maxY, y + size.height);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+/** One sheet's nodes and wires, at their spots in the sheet. */
+function sheetFlow(
+  sheet: Sheet,
+  sheets: Sheet[],
+  byKey: Map<string, Device>,
+  activity: Activity,
+  selected: Set<string>,
+  unit: "t" | "s",
+  wireStyle: string,
 ): { nodes: Node<NodeData>[]; edges: Edge[] } {
   const rates = activity.rates;
-  const byKey = new Map(devices.map((d) => [posKey(d.pos), d]));
   const kinds = resources(sheet, sheets);
   const problems = new Map<string, string>();
   for (const error of sheet.errors ?? []) {
