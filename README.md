@@ -58,7 +58,9 @@ signals run between sheets through wires. Add pins with **+ input** / **+ output
 the tree; drag a sheet onto another to move it.
 
 Open a sheet node in place with the arrow on its header: it becomes a frame with the sheet inside, to edit right there.
-A wire drawn across a frame's edge gets a pin at that edge by itself.
+A wire drawn across a frame's edge gets a pin at that edge by itself. Drag a card into a frame to move it into that
+sheet; hold **Alt** (**⌥ Option** on a Mac) while dragging to take one out (otherwise the frame grows around it). Its
+wires are kept, through pins at the edges.
 
 A sheet node's switch, and a signal wired into its gate, switch everything in the sheet. A switched-off sheet moves
 nothing; its signal outputs hold their last value, give a set value, or keep running, as each is set.

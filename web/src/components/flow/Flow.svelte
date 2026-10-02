@@ -45,6 +45,7 @@
   import Breadcrumbs from "./Breadcrumbs.svelte";
   import { contentCorner, handleIndex, isPin, openFrameSize, pinResource, resources, PIN_DOT, PIN_W, toFlow, type FlowView, type NodeData } from "../../lib/graph";
   import { crossWire, nextOrder } from "../../lib/crossing";
+  import { moveAcross } from "../../lib/moveAcross";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
   import { GATE } from "../../lib/types";
@@ -166,6 +167,8 @@
     view = built;
     builtFor = untrack(() => viewKey);
     sizedWith = sizes;
+    // Alt still held: new cards in frames don't grow them either.
+    if (altDown) for (const n of built.nodes) if (n.parentId && n.type === "graph") n.expandParent = false;
     // The open sheet's frame offers its + input / + output buttons only where the sheet can be edited.
     for (const n of built.nodes) if (n.type === "sheetFrame") (n.data as unknown as { canAdd: boolean }).canAdd = editable;
     untrack(() => {
@@ -404,9 +407,13 @@
     await edit(edits, undo, "delete");
   }
 
-  async function dragStop({ nodes: moved }: { nodes: Node[] }) {
+  async function dragStop({ nodes: moved, event }: { nodes: Node[]; event: MouseEvent | TouchEvent }) {
     dragging = false;
     if (!sheet || moved.length === 0) {
+      holdMetrics(false);
+      return;
+    }
+    if (await moveToOtherSheet(moved, event)) {
       holdMetrics(false);
       return;
     }
@@ -416,6 +423,82 @@
     // the node would jump back for a moment.
     holdMetrics(false);
   }
+
+  /**
+   * Cards dropped on another sheet than their own move there: into a frame under the pointer, or out of theirs (with
+   * Alt held, so it didn't grow under them) onto the sheet around it. Their wires that now cross an edge are rebuilt
+   * through pins, as one change; refused when one can't be. Sheets and pins don't move this way. Returns whether the
+   * drop was handled here (moved or refused).
+   */
+  async function moveToOtherSheet(moved: Node[], event: MouseEvent | TouchEvent): Promise<boolean> {
+    if (!sheet || !app.snapshot || !editable) return false;
+    const cards = moved.filter((n) => n.type === "graph");
+    const owners = new Set(cards.map((n) => view.owner.get(n.id)));
+    if (!cards.length || owners.size !== 1) return false;
+    const point = "changedTouches" in event ? event.changedTouches[0] : event;
+    if (!point) return false;
+    const p = flow.screenToFlowPosition({ x: point.clientX, y: point.clientY });
+    // The innermost frame under the pointer, not one being dragged (or inside one being dragged).
+    const dragged = new Set(moved.map((n) => n.id));
+    let target: { sheet: Sheet; frame?: (typeof view.frames extends Map<string, infer F> ? F : never); area: number } = { sheet, area: Infinity };
+    for (const [frameId, frame] of view.frames) {
+      if (dragged.has(frameId) || framesAround(frameId).some((id) => dragged.has(id))) continue;
+      const internal = flow.getInternalNode(frameId);
+      const at = internal?.internals.positionAbsolute;
+      const width = internal?.measured.width ?? 0;
+      const height = internal?.measured.height ?? 0;
+      const held = app.snapshot.sheets.find((x) => x.id === frame.sheet);
+      if (!at || !held || p.x < at.x || p.y < at.y || p.x > at.x + width || p.y > at.y + height) continue;
+      if (width * height < target.area) target = { sheet: held, frame, area: width * height };
+    }
+    const from = app.snapshot.sheets.find((x) => x.id === [...owners][0]);
+    if (!from || from.id === target.sheet.id) return false;
+    const nodesMoved = cards.map((n) => nodeOf(n.id)).filter((n): n is GraphNode => !!n);
+    if (nodesMoved.some((n) => n.settings.kind === "sheet" || isPin(n))) {
+      toast("Sheets move with the list (or Move into in their settings), and pins stay on their sheet's edge.", "info");
+      resync.count++;
+      return true;
+    }
+    // Where each lands in the other sheet: from where it is on the canvas.
+    const items = nodesMoved.map((node) => {
+      const abs = flow.getInternalNode(node.id)?.internals.positionAbsolute ?? { x: node.x ?? 0, y: node.y ?? 0 };
+      const f = target.frame;
+      return { node, x: f ? abs.x - f.ax + f.dx : abs.x, y: f ? abs.y - f.ay + f.dy : abs.y };
+    });
+    const change = moveAcross(app.snapshot, from, target.sheet, items, nodeTitle, uuid);
+    if (!change) {
+      toast("Can't move it there: one of its wires couldn't be kept.");
+      resync.count++;
+      return true;
+    }
+    await edit(change.edits, change.undo, nodesMoved.length === 1 ? `move to ${target.sheet.name}` : `move ${nodesMoved.length} to ${target.sheet.name}`);
+    return true;
+  }
+
+  /**
+   * Alt (⌥ Option) held: cards dragged in a frame don't grow it, so they can be dragged out of it. Svelte Flow reads
+   * this when a drag starts, so Alt goes down first.
+   */
+  let altDown = false;
+  function setAlt(on: boolean) {
+    if (altDown === on) return;
+    altDown = on;
+    if (dragging) return;
+    nodes = nodes.map((n) => (n.parentId && n.type === "graph" ? { ...n, expandParent: !on } : n));
+  }
+  $effect(() => {
+    const down = (e: KeyboardEvent) => e.key === "Alt" && setAlt(true);
+    const up = (e: KeyboardEvent) => e.key === "Alt" && setAlt(false);
+    const lost = () => setAlt(false);
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", lost);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", lost);
+    };
+  });
 
   /**
    * Saves where cards were dragged to, on the sheet each is on (a card in a frame: in its sheet's own coordinates).
