@@ -7,6 +7,17 @@
    */
   let { data }: { data: { sheetId: string; name: string; width: number; height: number; canAdd: boolean } } = $props();
 
+  /** The sheet is what the side panel shows when nothing else is selected (no node, wire, device or other panel). */
+  const shown = $derived(!app.selectedNodes.length && !app.selectedEdges.length && !app.selectedDevice && !app.panel);
+
+  /** Clicking the title line selects the sheet: its settings in the side panel. */
+  function select() {
+    app.selectedNodes = [];
+    app.selectedEdges = [];
+    app.selectedDevice = null;
+    app.panel = null;
+  }
+
   function add(input: boolean) {
     const sheet = app.snapshot?.sheets.find((s) => s.id === data.sheetId);
     if (sheet) addSheetPin(sheet, input);
@@ -15,14 +26,24 @@
 
 <div class="sheet-frame rounded-lg" style="width: {data.width}px; height: {data.height}px">
   <!-- The title line, set apart like a card's header (its accent on the left, a line below). -->
-  <div class="frame-header flex items-center gap-2 px-2 py-1 text-xs muted">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    class="frame-header flex items-center gap-2 px-2 py-1 text-xs muted"
+    class:shown
+    role="button"
+    tabindex="-1"
+    title="Show this sheet's settings"
+    onclick={select}
+  >
     <span class="min-w-0 flex-1 truncate font-medium">{data.name}</span>
     {#if data.canAdd}
       <!-- Each shows the pin it adds: an input's dot is solid (it feeds what is inside), an output's a ring. -->
-      <button class="nodrag btn flex items-center gap-1 px-1.5 py-0 text-xs" title="Add a pin on the left edge: where things come into this sheet" onclick={() => add(true)}>
+      <button class="nodrag btn flex items-center gap-1 px-1.5 py-0 text-xs" title="Add a pin on the left edge: where things come into this sheet"
+        onclick={(e) => (e.stopPropagation(), add(true))}>
         <span class="pin-icon solid" aria-hidden="true"></span>input
       </button>
-      <button class="nodrag btn flex items-center gap-1 px-1.5 py-0 text-xs" title="Add a pin on the right edge: where things leave this sheet" onclick={() => add(false)}>
+      <button class="nodrag btn flex items-center gap-1 px-1.5 py-0 text-xs" title="Add a pin on the right edge: where things leave this sheet"
+        onclick={(e) => (e.stopPropagation(), add(false))}>
         <span class="pin-icon" aria-hidden="true"></span>output
       </button>
     {/if}
@@ -53,5 +74,10 @@
     border-left: 3px solid var(--muted);
     border-top-left-radius: 6px;
     background: color-mix(in srgb, var(--panel) 70%, transparent);
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  .frame-header.shown {
+    border-left-color: var(--accent);
   }
 </style>
