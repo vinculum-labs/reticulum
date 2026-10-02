@@ -5,7 +5,8 @@
 </script>
 
 {#if app.sheetId}
-  {#key app.sheetId}
+  <!-- A canvas per sheet (and per open copy): each starts at its own remembered view. -->
+  {#key `${app.sheetId}/${app.copy?.node ?? ""}`}
     <Flow />
   {/key}
 {:else}

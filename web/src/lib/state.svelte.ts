@@ -61,6 +61,37 @@ export function setWireStyle(style: WireStyle): void {
   }
 }
 
+/** Each sheet's pan and zoom as last left (by sheet id; "copy:<node id>" for an open blueprint copy), per browser. */
+type SavedView = { x: number; y: number; zoom: number };
+
+function storedViews(): Record<string, SavedView> {
+  try {
+    const stored = JSON.parse(localStorage.getItem("reticulum.views") ?? "{}");
+    return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+  } catch {
+    return {};
+  }
+}
+
+const savedViews = storedViews();
+
+export function savedView(key: string): SavedView | undefined {
+  return savedViews[key];
+}
+
+/** Remembers where a sheet was left; only the most recent 200 sheets are kept. */
+export function saveView(key: string, view: SavedView): void {
+  delete savedViews[key];
+  savedViews[key] = { x: Math.round(view.x), y: Math.round(view.y), zoom: Math.round(view.zoom * 1000) / 1000 };
+  const keys = Object.keys(savedViews);
+  for (const old of keys.slice(0, Math.max(0, keys.length - 200))) delete savedViews[old];
+  try {
+    localStorage.setItem("reticulum.views", JSON.stringify(savedViews));
+  } catch {
+    // Private windows and blocked storage: views are remembered until the page closes.
+  }
+}
+
 function storedFrames(): string[] {
   try {
     const stored = JSON.parse(localStorage.getItem("reticulum.frames") ?? "[]");

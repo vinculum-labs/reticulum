@@ -19,6 +19,8 @@
     type OnConnectEnd,
   } from "@xyflow/svelte";
   import {
+    savedView,
+    saveView,
     app,
     createSheet,
     currentSheet,
@@ -71,6 +73,17 @@
   const editable = $derived(canEdit && !copy);
   /** How many copies the open blueprint has: editing it changes them all. */
   const copyCount = $derived(sheet?.blueprint && app.snapshot ? copiesOf(app.snapshot, sheet.id).length : 0);
+
+  /**
+   * Each sheet opens where it was left (pan and zoom, remembered per browser), or fitted to its contents the first
+   * time. The canvas is made anew for every sheet (and copy), so this is how it starts.
+   */
+  const viewKey = $derived(copy ? `copy:${copy.node.id}` : (sheet?.id ?? null));
+  const startView = untrack(() => (viewKey ? savedView(viewKey) : undefined));
+
+  function moveEnd(_event: unknown, viewport: { x: number; y: number; zoom: number }) {
+    if (viewKey) saveView(viewKey, viewport);
+  }
 
   // A node opened from the dashboard is brought into view once Svelte Flow has measured it.
   $effect(() => {
@@ -710,7 +723,6 @@
     bind:edges
     connectionLineType={app.wireStyle as ConnectionLineType}
     {nodeTypes}
-    fitView
     minZoom={0.2}
     maxZoom={2}
     deleteKey={editable && modals.open === 0 ? ["Delete", "Backspace"] : null}
@@ -727,6 +739,10 @@
       dragging = true;
       holdMetrics(true);
     }}
+    onmoveend={moveEnd}
+    initialViewport={startView}
+    fitView={!startView}
+    fitViewOptions={{ padding: 0.1, maxZoom: 1 }}
     onnodedrag={keepPinsOnEdges}
     onnodedragstop={dragStop}
     onnodeclick={nodeClick}
