@@ -3,7 +3,7 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import { CARD_HEADER, CARD_ROW, type HolderPin, type NodeData } from "../../lib/graph";
+  import { CARD_HEADER, CARD_ROW, PIN_KNOB, type HolderPin, type NodeData } from "../../lib/graph";
   import {
     KIND_LABEL,
     RESOURCE_LABEL,
@@ -142,6 +142,11 @@
   // Color says what a pin carries; shape says which way: inputs are hollow rings, outputs filled dots.
   const inPin = (c: string) => `background: var(--panel); border: 2px solid ${c}`;
   const outPin = (c: string) => `background: ${c}; border: 2px solid ${c}`;
+  /** An open frame's handle is the outer half of its pin's dot: just outside the border, the pin inside makes the rest. */
+  const outerHalf = (left: boolean) =>
+    `; width: ${PIN_KNOB}px; height: ${PIN_KNOB}px; transform: translate(${left ? "-100%" : "100%"}, -50%); border-radius: ${
+      left ? `${PIN_KNOB}px 0 0 ${PIN_KNOB}px` : `0 ${PIN_KNOB}px ${PIN_KNOB}px 0`
+    }`;
 
   // New or removed handles must be measured again, or wires attach to stale positions.
   // Re-measure the handles only when the pins or the header actually change. The row arrays are rebuilt with the
@@ -290,11 +295,11 @@ ${idleTitle}` : idleTitle}
   <!-- An open frame's handles sit on its edges, level with its pins inside; a card's beside their rows. -->
   {#each leftRows as row, i (row.handle)}
     <Handle type="target" position={Position.Left} id={row.handle} title={row.title}
-      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}" />
+      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}{data.frame ? outerHalf(true) : ''}" />
   {/each}
   {#each rightRows as row, i (row.handle)}
     <Handle type="source" position={Position.Right} id={row.handle} title={row.title}
-      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}" />
+      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}{data.frame ? outerHalf(false) : ''}" />
   {/each}
 {:else}
   {#if flowIn}

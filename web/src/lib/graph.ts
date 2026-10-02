@@ -40,7 +40,10 @@ export const CARD_HEADER = 34;
 export const CARD_ROW = 18;
 /** An edge pin's size; a pin's y in its sheet is its middle (its x doesn't matter: it sits on the edge). */
 export const PIN_W = 110;
-export const PIN_H = 22;
+export const PIN_H = 26;
+/** From an edge pin's top to its dot (which sits on the wire's line, the pin's y); and the dot's size. */
+export const PIN_DOT = 19;
+export const PIN_KNOB = 10;
 /** Room around a frame's contents, and between edge pins and the cards. */
 const FRAME_PAD = 24;
 const PIN_GAP = 40;
@@ -64,7 +67,7 @@ export function contentCorner(nodes: GraphNode[], spot: (n: GraphNode) => { x: n
   for (const n of nodes) {
     const at = spot(n);
     if (!isPin(n)) x = Math.min(x, at.x);
-    y = Math.min(y, isPin(n) ? at.y - PIN_H / 2 : at.y);
+    y = Math.min(y, isPin(n) ? at.y - PIN_DOT : at.y);
   }
   return { x: x === Infinity ? 0 : x, y: y === Infinity ? 0 : y };
 }
@@ -303,12 +306,14 @@ export function toFlow(
   const byId = new Map(sheets.map((x) => [x.id, x]));
 
   /** Sheet pins sit on the frame's edges: inputs on the left, outputs on the right, each at its own height. */
-  function placePins(nodes: Node<NodeData>[], layout: SheetLayout) {
+  function placePins(nodes: Node<NodeData>[], layout: SheetLayout, frame: boolean) {
     for (const n of nodes) {
       if (!isPin(n.data.node)) continue;
       const input = n.data.node.settings.kind === "sheet_input";
       n.type = "pin";
-      n.position = { x: layout.dx + (input ? 4 : layout.width - PIN_W - 4), y: (n.data.node.y ?? 0) - PIN_H / 2 };
+      // Its dot on the border: the pin's outer side is the frame's edge.
+      n.position = { x: layout.dx + (input ? 0 : layout.width - PIN_W), y: (n.data.node.y ?? 0) - PIN_DOT };
+      (n.data as NodeData & { pinSide?: string }).pinSide = frame ? "frame" : "sheet";
     }
   }
 
@@ -316,7 +321,7 @@ export function toFlow(
   function build(at: Sheet, parent: string | undefined, shift: { dx: number; dy: number }, depth: number, seen: Set<string>, layout: SheetLayout | null) {
     const { nodes, edges } = sheetFlow(at, sheets, byKey, activity, selected, unit, wireStyle);
     if (at.blueprint) markSlots(nodes, at === sheet ? bindings : undefined, byKey);
-    if (layout) placePins(nodes, layout);
+    if (layout) placePins(nodes, layout, !!parent);
     // Frames first, inside out: a frame's size is its contents'.
     const inner: (() => void)[] = [];
     for (const n of nodes) {
@@ -403,8 +408,8 @@ function contentBox(
   for (const n of list) {
     const x = n.x ?? 0, y = n.y ?? 0;
     if (isPin(n)) {
-      minY = Math.min(minY, y - PIN_H / 2);
-      maxY = Math.max(maxY, y + PIN_H / 2);
+      minY = Math.min(minY, y - PIN_DOT);
+      maxY = Math.max(maxY, y - PIN_DOT + PIN_H);
       continue;
     }
     let size = sizes.get(n.id) ?? GUESS;

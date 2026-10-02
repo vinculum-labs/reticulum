@@ -41,7 +41,7 @@
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
-  import { contentCorner, handleIndex, isPin, pinResource, PIN_H, toFlow, type FlowView, type NodeData } from "../../lib/graph";
+  import { contentCorner, handleIndex, isPin, pinResource, PIN_DOT, toFlow, type FlowView, type NodeData } from "../../lib/graph";
   import { crossWire, nextOrder } from "../../lib/crossing";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
@@ -360,7 +360,7 @@
       if (!on || !node) continue;
       const frame = n.parentId ? view.frames.get(n.parentId) : undefined;
       // A pin sits on the edge: only its height moves (its y is its middle).
-      if (isPin(node)) put(on.id, n.id, node.x ?? 0, n.position.y + PIN_H / 2 + (frame?.dy ?? 0));
+      if (isPin(node)) put(on.id, n.id, node.x ?? 0, n.position.y + PIN_DOT + (frame?.dy ?? 0));
       else put(on.id, n.id, n.position.x + (frame?.dx ?? 0), n.position.y + (frame?.dy ?? 0));
     }
     // Frames whose contents moved, innermost first: moving a frame can shift the one around it in turn.
