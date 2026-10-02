@@ -18,8 +18,13 @@
   <div class="frame-header flex items-center gap-2 px-2 py-1 text-xs muted">
     <span class="min-w-0 flex-1 truncate font-medium">{data.name}</span>
     {#if data.canAdd}
-      <button class="nodrag btn px-1.5 py-0 text-xs" title="A pin on the left edge: where things come into this sheet" onclick={() => add(true)}>+ input</button>
-      <button class="nodrag btn px-1.5 py-0 text-xs" title="A pin on the right edge: where things leave this sheet" onclick={() => add(false)}>+ output</button>
+      <!-- Each shows the pin it adds: an input's dot is solid (it feeds what is inside), an output's a ring. -->
+      <button class="nodrag btn flex items-center gap-1 px-1.5 py-0 text-xs" title="Add a pin on the left edge: where things come into this sheet" onclick={() => add(true)}>
+        <span class="pin-icon solid" aria-hidden="true"></span>input
+      </button>
+      <button class="nodrag btn flex items-center gap-1 px-1.5 py-0 text-xs" title="Add a pin on the right edge: where things leave this sheet" onclick={() => add(false)}>
+        <span class="pin-icon" aria-hidden="true"></span>output
+      </button>
     {/if}
   </div>
 </div>
@@ -32,6 +37,16 @@
   }
   .sheet-frame button {
     pointer-events: auto;
+  }
+  .pin-icon {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    flex-shrink: 0;
+  }
+  .pin-icon.solid {
+    background: currentColor;
   }
   .frame-header {
     border-bottom: 1px solid var(--line);
