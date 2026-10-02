@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { useSvelteFlow } from "@xyflow/svelte";
   import { addSheetPin, app } from "../../lib/state.svelte";
 
   /**
@@ -10,8 +11,15 @@
   /** The sheet is what the side panel shows when nothing else is selected (no node, wire, device or other panel). */
   const shown = $derived(!app.selectedNodes.length && !app.selectedEdges.length && !app.selectedDevice && !app.panel);
 
-  /** Clicking the title line selects the sheet: its settings in the side panel. */
+  const flow = useSvelteFlow();
+
+  /**
+   * Clicking the title line selects the sheet: its settings in the side panel. The canvas's own selection is cleared
+   * too, or Svelte Flow would report the old one back.
+   */
   function select() {
+    for (const n of flow.getNodes()) if (n.selected) flow.updateNode(n.id, { selected: false });
+    for (const e of flow.getEdges()) if (e.selected) flow.updateEdge(e.id, { selected: false });
     app.selectedNodes = [];
     app.selectedEdges = [];
     app.selectedDevice = null;
@@ -22,6 +30,7 @@
     const sheet = app.snapshot?.sheets.find((s) => s.id === data.sheetId);
     if (sheet) addSheetPin(sheet, input);
   }
+
 </script>
 
 <div class="sheet-frame rounded-lg" style="width: {data.width}px; height: {data.height}px">
