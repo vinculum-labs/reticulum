@@ -277,6 +277,17 @@ public final class EngineTests {
     }
 
     @GameTest(template = "empty")
+    public static void leverLightsLampWiredDirectly(GameTestHelper helper) {
+        // A device's redstone wired straight into another device, no signal node between.
+        Rig rig = rig(helper, Blocks.LEVER, Blocks.BARREL, Blocks.REDSTONE_LAMP);
+        helper.setBlock(rig.devices().get(0), lever(true));
+        rig.signal(rig.redstoneFrom(rig.device(0)), rig.redstoneTo(rig.device(2)), 0);
+        BlockPos lamp = rig.devices().get(2);
+        helper.succeedWhen(() -> check(helper, helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT),
+                "lamp not lit; errors " + rig.compiled().errors()));
+    }
+
+    @GameTest(template = "empty")
     public static void leverSwitchesLampThroughNot(GameTestHelper helper) {
         // A barrel keeps the lever and the lamp apart, so only the network links them.
         Rig rig = rig(helper, Blocks.LEVER, Blocks.BARREL, Blocks.REDSTONE_LAMP);

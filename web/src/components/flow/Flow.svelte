@@ -2,6 +2,7 @@
   import { onDestroy, untrack } from "svelte";
   import { modals } from "../../lib/dialog.svelte";
   import SheetErrors from "../inspector/SheetErrors.svelte";
+  import SheetOffNotice from "./SheetOffNotice.svelte";
   import { KIND_ICON, SparklesIcon, SplineIcon, ZapIcon } from "../../lib/icons";
   import MenuButton from "./MenuButton.svelte";
   import {
@@ -391,9 +392,12 @@
         </div>
       </Panel>
     {/if}
-    {#if sheet?.errors?.length}
+    {#if sheet && app.snapshot}
       <Panel position="bottom-center">
-        <div class="max-w-xl"><SheetErrors sheetId={sheet.id} errors={sheet.errors} overlay /></div>
+        <div class="flex max-w-xl flex-col gap-2">
+          <SheetOffNotice {sheet} snapshot={app.snapshot} />
+          <SheetErrors sheetId={sheet.id} errors={sheet.errors} overlay />
+        </div>
       </Panel>
     {/if}
   </SvelteFlow>
