@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fieldId as takeFieldId } from "./field";
+  import Popover from "./Popover.svelte";
 
   /**
    * A text box that saves when you leave it or press Enter, and only when the text really changed. Esc puts back the
@@ -33,7 +34,7 @@
     mono?: boolean;
     /** Marks the text as wrong (a red border); the message is the caller's to show. */
     invalid?: boolean;
-    /** Offered while typing (a datalist). */
+    /** Offered while typing: those containing the text so far, in a list under the box. */
     suggestions?: string[];
     autofocus?: boolean;
     id?: string;
@@ -46,10 +47,37 @@
   } = $props();
 
   const fieldId = takeFieldId();
-  const listId = `suggest-${Math.random().toString(36).slice(2, 8)}`;
   let element: HTMLInputElement | undefined = $state();
   let draft = $state("");
-  let focused = false;
+  let focused = $state(false);
+
+  // The suggestions: our own list rather than a datalist, whose list some web views open as a window of their own
+  // (outside the game when it draws the editor itself).
+  let suggesting = $state(false);
+  /** The suggestion picked with the arrow keys; -1 for none (Enter then saves what was typed). */
+  let active = $state(-1);
+  let list: HTMLDivElement | undefined = $state();
+  const matches = $derived.by(() => {
+    const text = draft.trim().toLowerCase();
+    return (suggestions ?? []).filter((s) => s.toLowerCase() !== text && s.toLowerCase().includes(text)).slice(0, 50);
+  });
+  $effect(() => {
+    // Open while typing in the box with something to offer; a new list starts with nothing picked.
+    suggesting = focused && matches.length > 0;
+    active = -1;
+  });
+
+  function choose(suggestion: string) {
+    draft = suggestion;
+    suggesting = false;
+    commit();
+  }
+
+  function move(step: number) {
+    const n = matches.length;
+    active = active < 0 ? (step > 0 ? 0 : n - 1) : (active + step + n) % n;
+    list?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }
   /** The text last handed to oncommit, so Enter followed by the blur it causes saves once. */
   let sent: string | null = null;
 
@@ -80,6 +108,16 @@
   }
 
   function onkeydown(e: KeyboardEvent) {
+    if (suggesting && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      e.preventDefault();
+      move(e.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+    if (e.key === "Enter" && suggesting && active >= 0) {
+      e.preventDefault();
+      choose(matches[active]);
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
       commit();
@@ -104,7 +142,6 @@
   {disabled}
   {title}
   spellcheck={mono ? "false" : undefined}
-  list={suggestions ? listId : undefined}
   onfocus={() => (focused = true)}
   onblur={() => {
     focused = false;
@@ -114,4 +151,26 @@
   oninput={() => oninput?.(draft)}
   {onkeydown}
 />
-{#if suggestions}<datalist id={listId}>{#each suggestions as option (option)}<option value={option}></option>{/each}</datalist>{/if}
+{#if suggestions}
+  <Popover bind:open={suggesting} anchor={element} role="listbox" label="Suggestions">
+    <div bind:this={list} class="flex flex-col overflow-y-auto py-1 text-sm" role="none">
+      {#each matches as suggestion, i (suggestion)}
+        <!-- Pressing keeps the keyboard in the box, so it doesn't save the half-typed text before the pick. -->
+        <button
+          type="button"
+          class="list-row truncate px-2 py-1 text-left"
+          class:active={i === active}
+          role="option"
+          aria-selected={i === active}
+          data-index={i}
+          tabindex="-1"
+          onpointerdown={(e) => e.preventDefault()}
+          onpointerenter={() => (active = i)}
+          onclick={() => choose(suggestion)}
+        >
+          {suggestion}
+        </button>
+      {/each}
+    </div>
+  </Popover>
+{/if}

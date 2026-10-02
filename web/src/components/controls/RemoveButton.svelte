@@ -20,7 +20,7 @@
 
 <button
   type="button"
-  class="remove-button flex shrink-0 items-center justify-center rounded muted {reveal ? 'opacity-0 group-hover:opacity-100 focus:opacity-100' : ''} {className}"
+  class="remove-button flex shrink-0 items-center justify-center rounded muted {reveal ? 'reveal' : ''} {className}"
   title={label}
   aria-label={label}
   {disabled}

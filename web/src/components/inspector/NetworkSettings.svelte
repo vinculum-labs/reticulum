@@ -2,6 +2,7 @@
   import { app, edit } from "../../lib/state.svelte";
   import type { Member } from "../../lib/types";
   import RemoveButton from "../controls/RemoveButton.svelte";
+  import Select from "../controls/Select.svelte";
   import TextField from "../controls/TextField.svelte";
   import Field from "./Field.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
@@ -98,11 +99,16 @@
   </dl>
 
   <Field label="Access" hint="Public: anyone can use it. Password: anyone who knows the password (/reticulum join). Private: members only.">
-    <select value={snapshot.access} disabled={!canAdmin} onchange={(e) => setAccess(e.currentTarget.value)}>
-      <option value="public">Public</option>
-      <option value="password" disabled={!snapshot.hasPassword}>Password{snapshot.hasPassword ? "" : " (set one first)"}</option>
-      <option value="private">Private</option>
-    </select>
+    <Select
+      value={snapshot.access}
+      disabled={!canAdmin}
+      options={[
+        { value: "public", label: "Public" },
+        { value: "password", label: `Password${snapshot.hasPassword ? "" : " (set one first)"}`, disabled: !snapshot.hasPassword },
+        { value: "private", label: "Private" },
+      ]}
+      onchange={setAccess}
+    />
   </Field>
 
   {#if canAdmin}
@@ -118,13 +124,12 @@
       {#each snapshot.members ?? [] as member (member.id)}
         <div class="flex items-center gap-2 text-sm">
           <span class="min-w-0 flex-1 truncate" title={member.id}>{member.name}</span>
-          <select
+          <Select
             value={member.role}
-            onchange={(e) =>
-              edit([{ type: "setMember", player: member.id, role: e.currentTarget.value }], [{ type: "setMember", player: member.id, role: member.role }], "member role")}
-          >
-            {#each ROLES as r}<option value={r.value}>{r.label}</option>{/each}
-          </select>
+            options={ROLES}
+            title={`${member.name}'s role`}
+            onchange={(role) => edit([{ type: "setMember", player: member.id, role }], [{ type: "setMember", player: member.id, role: member.role }], "member role")}
+          />
           <RemoveButton label={`Remove ${member.name}`} onclick={() => edit([{ type: "removeMember", id: member.id }], [{ type: "setMember", player: member.id, role: member.role }], "remove member")} />
         </div>
       {:else}
@@ -132,9 +137,7 @@
       {/each}
       <form class="flex gap-2" onsubmit={(e) => (e.preventDefault(), addMember())}>
         <input class="min-w-0 flex-1" placeholder="Player name" bind:value={newMember} />
-        <select bind:value={newRole}>
-          {#each ROLES as r}<option value={r.value}>{r.label}</option>{/each}
-        </select>
+        <Select bind:value={newRole} options={ROLES} title="Role" />
         <button class="btn" type="submit" disabled={!newMember.trim()}>Add</button>
       </form>
       <ul class="text-xs muted">

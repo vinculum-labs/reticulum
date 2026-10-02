@@ -81,7 +81,6 @@ body {
 }
 
 input,
-select,
 textarea,
 button {
   font: inherit;
@@ -89,7 +88,6 @@ button {
 }
 
 input:not([type="checkbox"]),
-select,
 textarea {
   background: var(--field);
   border: 1px solid var(--line);
@@ -98,13 +96,7 @@ textarea {
   min-width: 0;
 }
 
-select option {
-  background: var(--panel);
-  color: var(--ink);
-}
-
 input:focus,
-select:focus,
 textarea:focus,
 button:focus-visible {
   outline: 2px solid var(--accent);
@@ -192,6 +184,24 @@ input[type="checkbox"] {
 
 .muted {
   color: var(--muted);
+}
+
+/*
+ * Shown only while its row or card (a `group`) is hovered, or it has focus: an ID badge, a row's remove button. Fades
+ * in and out rather than popping; clickable only while shown.
+ */
+:root {
+  --reveal-time: 250ms;
+}
+.reveal {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--reveal-time) ease-in-out;
+}
+.group:hover .reveal,
+.reveal:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /*

@@ -152,10 +152,10 @@ final class WebView2Host {
     // ---------------------------------------------------------------- input, when drawn into the frame
 
     /** COREWEBVIEW2_MOUSE_EVENT_KIND: the Windows mouse messages. */
-    static final int MOUSE_MOVE = 0x200;
-    static final int MOUSE_WHEEL = 0x20A;
-    static final int MOUSE_HORIZONTAL_WHEEL = 0x20E;
-    static final int MOUSE_LEAVE = 0x2A3;
+    private static final int MOUSE_MOVE = 0x200;
+    private static final int MOUSE_WHEEL = 0x20A;
+    private static final int MOUSE_HORIZONTAL_WHEEL = 0x20E;
+    private static final int MOUSE_LEAVE = 0x2A3;
     private static final int[] BUTTON_DOWN = {0x201, 0x204, 0x207, 0x20B, 0x20B};
     private static final int[] BUTTON_KEY = {0x1, 0x2, 0x10, 0x20, 0x40};
 
@@ -167,8 +167,29 @@ final class WebView2Host {
     private static int lastDownX;
     private static int lastDownY;
 
-    /** A mouse event at view pixels {@code x}, {@code y}; {@code keys} holds the buttons down and Shift/Ctrl. */
-    static void mouse(int kind, int keys, int data, int x, int y) {
+    /** COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS of the buttons held in the view. */
+    private static int held;
+
+    static void mouseMove(int x, int y) {
+        mouse(MOUSE_MOVE, held, 0, x, y);
+    }
+
+    static void mouseLeave() {
+        mouse(MOUSE_LEAVE, 0, 0, 0, 0);
+    }
+
+    /** 120 per notch, as Windows counts; GLFW reports horizontal wheels the other way round. */
+    static void wheel(double scrollX, double scrollY, int x, int y) {
+        if (scrollY != 0) {
+            mouse(MOUSE_WHEEL, held, (int) Math.round(scrollY * 120), x, y);
+        }
+        if (scrollX != 0) {
+            mouse(MOUSE_HORIZONTAL_WHEEL, held, (int) Math.round(-scrollX * 120), x, y);
+        }
+    }
+
+    /** A mouse event at view pixels {@code x}, {@code y}; {@code keys} holds the buttons down (Shift and Ctrl added here). */
+    private static void mouse(int kind, int keys, int data, int x, int y) {
         if (!drawnInFrame()) {
             return;
         }
@@ -183,10 +204,12 @@ final class WebView2Host {
     }
 
     /** A button (GLFW numbering) going down or up at view pixels; a second press soon after is a double click. */
-    static void button(int button, boolean down, int keys, int x, int y) {
+    static void button(int button, boolean down, int x, int y) {
         if (button < 0 || button >= BUTTON_DOWN.length) {
             return;
         }
+        int keys = held;
+        held = down ? held | BUTTON_KEY[button] : held & ~BUTTON_KEY[button];
         int kind = BUTTON_DOWN[button];
         // The X buttons share their messages; the data says which.
         int data = button == 3 ? 1 : button == 4 ? 2 : 0;

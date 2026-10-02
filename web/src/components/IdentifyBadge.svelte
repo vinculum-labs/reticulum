@@ -35,7 +35,7 @@
   </span>
 {:else}
   <span
-    class="nodrag invisible flex shrink-0 cursor-pointer items-center rounded px-1 muted group-hover:visible focus:visible"
+    class="reveal nodrag flex shrink-0 cursor-pointer items-center rounded px-1 muted"
     style="height: 14px; font-size: 9px; font-weight: 600; line-height: 1; border: 1px solid var(--line)"
     role="button"
     tabindex="0"

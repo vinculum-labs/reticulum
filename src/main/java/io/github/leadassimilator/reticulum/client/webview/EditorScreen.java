@@ -108,7 +108,7 @@ public class EditorScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (EmbeddedView.drawnByGame() && mouseY >= BAR) {
             buttons |= 1 << button;
-            EmbeddedView.button(button, true, keys(), viewX(mouseX), viewY(mouseY));
+            EmbeddedView.button(button, true, viewX(mouseX), viewY(mouseY));
             EmbeddedView.focusView();
             return true;
         }
@@ -137,7 +137,7 @@ public class EditorScreen extends Screen {
                 return true;
             }
             buttons &= ~(1 << button);
-            EmbeddedView.button(button, false, keys(), viewX(mouseX), viewY(mouseY));
+            EmbeddedView.button(button, false, viewX(mouseX), viewY(mouseY));
             return true;
         }
         return super.mouseReleased(mouseX, mouseY, button);
@@ -161,7 +161,7 @@ public class EditorScreen extends Screen {
         for (int button = 0; button < 5; button++) {
             if ((buttons & 1 << button) != 0 && !EmbeddedView.buttonDown(button)) {
                 buttons &= ~(1 << button);
-                EmbeddedView.button(button, false, keys(), viewX, viewY);
+                EmbeddedView.button(button, false, viewX, viewY);
             }
         }
         if (viewX == lastX && viewY == lastY) {
@@ -171,10 +171,10 @@ public class EditorScreen extends Screen {
         lastY = viewY;
         if (viewY >= 0 || buttons != 0) {
             inView = true;
-            EmbeddedView.mouse(WebView2Host.MOUSE_MOVE, keys(), 0, viewX, viewY);
+            EmbeddedView.mouseMove(viewX, viewY);
         } else if (inView) {
             inView = false;
-            EmbeddedView.mouse(WebView2Host.MOUSE_LEAVE, 0, 0, 0, 0);
+            EmbeddedView.mouseLeave();
             setCursor(0);
         }
     }
@@ -182,24 +182,10 @@ public class EditorScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (EmbeddedView.drawnByGame() && mouseY >= BAR) {
-            // 120 per notch, as Windows counts; GLFW reports horizontal wheels the other way round.
-            if (scrollY != 0) {
-                EmbeddedView.mouse(WebView2Host.MOUSE_WHEEL, keys(), (int) Math.round(scrollY * 120), viewX(mouseX), viewY(mouseY));
-            }
-            if (scrollX != 0) {
-                EmbeddedView.mouse(WebView2Host.MOUSE_HORIZONTAL_WHEEL, keys(), (int) Math.round(-scrollX * 120), viewX(mouseX), viewY(mouseY));
-            }
+            EmbeddedView.wheel(scrollX, scrollY, viewX(mouseX), viewY(mouseY));
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-    }
-
-    /** The buttons held, as COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS (the host adds Shift and Ctrl). */
-    private int keys() {
-        int keys = (buttons & 1) != 0 ? 0x1 : 0;
-        keys |= (buttons & 2) != 0 ? 0x2 : 0;
-        keys |= (buttons & 4) != 0 ? 0x10 : 0;
-        return keys;
     }
 
     /** Screen coordinates to the view's pixels (its top left is just below the bar). */
@@ -226,6 +212,36 @@ public class EditorScreen extends Screen {
             cursor = GLFW.glfwCreateStandardCursor(shape);
         }
         GLFW.glfwSetCursor(Minecraft.getInstance().getWindow().getWindow(), cursor);
+    }
+
+    // ---------------------------------------------------------------- the keyboard, where the game hears it for the view
+
+    /**
+     * Keys go to the page while it has the keyboard (a click in it gave it; a click on the bar takes it back), Esc and
+     * F11 included: the page closes its own dialogs with Esc and asks the game to close the editor when none is open.
+     */
+    @Override
+    public boolean keyPressed(int key, int scancode, int modifiers) {
+        if (EmbeddedView.keysToView()) {
+            EmbeddedView.key(key, scancode, modifiers, true);
+            return true;
+        }
+        return super.keyPressed(key, scancode, modifiers);
+    }
+
+    @Override
+    public boolean keyReleased(int key, int scancode, int modifiers) {
+        if (EmbeddedView.keysToView()) {
+            EmbeddedView.key(key, scancode, modifiers, false);
+            return true;
+        }
+        return super.keyReleased(key, scancode, modifiers);
+    }
+
+    /** Typed text reaches the page through its key events (WebKit's input method turns them into text). */
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        return EmbeddedView.keysToView() || super.charTyped(codePoint, modifiers);
     }
 
     @Override

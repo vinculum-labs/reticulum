@@ -3,6 +3,7 @@
   import { RESOURCE_UNIT } from "../../lib/kinds";
   import NumberField from "../controls/NumberField.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
+  import Select from "../controls/Select.svelte";
   import FilterField from "./FilterField.svelte";
 
   let {
@@ -34,9 +35,7 @@
         <NumberField value={limit.amount} min={0} max={Number.MAX_SAFE_INTEGER} {disabled} oncommit={(v) => set(i, { amount: v ?? 0 })} />
         <span class="muted">{unit}</span>
         {#if resource !== "energy"}
-          <select value={limit.scope} {disabled} onchange={(e) => set(i, { scope: e.currentTarget.value as Scope })}>
-            {#each scopes as s}<option value={s.value}>{s.label}</option>{/each}
-          </select>
+          <Select value={limit.scope} {disabled} options={scopes} onchange={(scope) => set(i, { scope })} />
         {/if}
         <RemoveButton class="ml-auto" label={keep ? "Remove keep rule" : "Remove cap"} {disabled} onclick={() => onchange(limits.filter((_, j) => j !== i))} />
       </div>

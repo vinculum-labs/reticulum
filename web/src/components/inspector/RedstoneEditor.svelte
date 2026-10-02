@@ -3,6 +3,7 @@
   import { REDSTONE_MODE_LABEL } from "../../lib/kinds";
   import { SIDES, type Face, type Redstone, type RedstoneMode, type RedstoneSource } from "../../lib/types";
   import TextField from "../controls/TextField.svelte";
+  import Select from "../controls/Select.svelte";
   import DevicePicker from "./DevicePicker.svelte";
   import Field from "./Field.svelte";
 
@@ -47,35 +48,48 @@
 
 <div class="box flex flex-col gap-2">
   <Field label="Redstone" hint="Runs only while this allows it (and its on/off button is on). Pulse: once per rising edge.">
-    <select value={mode} {disabled} onchange={(e) => set({ mode: e.currentTarget.value as RedstoneMode })}>
-      {#each Object.entries(REDSTONE_MODE_LABEL) as [key, label]}<option value={key}>{label}</option>{/each}
-    </select>
+    <Select
+      value={mode}
+      {disabled}
+      options={Object.entries(REDSTONE_MODE_LABEL).map(([key, label]) => ({ value: key as RedstoneMode, label }))}
+      onchange={(m) => set({ mode: m })}
+    />
   </Field>
   {#if mode !== "ignored"}
     <Field label="Read from">
-      <select value={source} {disabled} onchange={(e) => set({ source: e.currentTarget.value as RedstoneSource })}>
-        <option value="default">The usual place ({defaultLabel})</option>
-        <option value="connector">A connector</option>
-        <option value="face">A device face</option>
-        <option value="signal">A network signal</option>
-      </select>
+      <Select
+        value={source}
+        {disabled}
+        options={[
+          { value: "default" as RedstoneSource, label: `The usual place (${defaultLabel})` },
+          { value: "connector" as RedstoneSource, label: "A connector" },
+          { value: "face" as RedstoneSource, label: "A device face" },
+          { value: "signal" as RedstoneSource, label: "A network signal" },
+        ]}
+        onchange={(src) => set({ source: src })}
+      />
     </Field>
     {#if source === "connector"}
       <Field label="Connector" hint="The strongest signal it receives from any side.">
-        <select value={value?.connector ?? ""} {disabled} onchange={(e) => set({ connector: e.currentTarget.value })}>
-          <option value="" disabled>Choose…</option>
-          {#each connectors as c (c.id)}<option value={c.id}>{connectorLabel(c)}</option>{/each}
-        </select>
+        <Select
+          value={value?.connector}
+          {disabled}
+          placeholder="Choose…"
+          options={connectors.map((c) => ({ value: c.id, label: connectorLabel(c) }))}
+          onchange={(connector) => set({ connector })}
+        />
       </Field>
     {:else if source === "face"}
       <Field label="Device">
         <DevicePicker {devices} value={value?.device} {disabled} onchange={(d) => set({ device: d.pos })} />
       </Field>
       <Field label="Face" hint="The signal the device gives out of that face; any face takes the strongest.">
-        <select value={value?.face ?? ""} {disabled} onchange={(e) => set({ face: (e.currentTarget.value || undefined) as Face | undefined })}>
-          <option value="">Any face</option>
-          {#each SIDES as f}<option value={f}>{f}</option>{/each}
-        </select>
+        <Select
+          value={value?.face ?? ""}
+          {disabled}
+          options={[{ value: "", label: "Any face" }, ...SIDES.map((f) => ({ value: f as string, label: f }))]}
+          onchange={(f) => set({ face: (f || undefined) as Face | undefined })}
+        />
       </Field>
     {:else if source === "signal"}
       <Field label="Signal name" hint="Transmitted by a Transmitter node on any sheet.">

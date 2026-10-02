@@ -273,7 +273,7 @@ ${idleTitle}` : idleTitle}
   /* An unused gate pin stays out of sight until the card is hovered or a wire is being dragged to it. */
   :global(.svelte-flow__handle.gate-pin:not(.wired)) {
     opacity: 0;
-    transition: opacity 120ms;
+    transition: opacity var(--reveal-time) ease-in-out;
   }
   :global(.svelte-flow__node:hover .svelte-flow__handle.gate-pin),
   :global(.wiring .svelte-flow__handle.gate-pin) {

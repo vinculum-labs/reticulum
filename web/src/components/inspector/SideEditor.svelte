@@ -2,6 +2,7 @@
   import { RESOURCE_LABEL, offeredResources } from "../../lib/kinds";
   import { SIDES, type Device, type Face, type Resource, type Side } from "../../lib/types";
   import NumberField from "../controls/NumberField.svelte";
+  import Select from "../controls/Select.svelte";
   import Field from "./Field.svelte";
 
   let { side, device, disabled, onchange }: { side: Side; device: Device | undefined; disabled: boolean; onchange: (side: Side) => void } =
@@ -40,9 +41,12 @@
 </script>
 
 <Field label="Resource">
-  <select value={side.resource} {disabled} onchange={(e) => onchange({ ...side, resource: e.currentTarget.value as Resource, faces: [] })}>
-    {#each choices as r}<option value={r}>{RESOURCE_LABEL[r]}</option>{/each}
-  </select>
+  <Select
+    value={side.resource}
+    {disabled}
+    options={choices.map((r) => ({ value: r, label: RESOURCE_LABEL[r] }))}
+    onchange={(resource) => onchange({ ...side, resource, faces: [] })}
+  />
 </Field>
 
 <fieldset class="flex flex-col gap-1">

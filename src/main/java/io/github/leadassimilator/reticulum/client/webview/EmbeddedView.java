@@ -4,6 +4,9 @@ import javax.annotation.Nullable;
 
 import com.sun.jna.Platform;
 
+import org.lwjgl.glfw.GLFW;
+
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -51,24 +54,46 @@ public final class EmbeddedView {
             return 0;
         }
 
-        /** Mouse input for a view the game draws: a move, wheel or leave (Windows message numbers), at view pixels. */
-        default void mouse(int kind, int keys, int data, int x, int y) {
+        // Input, for a view the game draws (positions are view pixels from its top left).
+
+        /** Whether the game draws the view now, so the screen passes it the mouse. */
+        default boolean drawnByGame() {
+            return false;
         }
 
-        /** A mouse button (GLFW numbering) down or up, at view pixels, for a view the game draws. */
-        default void button(int button, boolean down, int keys, int x, int y) {
+        default void mouseMove(int x, int y) {
         }
 
-        /** Gives the keyboard to a view the game draws. */
+        default void mouseLeave() {
+        }
+
+        /** A mouse button (GLFW numbering) going down or up. */
+        default void button(int button, boolean down, int x, int y) {
+        }
+
+        /** A wheel turned, as GLFW reports it (positive y is up, positive x is left). */
+        default void wheel(double scrollX, double scrollY, int x, int y) {
+        }
+
+        /** Gives the keyboard to the view. */
         default void focusView() {
         }
 
-        /** Whether a mouse button (GLFW numbering) is really down, for a view the game draws. */
-        default boolean buttonDown(int button) {
-            return true;
+        /** Whether the game should pass the view its keys (when the view can't take them from the system itself). */
+        default boolean keysToView() {
+            return false;
         }
 
-        /** The GLFW cursor shape the page asks for, for a view the game draws (0 for the default). */
+        /** A key (GLFW key, scancode and modifiers) going down or up. */
+        default void key(int key, int scancode, int modifiers, boolean down) {
+        }
+
+        /** Whether a mouse button (GLFW numbering) is really down. */
+        default boolean buttonDown(int button) {
+            return GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().getWindow(), button) == GLFW.GLFW_PRESS;
+        }
+
+        /** The GLFW cursor shape the page asks for (0 for the default). */
         default int cursor() {
             return 0;
         }
@@ -147,13 +172,28 @@ public final class EmbeddedView {
             }
 
             @Override
-            public void mouse(int kind, int keys, int data, int x, int y) {
-                WebView2Host.mouse(kind, keys, data, x, y);
+            public boolean drawnByGame() {
+                return WebView2Host.drawnInFrame();
             }
 
             @Override
-            public void button(int button, boolean down, int keys, int x, int y) {
-                WebView2Host.button(button, down, keys, x, y);
+            public void mouseMove(int x, int y) {
+                WebView2Host.mouseMove(x, y);
+            }
+
+            @Override
+            public void mouseLeave() {
+                WebView2Host.mouseLeave();
+            }
+
+            @Override
+            public void button(int button, boolean down, int x, int y) {
+                WebView2Host.button(button, down, x, y);
+            }
+
+            @Override
+            public void wheel(double scrollX, double scrollY, int x, int y) {
+                WebView2Host.wheel(scrollX, scrollY, x, y);
             }
 
             @Override
@@ -246,6 +286,7 @@ public final class EmbeddedView {
 
             @Override
             public void focusGame() {
+                WebKitGtkHost.focus(false);
             }
 
             @Override
@@ -272,6 +313,46 @@ public final class EmbeddedView {
             @Override
             public int frameHeight() {
                 return WebKitGtkHost.frameHeight();
+            }
+
+            @Override
+            public boolean drawnByGame() {
+                return WebKitGtkHost.drawnByGame();
+            }
+
+            @Override
+            public void mouseMove(int x, int y) {
+                WebKitGtkHost.mouseMove(x, y);
+            }
+
+            @Override
+            public void mouseLeave() {
+                WebKitGtkHost.mouseLeave();
+            }
+
+            @Override
+            public void button(int button, boolean down, int x, int y) {
+                WebKitGtkHost.button(button, down, x, y);
+            }
+
+            @Override
+            public void wheel(double scrollX, double scrollY, int x, int y) {
+                WebKitGtkHost.wheel(scrollX, scrollY, x, y);
+            }
+
+            @Override
+            public void focusView() {
+                WebKitGtkHost.focus(true);
+            }
+
+            @Override
+            public boolean keysToView() {
+                return WebKitGtkHost.hasKeyboard();
+            }
+
+            @Override
+            public void key(int key, int scancode, int modifiers, boolean down) {
+                WebKitGtkHost.key(scancode, modifiers, down);
             }
         };
     }
@@ -365,21 +446,38 @@ public final class EmbeddedView {
 
     /** Whether the game draws the view now, so the screen passes it the mouse. */
     public static boolean drawnByGame() {
-        return Platform.isWindows() && WebView2Host.drawnInFrame();
+        return HOST.drawnByGame();
     }
 
-    /** Mouse moves, wheels and leaves (Windows message numbers) for a view the game draws, at view pixels. */
-    public static void mouse(int kind, int keys, int data, int x, int y) {
-        HOST.mouse(kind, keys, data, x, y);
+    public static void mouseMove(int x, int y) {
+        HOST.mouseMove(x, y);
+    }
+
+    public static void mouseLeave() {
+        HOST.mouseLeave();
     }
 
     /** A mouse button (GLFW numbering) for a view the game draws, at view pixels. */
-    public static void button(int button, boolean down, int keys, int x, int y) {
-        HOST.button(button, down, keys, x, y);
+    public static void button(int button, boolean down, int x, int y) {
+        HOST.button(button, down, x, y);
+    }
+
+    /** A wheel turned, as GLFW reports it, for a view the game draws. */
+    public static void wheel(double scrollX, double scrollY, int x, int y) {
+        HOST.wheel(scrollX, scrollY, x, y);
     }
 
     public static void focusView() {
         HOST.focusView();
+    }
+
+    /** Whether the screen should pass the view its keys. */
+    public static boolean keysToView() {
+        return HOST.keysToView();
+    }
+
+    public static void key(int key, int scancode, int modifiers, boolean down) {
+        HOST.key(key, scancode, modifiers, down);
     }
 
     /** Whether a mouse button (GLFW numbering) is really down (the game may not hear it come up). */

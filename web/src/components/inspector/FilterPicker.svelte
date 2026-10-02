@@ -16,6 +16,7 @@
   } from "../../lib/catalog";
   import Modal, { LARGE_HEIGHT, LARGE_WIDTH } from "../Modal.svelte";
   import Segmented from "../controls/Segmented.svelte";
+  import Select from "../controls/Select.svelte";
   import FilterInput from "./FilterInput.svelte";
   import { formatAmount } from "../../lib/kinds";
   import { app, deviceName, request } from "../../lib/state.svelte";
@@ -167,12 +168,12 @@
           onchange={(k) => ((kind = k), (selected = null))}
         />
       </div>
-      <select class="w-56 shrink-0 text-sm" bind:value={source} title="Browse everything, or just what one device holds now">
-        <option value="">Everything</option>
-        {#each deviceChoices as d (posKey(d.pos))}
-          <option value={posKey(d.pos)}>In {deviceName(d)}</option>
-        {/each}
-      </select>
+      <Select
+        class="w-56 shrink-0 text-sm"
+        bind:value={source}
+        title="Browse everything, or just what one device holds now"
+        options={[{ value: "", label: "Everything" }, ...deviceChoices.map((d) => ({ value: posKey(d.pos), label: `In ${deviceName(d)}` }))]}
+      />
     </div>
 
     <div class="flex min-h-0 flex-1 gap-3">

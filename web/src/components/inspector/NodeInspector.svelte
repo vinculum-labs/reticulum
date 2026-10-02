@@ -35,6 +35,7 @@
   import NumberField from "../controls/NumberField.svelte";
   import Switch from "../controls/Switch.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
+  import Select from "../controls/Select.svelte";
   import TextField from "../controls/TextField.svelte";
 
   let { node, sheet }: { node: GraphNode; sheet: Sheet } = $props();
@@ -159,9 +160,12 @@
   {/if}
   {#if s.kind === "level"}
     <Field label="Resource">
-      <select value={s.resource} disabled={!canEdit} onchange={(e) => settings({ resource: e.currentTarget.value as Resource })}>
-        {#each Object.entries(RESOURCE_LABEL).filter(([key]) => moves(key as Resource)) as [key, label]}<option value={key}>{label}</option>{/each}
-      </select>
+      <Select
+        value={s.resource}
+        disabled={!canEdit}
+        options={Object.entries(RESOURCE_LABEL).filter(([key]) => moves(key as Resource)).map(([key, label]) => ({ value: key as Resource, label }))}
+        onchange={(resource) => settings({ resource })}
+      />
     </Field>
     {#if s.resource !== "energy"}
       <Field label="Count only" hint="A filter; empty counts everything.">
@@ -172,22 +176,30 @@
     <Field label="Test" hint="Gives 15 when true, else 0. B is the number below unless something is wired into B.">
       <div class="flex items-center gap-2">
         <span>A</span>
-        <select value={s.op ?? "ge"} disabled={!canEdit} onchange={(e) => settings({ op: e.currentTarget.value as CompareOp })}>
-          {#each Object.entries(OP_SYMBOL) as [key, symbol]}<option value={key}>{symbol}</option>{/each}
-        </select>
+        <Select
+          value={s.op ?? "ge"}
+          disabled={!canEdit}
+          options={Object.entries(OP_SYMBOL).map(([key, symbol]) => ({ value: key as CompareOp, label: symbol }))}
+          onchange={(op) => settings({ op })}
+        />
         <NumberField value={s.constant ?? 1} min={-1_000_000_000} max={1_000_000_000} width="md" disabled={!canEdit} oncommit={(v) => settings({ constant: v ?? 0 })} />
       </div>
     </Field>
   {:else if s.kind === "logic"}
     <Field label="Operation" hint="Every wire into the input is one operand. NOT is on only while none is, so with several wires it is a NOR.">
-      <select value={s.op ?? "and"} disabled={!canEdit} onchange={(e) => settings({ op: e.currentTarget.value as LogicOp })}>
-        <option value="and">AND: all on</option>
-        <option value="or">OR: any on</option>
-        <option value="not">NOT / NOR: none on</option>
-        <option value="xor">XOR: an odd number on</option>
-        <option value="nand">NAND: not all on</option>
-        <option value="xnor">XNOR: an even number on (two: they match)</option>
-      </select>
+      <Select
+        value={s.op ?? "and"}
+        disabled={!canEdit}
+        options={[
+          { value: "and" as LogicOp, label: "AND: all on" },
+          { value: "or" as LogicOp, label: "OR: any on" },
+          { value: "not" as LogicOp, label: "NOT / NOR: none on" },
+          { value: "xor" as LogicOp, label: "XOR: an odd number on" },
+          { value: "nand" as LogicOp, label: "NAND: not all on" },
+          { value: "xnor" as LogicOp, label: "XNOR: an even number on (two: they match)" },
+        ]}
+        onchange={(op) => settings({ op })}
+      />
     </Field>
   {:else if s.kind === "timer"}
     <Field label="Every" hint="Ticks between one-tick pulses (20 ticks = 1 second). Runs while its input is on or unwired.">
@@ -222,10 +234,13 @@
     {@const choices = (app.snapshot?.sheets ?? []).filter((x) => x.subsheet && x.id !== sheet.id)}
     {@const used = app.snapshot?.sheets.find((x) => x.id === s.sheet)}
     <Field label="Sub-sheet" hint="Only sheets marked “Use as sub-sheet” are listed. Double-click the node to open it.">
-      <select value={s.sheet} disabled={!canEdit} onchange={(e) => settings({ sheet: e.currentTarget.value })}>
-        {#if !used}<option value={s.sheet}>(missing)</option>{/if}
-        {#each choices as choice (choice.id)}<option value={choice.id}>{choice.name}</option>{/each}
-      </select>
+      <Select
+        value={s.sheet}
+        disabled={!canEdit}
+        placeholder="(missing)"
+        options={choices.map((choice) => ({ value: choice.id, label: choice.name }))}
+        onchange={(sheet) => settings({ sheet })}
+      />
     </Field>
     {#if used}
       <div class="text-sm">
@@ -270,12 +285,17 @@
       label="Mode"
       hint="Each wire from the splitter's output is one branch. Round robin takes turns (fluids, chemicals and energy split evenly). In order fills the first branch before the next. Weighted shares by the weights below. Nearest first fills the branch whose device is closest to the source first. A branch that can't take anything is skipped."
     >
-      <select value={s.mode ?? "round_robin"} disabled={!canEdit} onchange={(e) => settings({ mode: e.currentTarget.value as SplitMode })}>
-        <option value="round_robin">Round robin</option>
-        <option value="priority">In order</option>
-        <option value="weighted">Weighted</option>
-        <option value="nearest">Nearest first</option>
-      </select>
+      <Select
+        value={s.mode ?? "round_robin"}
+        disabled={!canEdit}
+        options={[
+          { value: "round_robin" as SplitMode, label: "Round robin" },
+          { value: "priority" as SplitMode, label: "In order" },
+          { value: "weighted" as SplitMode, label: "Weighted" },
+          { value: "nearest" as SplitMode, label: "Nearest first" },
+        ]}
+        onchange={(mode) => settings({ mode })}
+      />
     </Field>
     <!-- The branches in order: "in order" fills them top down, weights go with them, and ↑/↓ reorder them. -->
     {@const outs = splitterOutputs()}

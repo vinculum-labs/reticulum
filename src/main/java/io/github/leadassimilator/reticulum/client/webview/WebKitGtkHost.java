@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import javax.annotation.Nullable;
 
 import org.lwjgl.BufferUtils;
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
@@ -16,6 +17,7 @@ import com.sun.jna.Platform;
 import com.sun.jna.Pointer;
 import com.sun.jna.StringArray;
 import com.sun.jna.Structure;
+import com.sun.jna.ptr.IntByReference;
 
 import io.github.leadassimilator.reticulum.Reticulum;
 import net.minecraft.client.Minecraft;
@@ -212,6 +214,252 @@ final class WebKitGtkHost {
         }
         gtkThread = null;
         state = State.FAILED;
+    }
+
+    // ---------------------------------------------------------------- input
+
+    // GdkEventType and the other GDK values used below (gdkevents.h, gdktypes.h).
+    private static final int MOTION_NOTIFY = 3;
+    private static final int BUTTON_PRESS = 4;
+    private static final int BUTTON_RELEASE = 7;
+    private static final int KEY_PRESS = 8;
+    private static final int KEY_RELEASE = 9;
+    private static final int ENTER_NOTIFY = 10;
+    private static final int LEAVE_NOTIFY = 11;
+    private static final int FOCUS_CHANGE = 12;
+    private static final int SCROLL = 31;
+    private static final int SCROLL_SMOOTH = 4;
+    /** GDK_BUTTON1_MASK, BUTTON2 (middle) and BUTTON3 (right), by GLFW button. */
+    private static final int[] BUTTON_MASK = {1 << 8, 1 << 10, 1 << 9, 0, 0};
+    /** GDK button numbers by GLFW button: left, right, middle, back, forward. */
+    private static final int[] GDK_BUTTON = {1, 3, 2, 8, 9};
+
+    /** The page has the keyboard: the game passes it keys (it has no window of its own to take them). */
+    private static volatile boolean keyboard;
+    // On the GTK thread: what the view was last told.
+    private static boolean pointerInside;
+    private static int heldMask;
+    private static int modifierMask;
+
+    /** Whether the game draws the view now, so the screen passes it the mouse. */
+    static boolean drawnByGame() {
+        return state == State.READY && loaded;
+    }
+
+    static boolean hasKeyboard() {
+        return keyboard && drawnByGame();
+    }
+
+    static void mouseMove(int x, int y) {
+        post(() -> {
+            Pointer target = viewWindow();
+            if (target == null) {
+                return;
+            }
+            if (!pointerInside) {
+                pointerInside = true;
+                crossing(ENTER_NOTIFY, target, x, y);
+            }
+            Pointer event = event(MOTION_NOTIFY, target);
+            event.setDouble(24, x);
+            event.setDouble(32, y);
+            event.setInt(48, heldMask | modifierMask);
+            event.setDouble(64, x);
+            event.setDouble(72, y);
+            dispatch(event, pointer());
+        });
+    }
+
+    static void mouseLeave() {
+        post(() -> {
+            Pointer target = viewWindow();
+            if (target != null && pointerInside) {
+                pointerInside = false;
+                crossing(LEAVE_NOTIFY, target, -1, -1);
+            }
+        });
+    }
+
+    /** A button (GLFW numbering) down or up; WebKit counts double clicks itself from their times and places. */
+    static void button(int button, boolean down, int x, int y) {
+        if (button < 0 || button >= GDK_BUTTON.length) {
+            return;
+        }
+        post(() -> {
+            Pointer target = viewWindow();
+            if (target == null) {
+                return;
+            }
+            Pointer event = event(down ? BUTTON_PRESS : BUTTON_RELEASE, target);
+            event.setDouble(24, x);
+            event.setDouble(32, y);
+            // The state is the buttons held before this event, as X reports it.
+            event.setInt(48, heldMask | modifierMask);
+            event.setInt(52, GDK_BUTTON[button]);
+            event.setDouble(64, x);
+            event.setDouble(72, y);
+            heldMask = down ? heldMask | BUTTON_MASK[button] : heldMask & ~BUTTON_MASK[button];
+            dispatch(event, pointer());
+        });
+    }
+
+    /**
+     * GLFW's wheel (positive y up, positive x left). Whole notches go as a wheel's discrete steps, one event each;
+     * WebKit's smooth scrolling (meant for touchpads) swallowed the first notch after the direction changed.
+     * Fractions (touchpads, high-resolution wheels) go as smooth scrolling (positive y down, positive x right).
+     */
+    static void wheel(double scrollX, double scrollY, int x, int y) {
+        post(() -> {
+            Pointer target = viewWindow();
+            if (target == null) {
+                return;
+            }
+            boolean whole = scrollX == Math.rint(scrollX) && scrollY == Math.rint(scrollY);
+            if (whole) {
+                // GdkScrollDirection: UP, DOWN, LEFT, RIGHT.
+                for (int i = 0; i < Math.abs((int) scrollY); i++) {
+                    scroll(target, scrollY > 0 ? 0 : 1, 0, 0, x, y);
+                }
+                for (int i = 0; i < Math.abs((int) scrollX); i++) {
+                    scroll(target, scrollX > 0 ? 2 : 3, 0, 0, x, y);
+                }
+            } else {
+                scroll(target, SCROLL_SMOOTH, -scrollX, -scrollY, x, y);
+            }
+        });
+    }
+
+    private static void scroll(Pointer target, int direction, double deltaX, double deltaY, int x, int y) {
+        Pointer event = event(SCROLL, target);
+        event.setDouble(24, x);
+        event.setDouble(32, y);
+        event.setInt(40, heldMask | modifierMask);
+        event.setInt(44, direction);
+        event.setDouble(56, x);
+        event.setDouble(64, y);
+        event.setDouble(72, deltaX);
+        event.setDouble(80, deltaY);
+        dispatch(event, pointer());
+    }
+
+    /** Gives the page the keyboard (a click in it) or takes it back (a click on the bar). */
+    static void focus(boolean in) {
+        if (keyboard == in) {
+            return;
+        }
+        keyboard = in;
+        post(() -> {
+            Pointer target = topWindow();
+            if (target == null) {
+                return;
+            }
+            if (in) {
+                gtk().getFunction("gtk_widget_grab_focus").invokeVoid(new Object[] {view});
+            }
+            Pointer event = event(FOCUS_CHANGE, target);
+            event.setShort(18, (short) (in ? 1 : 0));
+            dispatch(event, keyboardDevice());
+        });
+    }
+
+    /**
+     * A key down or up. The key itself comes from GLFW's scancode, the system's own key code, so the keyboard layout
+     * and dead keys are GTK's to work out exactly as for any of its windows; WebKit's input method makes the text.
+     */
+    static void key(int scancode, int modifiers, boolean down) {
+        // GDK's key codes are X's: GLFW gives X key codes on X11 and evdev codes (8 lower) on Wayland.
+        int keycode = scancode + (glfwOnWayland() ? 8 : 0);
+        int state = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0 ? 1 : 0;
+        state |= (modifiers & GLFW.GLFW_MOD_CONTROL) != 0 ? 1 << 2 : 0;
+        state |= (modifiers & GLFW.GLFW_MOD_ALT) != 0 ? 1 << 3 : 0;
+        state |= (modifiers & GLFW.GLFW_MOD_SUPER) != 0 ? 1 << 26 : 0;
+        int mask = state;
+        post(() -> {
+            Pointer target = topWindow();
+            if (target == null) {
+                return;
+            }
+            modifierMask = mask;
+            Pointer keymap = gdk().getFunction("gdk_keymap_get_for_display").invokePointer(new Object[] {display()});
+            IntByReference keyval = new IntByReference();
+            if (gdk().getFunction("gdk_keymap_translate_keyboard_state").invokeInt(new Object[] {keymap, keycode, mask, 0, keyval,
+                    null, null, null}) == 0) {
+                return;
+            }
+            Pointer event = event(down ? KEY_PRESS : KEY_RELEASE, target);
+            event.setInt(24, mask);
+            event.setInt(28, keyval.getValue());
+            event.setShort(48, (short) keycode);
+            dispatch(event, keyboardDevice());
+        });
+    }
+
+    private static boolean glfwOnWayland() {
+        try {
+            return GLFW.glfwGetPlatform() == GLFW.GLFW_PLATFORM_WAYLAND;
+        } catch (RuntimeException | LinkageError e) {
+            return false;
+        }
+    }
+
+    /** A new GDK event of {@code type} for {@code window}: sent by us, stamped now. */
+    private static Pointer event(int type, Pointer window) {
+        Pointer event = gdk().getFunction("gdk_event_new").invokePointer(new Object[] {type});
+        // The event holds a reference to its window, let go of by gdk_event_free.
+        event.setPointer(8, gobject().getFunction("g_object_ref").invokePointer(new Object[] {window}));
+        event.setByte(16, (byte) 1);
+        if (type != FOCUS_CHANGE) {
+            event.setInt(type == ENTER_NOTIFY || type == LEAVE_NOTIFY ? 32 : 20, (int) (System.nanoTime() / 1_000_000));
+        }
+        return event;
+    }
+
+    /** GdkEventCrossing: the pointer entering or leaving the view. */
+    private static void crossing(int type, Pointer window, int x, int y) {
+        Pointer event = event(type, window);
+        event.setDouble(40, x);
+        event.setDouble(48, y);
+        event.setDouble(56, x);
+        event.setDouble(64, y);
+        event.setInt(84, heldMask | modifierMask);
+        dispatch(event, pointer());
+    }
+
+    /** Hands the event to GTK as if it had come from the window system, then frees it. */
+    private static void dispatch(Pointer event, @Nullable Pointer device) {
+        if (device != null) {
+            gdk().getFunction("gdk_event_set_device").invokeVoid(new Object[] {event, device});
+        }
+        gtk().getFunction("gtk_main_do_event").invokeVoid(new Object[] {event});
+        gdk().getFunction("gdk_event_free").invokeVoid(new Object[] {event});
+    }
+
+    /** The view's own GDK window (where pointer events go); null before it exists. */
+    @Nullable
+    private static Pointer viewWindow() {
+        return view == null ? null : gtk().getFunction("gtk_widget_get_window").invokePointer(new Object[] {view});
+    }
+
+    /** The offscreen window's GDK window (where keyboard and focus events go). */
+    @Nullable
+    private static Pointer topWindow() {
+        return window == null ? null : gtk().getFunction("gtk_widget_get_window").invokePointer(new Object[] {window});
+    }
+
+    private static Pointer display() {
+        return gdk().getFunction("gdk_display_get_default").invokePointer(new Object[0]);
+    }
+
+    @Nullable
+    private static Pointer pointer() {
+        Pointer seat = gdk().getFunction("gdk_display_get_default_seat").invokePointer(new Object[] {display()});
+        return seat == null ? null : gdk().getFunction("gdk_seat_get_pointer").invokePointer(new Object[] {seat});
+    }
+
+    @Nullable
+    private static Pointer keyboardDevice() {
+        Pointer seat = gdk().getFunction("gdk_display_get_default_seat").invokePointer(new Object[] {display()});
+        return seat == null ? null : gdk().getFunction("gdk_seat_get_keyboard").invokePointer(new Object[] {seat});
     }
 
     // ---------------------------------------------------------------- the GTK thread
@@ -413,7 +661,12 @@ final class WebKitGtkHost {
      * world unloads did exactly that).
      */
     @Nullable
-    private static volatile NativeLibrary gtk, webkit, glib, gobject, cairo;
+    private static volatile NativeLibrary gtk, gdk, webkit, glib, gobject, cairo;
+
+    private static NativeLibrary gdk() {
+        NativeLibrary library = gdk;
+        return library != null ? library : (gdk = NativeLibrary.getInstance("libgdk-3.so.0"));
+    }
 
     private static NativeLibrary gtk() {
         NativeLibrary library = gtk;
