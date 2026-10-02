@@ -45,8 +45,6 @@ public sealed interface NodeSettings {
         LATCH(LatchSettings.CODEC, true),
         COUNTER(CounterSettings.CODEC, true),
         DELAY(DelaySettings.CODEC, true),
-        TRANSMIT(TransmitSettings.CODEC, true),
-        RECEIVE(ReceiveSettings.CODEC, true),
         /** Engine-internal: a device's ME pin, resolved to the connector side it touches. Never saved or sent. */
         ME_PORT(null, false);
 
@@ -520,30 +518,6 @@ public sealed interface NodeSettings {
         @Override
         public Kind kind() {
             return Kind.DELAY;
-        }
-    }
-
-    /** Transmitter: sends its input as a named network signal that any sheet (or redstone condition) can receive. */
-    record TransmitSettings(String name) implements NodeSettings {
-        public static final MapCodec<TransmitSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Codec.STRING.optionalFieldOf("name", "").forGetter(TransmitSettings::name)
-        ).apply(i, TransmitSettings::new));
-
-        @Override
-        public Kind kind() {
-            return Kind.TRANSMIT;
-        }
-    }
-
-    /** Receiver: reads a named network signal (as transmitted on the previous tick). */
-    record ReceiveSettings(String name) implements NodeSettings {
-        public static final MapCodec<ReceiveSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Codec.STRING.optionalFieldOf("name", "").forGetter(ReceiveSettings::name)
-        ).apply(i, ReceiveSettings::new));
-
-        @Override
-        public Kind kind() {
-            return Kind.RECEIVE;
         }
     }
 

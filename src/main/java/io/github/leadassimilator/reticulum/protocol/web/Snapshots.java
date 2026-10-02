@@ -15,7 +15,6 @@ import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.integration.Mods;
-import io.github.leadassimilator.reticulum.graph.Redstone;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
@@ -70,7 +69,7 @@ final class Snapshots {
         out.addProperty("canAdmin", canAdmin);
         out.addProperty("hasPassword", network.passwordHash() != null);
         out.addProperty("root", network.root().id().toString());
-        out.add("redstone", encode(server, Redstone.CODEC, network.switches().redstone()));
+        out.addProperty("redstone", network.switches().redstone().getSerializedName());
         JsonArray identified = new JsonArray();
         for (io.github.leadassimilator.reticulum.network.Identify identify : network.identified()) {
             JsonObject json = encode(server, io.github.leadassimilator.reticulum.network.Identify.CODEC, identify).getAsJsonObject();

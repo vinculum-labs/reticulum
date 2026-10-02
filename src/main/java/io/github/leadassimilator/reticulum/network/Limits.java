@@ -50,12 +50,7 @@ public final class Limits {
         if (node.label().isPresent() && node.label().get().length() > NAME) {
             return "A node's label can be at most " + NAME + " characters";
         }
-        if (node.redstone().signal().length() > NAME) {
-            return "A signal name can be at most " + NAME + " characters";
-        }
         return switch (node.settings()) {
-            case NodeSettings.TransmitSettings s when s.name().length() > NAME -> "A signal name can be at most " + NAME + " characters";
-            case NodeSettings.ReceiveSettings s when s.name().length() > NAME -> "A signal name can be at most " + NAME + " characters";
             case NodeSettings.SheetPinSettings s when s.name().length() > NAME -> "A pin name can be at most " + NAME + " characters";
             case NodeSettings.KitSettings s when s.lines().size() > KIT_LINES -> "A kit can have at most " + KIT_LINES + " lines";
             case NodeSettings.KitSettings s when s.maxKits() > KITS_PER_OPERATION -> "A kit can move at most " + KITS_PER_OPERATION + " kits at a time";

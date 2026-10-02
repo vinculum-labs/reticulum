@@ -12,8 +12,6 @@ import Layers from "@lucide/svelte/icons/layers";
 import LogIn from "@lucide/svelte/icons/log-in";
 import LogOut from "@lucide/svelte/icons/log-out";
 import Package from "@lucide/svelte/icons/package";
-import Radio from "@lucide/svelte/icons/radio";
-import RadioTower from "@lucide/svelte/icons/radio-tower";
 import Scale from "@lucide/svelte/icons/scale";
 import Split from "@lucide/svelte/icons/split";
 import Timer from "@lucide/svelte/icons/timer";
@@ -43,6 +41,4 @@ export const KIND_ICON: Record<NodeKind, Component<{ size?: number | string; cla
   latch: ToggleRight,
   counter: Hash,
   delay: Clock,
-  transmit: RadioTower,
-  receive: Radio,
 };

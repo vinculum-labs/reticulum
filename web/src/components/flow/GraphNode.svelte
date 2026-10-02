@@ -16,7 +16,6 @@
     gated,
     meUsageLabel,
     isSignal,
-    redstoneSummary,
     shortLabel,
     sideLabel,
     signalInputs,
@@ -112,8 +111,8 @@
   const flowRows = $derived(Math.max(1, flowOuts.length));
   /** What a filter, rate limit, splitter or kit does, shown on the header's second line while it is idle. */
   const flowSummary = $derived(!pinned && kind !== "sheet_input" && kind !== "sheet_output" ? summary(data.node, app.rateUnit) : "");
-  const redstone = $derived(redstoneSummary(data.node.redstone));
-  const HEADER = $derived(BASE_HEADER + (redstone ? 13 : 0));
+  const HEADER = BASE_HEADER;
+  const pulseGate = $derived(data.node.gate === "pulse");
   const rows = $derived(Math.max(leftRows.length, rightRows.length, 1));
   /**
    * Hovering this card. "Last moved … ago" counts up every second on every node, so it is read only while its tooltip
@@ -212,7 +211,6 @@ ${idleTitle}` : idleTitle}
           {KIND_LABEL[kind]}
         {/if}{offline ? ` · ${data.device?.outOfRange ? "out of range" : data.device?.state}` : ""}{disabled ? " · off" : ""}
       </div>
-      {#if redstone}<div class="flex items-center gap-0.5 truncate text-signal" style="font-size: 10px" title={redstone}><Zap size={10} class="shrink-0" />{redstone}</div>{/if}
     </div>
     {#if data.device}<IdentifyBadge device={data.device} />{/if}
     {#if kind === "sheet" && data.holder?.sheet}
@@ -271,8 +269,8 @@ ${idleTitle}` : idleTitle}
     type="target"
     position={Position.Left}
     id="gate"
-    class={data.gateWired ? "gate-pin wired" : "gate-pin"}
-    title="Gate: a signal here switches this node on and off"
+    class={`gate-pin${data.gateWired ? " wired" : ""}${pulseGate ? " pulse" : ""}`}
+    title={pulseGate ? "Gate: one operation each time a signal here turns on" : "Gate: a signal here switches this node on and off"}
     style="top: {HEADER / 2}px; {inPin('var(--c-signal)')}"
   />
 {/if}
@@ -316,6 +314,10 @@ ${idleTitle}` : idleTitle}
   :global(.svelte-flow__handle.gate-pin) {
     border-radius: 2px;
     transform: translate(-50%, -50%) rotate(45deg);
+  }
+  /* A pulse gate is filled: it acts on the signal's rising edge, not its level. */
+  :global(.svelte-flow__handle.gate-pin.pulse) {
+    background: var(--c-signal) !important;
   }
   /* An unused gate pin stays out of sight until the card is hovered or a wire is being dragged to it. */
   :global(.svelte-flow__handle.gate-pin:not(.wired)) {

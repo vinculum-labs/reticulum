@@ -6,7 +6,7 @@
   import TextField from "../controls/TextField.svelte";
   import Field from "./Field.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
-  import RedstoneEditor from "./RedstoneEditor.svelte";
+  import Segmented from "../controls/Segmented.svelte";
 
   const snapshot = $derived(app.snapshot!);
   const canEdit = $derived(snapshot.canEdit);
@@ -52,21 +52,21 @@
       oncommit={(v) => edit([{ type: "renameNetwork", name: v }], [{ type: "renameNetwork", name: snapshot.name }], "rename network")} />
   </Field>
 
-  <RedstoneEditor
-    value={snapshot.redstone}
-    disabled={!canEdit}
-    defaultLabel="the controller"
-    onchange={(redstone) =>
-      edit([{ type: "setNetworkRedstone", redstone }], [{ type: "setNetworkRedstone", redstone: snapshot.redstone ?? { mode: "ignored" } }], "network redstone")}
-  />
-  {#if Object.keys(app.networkSignals).length}
-    <section class="flex flex-col gap-1 text-sm">
-      <h3 class="panel-title">Network signals</h3>
-      {#each Object.entries(app.networkSignals) as [name, value]}
-        <div class="flex justify-between"><span>{name}</span><span class="tabular-nums" style="color: {value > 0 ? 'var(--c-signal)' : 'var(--muted)'}">{value}</span></div>
-      {/each}
-    </section>
-  {/if}
+  <Field label="Redstone at the controller" hint="What a redstone signal into the controller block does to the whole network.">
+    <Segmented
+      label="Redstone at the controller"
+      size="xs"
+      value={snapshot.redstone ?? "ignored"}
+      disabled={!canEdit}
+      options={[
+        { value: "ignored", label: "Ignore" },
+        { value: "high", label: "On while powered" },
+        { value: "low", label: "Off while powered" },
+      ]}
+      onchange={(redstone) =>
+        edit([{ type: "setNetworkRedstone", redstone }], [{ type: "setNetworkRedstone", redstone: snapshot.redstone ?? "ignored" }], "network redstone")}
+    />
+  </Field>
 
   {#if power?.enabled}
     <section class="flex flex-col gap-1 text-sm">

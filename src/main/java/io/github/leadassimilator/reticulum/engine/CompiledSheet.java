@@ -15,7 +15,6 @@ import io.github.leadassimilator.reticulum.filter.FilterException;
 import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
-import io.github.leadassimilator.reticulum.graph.Redstone;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
@@ -231,9 +230,8 @@ public final class CompiledSheet {
                             + "; a device belongs on one sheet");
                 }
             }
-            if (!node.redstone().ignored()) {
-                conditions.put(node.id(), new Condition(node.redstone(),
-                        node.settings() instanceof NodeSettings.DeviceSettings device ? device.device() : null));
+            if (node.gate() == Node.Gate.PULSE) {
+                pulseGates.add(node.id());
             }
             if (node.settings() instanceof NodeSettings.DeviceSettings device) {
                 devices.put(node.id(), device);
@@ -355,7 +353,7 @@ public final class CompiledSheet {
     private Node pin(Node device, UUID id, NodeSettings settings, String key) {
         owners.put(id, device.id());
         pinKeys.put(id, key);
-        return new Node(id, settings, device.label(), true, device.x(), device.y(), Redstone.IGNORED);
+        return new Node(id, settings, device.label(), true, device.x(), device.y(), Node.Gate.WHILE_ON);
     }
 
     /** The connector side touching one of the given faces of the device (any face when none are chosen). */
@@ -423,16 +421,12 @@ public final class CompiledSheet {
         }
     }
 
-    /** A redstone condition; {@code device} is set for device nodes, whose default source is their connectors. */
-    public record Condition(Redstone redstone, @Nullable GlobalPos device) {
-    }
-
     /** Signal nodes in the order they are worked out each tick; empty when the signal wires loop. */
     private final List<SignalNode> signals = new ArrayList<>();
     /** Nodes with a signal wire into their gate, and the nodes wired into it. */
     private final Map<UUID, List<UUID>> switchedBy = new LinkedHashMap<>();
-    /** Nodes (by compiled id, including sub-sheet nodes) with a redstone condition. */
-    private final Map<UUID, Condition> conditions = new LinkedHashMap<>();
+    /** Nodes (by compiled id, including sub-sheet nodes) whose gate runs them once per pulse. */
+    private final Set<UUID> pulseGates = new java.util.HashSet<>();
 
     public List<SignalNode> signals() {
         return signals;
@@ -442,13 +436,14 @@ public final class CompiledSheet {
         return switchedBy;
     }
 
-    public Map<UUID, Condition> conditions() {
-        return conditions;
+    /** Whether a node's gate runs it once per pulse (rather than while on). */
+    public boolean pulses(UUID node) {
+        return pulseGates.contains(node);
     }
 
-    /** Whether anything on the sheet can be switched by redstone, so the engine can skip the checks otherwise. */
+    /** Whether anything on the sheet can be switched off, so the engine can skip the checks otherwise. */
     public boolean switchable() {
-        return !conditions.isEmpty() || !switchedBy.isEmpty() || !disabledHolders.isEmpty();
+        return !switchedBy.isEmpty() || !disabledHolders.isEmpty();
     }
 
     /** Latches, counters and delays give what they remembered, so wires into them never make a loop. */
@@ -507,7 +502,7 @@ public final class CompiledSheet {
                 }
                 in.get(wire.input()).add(wire.from());
             } else if (byId.containsKey(wire.to())) {
-                error(byId.get(wire.to()), describe(byId.get(wire.to())) + ": a signal wire must go into its gate (the pin on top), not a resource input");
+                error(byId.get(wire.to()), describe(byId.get(wire.to())) + ": a signal wire must go into its gate (the diamond pin), not a resource input");
             }
         }
         // Remembering nodes first, then the rest so every node comes after the nodes wired into it.
@@ -697,8 +692,8 @@ public final class CompiledSheet {
                 out.add(node);
                 continue;
             }
-            if (!node.redstone().ignored()) {
-                conditions.put(node.id(), new Condition(node.redstone(), null));
+            if (node.gate() == Node.Gate.PULSE) {
+                pulseGates.add(node.id());
             }
             UUID usedId = child ? ((NodeSettings.SheetSettings) node.settings()).sheet() : ((NodeSettings.SubSheetSettings) node.settings()).sheet();
             Sheet used = network.sheet(usedId);
@@ -773,7 +768,7 @@ public final class CompiledSheet {
             NodeSettings.Port port = new NodeSettings.Port(out.resource(), device.device(), out.faces(), out.slots());
             Node source = new Node(side(node.id(), "out", i),
                     new NodeSettings.SourceSettings(port, out.keep(), out.perOperation(), out.interval(), out.priority()),
-                    node.label(), true, node.x(), node.y(), Redstone.IGNORED);
+                    node.label(), true, node.x(), node.y(), Node.Gate.WHILE_ON);
             nodes.put(source.id(), source);
             owners.put(source.id(), node.id());
         }
@@ -784,7 +779,7 @@ public final class CompiledSheet {
             }
             NodeSettings.Port port = new NodeSettings.Port(in.resource(), device.device(), in.faces(), in.slots());
             Node sink = new Node(side(node.id(), "in", i), new NodeSettings.SinkSettings(port, in.caps()), node.label(), true, node.x(), node.y(),
-                    Redstone.IGNORED);
+                    Node.Gate.WHILE_ON);
             nodes.put(sink.id(), sink);
             owners.put(sink.id(), node.id());
         }

@@ -112,8 +112,6 @@ export const app = $state({
   status: {} as Record<string, string>,
   /** Each signal node's output as of the last metrics update. */
   signals: {} as Record<string, number>,
-  /** Transmitted network signals, by name. */
-  networkSignals: {} as Record<string, number>,
   /** Sheets a gate or redstone currently switches off (on their node, or on a sheet node above them). */
   sheetsOff: [] as string[],
   /** What running the network costs and what the controller holds, updated once a second. */
@@ -229,7 +227,6 @@ function applyMetrics(m: any) {
     ticksSinceMoved: m.ticksSinceMoved ?? {},
     status: m.status ?? {},
     signals: m.signals ?? {},
-    networkSignals: m.networkSignals ?? {},
     sheetsOff: m.sheetsOff ?? [],
     me: m.me ?? {},
     power: m.power ?? null,
@@ -267,7 +264,6 @@ export async function selectNetwork(id: string): Promise<void> {
   app.ticksSinceMoved = {};
   app.status = {};
   app.signals = {};
-  app.networkSignals = {};
   app.sheetsOff = [];
   app.me = {};
   app.selectedNodes = [];
@@ -537,8 +533,8 @@ export interface DeviceUse {
 }
 
 /**
- * Where each device is used, by its position key: every sheet with a node on it (a device, Level or redstone node)
- * or a redstone condition reading it, and the network's condition. A device absent here is unused.
+ * Where each device is used, by its position key: every sheet with a node on it (its device node, or a Level node
+ * reading it). A device absent here is unused.
  */
 export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
   const uses = new Map<string, DeviceUse[]>();
@@ -555,22 +551,9 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
       const s = node.settings;
       if (s.kind === "device") add(s.device, { label, sheetId: sheet.id, nodeId: node.id, home: !sheet.subsheet });
       else if ("device" in s) add(s.device as GlobalPos, { label, sheetId: sheet.id, nodeId: node.id });
-      add(node.redstone?.device, { label, sheetId: sheet.id, nodeId: node.id });
     }
   }
-  add(snapshot.redstone?.device, { label: "The network's redstone condition" });
   return uses;
-}
-
-/** Every signal name the network uses: transmitted anywhere on it, or seen live. */
-export function signalNames(): string[] {
-  const names = new Set<string>(Object.keys(app.networkSignals));
-  for (const sheet of app.snapshot?.sheets ?? []) {
-    for (const node of sheet.nodes ?? []) {
-      if (node.settings.kind === "transmit" && node.settings.name) names.add(node.settings.name);
-    }
-  }
-  return [...names].sort();
 }
 
 /** Switches a sheet on or off (its sheet node's switch; the network's, for the root), undoably. */

@@ -15,7 +15,6 @@ import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
-import io.github.leadassimilator.reticulum.graph.Redstone;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
@@ -249,25 +248,29 @@ public final class EngineTests {
     // ---------------------------------------------------------------- redstone
 
     @GameTest(template = "empty", timeoutTicks = 300)
-    public static void networkSwitchedOffBySignalItSendsComesBack(GameTestHelper helper) {
-        // A sensor sheet transmits "run" while the lever is on; the network runs while "run" is on. Once off, only the
-        // sensor (which keeps working while the network is off) can turn it on again.
-        Rig rig = rig(helper, Blocks.LEVER, Blocks.BARREL, Blocks.BARREL);
-        helper.setBlock(rig.devices().get(0), lever(true));
-        rig.signal(rig.redstoneFrom(rig.device(0)), rig.node(new NodeSettings.TransmitSettings("run")), 0);
-        rig.wire(rig.source(1, ResourceKind.ITEM, List.of(), 64), rig.sink(2, ResourceKind.ITEM, List.of()));
-        rig.network().switches().setRedstone(new Redstone(Redstone.Mode.HIGH, Redstone.Source.SIGNAL, Optional.empty(), Optional.empty(),
-                Optional.empty(), "run"));
-        rig.container(1).setItem(0, new ItemStack(Items.COBBLESTONE, 10));
+    public static void pulseGateRunsOneOperationPerPulse(GameTestHelper helper) {
+        // A lever into a pulse gate: each time it goes on, one stack moves; held on, nothing more.
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.LEVER);
+        helper.setBlock(rig.devices().get(2), lever(false));
+        for (int slot = 0; slot < 3; slot++) {
+            rig.container(0).setItem(slot, new ItemStack(Items.COBBLESTONE, 64));
+        }
+        Node source = rig.source(0, ResourceKind.ITEM, List.of(), 64);
+        rig.wire(source, rig.sink(1, ResourceKind.ITEM, List.of()));
+        rig.sheet().replace(source.withGate(Node.Gate.PULSE));
+        rig.signal(rig.redstoneFrom(rig.device(2)), source, Wire.GATE);
         helper.startSequence()
-                .thenWaitUntil(() -> check(helper, rig.count(2, Items.COBBLESTONE) == 10, "items didn't move while the signal was on"))
-                .thenExecute(() -> helper.setBlock(rig.devices().get(0), lever(false)))
-                .thenExecuteAfter(10, () -> rig.container(1).setItem(0, new ItemStack(Items.COBBLESTONE, 10)))
                 .thenExecuteAfter(20, () -> {
-                    check(helper, rig.count(1, Items.COBBLESTONE) == 10, "items moved while the network was off");
-                    helper.setBlock(rig.devices().get(0), lever(true));
+                    check(helper, rig.count(1, Items.COBBLESTONE) == 0, "items moved before any pulse");
+                    helper.setBlock(rig.devices().get(2), lever(true));
                 })
-                .thenWaitUntil(() -> check(helper, rig.count(2, Items.COBBLESTONE) == 20, "the network didn't come back when the signal did"))
+                .thenExecuteAfter(30, () -> {
+                    check(helper, rig.count(1, Items.COBBLESTONE) == 64, "one pulse didn't move exactly one stack: " + rig.count(1, Items.COBBLESTONE));
+                    helper.setBlock(rig.devices().get(2), lever(false));
+                })
+                .thenExecuteAfter(10, () -> helper.setBlock(rig.devices().get(2), lever(true)))
+                .thenExecuteAfter(30, () -> check(helper, rig.count(1, Items.COBBLESTONE) == 128,
+                        "the second pulse didn't move one more stack: " + rig.count(1, Items.COBBLESTONE)))
                 .thenSucceed();
     }
 
@@ -388,33 +391,32 @@ public final class EngineTests {
     }
 
     @GameTest(template = "empty")
-    public static void sheetRunsWhileControllerSignalIsLow(GameTestHelper helper) {
+    public static void networkRunsWhileControllerIsUnpowered(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
         helper.setBlock(new BlockPos(1, 2, 1), Blocks.REDSTONE_BLOCK);
         rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
-        // The sheet's node carries the condition: it switches the whole sheet.
-        rig.sheetNode(node -> new Node(node.id(), node.settings(), node.label(), node.enabled(), node.x(), node.y(),
-                new Redstone(Redstone.Mode.LOW, Redstone.Source.DEFAULT, Optional.empty(), Optional.empty(), Optional.empty(), "")));
+        // Redstone at the controller switches the whole network.
+        rig.network().switches().setRedstone(io.github.leadassimilator.reticulum.network.Switches.Redstone.LOW);
         helper.startSequence()
                 .thenExecuteAfter(20, () -> {
-                    check(helper, rig.count(1, Items.COBBLESTONE) == 0, "sheet ran while its controller was powered");
+                    check(helper, rig.count(1, Items.COBBLESTONE) == 0, "the network ran while its controller was powered");
                     helper.setBlock(new BlockPos(1, 2, 1), Blocks.AIR);
                 })
-                .thenWaitUntil(() -> check(helper, rig.count(1, Items.COBBLESTONE) == 64, "sheet didn't run once the signal went low"))
+                .thenWaitUntil(() -> check(helper, rig.count(1, Items.COBBLESTONE) == 64, "the network didn't run once the controller lost power"))
                 .thenSucceed();
     }
 
     @GameTest(template = "empty")
-    public static void counterTransmitsAndDelayLoopCompiles(GameTestHelper helper) {
-        Rig rig = rig(helper, Blocks.BARREL);
+    public static void counterCountsAndDelayLoopCompiles(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.REDSTONE_LAMP);
         Node timer = rig.node(new NodeSettings.TimerSettings(2));
         Node counter = rig.node(new NodeSettings.CounterSettings());
         Node compare = rig.node(new NodeSettings.CompareSettings(NodeSettings.CompareOp.GE, 3));
-        Node publish = rig.node(new NodeSettings.TransmitSettings("done"));
+        Node lamp = rig.redstoneTo(rig.device(1));
         rig.signal(timer, counter, 0);
         rig.signal(counter, compare, 0);
-        rig.signal(compare, publish, 0);
+        rig.signal(compare, lamp, 0);
         // A clock made of a NOT fed by its own output one tick late: a loop, but through a Delay.
         Node not = rig.node(new NodeSettings.LogicSettings(NodeSettings.LogicOp.NOT));
         Node delay = rig.node(new NodeSettings.DelaySettings(1));
@@ -423,7 +425,7 @@ public final class EngineTests {
         helper.succeedWhen(() -> {
             check(helper, rig.compiled().errors().isEmpty(),
                     "errors: " + rig.compiled().errors());
-            check(helper, rig.runtime().networkSignals().getOrDefault("done", 0L) == 15, "counter didn't reach 3 and transmit");
+            check(helper, helper.getBlockState(rig.devices().get(1)).getValue(RedstoneLampBlock.LIT), "counter didn't reach 3 and light the lamp");
         });
     }
 

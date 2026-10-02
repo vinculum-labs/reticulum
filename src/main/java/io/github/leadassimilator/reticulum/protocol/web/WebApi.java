@@ -27,7 +27,6 @@ import io.github.leadassimilator.reticulum.engine.CompiledSheet;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
-import io.github.leadassimilator.reticulum.graph.Redstone;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
@@ -509,7 +508,8 @@ public final class WebApi {
                     }
                 }
                 case "clearIdentify" -> io.github.leadassimilator.reticulum.network.Identifies.clear(server, network);
-                case "setNetworkRedstone" -> network.switches().setRedstone(decode(server, Redstone.CODEC, edit.get("redstone"), "redstone"));
+                case "setNetworkRedstone" -> network.switches().setRedstone(
+                        decode(server, io.github.leadassimilator.reticulum.network.Switches.Redstone.CODEC, edit.get("redstone"), "redstone"));
                 default -> throw new RequestException("Unknown edit '" + type + "'");
             }
             return com.google.gson.JsonNull.INSTANCE;
@@ -792,9 +792,6 @@ public final class WebApi {
         }
         runtime.signalValues().forEach((id, value) -> signals.addProperty(pins.getOrDefault(id, id.toString()), value));
         out.add("signals", signals);
-        JsonObject named = new JsonObject();
-        runtime.networkSignals().forEach(named::addProperty);
-        out.add("networkSignals", named);
         JsonObject me = new JsonObject();
         runtime.meUsage().forEach((pin, usage) -> {
             JsonObject port = new JsonObject();

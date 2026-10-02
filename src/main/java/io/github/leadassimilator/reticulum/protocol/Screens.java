@@ -102,7 +102,7 @@ public final class Screens {
                 Security.canEdit(network, player), Security.canAdmin(network, player),
                 player.serverLevel().getBlockEntity(pos) instanceof ControllerBlockEntity controller ? controller.antennaTier() : 0,
                 network.enabled(), io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(player.server, network),
-                network.switches().redstone().mode(), sheetEntries(player, network), overflowLines(player, network), powerLine(player, network));
+                network.switches().redstone(), sheetEntries(player, network), overflowLines(player, network), powerLine(player, network));
     }
 
     /** "Power: 52,000 / 1,000,000 FE (24 FE/t)", or empty when power is free. */
@@ -166,11 +166,8 @@ public final class Screens {
         switch (payload.what()) {
             case Payloads.ControllerSwitch.NETWORK -> network.setEnabled(payload.value() != 0);
             case Payloads.ControllerSwitch.REDSTONE -> {
-                var modes = io.github.leadassimilator.reticulum.graph.Redstone.Mode.values();
-                var old = network.switches().redstone();
-                var mode = modes[Math.floorMod(payload.value(), modes.length)];
-                network.switches().setRedstone(new io.github.leadassimilator.reticulum.graph.Redstone(mode, old.source(), old.device(), old.face(),
-                        old.connector(), old.signal()));
+                var modes = io.github.leadassimilator.reticulum.network.Switches.Redstone.values();
+                network.switches().setRedstone(modes[Math.floorMod(payload.value(), modes.length)]);
             }
             // Only the sheets the screen lists: sub-sheets run as part of the sheets that use them.
             case Payloads.ControllerSwitch.SHEET -> payload.sheet().map(network::sheet).filter(sheet -> !sheet.subsheet())

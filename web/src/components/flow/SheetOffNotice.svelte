@@ -20,7 +20,7 @@
     }
   }
 
-  /** The node whose gate or redstone holds this sheet off: its own node, in the sheet above. */
+  /** The node whose gate holds this sheet off: its own node, in the sheet above. */
   function showGate() {
     if (sheet.parent && sheet.node) showNode(sheet.parent, sheet.node);
   }
@@ -33,7 +33,7 @@
       {#if why.kind === "network"}The network is switched off, so nothing on this sheet runs.
       {:else if why.kind === "self"}This sheet is switched off.
       {:else if why.kind === "parent"}This sheet is off: the sheet “{why.sheet.name}” above it is switched off.
-      {:else}A gate or redstone on this sheet's node holds it off.{/if}
+      {:else}A signal into this sheet's node's gate holds it off.{/if}
     </span>
     {#if why.kind === "gate"}
       {#if sheet.parent}<button class="btn shrink-0 text-xs" onclick={showGate}>Show its node</button>{/if}

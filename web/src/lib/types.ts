@@ -171,18 +171,6 @@ export interface DelaySettings {
   ticks?: number;
 }
 
-/** Transmits its input as a named network signal. */
-export interface TransmitSettings {
-  kind: "transmit";
-  name?: string;
-}
-
-/** Receives a named network signal. */
-export interface ReceiveSettings {
-  kind: "receive";
-  name?: string;
-}
-
 export type SignalNodeSettings =
   | LevelSettings
   | CompareSettings
@@ -191,9 +179,7 @@ export type SignalNodeSettings =
   | PulseSettings
   | LatchSettings
   | CounterSettings
-  | DelaySettings
-  | TransmitSettings
-  | ReceiveSettings;
+  | DelaySettings;
 
 
 export type NodeSettings =
@@ -208,18 +194,11 @@ export type NodeSettings =
   | SignalNodeSettings;
 export type NodeKind = NodeSettings["kind"];
 
-export type RedstoneMode = "ignored" | "high" | "low" | "pulse";
-export type RedstoneSource = "default" | "connector" | "face" | "signal";
+/** How a signal into a node's gate switches it: on while above 0, or one operation each time it rises above 0. */
+export type GateMode = "while_on" | "pulse";
 
-/** A redstone condition: the thing runs only while it allows (and its on/off button is on). */
-export interface Redstone {
-  mode?: RedstoneMode;
-  source?: RedstoneSource;
-  device?: GlobalPos;
-  face?: Face;
-  connector?: string;
-  signal?: string;
-}
+/** What redstone at the controller block does to the network: nothing, run only while powered, stop while powered. */
+export type ControllerRedstone = "ignored" | "high" | "low";
 
 /** The input every node has for a signal wire that switches it on and off. */
 export const GATE = -1;
@@ -231,7 +210,7 @@ export interface GraphNode {
   enabled?: boolean;
   x?: number;
   y?: number;
-  redstone?: Redstone;
+  gate?: GateMode;
 }
 
 export interface Wire {
@@ -325,7 +304,7 @@ export interface Snapshot extends NetworkSummary {
   hasPassword: boolean;
   /** The root sheet's id. */
   root: string;
-  redstone?: Redstone;
+  redstone?: ControllerRedstone;
   /** What running the network costs, when the server charges for it. */
   power?: PowerState;
   /** What is lit up in the world. */

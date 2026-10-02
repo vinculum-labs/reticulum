@@ -16,7 +16,6 @@ import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
-import io.github.leadassimilator.reticulum.graph.Redstone;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
@@ -52,8 +51,6 @@ public final class NetworkRuntime {
     /** Why each node last moved nothing; absent once it moves again. Keyed by the node the editor shows. */
     private final Map<UUID, Status> statuses = new HashMap<>();
     private final Signals signals = new Signals();
-    /** The network's redstone pulse fired this tick: every item flow does one operation now. */
-    private boolean networkPulsed;
     /** Sheets switched off this tick by a gate or redstone (theirs or a sheet's above them), for the editor. */
     private final Set<UUID> sheetsOff = new java.util.HashSet<>();
     /** Sub-sheets compiled on their own, only to show their problems in the editor (they never run on their own). */
@@ -183,12 +180,10 @@ public final class NetworkRuntime {
         signals.startTick();
         statuses.values().removeIf(status -> status == Status.SWITCHED_OFF);
         sheetsOff.clear();
-        Signals.Verdict networkVerdict = signals.check(server, network, "network", network.switches().redstone(), null);
-        if (networkVerdict == Signals.Verdict.OFF) {
+        if (!network.switches().redstone().allows(Signals.atController(server, network))) {
             dormant(server, network);
             return;
         }
-        networkPulsed = networkVerdict == Signals.Verdict.PULSED;
         stopped = false;
         updateReach(server, network);
         payUpkeep(server, network);
@@ -206,9 +201,9 @@ public final class NetworkRuntime {
         }
         for (CompiledSheet sheet : sheets) {
             if (sheet.switchable()) {
-                signals.switchNodes(server, network, sheet);
+                signals.switchNodes(sheet);
                 for (UUID node : signals.off()) {
-                    if (sheet.conditions().containsKey(node) || sheet.switchedBy().containsKey(node)) {
+                    if (sheet.switchedBy().containsKey(node)) {
                         statuses.put(sheet.owner(node), Status.SWITCHED_OFF);
                     }
                 }
@@ -232,9 +227,8 @@ public final class NetworkRuntime {
     }
 
     /**
-     * The network's redstone condition has it off: nothing moves and connectors give out no redstone, but its sheets'
-     * signal logic keeps working, so a condition reading a signal they send (a sensor sheet watching a battery) can
-     * turn the network on again.
+     * Redstone at the controller has the network off: nothing moves and connectors give out no redstone, but its
+     * sheets' signal logic keeps working (latches and counters keep their counts going).
      */
     private void dormant(MinecraftServer server, Network network) {
         if (meLinker != null) {
@@ -471,11 +465,6 @@ public final class NetworkRuntime {
         return signals.values();
     }
 
-    /** Network signals as last published. */
-    public Map<String, Long> networkSignals() {
-        return signals.published();
-    }
-
     public Set<UUID> sheetsOff() {
         return sheetsOff;
     }
@@ -503,9 +492,6 @@ public final class NetworkRuntime {
 
     /** Whether a redstone pulse fired for these routes this tick, so their item operation runs now. */
     boolean forced(CompiledSheet sheet, List<CompiledSheet.Route> routes) {
-        if (networkPulsed) {
-            return true;
-        }
         if (signals.pulsed().isEmpty()) {
             return false;
         }

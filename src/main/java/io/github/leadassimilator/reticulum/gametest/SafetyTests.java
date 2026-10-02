@@ -375,7 +375,7 @@ public final class SafetyTests {
         check(helper, io.github.leadassimilator.reticulum.protocol.Views.BlockView.STREAM_CODEC.decode(buffer).equals(block), "the block view changed on the way");
         var sheet = new io.github.leadassimilator.reticulum.protocol.Views.SheetEntry(UUID.randomUUID(), "Smelting", 1, true, false, true, 2);
         var controller = new io.github.leadassimilator.reticulum.protocol.Views.ControllerView(new BlockPos(4, 5, 6), UUID.randomUUID(), "Base", "owner",
-                AccessMode.PASSWORD, true, 3, 7, 1, true, false, 2, true, false, io.github.leadassimilator.reticulum.graph.Redstone.Mode.HIGH,
+                AccessMode.PASSWORD, true, 3, 7, 1, true, false, 2, true, false, io.github.leadassimilator.reticulum.network.Switches.Redstone.HIGH,
                 List.of(sheet), List.of("4x iron"), "100 FE");
         buffer = new RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), access);
         io.github.leadassimilator.reticulum.protocol.Views.ControllerView.STREAM_CODEC.encode(buffer, controller);

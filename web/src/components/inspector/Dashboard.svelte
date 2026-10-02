@@ -36,7 +36,7 @@
     }),
     ...nodes
       .filter((x) => x.node.settings.kind !== "sheet" && (x.node.enabled === false || app.status[x.node.id] === "switched_off"))
-      .map((x) => ({ sheet: x.sheet, node: x.node, why: x.node.enabled === false ? "node off" : "off by redstone" })),
+      .map((x) => ({ sheet: x.sheet, node: x.node, why: x.node.enabled === false ? "node off" : "off by its gate" })),
   ]);
   const overflow = $derived([
     ...snapshot.overflow.items.map((s) => `${s.count}× ${s.id}`),

@@ -242,7 +242,7 @@
               title={sheet.root ? "The network's top sheet. Double-click to rename." : "Double-click to rename; drag onto another sheet to move it inside"}
             >
               <span class="trim-text truncate">{sheet.name}</span>
-              {#if off?.kind === "gate"}<span class="shrink-0 text-signal" title="Switched off by a gate or redstone"><Zap size={12} /></span>{/if}
+              {#if off?.kind === "gate"}<span class="shrink-0 text-signal" title="Switched off by a signal into its node's gate"><Zap size={12} /></span>{/if}
               {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
             </button>
           {/if}

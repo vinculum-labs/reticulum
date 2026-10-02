@@ -16,7 +16,6 @@ import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.filter.FilterException;
 import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
-import io.github.leadassimilator.reticulum.graph.Redstone;
 import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.FaceKey;
@@ -34,19 +33,17 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
 /**
  * The redstone side of a network, kept between ticks: signal values, what pulses, latches, counters and delays
- * remember, published network signals, redstone conditions and what the connectors give out.
+ * remember, which gates switch their nodes and what the connectors give out.
  */
 final class Signals {
     private static final long ON = 15;
 
     /** Output of every signal node, by compiled node id, as of this tick. */
     private final Map<UUID, Long> values = new HashMap<>();
-    /** Whether each edge-watching input (pulse nodes, counters, pulse conditions) was on last tick. */
+    /** Whether each edge-watching input (pulse nodes, counters, pulse gates) was on last tick. */
     private final Map<String, Boolean> wasOn = new HashMap<>();
     private final Map<UUID, Integer> pulseLeft = new HashMap<>();
     private final Map<UUID, ArrayDeque<Long>> delays = new HashMap<>();
-    /** Network signals transmitted last tick; what Receiver nodes and conditions read this tick. */
-    private Map<String, Long> published = Map.of();
     /** Redstone to give a device: on every face ({@code face} null) or on one face (the connector touching it). */
     record Emit(GlobalPos device, @Nullable Direction face) {
     }
@@ -55,24 +52,14 @@ final class Signals {
     private Map<Emit, Integer> emitting = Map.of();
     /** Connectors that gave out redstone after the last update, so one whose device went away is still put out. */
     private Set<UUID> poweredConnectors = Set.of();
-    /** Condition results worked out this tick, so every sheet in one folder sees the same pulse. */
-    private final Map<String, Verdict> verdicts = new HashMap<>();
-    /** Nodes switched off by redstone this tick, and nodes whose pulse fired this tick. */
+    /** Nodes switched off this tick (by a gate, or their sheet's switch), and nodes whose pulse gate fired this tick. */
     private final Set<UUID> off = new HashSet<>();
     /** Sheet nodes that were off at the end of last tick: the logic in their sheets sleeps this tick. */
     private Set<UUID> asleep = Set.of();
     private final Set<UUID> pulsed = new HashSet<>();
 
-    enum Verdict {
-        ON, OFF, PULSED
-    }
-
     Map<UUID, Long> values() {
         return values;
-    }
-
-    Map<String, Long> published() {
-        return published;
     }
 
     Set<UUID> off() {
@@ -84,58 +71,15 @@ final class Signals {
     }
 
     void startTick() {
-        verdicts.clear();
         off.clear();
         pulsed.clear();
     }
 
-    // ---------------------------------------------------------------- conditions
+    // ---------------------------------------------------------------- reading the world
 
-    /** Checks a condition once per tick per {@code key}; {@code device} is the default source of device nodes. */
-    Verdict check(MinecraftServer server, Network network, String key, Redstone redstone, @Nullable GlobalPos device) {
-        if (redstone.ignored()) {
-            return Verdict.ON;
-        }
-        Verdict cached = verdicts.get(key);
-        if (cached != null) {
-            return cached;
-        }
-        boolean high = read(server, network, redstone, device) > 0;
-        Verdict verdict = switch (redstone.mode()) {
-            case HIGH -> high ? Verdict.ON : Verdict.OFF;
-            case LOW -> high ? Verdict.OFF : Verdict.ON;
-            case PULSE -> {
-                Boolean before = wasOn.put(key, high);
-                yield high && !Boolean.TRUE.equals(before) ? Verdict.PULSED : Verdict.OFF;
-            }
-            case IGNORED -> Verdict.ON;
-        };
-        verdicts.put(key, verdict);
-        return verdict;
-    }
-
-    private long read(MinecraftServer server, Network network, Redstone redstone, @Nullable GlobalPos device) {
-        return switch (redstone.source()) {
-            case DEFAULT -> device != null ? atConnectorsOf(server, network, device) : atController(server, network);
-            case CONNECTOR -> redstone.connector().map(network::connector).map(c -> (long) received(server, c.pos())).orElse(0L);
-            case FACE -> redstone.device().map(pos -> givenOut(server, network, pos, redstone.face(), false)).orElse(0);
-            case SIGNAL -> published.getOrDefault(redstone.signal(), 0L);
-        };
-    }
-
+    /** Redstone at the controller block. */
     static int atController(MinecraftServer server, Network network) {
         return network.controller() == null ? 0 : received(server, network.controller());
-    }
-
-    /** The strongest signal any connector reaching the device receives, as XNet reads a connector. */
-    private static int atConnectorsOf(MinecraftServer server, Network network, GlobalPos device) {
-        int best = 0;
-        for (ConnectorRecord connector : network.connectors()) {
-            if (connector.devices().contains(device)) {
-                best = Math.max(best, received(server, connector.pos()));
-            }
-        }
-        return best;
     }
 
     /** The signal a block receives from its neighbors. */
@@ -175,12 +119,10 @@ final class Signals {
     /**
      * Works out every signal node of the running sheets, then applies Redstone out nodes to the connectors.
      *
-     * <p>{@code dormant} sheets are switched off by their redstone condition (or the network's): their signal nodes
-     * are still worked out and still transmit, so a condition that reads a signal they send can turn them on again,
-     * but their Redstone out nodes give nothing.
+     * <p>{@code dormant} sheets belong to a network the controller's redstone has stopped: their signal nodes are
+     * still worked out (latches and counters keep counting), but their Redstone out nodes give nothing.
      */
     void evaluate(NetworkRuntime.Context ctx, List<CompiledSheet> sheets, List<CompiledSheet> dormant) {
-        Map<String, Long> publishing = new HashMap<>();
         Map<Emit, Integer> emit = new HashMap<>();
         Map<Emit, Integer> dark = new HashMap<>();
         Set<UUID> worked = new HashSet<>();
@@ -196,7 +138,7 @@ final class Signals {
                         values.put(id, whileOff(sheet, node, group == sheets ? emit : dark));
                         slept.add(id);
                     } else {
-                        values.put(id, output(ctx, sheet, node, publishing, group == sheets ? emit : dark));
+                        values.put(id, output(ctx, sheet, node, group == sheets ? emit : dark));
                     }
                     worked.add(id);
                 }
@@ -208,7 +150,6 @@ final class Signals {
             }
         }
         values.keySet().retainAll(worked);
-        published = publishing;
         applyEmissions(ctx.server(), ctx.network(), emit);
     }
 
@@ -264,8 +205,7 @@ final class Signals {
         return best;
     }
 
-    private long output(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.SignalNode node, Map<String, Long> publishing,
-            Map<Emit, Integer> emit) {
+    private long output(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.SignalNode node, Map<Emit, Integer> emit) {
         UUID id = node.node().id();
         String key = id.toString();
         return switch (node.node().settings()) {
@@ -328,14 +268,6 @@ final class Signals {
                 ArrayDeque<Long> queue = delays.get(id);
                 yield queue != null && queue.size() >= Math.max(1, delay.ticks()) ? queue.peekFirst() : 0;
             }
-            case NodeSettings.TransmitSettings transmit -> {
-                long value = in(node, 0);
-                if (!transmit.name().isBlank()) {
-                    publishing.merge(transmit.name(), value, Math::max);
-                }
-                yield value;
-            }
-            case NodeSettings.ReceiveSettings receive -> published.getOrDefault(receive.name(), 0L);
             // Sheet pins pass signals through a sub-sheet's edge.
             default -> {
                 long best = 0;
@@ -493,26 +425,29 @@ final class Signals {
         values.clear();
         delays.clear();
         pulseLeft.clear();
-        published = Map.of();
     }
 
     // ---------------------------------------------------------------- switching
 
-    /** Works out which nodes of a sheet redstone switches off this tick, and which pulse. */
-    void switchNodes(MinecraftServer server, Network network, CompiledSheet sheet) {
+    /**
+     * Works out which nodes of a sheet are off this tick: those in a switched-off sheet, and those whose gate is off. A
+     * pulse gate is off except on the tick its signal rises above 0, when its node does one operation.
+     */
+    void switchNodes(CompiledSheet sheet) {
         // Sheets switched off by their own switch: everything in them is off.
         off.addAll(sheet.disabledHolders());
-        for (Map.Entry<UUID, CompiledSheet.Condition> entry : sheet.conditions().entrySet()) {
-            Verdict verdict = check(server, network, "node:" + entry.getKey(), entry.getValue().redstone(), entry.getValue().device());
-            if (verdict == Verdict.OFF) {
-                off.add(entry.getKey());
-            } else if (verdict == Verdict.PULSED) {
-                pulsed.add(entry.getKey());
-            }
-        }
         for (Map.Entry<UUID, List<UUID>> entry : sheet.switchedBy().entrySet()) {
-            if (gate(entry.getValue()) <= 0) {
-                off.add(entry.getKey());
+            UUID node = entry.getKey();
+            boolean high = gate(entry.getValue()) > 0;
+            if (sheet.pulses(node)) {
+                Boolean before = wasOn.put("gate:" + node, high);
+                if (high && !Boolean.TRUE.equals(before)) {
+                    pulsed.add(node);
+                } else {
+                    off.add(node);
+                }
+            } else if (!high) {
+                off.add(node);
             }
         }
     }

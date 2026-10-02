@@ -4,7 +4,7 @@ import type { Edge, Node } from "@xyflow/svelte";
 import type { Device, GlobalPos, GraphNode, MeUsage, Resource, Sheet, Wire } from "./types";
 export type { MeUsage };
 import { GATE, pinName, pinSlot, posKey, sheetPins } from "./types";
-import { RESOURCE_VAR, formatRate, isSignal, redstoneSummary } from "./kinds";
+import { RESOURCE_VAR, formatRate, isSignal } from "./kinds";
 
 export interface NodeData extends Record<string, unknown> {
   node: GraphNode;
@@ -36,9 +36,8 @@ const FRAME_PAD = 24;
 const GUESS = { width: 160, height: 60 };
 
 /** Where a frame's contents start below its top edge: under its header and pin rows. */
-function frameTop(node: GraphNode, holder: { inputs: HolderPin[]; outputs: HolderPin[] }): number {
-  const header = CARD_HEADER + (redstoneSummary(node.redstone) ? 13 : 0);
-  return header + Math.max(holder.inputs.length, holder.outputs.length, 1) * CARD_ROW + FRAME_PAD;
+function frameTop(holder: { inputs: HolderPin[]; outputs: HolderPin[] }): number {
+  return CARD_HEADER + Math.max(holder.inputs.length, holder.outputs.length, 1) * CARD_ROW + FRAME_PAD;
 }
 
 /**
@@ -251,7 +250,7 @@ export function toFlow(
       const held = s.kind === "sheet" ? byId.get(s.sheet) : undefined;
       if (!held || !open.has(n.id) || depth >= 8 || seen.has(held.id)) continue;
       const holder = n.data.holder!;
-      const top = frameTop(n.data.node, holder);
+      const top = frameTop(holder);
       // Measure the contents without adding them yet: they go after this frame, which Svelte Flow needs first.
       const probe = contentBox(held, sheets, open, sizes, depth + 1, new Set([...seen, held.id]));
       const frame: Frame = { sheet: held.id, dx: probe.minX - FRAME_PAD, dy: probe.minY - top };
@@ -297,7 +296,7 @@ function contentBox(
     if (held && open.has(n.id) && depth < 8 && !seen.has(held.id)) {
       const box = contentBox(held, sheets, open, sizes, depth + 1, new Set([...seen, held.id]));
       const holder = { inputs: holderPins(held, true), outputs: holderPins(held, false) };
-      size = { width: Math.max(box.maxX - box.minX + 2 * FRAME_PAD, 220), height: frameTop(n, holder) + box.maxY - box.minY + FRAME_PAD };
+      size = { width: Math.max(box.maxX - box.minX + 2 * FRAME_PAD, 220), height: frameTop(holder) + box.maxY - box.minY + FRAME_PAD };
     }
     const x = n.x ?? 0, y = n.y ?? 0;
     minX = Math.min(minX, x);

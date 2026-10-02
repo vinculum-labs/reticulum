@@ -132,7 +132,7 @@ public final class NetworkManager {
     }
 
     /**
-     * Whether any sheet uses the device (a node on it, a redstone condition reading it): such a record is kept when
+     * Whether any sheet uses the device (a node on it, or a node reading it): such a record is kept when
      * the block goes, so its flows can be moved onto the block that replaces it.
      */
     static boolean usedBySheets(Network network, GlobalPos pos) {
@@ -143,14 +143,14 @@ public final class NetworkManager {
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings s -> s.device();
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneInSettings s -> s.device();
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneOutSettings s -> s.device();
-                    default -> node.redstone().device().orElse(null);
+                    default -> null;
                 };
-                if (pos.equals(used) || pos.equals(node.redstone().device().orElse(null))) {
+                if (pos.equals(used)) {
                     return true;
                 }
             }
         }
-        return pos.equals(network.switches().redstone().device().orElse(null));
+        return false;
     }
 
     private static void releaseDevice(MinecraftServer server, Network network, GlobalPos pos) {
@@ -207,8 +207,7 @@ public final class NetworkManager {
                     default -> null;
                 };
                 if (moved != null) {
-                    sheet.replace(new io.github.leadassimilator.reticulum.graph.Node(node.id(), moved, node.label(), node.enabled(), node.x(), node.y(),
-                            node.redstone()));
+                    sheet.replace(node.with(moved));
                 }
             }
         }

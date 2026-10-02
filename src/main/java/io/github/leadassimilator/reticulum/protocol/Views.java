@@ -121,12 +121,12 @@ public final class Views {
     }
 
     /**
-     * {@code running}: the network ticks now. {@code redstoneMode}: the network's redstone condition. {@code overflow}:
+     * {@code running}: the network ticks now. {@code redstoneMode}: what redstone at the controller does. {@code overflow}:
      * a line per thing in the overflow buffer.
      */
     public record ControllerView(BlockPos pos, java.util.UUID networkId, String networkName, String ownerName, AccessMode mode, boolean hasPassword,
             int connectors, int devices, int orphans, boolean canEdit, boolean canAdmin, int antenna,
-            boolean enabled, boolean running, io.github.leadassimilator.reticulum.graph.Redstone.Mode redstoneMode, List<SheetEntry> sheets,
+            boolean enabled, boolean running, io.github.leadassimilator.reticulum.network.Switches.Redstone redstoneMode, List<SheetEntry> sheets,
             List<String> overflow, String power) {
         public static final StreamCodec<RegistryFriendlyByteBuf, ControllerView> STREAM_CODEC = StreamCodec.of(
                 (buf, v) -> {
@@ -152,7 +152,7 @@ public final class Views {
                 buf -> new ControllerView(buf.readBlockPos(), buf.readUUID(), buf.readUtf(), buf.readUtf(), AccessMode.STREAM_CODEC.decode(buf),
                         buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
                         ByteBufCodecs.VAR_INT.decode(buf), buf.readBoolean(), buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf),
-                        buf.readBoolean(), buf.readBoolean(), buf.readEnum(io.github.leadassimilator.reticulum.graph.Redstone.Mode.class),
+                        buf.readBoolean(), buf.readBoolean(), buf.readEnum(io.github.leadassimilator.reticulum.network.Switches.Redstone.class),
                         buf.readList(b -> SheetEntry.STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)), buf.readList(b -> b.readUtf()),
                         buf.readUtf()));
     }

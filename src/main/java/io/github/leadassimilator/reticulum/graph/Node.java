@@ -7,12 +7,14 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import io.github.leadassimilator.reticulum.network.Ids;
+import io.github.leadassimilator.reticulum.util.LowercaseName;
+import net.minecraft.util.StringRepresentable;
 
 /**
  * A node on a sheet. {@code x}/{@code y} are its position in the editor and have no effect on the engine.
- * {@code redstone} is the condition it runs under besides its on/off button.
+ * {@code gate} is how a signal wired into its gate switches it.
  */
-public record Node(UUID id, NodeSettings settings, Optional<String> label, boolean enabled, float x, float y, Redstone redstone) {
+public record Node(UUID id, NodeSettings settings, Optional<String> label, boolean enabled, float x, float y, Gate gate) {
     public static final Codec<Node> CODEC = RecordCodecBuilder.create(i -> i.group(
             Ids.UUID_CODEC.fieldOf("id").forGetter(Node::id),
             NodeSettings.CODEC.fieldOf("settings").forGetter(Node::settings),
@@ -20,30 +22,47 @@ public record Node(UUID id, NodeSettings settings, Optional<String> label, boole
             Codec.BOOL.optionalFieldOf("enabled", true).forGetter(Node::enabled),
             Codec.FLOAT.optionalFieldOf("x", 0f).forGetter(Node::x),
             Codec.FLOAT.optionalFieldOf("y", 0f).forGetter(Node::y),
-            Redstone.CODEC.optionalFieldOf("redstone", Redstone.IGNORED).forGetter(Node::redstone)
+            Gate.CODEC.optionalFieldOf("gate", Gate.WHILE_ON).forGetter(Node::gate)
     ).apply(i, Node::new));
 
     public static Node of(NodeSettings settings) {
-        return new Node(UUID.randomUUID(), settings, Optional.empty(), true, 0, 0, Redstone.IGNORED);
+        return new Node(UUID.randomUUID(), settings, Optional.empty(), true, 0, 0, Gate.WHILE_ON);
     }
 
     public Node withId(UUID id) {
-        return new Node(id, settings, label, enabled, x, y, redstone);
+        return new Node(id, settings, label, enabled, x, y, gate);
     }
 
     public Node with(NodeSettings settings) {
-        return new Node(id, settings, label, enabled, x, y, redstone);
+        return new Node(id, settings, label, enabled, x, y, gate);
     }
 
     public Node withEnabled(boolean enabled) {
-        return new Node(id, settings, label, enabled, x, y, redstone);
+        return new Node(id, settings, label, enabled, x, y, gate);
+    }
+
+    public Node withGate(Gate gate) {
+        return new Node(id, settings, label, enabled, x, y, gate);
     }
 
     public Node at(float x, float y) {
-        return new Node(id, settings, label, enabled, x, y, redstone);
+        return new Node(id, settings, label, enabled, x, y, gate);
     }
 
     public NodeSettings.Kind kind() {
         return settings.kind();
+    }
+
+    /** How a signal into a node's gate switches it. */
+    public enum Gate implements LowercaseName {
+        /** On while the signal is above 0. */
+        WHILE_ON,
+        /**
+         * Off, except for one operation each time the signal rises above 0: item flows move once, continuous flows run
+         * for one tick. A one-tick pulse into a While on gate usually misses the tick an item flow works on.
+         */
+        PULSE;
+
+        public static final Codec<Gate> CODEC = StringRepresentable.fromEnum(Gate::values);
     }
 }

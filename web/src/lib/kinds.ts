@@ -1,6 +1,6 @@
 // What each node kind looks like and how it is summarized, plus defaults for new nodes.
 
-import type { Device, DeviceInput, DeviceOutput, Face, GraphNode, NodeKind, NodeSettings, Redstone, Resource } from "./types";
+import type { Device, DeviceInput, DeviceOutput, Face, GraphNode, NodeKind, NodeSettings, Resource } from "./types";
 
 export const KIND_LABEL: Record<NodeKind, string> = {
   device: "Device",
@@ -20,8 +20,6 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   latch: "Latch",
   counter: "Counter",
   delay: "Delay",
-  transmit: "Transmitter",
-  receive: "Receiver",
 };
 
 export const KIND_HINT: Record<NodeKind, string> = {
@@ -42,8 +40,6 @@ export const KIND_HINT: Record<NodeKind, string> = {
   latch: "Set turns it on, reset turns it off; it remembers in between",
   counter: "Counts each time its input turns on; reset sets it back to 0",
   delay: "Its input, some ticks later",
-  transmit: "Transmits its input under a name that any sheet can receive",
-  receive: "Receives a transmitted signal by name",
 };
 
 /** Redstone (signal) nodes, in the order of the toolbar's Redstone menu. */
@@ -56,8 +52,6 @@ export const SIGNAL_KINDS: NodeKind[] = [
   "latch",
   "counter",
   "delay",
-  "transmit",
-  "receive",
 ];
 
 export function isSignal(kind: NodeKind | undefined): boolean {
@@ -78,7 +72,6 @@ export function signalInputs(kind: NodeKind): string[] {
     case "logic":
     case "pulse":
     case "delay":
-    case "transmit":
       return ["in"];
     default:
       return [];
@@ -87,28 +80,14 @@ export function signalInputs(kind: NodeKind): string[] {
 
 /** Whether a signal node gives an output to wire on. */
 export function signalOutput(kind: NodeKind): boolean {
-  return kind !== "transmit";
+  return isSignal(kind);
 }
 
-/** Kinds a signal wire can switch on and off through their gate (the pin on top). */
+/** Kinds a signal wire can switch on and off through their gate (the diamond pin). */
 export function gated(kind: NodeKind): boolean {
   return !isSignal(kind) && kind !== "sheet_input" && kind !== "sheet_output";
 }
 
-export const REDSTONE_MODE_LABEL: Record<string, string> = {
-  ignored: "Ignored",
-  high: "High (1–15)",
-  low: "Low (0)",
-  pulse: "Pulse (rising edge)",
-};
-
-/** "redstone high at the controller" and the like, for badges and hovers. */
-export function redstoneSummary(r: Redstone | undefined): string {
-  if (!r || !r.mode || r.mode === "ignored") return "";
-  const where =
-    r.source === "connector" ? "a connector" : r.source === "face" ? "a device face" : r.source === "signal" ? `“${r.signal ?? ""}”` : "default";
-  return `redstone ${r.mode} · ${where}`;
-}
 
 export const RESOURCE_LABEL: Record<Resource, string> = {
   item: "Items",
@@ -196,9 +175,6 @@ export function defaultSettings(
       return { kind };
     case "delay":
       return { kind, ticks: 1 };
-    case "transmit":
-    case "receive":
-      return { kind, name: "" };
     case "subsheet":
     case "sheet":
       return { kind, sheet: subsheet ?? "" };
@@ -348,9 +324,6 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
       return "count / reset";
     case "delay":
       return `${s.ticks ?? 1} tick${(s.ticks ?? 1) === 1 ? "" : "s"} late`;
-    case "transmit":
-    case "receive":
-      return s.name ? `“${s.name}”` : "no name";
   }
 }
 

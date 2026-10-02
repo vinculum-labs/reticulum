@@ -3,9 +3,13 @@ package io.github.leadassimilator.reticulum.network;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import io.github.leadassimilator.reticulum.graph.Redstone;
+import io.github.leadassimilator.reticulum.util.LowercaseName;
+import net.minecraft.util.StringRepresentable;
 
-/** What switches the network as a whole on and off: its button and redstone condition. Sheets are switched by their nodes. */
+/**
+ * What switches the network as a whole on and off: its button, and redstone at the controller block. Sheets are
+ * switched by their nodes, nodes by signal wires into their gates.
+ */
 public final class Switches {
     public static final Codec<Switches> CODEC = RecordCodecBuilder.create(i -> i.group(
             Codec.BOOL.optionalFieldOf("enabled", true).forGetter(s -> s.enabled),
@@ -39,4 +43,24 @@ public final class Switches {
         this.redstone = redstone;
     }
 
+    /** What redstone at the controller block does to the network. */
+    public enum Redstone implements LowercaseName {
+        /** Nothing: the network runs whatever the controller receives. */
+        IGNORED,
+        /** Runs only while the controller is powered. */
+        HIGH,
+        /** Stops while the controller is powered. */
+        LOW;
+
+        public static final Codec<Redstone> CODEC = StringRepresentable.fromEnum(Redstone::values);
+
+        /** Whether the network may run with this much power at the controller. */
+        public boolean allows(int power) {
+            return switch (this) {
+                case IGNORED -> true;
+                case HIGH -> power > 0;
+                case LOW -> power == 0;
+            };
+        }
+    }
 }

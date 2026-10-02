@@ -214,10 +214,9 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.network_switch", "Network");
         add("screen.reticulum.redstone", "Redstone");
         add("screen.reticulum.redstone.ignored", "Ignored");
-        add("screen.reticulum.redstone.high", "High");
-        add("screen.reticulum.redstone.low", "Low");
-        add("screen.reticulum.redstone.pulse", "Pulse");
-        add("screen.reticulum.redstone_hint", "Runs only while this allows it: High while powered, Low while not, Pulse once per rising edge. Read at the controller unless set otherwise in the editor.");
+        add("screen.reticulum.redstone.high", "On while powered");
+        add("screen.reticulum.redstone.low", "Off while powered");
+        add("screen.reticulum.redstone_hint", "What redstone into this controller does to the whole network: nothing, run only while powered, or stop while powered.");
         add("screen.reticulum.running", "Running");
         add("screen.reticulum.stopped_off", "Switched off");
         add("screen.reticulum.stopped_redstone", "Not running (redstone, or the controller isn't loaded)");

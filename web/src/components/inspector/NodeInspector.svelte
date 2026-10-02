@@ -1,13 +1,14 @@
 <script lang="ts">
-  import { app, deviceAt, deviceName, edit, nodeTitle, openDevice, openSheet, rebase, signalNames } from "../../lib/state.svelte";
+  import { app, deviceAt, deviceName, edit, nodeTitle, openDevice, openSheet, rebase } from "../../lib/state.svelte";
   import { childSheets } from "../../lib/tree";
-  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, isSignal } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, gated, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, isSignal } from "../../lib/kinds";
   import {
     SIDES,
     posKey,
     pinName,
     pinSlot,
     sheetPins,
+    GATE,
     type CompareOp,
     type DeviceNodeSettings,
     type Edit,
@@ -21,7 +22,7 @@
     type Wire,
   } from "../../lib/types";
   import DevicePicker from "./DevicePicker.svelte";
-  import RedstoneEditor from "./RedstoneEditor.svelte";
+  import Segmented from "../controls/Segmented.svelte";
   import Field from "./Field.svelte";
   import FilterField from "./FilterField.svelte";
   import { catalogKind } from "../../lib/catalog";
@@ -52,7 +53,7 @@
     "device" in s ? deviceAt(posKey(s.device)) : undefined,
   );
   const devices = $derived(app.snapshot?.devices ?? []);
-  const names = $derived(signalNames());
+  const gateWired = $derived((sheet.wires ?? []).some((w) => w.to === node.id && (w.input ?? 0) === GATE));
   const unit = $derived(s.kind === "device" && s.outputs?.[0] ? RESOURCE_UNIT[s.outputs[0].resource] : "units");
 
   /** The held sheet's pin nodes nothing outside is wired to: no wire on their slot of this sheet node. */
@@ -168,13 +169,25 @@
 
   <Switch label="On" checked={node.enabled !== false} disabled={!canEdit} onchange={(on) => save({ ...node, enabled: on }, "node on/off")} />
 
-  {#if !signal && s.kind !== "sheet_input" && s.kind !== "sheet_output"}
-    <RedstoneEditor
-      value={node.redstone}
-      disabled={!canEdit}
-      defaultLabel={s.kind === "device" ? "this device's connectors" : "the controller"}
-      onchange={(redstone) => save({ ...node, redstone: redstone.mode === "ignored" ? undefined : redstone }, "redstone")}
-    />
+  {#if gated(s.kind)}
+    <Field
+      label="Gate"
+      hint={gateWired
+        ? "While on: runs while the signal into its gate is above 0. One per pulse: one operation each time it turns on (a one-tick pulse would usually miss a While on gate)."
+        : "Wire a signal into the diamond pin on its left to switch it. While on: runs while the signal is above 0. One per pulse: one operation each time it turns on."}
+    >
+      <Segmented
+        label="Gate"
+        size="xs"
+        value={node.gate ?? "while_on"}
+        disabled={!canEdit}
+        options={[
+          { value: "while_on", label: "While on" },
+          { value: "pulse", label: "One operation per pulse" },
+        ]}
+        onchange={(gate) => save({ ...node, gate: gate === "while_on" ? undefined : (gate as "pulse") }, "gate mode")}
+      />
+    </Field>
   {/if}
 
   {#if s.kind === "level"}
@@ -239,15 +252,6 @@
     </Field>
   {:else if s.kind === "latch" || s.kind === "counter"}
     <p class="text-xs muted">It remembers its value across restarts. Its output follows one tick after its inputs.</p>
-  {:else if s.kind === "transmit" || s.kind === "receive"}
-    <Field
-      label="Signal name"
-      hint={s.kind === "transmit"
-        ? "Any sheet can pick it up with a Receiver node, and redstone conditions can use it. With several transmitters on one name, the highest wins."
-        : "Receives the value transmitted on the previous tick."}
-    >
-      <TextField value={s.name} disabled={!canEdit} suggestions={names} placeholder="e.g. Furnaces full" oncommit={(v) => settings({ name: v })} />
-    </Field>
   {/if}
 
   {#if s.kind === "device"}
