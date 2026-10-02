@@ -303,8 +303,14 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
     case "sheet_input":
     case "sheet_output":
       return `${s.name || "unnamed pin"}${s.resource ? ` · ${RESOURCE_LABEL[s.resource].toLowerCase()}` : ""}`;
-    case "level":
-      return `${RESOURCE_UNIT[s.resource]}${s.filter ? ` · ${s.filter}` : ""}`;
+    case "level": {
+      const what = `${RESOURCE_UNIT[s.resource]}${s.filter ? ` · ${s.filter}` : ""}`;
+      return s.output === "range"
+        ? `${what} · 0–15 over ${s.low ?? 0}–${s.high ?? 0}`
+        : s.output === "comparator"
+          ? `${what} · 0–15 by fullness`
+          : what;
+    }
     case "compare":
       return `A ${OP_SYMBOL[s.op ?? "ge"]} ${s.constant ?? 1} (or B)`;
     case "logic":

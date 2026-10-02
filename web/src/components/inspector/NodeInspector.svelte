@@ -196,6 +196,40 @@
         <FilterField value={s.filter ?? ""} disabled={!canEdit} kind={catalogKind(s.resource)} devices={[s.device]} onchange={(filter) => settings({ filter })} />
       </Field>
     {/if}
+    <Field
+      label="Output"
+      hint={s.output === "range"
+        ? "0 at or below the first amount, 15 at or above the second, and in steps between: for a lamp, a comparator line or a gate."
+        : s.output === "comparator"
+          ? "How full the device is (only what is counted), as a comparator on it would say: 0 when empty, 15 when full."
+          : "The amount itself, for a Compare (\"at least 1000\") or to count with. A device's redstone input gets at most 15 of it."}
+    >
+      <Segmented
+        label="Output"
+        size="xs"
+        value={s.output ?? "amount"}
+        disabled={!canEdit}
+        options={[
+          { value: "amount", label: "Amount" },
+          { value: "range", label: "0–15 between" },
+          // Mekanism's chemical tanks aren't measured for fullness.
+          ...(s.resource !== "chemical" ? [{ value: "comparator", label: "Like a comparator" }] : []),
+        ]}
+        onchange={(v) => {
+          const output = v as "amount" | "range" | "comparator";
+          settings(output === "range" && !s.high ? { output, low: 0, high: 1000 } : { output: output === "amount" ? undefined : output });
+        }}
+      />
+    </Field>
+    {#if s.output === "range"}
+      <Field label={`From ${RESOURCE_UNIT[s.resource]} (gives 0) to (gives 15)`}>
+        <div class="flex items-center gap-2">
+          <NumberField value={s.low ?? 0} min={0} integer width="md" disabled={!canEdit} title="At or below this: 0" oncommit={(v) => settings({ low: v ?? 0 })} />
+          <span class="muted">to</span>
+          <NumberField value={s.high ?? 0} min={0} integer width="md" disabled={!canEdit} title="At or above this: 15" oncommit={(v) => settings({ high: v ?? 0 })} />
+        </div>
+      </Field>
+    {/if}
   {:else if s.kind === "compare"}
     <Field label="Test" hint="Gives 15 when true, else 0. B is the number below unless something is wired into B.">
       <div class="flex items-center gap-2">

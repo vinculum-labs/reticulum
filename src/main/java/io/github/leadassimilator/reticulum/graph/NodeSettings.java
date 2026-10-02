@@ -435,18 +435,55 @@ public sealed interface NodeSettings {
     }
 
     /** How much of a resource a device holds (items, mB or FE), counting only what matches {@code filter}. */
-    record LevelSettings(ResourceKind resource, GlobalPos device, List<FaceKey> faces, String filter) implements NodeSettings {
+    /**
+     * {@code output}: what it gives: the amount itself, the amount mapped onto 0 to 15 between {@code low} (0) and
+     * {@code high} (15), or 0 to 15 by how full the device is, like a comparator.
+     */
+    record LevelSettings(ResourceKind resource, GlobalPos device, List<FaceKey> faces, String filter, LevelOutput output, long low, long high)
+            implements NodeSettings {
+        public LevelSettings(ResourceKind resource, GlobalPos device, List<FaceKey> faces, String filter) {
+            this(resource, device, faces, filter, LevelOutput.AMOUNT, 0, 0);
+        }
+
         public static final MapCodec<LevelSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 ResourceKind.CODEC.fieldOf("resource").forGetter(LevelSettings::resource),
                 GlobalPos.CODEC.fieldOf("device").forGetter(LevelSettings::device),
                 FaceKey.CODEC.listOf().optionalFieldOf("faces", List.of()).forGetter(LevelSettings::faces),
-                Codec.STRING.optionalFieldOf("filter", "").forGetter(LevelSettings::filter)
+                Codec.STRING.optionalFieldOf("filter", "").forGetter(LevelSettings::filter),
+                LevelOutput.CODEC.optionalFieldOf("output", LevelOutput.AMOUNT).forGetter(LevelSettings::output),
+                Codec.LONG.optionalFieldOf("low", 0L).forGetter(LevelSettings::low),
+                Codec.LONG.optionalFieldOf("high", 0L).forGetter(LevelSettings::high)
         ).apply(i, LevelSettings::new));
+
+        /** The same sensor reading another device (its faces as given): a block replaced, or filling a blueprint slot. */
+        public LevelSettings reading(GlobalPos device, List<FaceKey> faces) {
+            return new LevelSettings(resource, device, faces, filter, output, low, high);
+        }
+
+        /**
+         * What it gives for {@code amount}, or for {@code fullness} (0 to 1, and whether anything is there at all) in
+         * comparator mode.
+         */
+        public long value(long amount, double fullness, boolean any) {
+            return switch (output) {
+                case AMOUNT -> amount;
+                // Like vanilla: 0 at or below the low point, 15 at or above the high point, 1 to 14 between.
+                case RANGE -> amount <= low ? 0 : amount >= high ? 15 : 1 + (long) Math.floor((double) (amount - low) / (high - low) * 14);
+                case COMPARATOR -> (long) Math.floor(fullness * 14) + (any ? 1 : 0);
+            };
+        }
 
         @Override
         public Kind kind() {
             return Kind.LEVEL;
         }
+    }
+
+    /** What a Level sensor gives: the amount, or 0 to 15 (between two amounts, or by fullness like a comparator). */
+    enum LevelOutput implements LowercaseName {
+        AMOUNT, RANGE, COMPARATOR;
+
+        public static final Codec<LevelOutput> CODEC = StringRepresentable.fromEnum(LevelOutput::values);
     }
 
     enum CompareOp implements LowercaseName {

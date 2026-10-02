@@ -294,6 +294,26 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /** A Level sensor's output: the amount, 0 to 15 between two amounts, or 0 to 15 like a comparator. */
+    @GameTest(template = "empty")
+    public static void levelSensorMapsOntoRedstone(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 32));
+        rig.container(0).setItem(1, new ItemStack(Items.DIRT, 64));
+        Node amount = rig.node(new NodeSettings.LevelSettings(ResourceKind.ITEM, rig.device(0), List.of(), "minecraft:cobblestone"));
+        Node range = rig.node(new NodeSettings.LevelSettings(ResourceKind.ITEM, rig.device(0), List.of(), "minecraft:cobblestone",
+                NodeSettings.LevelOutput.RANGE, 0, 64));
+        Node comparator = rig.node(new NodeSettings.LevelSettings(ResourceKind.ITEM, rig.device(0), List.of(), "minecraft:cobblestone",
+                NodeSettings.LevelOutput.COMPARATOR, 0, 0));
+        helper.succeedWhen(() -> {
+            var values = rig.runtime().signalValues();
+            check(helper, values.getOrDefault(amount.id(), -1L) == 32, "amount: " + values.get(amount.id()));
+            check(helper, values.getOrDefault(range.id(), -1L) == 8, "half of 0..64 isn't 8: " + values.get(range.id()));
+            // Vanilla: 32 of 64 in one of a barrel's 27 slots gives 1; the dirt isn't counted.
+            check(helper, values.getOrDefault(comparator.id(), -1L) == 1, "comparator value: " + values.get(comparator.id()));
+        });
+    }
+
     @GameTest(template = "empty")
     public static void leverLightsLampWiredDirectly(GameTestHelper helper) {
         // A device's redstone wired straight into another device, no signal node between.

@@ -141,6 +141,10 @@ export interface LevelSettings {
   device: GlobalPos;
   faces?: Face[];
   filter?: string;
+  /** What it gives: the amount (default), 0–15 between {@code low} and {@code high}, or 0–15 by fullness like a comparator. */
+  output?: "amount" | "range" | "comparator";
+  low?: number;
+  high?: number;
 }
 
 export type CompareOp = "lt" | "le" | "gt" | "ge" | "eq" | "ne";

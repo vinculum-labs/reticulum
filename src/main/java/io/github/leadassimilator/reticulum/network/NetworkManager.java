@@ -204,7 +204,7 @@ public final class NetworkManager {
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings d when d.device().equals(from) ->
                             new io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings(to, d.inputs(), d.outputs());
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings l when l.device().equals(from) ->
-                            new io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings(l.resource(), to, l.faces(), l.filter());
+                            l.reading(to, l.faces());
                     default -> null;
                 };
                 if (moved != null) {

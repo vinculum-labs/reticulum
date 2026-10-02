@@ -48,6 +48,29 @@ final class ItemPort {
         return total;
     }
 
+    /**
+     * How full the watched slots are, as a comparator sees it: each slot's share of what it can hold, averaged over
+     * the slots; only stacks {@code which} matches count. Also whether any did.
+     */
+    double fullness(Predicate<ItemStack> which, boolean[] any) {
+        double sum = 0;
+        int slots = 0;
+        for (IItemHandler handler : view) {
+            for (int slot = 0; slot < handler.getSlots(); slot++) {
+                if (!inRange(slot)) {
+                    continue;
+                }
+                slots++;
+                ItemStack stack = handler.getStackInSlot(slot);
+                if (!stack.isEmpty() && which.test(stack)) {
+                    sum += stack.getCount() / (double) Math.max(1, Math.min(handler.getSlotLimit(slot), stack.getMaxStackSize()));
+                    any[0] = true;
+                }
+            }
+        }
+        return slots == 0 ? 0 : sum / slots;
+    }
+
     boolean contains(ItemStack like) {
         return count(s -> ItemStack.isSameItemSameComponents(s, like)) > 0;
     }

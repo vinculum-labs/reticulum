@@ -29,8 +29,7 @@ public final class Blueprints {
             }
             case NodeSettings.LevelSettings level -> {
                 NodeSettings.Binding binding = byLayout.get(level.device());
-                yield binding == null ? level : new NodeSettings.LevelSettings(level.resource(), binding.device(),
-                        NodeSettings.Binding.turn(level.faces(), binding.turns()), level.filter());
+                yield binding == null ? level : level.reading(binding.device(), NodeSettings.Binding.turn(level.faces(), binding.turns()));
             }
             default -> inner.settings();
         };

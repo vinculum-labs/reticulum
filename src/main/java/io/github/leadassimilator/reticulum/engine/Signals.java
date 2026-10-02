@@ -333,34 +333,54 @@ final class Signals {
         }
         Filters.Context context = Filters.Context.of(world);
         String expression = level.filter();
-        return switch (level.resource()) {
+        boolean comparator = level.output() == NodeSettings.LevelOutput.COMPARATOR;
+        boolean[] any = {false};
+        double fullness = 0;
+        long amount = 0;
+        switch (level.resource()) {
             case ITEM -> {
                 Filters.ItemFilter filter = sheet.itemFilter(expression);
-                yield ctx.runtime().itemPort(ctx.server(), ctx.network(), port).count(stack -> filter.test(stack, context));
+                ItemPort items = ctx.runtime().itemPort(ctx.server(), ctx.network(), port);
+                amount = items.count(stack -> filter.test(stack, context));
+                if (comparator) {
+                    fullness = items.fullness(stack -> filter.test(stack, context), any);
+                }
             }
             case FLUID -> {
                 Filters.FluidFilter filter = sheet.fluidFilter(expression);
-                long total = 0;
+                double shares = 0;
+                int tanks = 0;
                 for (IFluidHandler handler : ctx.runtime().fluidView(ctx.server(), ctx.network(), port)) {
                     for (int tank = 0; tank < handler.getTanks(); tank++) {
+                        tanks++;
                         FluidStack fluid = handler.getFluidInTank(tank);
                         if (!fluid.isEmpty() && filter.test(fluid, context)) {
-                            total += fluid.getAmount();
+                            amount += fluid.getAmount();
+                            shares += fluid.getAmount() / (double) Math.max(1, handler.getTankCapacity(tank));
+                            any[0] = true;
                         }
                     }
                 }
-                yield total;
+                fullness = tanks == 0 ? 0 : shares / tanks;
             }
             case ENERGY -> {
-                long total = 0;
+                long capacity = 0;
                 for (IEnergyStorage storage : ctx.runtime().energyView(ctx.server(), ctx.network(), port)) {
-                    total += storage.getEnergyStored();
+                    amount += storage.getEnergyStored();
+                    capacity += storage.getMaxEnergyStored();
                 }
-                yield total;
+                any[0] = amount > 0;
+                fullness = capacity == 0 ? 0 : (double) amount / capacity;
             }
-            case REDSTONE, ME -> 0;
-            case CHEMICAL -> Mods.MEKANISM ? ChemicalMover.count(ctx, port, sheet.chemicalFilter(expression), context) : 0;
-        };
+            case REDSTONE, ME -> {
+            }
+            case CHEMICAL -> {
+                amount = Mods.MEKANISM ? ChemicalMover.count(ctx, port, sheet.chemicalFilter(expression), context) : 0;
+                // Fullness isn't worked out for chemicals: like a comparator, that is just "any or not".
+                any[0] = amount > 0;
+            }
+        }
+        return level.value(amount, Math.min(1, fullness), any[0]);
     }
 
     // ---------------------------------------------------------------- redstone out
