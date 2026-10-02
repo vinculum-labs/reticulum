@@ -57,7 +57,10 @@ public final class Sheet {
         this.blueprint = blueprint;
         this.root = root;
         this.nodes.addAll(nodes);
-        this.wires.addAll(wires);
+        // Wires whose ends are gone (nodes of a kind that no longer exists are left out on load) go with them.
+        java.util.Set<UUID> ids = new java.util.HashSet<>();
+        nodes.forEach(n -> ids.add(n.id()));
+        wires.stream().filter(w -> ids.contains(w.from()) && ids.contains(w.to())).forEach(this.wires::add);
     }
 
     public UUID id() {

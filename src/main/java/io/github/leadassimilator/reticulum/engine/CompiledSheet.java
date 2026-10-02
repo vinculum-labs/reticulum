@@ -201,7 +201,12 @@ public final class CompiledSheet {
 
     // ---------------------------------------------------------------- building
 
+    /** The network being compiled, for naming its devices in problems. */
+    @Nullable
+    private Network network;
+
     private void build(Network network) {
+        this.network = network;
         Map<String, String> templates = network.filters();
         List<Node> flatNodes = new ArrayList<>();
         List<Wire> flatWires = new ArrayList<>(sheet.wires());
@@ -1009,7 +1014,15 @@ public final class CompiledSheet {
         return chemicalLimitFilters.getOrDefault(expression, Filters.ChemicalFilter.NONE);
     }
 
-    static String describe(Node node) {
-        return node.label().orElse(node.kind().getSerializedName() + " " + node.id().toString().substring(0, 8));
+    /** How a node is named in problems: its label, a device node by its device's name, else its kind and id. */
+    private String describe(Node node) {
+        if (node.label().isPresent()) {
+            return node.label().get();
+        }
+        if (network != null && node.settings() instanceof NodeSettings.DeviceSettings device && network.device(device.device()) != null) {
+            var record = network.device(device.device());
+            return record.name() != null ? record.name() : record.blockId().getPath().replace('_', ' ') + " at " + device.device().pos().toShortString();
+        }
+        return node.kind().getSerializedName() + " " + node.id().toString().substring(0, 8);
     }
 }
