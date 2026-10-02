@@ -81,7 +81,7 @@ exist show as offline until you pick local ones for them.
 
 | Node | |
 |---|---|
-| **Device** | A machine. Its inputs are fed and its outputs are emptied, per resource and per face. Redstone and ME are pins too: read a device's redstone, drive it, or link it to AE2. **Prune unwired** removes the inputs and outputs nothing is wired to. |
+| **Device** | A machine. Its inputs are fed and its outputs are emptied, per resource and per face. Redstone and ME are pins too: read a device's redstone, drive it, or link it to AE2. **Prune pins** removes the inputs and outputs nothing is wired to. |
 | **Filter** | Sends matches one way and the rest the other way. |
 | **Rate limit** | Caps how much passes per tick or per second. |
 | **Splitter** | Shares between its outputs: round robin, in order, by weight, or nearest first. |

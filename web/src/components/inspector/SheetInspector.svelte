@@ -2,6 +2,8 @@
   import { app, edit, moveSheet, nodeTitle, openCopy, openSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { copiesOf } from "../../lib/blueprints";
+  import { pruneSheet } from "../../lib/prune";
+  import Scissors from "@lucide/svelte/icons/scissors";
   import { descendants, sheetPath } from "../../lib/tree";
   import type { Sheet } from "../../lib/types";
   import NumberField from "../controls/NumberField.svelte";
@@ -71,6 +73,14 @@
     if (results?.[0]) openSheet(results[0] as string);
   }
 
+  /** Prune pins for every device node on this sheet. */
+  const prunable = $derived(pruneSheet(sheet).count);
+
+  function prune() {
+    const { edits, undo } = pruneSheet(sheet);
+    if (edits.length) edit(edits, undo, "prune sheet");
+  }
+
   function moveInto(id: string) {
     const target = snapshot.sheets.find((s) => s.id === id);
     if (target) moveSheet(sheet, target);
@@ -136,6 +146,16 @@
         {hasSheets ? "Not for a sheet with sheets inside it (yet): move them out first." : "To build the same set again elsewhere: a blueprint is placed as copies, each filled with its own blocks."}
       </span>
     </div>
+  {/if}
+  {#if canEdit}
+    <button
+      class="btn flex items-center gap-1 self-start text-sm"
+      disabled={prunable === 0}
+      title={prunable
+        ? `Remove the ${prunable} device input${prunable === 1 ? "" : "s"} and output${prunable === 1 ? "" : "s"} on this sheet nothing is wired to`
+        : "Every device input and output on this sheet has a wire"}
+      onclick={prune}><Scissors size={14} />Prune pins{prunable ? ` (${prunable})` : ""}</button
+    >
   {/if}
   <button class="btn self-start text-sm" onclick={copyJson} title="To paste into “Import sheet…” here or in another world">Copy as JSON</button>
   <SheetErrors sheetId={sheet.id} errors={sheet.errors} />

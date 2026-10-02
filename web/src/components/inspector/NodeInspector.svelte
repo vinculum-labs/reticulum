@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app, deviceAt, deviceName, edit, nodeTitle, openCopy, openDevice, openSheet, rebase } from "../../lib/state.svelte";
   import { slotsOf } from "../../lib/blueprints";
+  import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
   import { KIND_HINT, KIND_LABEL, OP_SYMBOL, gated, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, isSignal } from "../../lib/kinds";
   import {
@@ -82,27 +83,9 @@
    * after them are renumbered (the server identifies them by number).
    */
   function saveDevice(next: DeviceNodeSettings, removed?: { in?: number[]; out?: number[] }, label = "edit device") {
-    const edits: Edit[] = [];
     const { after, before } = rebase(node, { ...node, settings: next });
-    const undo: Edit[] = [{ type: "updateNode", sheet: sheet.id, node: before }];
-    for (const direction of ["in", "out"] as const) {
-      const gone = new Set(removed?.[direction] ?? []);
-      if (!gone.size) continue;
-      const onSide = (w: Wire) => (direction === "in" ? w.to === node.id : w.from === node.id);
-      const index = (w: Wire) => (direction === "in" ? (w.input ?? 0) : (w.output ?? 0));
-      const shift = (i: number) => [...gone].filter((g) => g < i).length;
-      for (const w of (sheet.wires ?? []).filter((w) => onSide(w) && (gone.has(index(w)) || shift(index(w)) > 0))) {
-        edits.push({ type: "disconnect", sheet: sheet.id, wire: w.id });
-        undo.push({ type: "connect", sheet: sheet.id, wire: w });
-        if (!gone.has(index(w))) {
-          const to = index(w) - shift(index(w));
-          const moved = direction === "in" ? { ...w, input: to } : { ...w, output: to };
-          edits.push({ type: "connect", sheet: sheet.id, wire: moved });
-          undo.unshift({ type: "disconnect", sheet: sheet.id, wire: w.id });
-        }
-      }
-    }
-    edit([...edits, { type: "updateNode", sheet: sheet.id, node: after }], undo, label);
+    const { edits, undo } = deviceChange(sheet, before, after, removed);
+    edit(edits, undo, label);
   }
 
   function save(next: GraphNode, label = "edit node") {
@@ -287,7 +270,7 @@
           class="btn flex items-center gap-1 text-sm"
           disabled={!canEdit || unwired === 0}
           title={unwired ? `Remove the ${unwired} pin${unwired === 1 ? "" : "s"} nothing here is wired to (the pin nodes inside the sheet)` : "Every pin is wired"}
-          onclick={() => prunePins(held)}><Scissors size={14} />Prune unwired{unwired ? ` (${unwired})` : ""}</button
+          onclick={() => prunePins(held)}><Scissors size={14} />Prune pins{unwired ? ` (${unwired})` : ""}</button
         >
       </div>
     {:else}

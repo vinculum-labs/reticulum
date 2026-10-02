@@ -9,6 +9,7 @@
   import LimitsEditor from "./LimitsEditor.svelte";
   import AmountEditor from "./AmountEditor.svelte";
   import DevicePicker from "./DevicePicker.svelte";
+  import { unwiredSides, withoutSides } from "../../lib/prune";
   import WhileOffField from "./WhileOffField.svelte";
 
   let {
@@ -50,23 +51,12 @@
   }
 
   /** Inputs and outputs with no wire on them. */
-  const unwired = $derived.by(() => {
-    const wires = sheet.wires ?? [];
-    return {
-      in: inputs.map((_, i) => i).filter((i) => !wires.some((w) => w.to === nodeId && (w.input ?? 0) === i)),
-      out: outputs.map((_, i) => i).filter((i) => !wires.some((w) => w.from === nodeId && (w.output ?? 0) === i)),
-    };
-  });
+  const unwired = $derived(unwiredSides(sheet, { id: nodeId, settings }));
   const unwiredCount = $derived(unwired.in.length + unwired.out.length);
 
   /** Removes every input and output nothing is wired to, as one undoable change. */
   function prune() {
-    const next = {
-      ...settings,
-      inputs: inputs.filter((_, i) => !unwired.in.includes(i)),
-      outputs: outputs.filter((_, i) => !unwired.out.includes(i)),
-    };
-    onchange(next, unwired, "prune");
+    onchange(withoutSides(settings, unwired), unwired, "prune");
   }
 </script>
 
@@ -80,7 +70,7 @@
   title={unwiredCount
     ? `Remove the ${unwiredCount} input${unwiredCount === 1 ? "" : "s"} and output${unwiredCount === 1 ? "" : "s"} nothing is wired to`
     : "Every input and output has a wire"}
-  onclick={prune}><Scissors size={14} />Prune unwired{unwiredCount ? ` (${unwiredCount})` : ""}</button
+  onclick={prune}><Scissors size={14} />Prune pins{unwiredCount ? ` (${unwiredCount})` : ""}</button
 >
 
 <section class="flex flex-col gap-2">
