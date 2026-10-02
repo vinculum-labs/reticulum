@@ -6,6 +6,7 @@
     SIDES,
     posKey,
     pinName,
+    pinSlot,
     sheetPins,
     type CompareOp,
     type DeviceNodeSettings,
@@ -28,6 +29,7 @@
   import { useSvelteFlow } from "@xyflow/svelte";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import Scissors from "@lucide/svelte/icons/scissors";
   import DeviceNodeEditor from "./DeviceNodeEditor.svelte";
   import Chart from "./Chart.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
@@ -52,6 +54,26 @@
   const devices = $derived(app.snapshot?.devices ?? []);
   const names = $derived(signalNames());
   const unit = $derived(s.kind === "device" && s.outputs?.[0] ? RESOURCE_UNIT[s.outputs[0].resource] : "units");
+
+  /** The held sheet's pin nodes nothing outside is wired to: no wire on their slot of this sheet node. */
+  function unwiredPins(held: Sheet): GraphNode[] {
+    const wires = sheet.wires ?? [];
+    const wired = (input: boolean, slot: number) =>
+      wires.some((w) => (input ? w.to === node.id && (w.input ?? 0) === slot : w.from === node.id && (w.output ?? 0) === slot));
+    return [true, false].flatMap((input) => sheetPins(held, input).filter((pin, i) => !wired(input, pinSlot(pin, i))));
+  }
+
+  /** Removes the held sheet's unwired pins (their wires inside go too; undo puts both back). */
+  function prunePins(held: Sheet) {
+    const gone = unwiredPins(held);
+    const ids = new Set(gone.map((n) => n.id));
+    const inner = (held.wires ?? []).filter((w) => ids.has(w.from) || ids.has(w.to));
+    edit(
+      gone.map((n) => ({ type: "removeNode", sheet: held.id, node: n.id }) as Edit),
+      [...gone.map((n) => ({ type: "addNode", sheet: held.id, node: n }) as Edit), ...inner.map((wire) => ({ type: "connect", sheet: held.id, wire }) as Edit)],
+      "prune pins",
+    );
+  }
 
   /**
    * Saves a device node. Removed inputs and outputs (by their old index) lose their wires, and wires on the ones
@@ -253,7 +275,16 @@
         Its switch above switches everything in it, sheets inside included; so does a signal into its gate. Add Sheet input and
         Sheet output nodes inside it for its pins.
       </p>
-      <button class="btn self-start text-sm" onclick={() => openSheet(held.id)}>Open “{held.name}”</button>
+      {@const unwired = unwiredPins(held).length}
+      <div class="flex flex-wrap gap-2">
+        <button class="btn text-sm" onclick={() => openSheet(held.id)}>Open “{held.name}”</button>
+        <button
+          class="btn flex items-center gap-1 text-sm"
+          disabled={!canEdit || unwired === 0}
+          title={unwired ? `Remove the ${unwired} pin${unwired === 1 ? "" : "s"} nothing here is wired to (the pin nodes inside the sheet)` : "Every pin is wired"}
+          onclick={() => prunePins(held)}><Scissors size={14} />Prune unwired{unwired ? ` (${unwired})` : ""}</button
+        >
+      </div>
     {:else}
       <p class="text-sm text-bad">The sheet this node held is gone.</p>
     {/if}

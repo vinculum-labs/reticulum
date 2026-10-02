@@ -7,6 +7,7 @@ import { posKey } from "./types";
 import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
 import { rootSheet, sheetPath } from "./tree";
+import { confirmDialog } from "./dialog.svelte";
 
 export interface Toast {
   id: number;
@@ -564,10 +565,25 @@ export async function createSheet(parent: Sheet | null, name: string, at?: { x: 
   return id;
 }
 
-/** Moves a sheet (with everything in it) into another sheet. */
-export function moveSheet(sheet: Sheet, parent: Sheet) {
-  const from = sheet.parent;
-  return edit([{ type: "moveSheet", sheet: sheet.id, parent: parent.id }], from ? [{ type: "moveSheet", sheet: sheet.id, parent: from }] : undefined, "move sheet");
+/**
+ * Moves a sheet (with everything in it) into another sheet. The wires on its node in the old parent drop, so when
+ * there are any it asks first, naming what they connect to; undo puts them back.
+ */
+export async function moveSheet(sheet: Sheet, parent: Sheet) {
+  const from = app.snapshot?.sheets.find((s) => s.id === sheet.parent);
+  const network = app.current;
+  const dropped = from ? (from.wires ?? []).filter((w) => w.from === sheet.node || w.to === sheet.node) : [];
+  if (dropped.length) {
+    const others = [...new Set(dropped.map((w) => nodeTitle(from!.nodes?.find((n) => n.id === (w.from === sheet.node ? w.to : w.from)))))];
+    const ok = await confirmDialog({
+      title: `Move “${sheet.name}” into “${parent.name}”?`,
+      message: `${dropped.length === 1 ? "Its wire" : `Its ${dropped.length} wires`} in “${from!.name}” will be removed: to ${others.join(", ")}.`,
+      confirm: "Move",
+    });
+    if (!ok || app.current !== network) return null;
+  }
+  const undo: Edit[] = from ? [{ type: "moveSheet", sheet: sheet.id, parent: from.id }, ...dropped.map((wire) => ({ type: "connect", sheet: from.id, wire }) as Edit)] : [];
+  return edit([{ type: "moveSheet", sheet: sheet.id, parent: parent.id }], from ? undo : undefined, "move sheet");
 }
 
 /** Shows a sheet, with nothing selected (or the given nodes), and the inspector for it. */

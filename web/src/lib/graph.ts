@@ -49,7 +49,6 @@ export interface Activity {
   me: Record<string, MeUsage>;
 }
 
-/** The devices whose outputs reach a node through the sheet's wires (not gate wires), nearest first. */
 /** A splitter's outgoing wires in branch order: the engine's order (by order, then id). */
 export function splitterBranches(sheet: Sheet, nodeId: string): Wire[] {
   return (sheet.wires ?? [])
@@ -57,6 +56,7 @@ export function splitterBranches(sheet: Sheet, nodeId: string): Wire[] {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
+/** The devices whose outputs reach a node through the sheet's wires (not gate wires), nearest first. */
 export function upstreamDevices(sheet: Sheet, nodeId: string): GlobalPos[] {
   const byId = new Map((sheet.nodes ?? []).map((n) => [n.id, n]));
   const found: GlobalPos[] = [];
