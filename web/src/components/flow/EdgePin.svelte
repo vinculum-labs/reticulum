@@ -16,7 +16,8 @@
 
   const s = $derived(data.node.settings);
   const input = $derived(s.kind === "sheet_input");
-  const resource = $derived(s.kind === "sheet_input" || s.kind === "sheet_output" ? s.resource : undefined);
+  // Untyped: the color of what it is wired to (worked out with the sheet's resources).
+  const resource = $derived((s.kind === "sheet_input" || s.kind === "sheet_output" ? s.resource : undefined) ?? data.resource ?? undefined);
   const name = $derived(pinName(data.node));
   const color = $derived(resource ? RESOURCE_VAR[resource] : "var(--muted)");
   const title = $derived(`${input ? "Input" : "Output"} pin “${name}”: ${resource ? RESOURCE_LABEL[resource] : "carries anything"}`);

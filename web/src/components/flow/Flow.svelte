@@ -41,10 +41,11 @@
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
-  import { contentCorner, handleIndex, isPin, pinResource, PIN_DOT, PIN_W, toFlow, type FlowView, type NodeData } from "../../lib/graph";
+  import { contentCorner, handleIndex, isPin, pinResource, resources, PIN_DOT, PIN_W, toFlow, type FlowView, type NodeData } from "../../lib/graph";
   import { crossWire, nextOrder } from "../../lib/crossing";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
+  import { GATE } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
   import EdgePin from "./EdgePin.svelte";
   import SheetFrame from "./SheetFrame.svelte";
@@ -270,7 +271,24 @@
       return;
     }
     const wire: Wire = { id: uuid(), from: c.source, output, to: c.target, input, order: nextOrder(from, c.source, output) };
-    await edit([{ type: "connect", sheet: from.id, wire }], [{ type: "disconnect", sheet: from.id, wire: wire.id }], "connect");
+    // An untyped sheet pin takes the type of what it is first wired to.
+    const edits: Edit[] = [];
+    const undo: Edit[] = [{ type: "disconnect", sheet: from.id, wire: wire.id }];
+    const fromNode = nodeOf(c.source);
+    const toNode = nodeOf(c.target);
+    const typePin = (pin: GraphNode | undefined, carried: Resource | null | undefined) => {
+      const s = pin?.settings;
+      if (!pin || !carried || (s?.kind !== "sheet_input" && s?.kind !== "sheet_output") || s.resource) return;
+      edits.push({ type: "updateNode", sheet: from.id, node: { ...pin, settings: { ...s, resource: carried } } });
+      undo.push({ type: "updateNode", sheet: from.id, node: pin });
+    };
+    if (fromNode?.settings.kind === "sheet_input" && toNode) {
+      typePin(fromNode, input === GATE || isSignal(toNode.settings.kind) ? "redstone" : pinResource(toNode, "in", input, app.snapshot.sheets));
+    }
+    if (toNode?.settings.kind === "sheet_output" && fromNode) {
+      typePin(toNode, isSignal(fromNode.settings.kind) ? "redstone" : (pinResource(fromNode, "out", output, app.snapshot.sheets) ?? resources(from, app.snapshot.sheets).nodes.get(fromNode.id)));
+    }
+    await edit([...edits, { type: "connect", sheet: from.id, wire }], undo, "connect");
   }
 
   /**

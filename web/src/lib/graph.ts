@@ -216,10 +216,12 @@ export function resources(sheet: Sheet, sheets: Sheet[] = []): { wires: Map<stri
   for (const n of sheet.nodes ?? []) {
     const s = n.settings;
     if (s.kind === "device") (s.outputs ?? []).forEach((o, i) => flows(o.resource) && emit(n.id, o.resource, i));
-    // A typed pin into this sheet brings its resource in; a sheet node's typed outputs bring theirs out.
-    if (s.kind === "sheet_input" && flows(s.resource)) {
-      nodes.set(n.id, s.resource);
-      emit(n.id, s.resource);
+    // A pin into this sheet brings its resource in (an untyped one: what it is wired to takes); a sheet node's typed
+    // outputs bring theirs out.
+    const brought = s.kind === "sheet_input" ? pinCarries(sheet, n, sheets) : undefined;
+    if (flows(brought)) {
+      nodes.set(n.id, brought);
+      emit(n.id, brought);
     }
     if (s.kind === "sheet" || s.kind === "copy") {
       const held = sheets.find((x) => x.id === s.sheet);
@@ -231,6 +233,30 @@ export function resources(sheet: Sheet, sheets: Sheet[] = []): { wires: Map<stri
     emit(id, resource);
   }
   return { wires, nodes };
+}
+
+/**
+ * What a sheet pin carries: its type, or for an untyped one ("anything") what it is wired to on this sheet takes or
+ * gives, so it and its wires show in that color.
+ */
+export function pinCarries(sheet: Sheet, pin: GraphNode, sheets: Sheet[] = []): Resource | undefined {
+  const s = pin.settings;
+  if (s.kind !== "sheet_input" && s.kind !== "sheet_output") return undefined;
+  if (s.resource) return s.resource;
+  const byId = new Map((sheet.nodes ?? []).map((n) => [n.id, n]));
+  for (const w of sheet.wires ?? []) {
+    if (s.kind === "sheet_input" && w.from === pin.id) {
+      const to = byId.get(w.to);
+      const r = (w.input ?? 0) === GATE || isSignal(to?.settings.kind) ? "redstone" : pinResource(to, "in", w.input ?? 0, sheets);
+      if (r) return r;
+    }
+    if (s.kind === "sheet_output" && w.to === pin.id) {
+      const from = byId.get(w.from);
+      const r = isSignal(from?.settings.kind) ? "redstone" : pinResource(from, "out", w.output ?? 0, sheets);
+      if (r) return r;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -516,10 +542,11 @@ function sheetFlow(
     const rate = rates[w.id] ?? 0;
     const resource = kinds.wires.get(w.id) ?? null;
     const fromNode = byId.get(w.from);
-    const signal = isSignal(fromNode?.settings.kind) || pinResource(fromNode, "out", w.output ?? 0, sheets) === "redstone";
+    // An untyped sheet pin's wires take what it carries from what else it is wired to.
+    const pin = pinResource(fromNode, "out", w.output ?? 0, sheets) ?? (fromNode ? pinCarries(sheet, fromNode, sheets) : undefined) ?? null;
+    const signal = isSignal(fromNode?.settings.kind) || pin === "redstone";
     const on = signal && (activity.signals[isSignal(fromNode?.settings.kind) ? w.from : `${w.from}/out/${w.output ?? 0}`] ?? 0) > 0;
-    const pin = pinResource(fromNode, "out", w.output ?? 0, sheets);
-    const color = signal || pin === "redstone" ? "var(--c-signal)" : pin === "me" ? "var(--c-me)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
+    const color = signal ? "var(--c-signal)" : pin === "me" ? "var(--c-me)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
     return {
       id: w.id,
       source: w.from,
