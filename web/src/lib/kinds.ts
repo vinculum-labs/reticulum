@@ -322,4 +322,13 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
   }
 }
 
+/** What a sheet pin can carry, for its type picker: anything, or one kind. */
+export const PIN_CARRIES: { value: string; label: string }[] = [
+  { value: "", label: "Anything" },
+  ...(["item", "fluid", "energy", "chemical", "redstone", "me"] as Resource[]).map((r) => ({
+    value: r as string,
+    label: r === "redstone" ? "Signal (redstone)" : RESOURCE_LABEL[r],
+  })),
+];
+
 export const OP_SYMBOL: Record<string, string> = { lt: "<", le: "≤", gt: ">", ge: "≥", eq: "=", ne: "≠" };

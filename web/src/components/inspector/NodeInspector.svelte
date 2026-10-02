@@ -3,7 +3,7 @@
   import { slotsOf } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
-  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, gated, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, isSignal } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, PIN_CARRIES, gated, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, isSignal } from "../../lib/kinds";
   import {
     SIDES,
     posKey,
@@ -321,13 +321,7 @@
       <Select
         value={s.resource ?? ""}
         disabled={!canEdit}
-        options={[
-          { value: "", label: "Anything" },
-          ...(["item", "fluid", "energy", "chemical", "redstone", "me"] as Resource[]).map((r) => ({
-            value: r as string,
-            label: r === "redstone" ? "Signal (redstone)" : RESOURCE_LABEL[r],
-          })),
-        ]}
+        options={PIN_CARRIES}
         onchange={(v) => settings({ resource: (v || undefined) as Resource | undefined })}
       />
     </Field>

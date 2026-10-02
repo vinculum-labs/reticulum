@@ -13,6 +13,7 @@
   import Field from "./Field.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
   import SheetErrors from "./SheetErrors.svelte";
+  import SheetPins from "./SheetPins.svelte";
 
   let { sheet }: { sheet: Sheet } = $props();
 
@@ -123,6 +124,9 @@
         <Select value={sheet.parent} options={targets} title="The sheet to move it into" onchange={moveInto} />
       </Field>
     {/if}
+  {/if}
+  {#if !sheet.root}
+    <SheetPins {sheet} />
   {/if}
   <Field label="Item operations every" hint="Ticks between item operations; sources can override it. Fluids, chemicals and energy move every tick.">
     <NumberField value={sheet.interval ?? 10} min={1} max={72_000} width="md" disabled={!canEdit}
