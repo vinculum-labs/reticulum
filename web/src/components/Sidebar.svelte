@@ -226,9 +226,8 @@
   </section>
 
   <section class="border-t border-line p-3">
-    <h2 class="panel-title mb-2">Devices</h2>
-    <div class="mb-2 flex items-center gap-2">
-      <input class="min-w-0 flex-1" placeholder="Search devices" aria-label="Search devices" bind:value={deviceSearch} />
+    <div class="mb-2 flex items-center justify-between gap-2">
+      <h2 class="panel-title">Devices</h2>
       <Segmented
         label="Which devices"
         size="xs"
@@ -240,6 +239,7 @@
         onchange={setDeviceFilter}
       />
     </div>
+    <input class="mb-2 w-full" placeholder="Search devices" aria-label="Search devices" bind:value={deviceSearch} />
     <p class="mb-2 text-xs muted">Drag a device onto the canvas to add it; give it inputs and outputs in the inspector.</p>
     <ul class="flex flex-col gap-0.5">
       {#each devices as d (posKey(d.pos))}
