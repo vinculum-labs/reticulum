@@ -91,3 +91,18 @@ export function pruneSheet(sheet: Sheet): { edits: Edit[]; undo: Edit[]; count: 
   }
   return { edits: [...disconnect, ...connect, ...updates], undo: [...undoDisconnect, ...restores, ...undoConnect], count };
 }
+
+/** Device nodes on a sheet with no wire at all (gates included): Prune devices removes them, undoably. */
+export function unwiredDevices(sheet: Sheet): GraphNode[] {
+  const wires = sheet.wires ?? [];
+  return (sheet.nodes ?? []).filter((n) => n.settings.kind === "device" && !wires.some((w) => w.from === n.id || w.to === n.id));
+}
+
+export function pruneDevices(sheet: Sheet): { edits: Edit[]; undo: Edit[]; count: number } {
+  const gone = unwiredDevices(sheet);
+  return {
+    edits: gone.map((node) => ({ type: "removeNode", sheet: sheet.id, node: node.id }) as Edit),
+    undo: gone.map((node) => ({ type: "addNode", sheet: sheet.id, node }) as Edit),
+    count: gone.length,
+  };
+}

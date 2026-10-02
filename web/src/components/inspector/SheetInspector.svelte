@@ -2,7 +2,7 @@
   import { app, edit, moveSheet, nodeTitle, openCopy, openSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { copiesOf } from "../../lib/blueprints";
-  import { pruneSheet } from "../../lib/prune";
+  import { pruneDevices, pruneSheet } from "../../lib/prune";
   import Scissors from "@lucide/svelte/icons/scissors";
   import { descendants, sheetPath } from "../../lib/tree";
   import type { Sheet } from "../../lib/types";
@@ -78,7 +78,18 @@
 
   function prune() {
     const { edits, undo } = pruneSheet(sheet);
-    if (edits.length) edit(edits, undo, "prune sheet");
+    if (edits.length) edit(edits, undo, "prune pins");
+  }
+
+  /** Prune devices: device nodes on this sheet with no wire at all. */
+  const strays = $derived(pruneDevices(sheet).count);
+
+  function pruneStrays() {
+    const { edits, undo } = pruneDevices(sheet);
+    if (edits.length) {
+      app.selectedNodes = [];
+      edit(edits, undo, "prune devices");
+    }
   }
 
   function moveInto(id: string) {
@@ -148,14 +159,24 @@
     </div>
   {/if}
   {#if canEdit}
+    <div class="flex flex-wrap gap-2">
     <button
-      class="btn flex items-center gap-1 self-start text-sm"
+      class="btn flex items-center gap-1 text-sm"
       disabled={prunable === 0}
       title={prunable
         ? `Remove the ${prunable} device input${prunable === 1 ? "" : "s"} and output${prunable === 1 ? "" : "s"} on this sheet nothing is wired to`
         : "Every device input and output on this sheet has a wire"}
       onclick={prune}><Scissors size={14} />Prune pins{prunable ? ` (${prunable})` : ""}</button
     >
+    <button
+      class="btn flex items-center gap-1 text-sm"
+      disabled={strays === 0}
+      title={strays
+        ? `Remove the ${strays} device node${strays === 1 ? "" : "s"} on this sheet with no wire at all (the devices stay on the network, unplaced)`
+        : "Every device node on this sheet has a wire"}
+      onclick={pruneStrays}><Scissors size={14} />Prune devices{strays ? ` (${strays})` : ""}</button
+    >
+    </div>
   {/if}
   <button class="btn self-start text-sm" onclick={copyJson} title="To paste into “Import sheet…” here or in another world">Copy as JSON</button>
   <SheetErrors sheetId={sheet.id} errors={sheet.errors} />
