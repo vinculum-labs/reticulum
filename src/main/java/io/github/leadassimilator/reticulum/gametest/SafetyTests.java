@@ -312,6 +312,33 @@ public final class SafetyTests {
         helper.succeed();
     }
 
+    /** Make blueprint: the sheet's devices become slots, and the sheet's node becomes a copy filled with its blocks. */
+    @GameTest(template = "empty")
+    public static void makeBlueprintKeepsTheSheetAsItsFirstCopy(GameTestHelper helper) {
+        ServerPlayer owner = player(helper, "owner");
+        Network network = rig(helper, owner);
+        var barrel = network.devices().iterator().next().pos();
+        check(helper, edit(owner, network, "{\"type\":\"createSheet\",\"name\":\"work\"}") == null, "creating a sheet failed");
+        Sheet work = network.sheetNamed("work");
+        Node device = work.add(Node.of(new NodeSettings.DeviceSettings(barrel, List.of(), List.of())));
+        UUID holder = network.placement(work.id()).node().id();
+        check(helper, edit(owner, network, "{\"type\":\"makeBlueprint\",\"sheet\":\"" + work.id() + "\"}") == null, "make blueprint failed");
+        Sheet blueprint = network.sheets().stream().filter(Sheet::blueprint).findFirst().orElse(null);
+        check(helper, blueprint != null && network.sheet(work.id()) == null, "no blueprint, or the sheet is still there");
+        Node slot = blueprint.nodes().getFirst();
+        check(helper, slot.settings() instanceof NodeSettings.DeviceSettings d && d.block().isPresent() && !slot.id().equals(device.id()),
+                "the slot has no block type, or kept the old id");
+        Node copy = network.root().node(holder);
+        check(helper, copy != null && copy.settings() instanceof NodeSettings.CopySettings c && c.sheet().equals(blueprint.id())
+                && barrel.equals(c.bindings().get(slot.id()).device()), "the sheet's node isn't a copy filled with its block");
+        // The barrel lives in the copy now: a device node for it elsewhere is refused.
+        String node = "{\"type\":\"addNode\",\"sheet\":\"%s\",\"node\":{\"id\":\"%s\",\"settings\":{\"kind\":\"device\",\"device\":"
+                + GlobalPos.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, barrel).getOrThrow() + "}}}";
+        String refused = edit(owner, network, node.formatted(network.root().id(), UUID.randomUUID()));
+        check(helper, refused != null && refused.contains("lives in"), "a device filling a slot got a second node: " + refused);
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void sheetCountIsLimited(GameTestHelper helper) {
         ServerPlayer owner = player(helper, "owner");

@@ -433,8 +433,9 @@ public final class Network {
     }
 
     /**
-     * Where a device lives: the sheet with its device node (in the tree; blueprints don't count), and that node. Null
-     * when it has none. {@code except} is a node to leave out (the one being edited).
+     * Where a device lives: the sheet with its device node, or with the blueprint copy one of whose slots it fills (in
+     * the tree; blueprints themselves don't count), and that node. Null when it has none. {@code except} is a node to
+     * leave out (the one being edited).
      */
     @Nullable
     public Home home(GlobalPos device, @Nullable UUID except) {
@@ -443,8 +444,15 @@ public final class Network {
                 continue;
             }
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
+                if (node.id().equals(except)) {
+                    continue;
+                }
                 if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings settings
-                        && settings.device().equals(device) && !node.id().equals(except)) {
+                        && settings.device().equals(device)) {
+                    return new Home(sheet, node);
+                }
+                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.CopySettings copy
+                        && copy.bindings().values().stream().anyMatch(b -> b.device().equals(device))) {
                     return new Home(sheet, node);
                 }
             }

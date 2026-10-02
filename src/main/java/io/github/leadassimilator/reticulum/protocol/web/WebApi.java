@@ -352,19 +352,6 @@ public final class WebApi {
                     if (edit.has("interval")) {
                         sheet.setInterval(Math.max(1, edit.get("interval").getAsInt()));
                     }
-                    if (edit.has("blueprint") && !sheet.root() && edit.get("blueprint").getAsBoolean() != sheet.blueprint()) {
-                        boolean blueprint = edit.get("blueprint").getAsBoolean();
-                        if (blueprint && !network.descendants(sheet).isEmpty()) {
-                            throw new RequestException("A sheet with sheets inside it can't be a blueprint");
-                        }
-                        Network.Placement placement = network.placement(sheet.id());
-                        if (blueprint && placement != null) {
-                            // Out of the tree: blueprints are placed by copy.
-                            placement.parent().remove(placement.node().id());
-                        }
-                        sheet.setBlueprint(blueprint);
-                        network.sheets().forEach(Sheet::touch);
-                    }
                 }
                 case "renameNetwork" -> network.setName(string(edit, "name"));
                 case "setAccess" -> {
@@ -388,6 +375,28 @@ public final class WebApi {
                     network.members().remove(uuid(edit, "id"));
                 }
                 case "deleteSheet" -> deleteSheet(network, sheet(network, edit));
+                case "makeBlueprint" -> {
+                    Sheet made = makeBlueprint(network, sheet(network, edit), edit.has("keep") && edit.get("keep").getAsBoolean());
+                    return new com.google.gson.JsonPrimitive(made.id().toString());
+                }
+                case "convertCopy" -> {
+                    Sheet parent = sheet(network, edit);
+                    Node node = parent.node(uuid(edit, "node"));
+                    if (node == null) {
+                        throw new RequestException("No such node");
+                    }
+                    return new com.google.gson.JsonPrimitive(convertCopy(network, parent, node).id().toString());
+                }
+                case "duplicateBlueprint" -> {
+                    Sheet blueprint = sheet(network, edit);
+                    if (!blueprint.blueprint()) {
+                        throw new RequestException("Only a blueprint can be duplicated");
+                    }
+                    roomForSheet(network);
+                    Sheet copy = blueprint.copyWithNewIds(blueprint.name() + " (copy)");
+                    network.sheets().add(copy);
+                    return new com.google.gson.JsonPrimitive(copy.id().toString());
+                }
                 case "addNode", "updateNode" -> {
                     Sheet sheet = sheet(network, edit);
                     Node node = decode(server, Node.CODEC, edit.get("node"), "node");
@@ -630,14 +639,98 @@ public final class WebApi {
          * Blueprints are left alone: they are placed by copy.
          */
         private static void checkHome(Network network, Sheet sheet, Node node) throws RequestException {
-            if (sheet.blueprint() || !(node.settings() instanceof NodeSettings.DeviceSettings device)) {
+            if (sheet.blueprint()) {
                 return;
             }
-            Network.Home home = network.home(device.device(), node.id());
+            if (node.settings() instanceof NodeSettings.DeviceSettings device) {
+                livesNowhere(network, device.device(), node.id());
+            } else if (node.settings() instanceof NodeSettings.CopySettings copy) {
+                // A block filling a slot of a copy lives there, like a device node: once, in one slot.
+                java.util.Set<net.minecraft.core.GlobalPos> seen = new java.util.HashSet<>();
+                for (NodeSettings.Binding binding : copy.bindings().values()) {
+                    if (!seen.add(binding.device())) {
+                        throw new RequestException("One block can't fill two slots");
+                    }
+                    livesNowhere(network, binding.device(), node.id());
+                }
+            }
+        }
+
+        private static void livesNowhere(Network network, net.minecraft.core.GlobalPos device, UUID except) throws RequestException {
+            Network.Home home = network.home(device, except);
             if (home != null) {
                 throw new RequestException("That device already lives in " + (home.sheet().root() ? home.sheet().name() : network.path(home.sheet()))
                         + ": a device has one node. Put it on the sheet that holds the ones needing it, and wire it down through pins.");
             }
+        }
+
+        /**
+         * A blueprint made from a sheet in the tree: its nodes and wires (new ids), its device nodes as slots for their
+         * kinds of block. Unless {@code keep}, the sheet becomes the blueprint's first copy, its slots filled with the
+         * sheet's own blocks, so nothing stops running. Sheets with sheets inside them are refused for now.
+         */
+        private static Sheet makeBlueprint(Network network, Sheet sheet, boolean keep) throws RequestException {
+            if (sheet.root() || sheet.blueprint()) {
+                throw new RequestException("Only a sheet in the tree can become a blueprint");
+            }
+            if (!network.descendants(sheet).isEmpty()) {
+                throw new RequestException("A sheet with sheets inside it can't become a blueprint yet: move them out first");
+            }
+            roomForSheet(network);
+            Map<UUID, UUID> ids = new HashMap<>();
+            Sheet blueprint = sheet.copyWithNewIds(keep ? sheet.name() + " blueprint" : sheet.name(), ids);
+            blueprint.setBlueprint(true);
+            Map<UUID, NodeSettings.Binding> bindings = new HashMap<>();
+            for (Node original : sheet.nodes()) {
+                if (original.settings() instanceof NodeSettings.DeviceSettings device) {
+                    var record = network.device(device.device());
+                    Node slot = blueprint.node(ids.get(original.id()));
+                    blueprint.replace(slot.with(device.withBlock(record == null ? java.util.Optional.empty() : java.util.Optional.of(record.blockId()))));
+                    bindings.put(slot.id(), new NodeSettings.Binding(device.device(), 0));
+                }
+            }
+            network.sheets().add(blueprint);
+            Network.Placement placement = network.placement(sheet.id());
+            if (!keep && placement != null) {
+                network.sheets().remove(sheet);
+                sheet.nodes().forEach(n -> forgetSignalMemory(network, n.id()));
+                // Same node, same wires: the blueprint's pins keep their slots.
+                placement.parent().replace(placement.node().with(new NodeSettings.CopySettings(blueprint.id(), bindings)));
+            }
+            return blueprint;
+        }
+
+        /**
+         * A copy turned back into a normal sheet in the tree: the blueprint's nodes and wires (new ids), each filled slot
+         * a device node for its block; an empty one keeps the position it was laid out at.
+         */
+        private static Sheet convertCopy(Network network, Sheet parent, Node node) throws RequestException {
+            if (!(node.settings() instanceof NodeSettings.CopySettings copy)) {
+                throw new RequestException("That node isn't a blueprint copy");
+            }
+            if (parent.blueprint()) {
+                throw new RequestException("A copy inside a blueprint can't become a sheet: sheets don't go in blueprints");
+            }
+            Sheet blueprint = network.sheet(copy.sheet());
+            if (blueprint == null) {
+                throw new RequestException("Its blueprint no longer exists");
+            }
+            roomForSheet(network);
+            Map<UUID, UUID> ids = new HashMap<>();
+            Sheet sheet = blueprint.copyWithNewIds(node.label().orElse(blueprint.name()), ids);
+            sheet.setBlueprint(false);
+            var byLayout = io.github.leadassimilator.reticulum.graph.Blueprints.byLayout(blueprint, copy.bindings());
+            for (Node inner : blueprint.nodes()) {
+                Node made = sheet.node(ids.get(inner.id()));
+                NodeSettings bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(inner, copy.bindings(), byLayout);
+                if (bound == null && inner.settings() instanceof NodeSettings.DeviceSettings device) {
+                    bound = device.withBlock(java.util.Optional.empty());
+                }
+                sheet.replace(made.with(bound));
+            }
+            network.sheets().add(sheet);
+            parent.replace(node.with(new NodeSettings.SheetSettings(sheet.id())));
+            return sheet;
         }
 
         /** Deletes a sheet with every sheet inside it, and its sheet node. The root stays. */

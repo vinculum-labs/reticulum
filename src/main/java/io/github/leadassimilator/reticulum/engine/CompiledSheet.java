@@ -221,8 +221,8 @@ public final class CompiledSheet {
             if (!node.enabled()) {
                 continue;
             }
-            // One node per device in the tree (blueprint copies aside): a second one is flagged, though it still runs.
-            if (node.settings() instanceof NodeSettings.DeviceSettings device && !owners.containsKey(node.id())) {
+            // One node per device (a slot a copy fills counts): a second one is flagged, though it still runs.
+            if (node.settings() instanceof NodeSettings.DeviceSettings device) {
                 Node first = homes.putIfAbsent(device.device(), node);
                 if (first != null) {
                     Sheet home = network.sheet(sheetOf(first.id()));
@@ -717,8 +717,20 @@ public final class CompiledSheet {
             java.util.function.Function<UUID, UUID> copy = child ? id -> id
                     : id -> UUID.nameUUIDFromBytes((node.id() + "/" + id).getBytes(java.nio.charset.StandardCharsets.UTF_8));
             List<Node> copies = new ArrayList<>();
+            Map<UUID, NodeSettings.Binding> bindings = child ? Map.of() : ((NodeSettings.CopySettings) node.settings()).bindings();
+            Map<GlobalPos, NodeSettings.Binding> byLayout = child ? Map.of() : io.github.leadassimilator.reticulum.graph.Blueprints.byLayout(used, bindings);
             for (Node inner : used.nodes()) {
                 Node pasted = child ? inner : inner.withId(copy.apply(inner.id()));
+                if (!child) {
+                    // A copy fills its blueprint's slots with blocks; one left empty can't run, nor can routes through it.
+                    NodeSettings bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(inner, bindings, byLayout);
+                    if (bound == null) {
+                        error(node, describe(node) + ": its slot " + io.github.leadassimilator.reticulum.graph.Blueprints.slotName(inner)
+                                + " has no block yet (open the copy and drop a device on it)");
+                        continue;
+                    }
+                    pasted = pasted.with(bound);
+                }
                 copies.add(pasted);
                 if (child) {
                     containers.put(pasted.id(), node.id());

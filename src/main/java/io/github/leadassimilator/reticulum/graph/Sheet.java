@@ -73,11 +73,15 @@ public final class Sheet {
      * sit beside the original. Device references stay as they are.
      */
     public Sheet copyWithNewIds(String name) {
+        return copyWithNewIds(name, new java.util.HashMap<>());
+    }
+
+    /** As {@link #copyWithNewIds(String)}, filling {@code ids} with each node's new id by its old one. */
+    public Sheet copyWithNewIds(String name, java.util.Map<UUID, UUID> ids) {
         Sheet copy = new Sheet(UUID.randomUUID(), name);
         copy.setInterval(interval);
         copy.priority = priority;
         copy.setBlueprint(blueprint);
-        java.util.Map<UUID, UUID> ids = new java.util.HashMap<>();
         for (Node node : nodes) {
             UUID id = UUID.randomUUID();
             ids.put(node.id(), id);

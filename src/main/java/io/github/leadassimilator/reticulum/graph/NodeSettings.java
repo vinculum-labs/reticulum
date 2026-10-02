@@ -1,6 +1,7 @@
 package io.github.leadassimilator.reticulum.graph;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -12,6 +13,7 @@ import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Ids;
 import io.github.leadassimilator.reticulum.util.LowercaseName;
 import net.minecraft.core.GlobalPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.StringRepresentable;
 
 /** The settings of one node, one record per node kind. */
@@ -256,12 +258,33 @@ public sealed interface NodeSettings {
      * A block that is both fed and emptied, such as a machine: any number of inputs (left) and outputs (right),
      * each with its own resource, faces and rules. The engine treats each output as a source and each input as a sink.
      */
-    record DeviceSettings(GlobalPos device, List<Input> inputs, List<Output> outputs) implements NodeSettings {
+    record DeviceSettings(GlobalPos device, List<Input> inputs, List<Output> outputs, Optional<ResourceLocation> block) implements NodeSettings {
+        public DeviceSettings(GlobalPos device, List<Input> inputs, List<Output> outputs) {
+            this(device, inputs, outputs, Optional.empty());
+        }
+
         public static final MapCodec<DeviceSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 GlobalPos.CODEC.fieldOf("device").forGetter(DeviceSettings::device),
                 Input.CODEC.listOf().optionalFieldOf("inputs", List.of()).forGetter(DeviceSettings::inputs),
-                Output.CODEC.listOf().optionalFieldOf("outputs", List.of()).forGetter(DeviceSettings::outputs)
+                Output.CODEC.listOf().optionalFieldOf("outputs", List.of()).forGetter(DeviceSettings::outputs),
+                ResourceLocation.CODEC.optionalFieldOf("block").forGetter(DeviceSettings::block)
         ).apply(i, DeviceSettings::new));
+
+        /** As a slot of a blueprint: {@code block} is the kind of block it takes. */
+        public DeviceSettings withBlock(Optional<ResourceLocation> block) {
+            return new DeviceSettings(device, inputs, outputs, block);
+        }
+
+        /**
+         * This slot filled by a block: the block's position, and every face turned the binding's quarter turns (for a
+         * set built facing another way). No block type: it is a plain device node now.
+         */
+        public DeviceSettings boundTo(Binding binding) {
+            List<Input> in = inputs.stream().map(x -> new Input(x.resource(), Binding.turn(x.faces(), binding.turns()), x.slots(), x.caps(), x.whileOff())).toList();
+            List<Output> out = outputs.stream().map(x -> new Output(x.resource(), Binding.turn(x.faces(), binding.turns()), x.slots(), x.keep(),
+                    x.perOperation(), x.interval(), x.priority(), x.comparator())).toList();
+            return new DeviceSettings(binding.device(), in, out, Optional.empty());
+        }
 
         @Override
         public Kind kind() {
@@ -273,14 +296,46 @@ public sealed interface NodeSettings {
      * A copy of another sheet (one marked as a blueprint) placed here. Its pins are that sheet's Sheet input nodes
      * (inputs, left) and Sheet output nodes (outputs, right), each ordered top to bottom as laid out in it.
      */
-    record CopySettings(UUID sheet) implements NodeSettings {
+    record CopySettings(UUID sheet, Map<UUID, Binding> bindings) implements NodeSettings {
+        public CopySettings(UUID sheet) {
+            this(sheet, Map.of());
+        }
+
         public static final MapCodec<CopySettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Ids.UUID_CODEC.fieldOf("sheet").forGetter(CopySettings::sheet)
+                Ids.UUID_CODEC.fieldOf("sheet").forGetter(CopySettings::sheet),
+                Codec.unboundedMap(Ids.UUID_CODEC, Binding.CODEC).optionalFieldOf("bindings", Map.of()).forGetter(CopySettings::bindings)
         ).apply(i, CopySettings::new));
 
         @Override
         public Kind kind() {
             return Kind.COPY;
+        }
+    }
+
+    /**
+     * The block filling one slot of a blueprint copy, and how far the set is turned from the blueprint's (quarter turns
+     * clockwise seen from above), so its faces turn with it.
+     */
+    record Binding(GlobalPos device, int turns) {
+        public static final Codec<Binding> CODEC = RecordCodecBuilder.create(i -> i.group(
+                GlobalPos.CODEC.fieldOf("device").forGetter(Binding::device),
+                Codec.INT.optionalFieldOf("turns", 0).forGetter(Binding::turns)
+        ).apply(i, Binding::new));
+
+        /** A face turned {@code turns} quarter turns clockwise (seen from above); up, down and unsided stay. */
+        public static FaceKey turn(FaceKey face, int turns) {
+            net.minecraft.core.Direction direction = face.direction();
+            if (direction == null || direction.getAxis().isVertical()) {
+                return face;
+            }
+            for (int i = 0; i < Math.floorMod(turns, 4); i++) {
+                direction = direction.getClockWise();
+            }
+            return FaceKey.of(direction);
+        }
+
+        public static List<FaceKey> turn(List<FaceKey> faces, int turns) {
+            return Math.floorMod(turns, 4) == 0 ? faces : faces.stream().map(f -> turn(f, turns)).toList();
         }
     }
 

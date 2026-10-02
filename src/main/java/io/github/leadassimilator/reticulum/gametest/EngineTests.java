@@ -5,6 +5,8 @@ import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
 
 import java.util.ArrayList;
 import java.util.List;
+import io.github.leadassimilator.reticulum.network.FaceKey;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -1467,6 +1469,53 @@ public final class EngineTests {
             check(helper, rig.count(1, Items.IRON_INGOT) == 5, "ingots did not pass through the blueprint");
             check(helper, rig.count(1, Items.DIRT) == 0 && rig.count(0, Items.DIRT) == 5, "the blueprint's filter was not applied");
         });
+    }
+
+    /** A blueprint "slot A -> slot B" laid out on barrels 0 and 1; returns it with its two slots. */
+    private static Node[] barrelBlueprint(Rig rig, Sheet blueprint) {
+        blueprint.setBlueprint(true);
+        Node a = blueprint.add(Node.of(new NodeSettings.DeviceSettings(rig.device(0), List.of(),
+                List.of(new NodeSettings.Output(ResourceKind.ITEM, List.of(), Optional.empty(), List.of(), 64, 1, 0)))));
+        Node b = blueprint.add(Node.of(new NodeSettings.DeviceSettings(rig.device(1),
+                List.of(new NodeSettings.Input(ResourceKind.ITEM, List.of(), Optional.empty(), List.of())), List.of())));
+        blueprint.connect(Wire.of(a, b));
+        rig.network().sheets().add(blueprint);
+        return new Node[] {a, b};
+    }
+
+    /** A copy moves between the blocks filling its slots, not the ones the blueprint was laid out on. */
+    @GameTest(template = "empty")
+    public static void copyMovesBetweenTheBlocksFillingItsSlots(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.DIRT, 5));
+        rig.container(2).setItem(0, new ItemStack(Items.IRON_INGOT, 5));
+        Sheet blueprint = new Sheet(UUID.randomUUID(), "pair");
+        Node[] slots = barrelBlueprint(rig, blueprint);
+        rig.node(new NodeSettings.CopySettings(blueprint.id(), Map.of(
+                slots[0].id(), new NodeSettings.Binding(rig.device(2), 0),
+                slots[1].id(), new NodeSettings.Binding(rig.device(3), 0))));
+        check(helper, NodeSettings.Binding.turn(FaceKey.NORTH, 1) == FaceKey.EAST && NodeSettings.Binding.turn(FaceKey.UP, 1) == FaceKey.UP
+                && NodeSettings.Binding.turn(FaceKey.WEST, -1) == FaceKey.SOUTH, "faces don't turn right");
+        helper.succeedWhen(() -> {
+            check(helper, rig.count(3, Items.IRON_INGOT) == 5, "the copy didn't move between its filled slots");
+            check(helper, rig.count(0, Items.DIRT) == 5, "the copy moved from the block the blueprint was laid out on");
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void copyWithAnEmptySlotIsReported(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
+        rig.container(2).setItem(0, new ItemStack(Items.IRON_INGOT, 5));
+        Sheet blueprint = new Sheet(UUID.randomUUID(), "pair");
+        Node[] slots = barrelBlueprint(rig, blueprint);
+        rig.node(new NodeSettings.CopySettings(blueprint.id(), Map.of(slots[0].id(), new NodeSettings.Binding(rig.device(2), 0))));
+        helper.startSequence()
+                .thenExecuteAfter(30, () -> {
+                    check(helper, rig.compiled().errors().stream().anyMatch(e -> e.message().contains("has no block yet")),
+                            "the empty slot wasn't reported: " + rig.compiled().errors());
+                    check(helper, rig.count(2, Items.IRON_INGOT) == 5, "items moved through an empty slot");
+                })
+                .thenSucceed();
     }
 
     /** Puts the test sheet inside a new sheet, "smelting", placed in the root; returns smelting. */
