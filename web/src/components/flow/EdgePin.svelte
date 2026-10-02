@@ -5,6 +5,7 @@
   import { PIN_DOT, PIN_H, PIN_KNOB, PIN_W } from "../../lib/graph";
   import { RESOURCE_LABEL, RESOURCE_VAR } from "../../lib/kinds";
   import { pinName } from "../../lib/types";
+  import { app } from "../../lib/state.svelte";
 
   /**
    * A sheet's pin, anchored on its frame's edge: the dot sits on the border (inputs left, outputs right) and its name
@@ -38,9 +39,15 @@
   style="width: {PIN_W}px; height: {PIN_H}px; justify-content: {input ? 'flex-end' : 'flex-start'}; padding-{input ? 'right' : 'left'}: {PIN_KNOB + 4}px"
   title={data.problem ? `${title}\n${data.problem}` : title}
 >
-  <span class="label truncate" style="color: {data.problem ? 'var(--bad)' : 'var(--ink)'}">
-    {#if data.problem}<TriangleAlert size={10} class="inline" />{/if}
-    {name}{#if data.signal !== undefined && resource === "redstone"}<span class="tabular-nums muted"> {data.signal}</span>{/if}
+  <!-- Its color as an underline, or a tag outlined in it with its point at the dot (the side nearest the pin). -->
+  <span
+    class="label {app.pinStyle} {input ? 'points-right' : 'points-left'}"
+    style="--pin-color: {data.problem ? 'var(--bad)' : color}; color: {data.problem ? 'var(--bad)' : 'var(--ink)'}"
+  >
+    <span class="text truncate">
+      {#if data.problem}<TriangleAlert size={10} class="inline" />{/if}
+      {name}{#if data.signal !== undefined && resource === "redstone"}<span class="tabular-nums muted"> {data.signal}</span>{/if}
+    </span>
   </span>
 </div>
 
@@ -58,12 +65,52 @@
     align-items: center;
   }
   .label {
+    display: flex;
     max-width: 100%;
-    padding: 1px 4px;
     line-height: 14px;
+  }
+  .text {
+    display: block;
+    min-width: 0;
+  }
+  /* Underlined: an inset line, so the label keeps its height and stays centered on the dot. */
+  .underline .text {
+    padding: 1px 4px;
+    border-radius: 3px 3px 0 0;
+    box-shadow: inset 0 -2px 0 var(--pin-color);
+  }
+  .selected .underline .text {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  /*
+   * A tag: an outline in the pin's color (the outer layer, 1px larger) around a panel-colored inside, rounded at the
+   * far end and cut to a point at the end nearest the dot.
+   */
+  .tag {
+    padding: 1px;
+    background: var(--pin-color);
+    border-radius: 4px;
+  }
+  .tag .text {
+    padding: 1px 4px;
+    background: var(--panel);
     border-radius: 3px;
   }
-  .selected .label {
-    background: color-mix(in srgb, var(--accent) 30%, transparent);
+  .selected .tag .text {
+    background: color-mix(in srgb, var(--accent) 30%, var(--panel));
+  }
+  .tag.points-right,
+  .tag.points-right .text {
+    clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 0 100%);
+  }
+  .tag.points-right .text {
+    padding-right: 10px;
+  }
+  .tag.points-left,
+  .tag.points-left .text {
+    clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0 50%);
+  }
+  .tag.points-left .text {
+    padding-left: 10px;
   }
 </style>

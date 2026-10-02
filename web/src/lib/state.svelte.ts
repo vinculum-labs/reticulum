@@ -61,6 +61,33 @@ export function setWireStyle(style: WireStyle): void {
   }
 }
 
+/** How a sheet pin's name is drawn by its dot: underlined in its color, or as a tag pointing at the dot. */
+export type PinStyle = "underline" | "tag";
+
+export const PIN_STYLE_LABEL: Record<PinStyle, string> = {
+  underline: "Underlined",
+  tag: "Tags",
+};
+
+function storedPinStyle(): PinStyle {
+  try {
+    const stored = localStorage.getItem("reticulum.pinStyle");
+    return stored && stored in PIN_STYLE_LABEL ? (stored as PinStyle) : "underline";
+  } catch {
+    return "underline";
+  }
+}
+
+/** Remembered per browser, like the wire style. */
+export function setPinStyle(style: PinStyle): void {
+  app.pinStyle = style;
+  try {
+    localStorage.setItem("reticulum.pinStyle", style);
+  } catch {
+    // Private windows and blocked storage: the choice lasts until the page closes.
+  }
+}
+
 function storedFrames(): string[] {
   try {
     const stored = JSON.parse(localStorage.getItem("reticulum.frames") ?? "[]");
@@ -93,6 +120,7 @@ export const app = $state({
   /** Rates are shown per tick by default, or per second. */
   rateUnit: storedRateUnit(),
   wireStyle: storedWireStyle(),
+  pinStyle: storedPinStyle(),
   /** Sheet nodes shown open in place, as frames with their sheet inside (by node id). */
   frames: storedFrames(),
   socketOpen: false,

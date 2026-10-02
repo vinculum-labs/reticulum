@@ -4,6 +4,7 @@
   import SheetErrors from "../inspector/SheetErrors.svelte";
   import SheetOffNotice from "./SheetOffNotice.svelte";
   import { KIND_ICON, SparklesIcon, SplineIcon, ZapIcon } from "../../lib/icons";
+  import TagIcon from "@lucide/svelte/icons/tag";
   import MenuButton from "./MenuButton.svelte";
   import {
     SvelteFlow,
@@ -36,6 +37,9 @@
     setWireStyle,
     WIRE_STYLE_LABEL,
     type WireStyle,
+    setPinStyle,
+    PIN_STYLE_LABEL,
+    type PinStyle,
   } from "../../lib/state.svelte";
   import { copiesOf, slotName } from "../../lib/blueprints";
   import { confirmDialog } from "../../lib/dialog.svelte";
@@ -763,6 +767,19 @@
               checked: style === app.wireStyle,
             }))}
             onpick={(style) => setWireStyle(style as WireStyle)}
+          />
+          <!-- Pin label style: a canvas setting, remembered in this browser. -->
+          <MenuButton
+            label={PIN_STYLE_LABEL[app.pinStyle]}
+            icon={TagIcon}
+            width={140}
+            title="How the names of a sheet's pins are drawn by their dots (remembered in this browser)"
+            items={(Object.keys(PIN_STYLE_LABEL) as PinStyle[]).map((style) => ({
+              key: style,
+              label: PIN_STYLE_LABEL[style],
+              checked: style === app.pinStyle,
+            }))}
+            onpick={(style) => setPinStyle(style as PinStyle)}
           />
           <button class="btn flex items-center gap-1 text-sm" title="Lay the sheet out left to right" disabled={tidying || !sheet?.nodes?.length} onclick={tidy}>
             <SparklesIcon size={14} />Tidy up
