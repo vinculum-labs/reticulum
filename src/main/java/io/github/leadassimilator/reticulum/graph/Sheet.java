@@ -13,8 +13,10 @@ import io.github.leadassimilator.reticulum.network.Ids;
 import io.github.leadassimilator.reticulum.network.Limits;
 
 /**
- * A subnetwork: a canvas of nodes and wires. Every edit must go through a method here (or call {@link #touch()})
- * so the engine recompiles it.
+ * A canvas of nodes and wires. Sheets form a tree: the network's root sheet holds the others as sheet nodes, which
+ * hold theirs (a sheet's parent is wherever its sheet node is), and a sheet node's switch, gate and condition switch
+ * everything in it. Sub-sheets stand apart, placed by copy. Every edit must go through a method here (or call
+ * {@link #touch()}) so the engine recompiles it.
  */
 public final class Sheet {
     public static final int DEFAULT_INTERVAL = 10;
@@ -22,46 +24,40 @@ public final class Sheet {
     public static final Codec<Sheet> CODEC = RecordCodecBuilder.create(i -> i.group(
             Ids.UUID_CODEC.fieldOf("id").forGetter(s -> s.id),
             Codec.STRING.fieldOf("name").forGetter(s -> s.name),
-            Codec.STRING.optionalFieldOf("folder", "").forGetter(s -> s.folder),
-            Codec.BOOL.optionalFieldOf("enabled", true).forGetter(s -> s.enabled),
             Codec.INT.optionalFieldOf("interval", DEFAULT_INTERVAL).forGetter(s -> s.interval),
             Codec.INT.optionalFieldOf("priority", 0).forGetter(s -> s.priority),
             Codec.BOOL.optionalFieldOf("subsheet", false).forGetter(s -> s.subsheet),
+            Codec.BOOL.optionalFieldOf("root", false).forGetter(s -> s.root),
             Ids.lenientList(Node.CODEC, "node").optionalFieldOf("nodes", List.of()).forGetter(s -> s.nodes),
-            Wire.CODEC.listOf().optionalFieldOf("wires", List.of()).forGetter(s -> s.wires),
-            Redstone.CODEC.optionalFieldOf("redstone", Redstone.IGNORED).forGetter(s -> s.redstone)
+            Wire.CODEC.listOf().optionalFieldOf("wires", List.of()).forGetter(s -> s.wires)
     ).apply(i, Sheet::new));
 
     private final UUID id;
     private String name;
-    private String folder;
-    private boolean enabled;
     private int interval;
     private int priority;
     /** A sub-sheet never runs on its own; other sheets place copies of it. */
     private boolean subsheet;
+    /** The network's root sheet: the top of the tree, switched by the network itself. One per network. */
+    private boolean root;
     private final List<Node> nodes = new ArrayList<>();
     private final List<Wire> wires = new ArrayList<>();
-    private Redstone redstone;
     /** Bumped on every edit; not saved. The engine recompiles when it changes. */
     private int revision;
 
     public Sheet(UUID id, String name) {
-        this(id, name, "", true, DEFAULT_INTERVAL, 0, false, List.of(), List.of(), Redstone.IGNORED);
+        this(id, name, DEFAULT_INTERVAL, 0, false, false, List.of(), List.of());
     }
 
-    private Sheet(UUID id, String name, String folder, boolean enabled, int interval, int priority, boolean subsheet, List<Node> nodes,
-            List<Wire> wires, Redstone redstone) {
+    private Sheet(UUID id, String name, int interval, int priority, boolean subsheet, boolean root, List<Node> nodes, List<Wire> wires) {
         this.id = id;
         this.name = name;
-        this.folder = folder;
-        this.enabled = enabled;
         this.interval = interval;
         this.priority = priority;
         this.subsheet = subsheet;
+        this.root = root;
         this.nodes.addAll(nodes);
         this.wires.addAll(wires);
-        this.redstone = redstone;
     }
 
     public UUID id() {
@@ -78,12 +74,9 @@ public final class Sheet {
      */
     public Sheet copyWithNewIds(String name) {
         Sheet copy = new Sheet(UUID.randomUUID(), name);
-        copy.setFolder(folder);
-        copy.setEnabled(enabled);
         copy.setInterval(interval);
         copy.priority = priority;
         copy.setSubsheet(subsheet);
-        copy.setRedstone(redstone);
         java.util.Map<UUID, UUID> ids = new java.util.HashMap<>();
         for (Node node : nodes) {
             UUID id = UUID.randomUUID();
@@ -107,55 +100,21 @@ public final class Sheet {
         }
     }
 
-    public String folder() {
-        return folder;
-    }
-
-    /** Folder path, "/" separated; empty for the top level. */
-    public void setFolder(String folder) {
-        this.folder = normalizeFolder(folder);
-        touch();
-    }
-
-    /** Each level trimmed and cut like a name, empty levels dropped, the whole path cut to {@link Limits#FOLDER}. */
-    public static String normalizeFolder(String folder) {
-        StringBuilder out = new StringBuilder();
-        for (String part : folder.split("/")) {
-            String level = Limits.name(part);
-            if (level == null) {
-                continue;
-            }
-            if (out.length() + level.length() + 1 > Limits.FOLDER) {
-                break;
-            }
-            out.append(out.isEmpty() ? "" : "/").append(level);
-        }
-        return out.toString();
-    }
-
     public boolean subsheet() {
         return subsheet;
     }
 
-    public void setSubsheet(boolean subsheet) {
-        this.subsheet = subsheet;
+    public boolean root() {
+        return root;
+    }
+
+    public void setRoot(boolean root) {
+        this.root = root;
         touch();
     }
 
-    public boolean enabled() {
-        return enabled;
-    }
-
-    public Redstone redstone() {
-        return redstone;
-    }
-
-    public void setRedstone(Redstone redstone) {
-        this.redstone = redstone;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
+    public void setSubsheet(boolean subsheet) {
+        this.subsheet = subsheet;
         touch();
     }
 
@@ -226,6 +185,59 @@ public final class Sheet {
     public void disconnect(UUID wireId) {
         wires.removeIf(w -> w.id().equals(wireId));
         touch();
+    }
+
+    /**
+     * Gives every Sheet input and Sheet output a slot of its own, numbered per direction: pins without one (new, or
+     * from an older save) get the next free number, in the order they are laid out (top to bottom, then left to
+     * right), which is the order older wires counted them in. Returns whether anything changed.
+     */
+    public boolean assignPinSlots() {
+        boolean changed = false;
+        for (boolean input : new boolean[] {true, false}) {
+            java.util.Set<Integer> used = new java.util.HashSet<>();
+            List<Node> unslotted = new ArrayList<>();
+            for (Node node : pins(input)) {
+                int slot = ((NodeSettings.SheetPinSettings) node.settings()).slot();
+                if (slot >= 0 && used.add(slot)) {
+                    continue;
+                }
+                unslotted.add(node);
+            }
+            int next = 0;
+            for (Node node : unslotted) {
+                while (used.contains(next)) {
+                    next++;
+                }
+                used.add(next);
+                replace(node.with(((NodeSettings.SheetPinSettings) node.settings()).withSlot(next)));
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    /** This sheet's Sheet input (or output) nodes in the order they are laid out: top to bottom, then left to right. */
+    public List<Node> pins(boolean input) {
+        List<Node> pins = new ArrayList<>();
+        for (Node node : nodes) {
+            if (node.settings() instanceof NodeSettings.SheetPinSettings pin && pin.input() == input) {
+                pins.add(node);
+            }
+        }
+        pins.sort(java.util.Comparator.comparingDouble(Node::y).thenComparingDouble(Node::x).thenComparing(n -> n.id().toString()));
+        return pins;
+    }
+
+    /** The Sheet input (or output) node with this slot, or null. */
+    @Nullable
+    public Node pin(boolean input, int slot) {
+        for (Node node : nodes) {
+            if (node.settings() instanceof NodeSettings.SheetPinSettings pin && pin.input() == input && pin.slot() == slot) {
+                return node;
+            }
+        }
+        return null;
     }
 
     public int revision() {

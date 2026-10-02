@@ -121,7 +121,11 @@ public final class FilterTests {
         var ops = RegistryOps.create(NbtOps.INSTANCE, helper.getLevel().registryAccess());
         var encoded = Network.CODEC.encodeStart(ops, network).getOrThrow();
         Network decoded = Network.CODEC.parse(ops, encoded).getOrThrow();
-        Sheet back = decoded.sheets().getFirst();
+        // Loading gives the network its root sheet, and places the sheet in it.
+        Sheet back = decoded.sheet(sheet.id());
+        if (back == null || decoded.placement(back.id()) == null || decoded.placement(back.id()).parent() != decoded.root()) {
+            helper.fail("the sheet wasn't placed in the root when loaded");
+        }
         if (back.nodes().size() != 2 || back.wires().size() != 1 || !back.name().equals("ore line")) {
             helper.fail("sheet did not round-trip");
         }

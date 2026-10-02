@@ -123,11 +123,16 @@ public class ControllerScreen extends QuickScreen {
             Views.SheetEntry sheet = sheets.get(i);
             Button toggle = Button.builder(Component.translatable(sheet.enabled() ? "screen.reticulum.on" : "screen.reticulum.off"),
                     b -> send(Payloads.ControllerSwitch.SHEET, java.util.Optional.of(sheet.id()), sheet.enabled() ? 0 : 1))
-                    .bounds(left, y, 36, 16).build();
+                    .bounds(left + indent(sheet), y, 36, 16).build();
             toggle.active = view.canEdit();
             addRenderableWidget(toggle);
             y += 18;
         }
+    }
+
+    /** Sheets inside others sit further right, by how deep they are (capped, so deep trees still fit). */
+    private static int indent(Views.SheetEntry sheet) {
+        return Math.min(sheet.depth(), 6) * 8;
     }
 
     private void send(int what, java.util.Optional<java.util.UUID> sheet, int value) {
@@ -229,10 +234,11 @@ public class ControllerScreen extends QuickScreen {
         }
         for (int i = sheetScroll; i < Math.min(sheets.size(), sheetScroll + SHEET_ROWS); i++) {
             Views.SheetEntry sheet = sheets.get(i);
-            String marks = (sheet.folderOff() ? "  " + Component.translatable("screen.reticulum.folder_off").getString() : "")
+            String marks = (sheet.parentOff() ? "  " + Component.translatable("screen.reticulum.parent_off").getString() : "")
                     + (sheet.redstoneOff() ? "  ⚡" : "") + (sheet.errors() > 0 ? "  ⚠ " + sheet.errors() : "");
-            int color = sheet.enabled() && !sheet.folderOff() && !sheet.redstoneOff() ? 0xE0E0E0 : 0x909090;
-            graphics.drawString(font, font.plainSubstrByWidth(sheet.name(), WIDTH - 44 - font.width(marks)) + marks, left + 42, y + 4, color);
+            int color = sheet.enabled() && !sheet.parentOff() && !sheet.redstoneOff() ? 0xE0E0E0 : 0x909090;
+            int x = left + 42 + indent(sheet);
+            graphics.drawString(font, font.plainSubstrByWidth(sheet.name(), left + WIDTH - x - font.width(marks)) + marks, x, y + 4, color);
             y += 18;
         }
         if (sheets.size() > SHEET_ROWS) {

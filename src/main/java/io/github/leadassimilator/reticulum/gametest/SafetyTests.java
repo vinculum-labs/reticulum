@@ -271,10 +271,36 @@ public final class SafetyTests {
         helper.succeed();
     }
 
+    /** The editor's sheet edits keep the tree whole: made inside a parent, never moved into themselves, deleted whole. */
+    @GameTest(template = "empty")
+    public static void sheetEditsKeepTheTree(GameTestHelper helper) {
+        ServerPlayer owner = player(helper, "owner");
+        Network network = rig(helper, owner);
+        Sheet root = network.root();
+        check(helper, edit(owner, network, "{\"type\":\"createSheet\",\"name\":\"smelting\"}") == null, "creating a sheet failed");
+        Sheet smelting = network.sheetNamed("smelting");
+        check(helper, smelting != null && network.placement(smelting.id()).parent() == root, "a new sheet didn't go into the root");
+        check(helper, edit(owner, network, "{\"type\":\"createSheet\",\"name\":\"ores\",\"parent\":\"" + smelting.id() + "\"}") == null,
+                "creating a sheet inside another failed");
+        Sheet ores = network.sheetNamed("ores");
+        check(helper, ores != null && network.placement(ores.id()).parent() == smelting, "the sheet didn't go inside its parent");
+        check(helper, edit(owner, network, "{\"type\":\"moveSheet\",\"sheet\":\"" + smelting.id() + "\",\"parent\":\"" + ores.id() + "\"}") != null,
+                "a sheet moved inside one of its own sheets");
+        check(helper, edit(owner, network, "{\"type\":\"deleteSheet\",\"sheet\":\"" + root.id() + "\"}") != null, "the root was deleted");
+        UUID smeltingNode = network.placement(smelting.id()).node().id();
+        check(helper, edit(owner, network, "{\"type\":\"removeNode\",\"sheet\":\"" + root.id() + "\",\"node\":\"" + smeltingNode + "\"}") == null,
+                "deleting a sheet node failed");
+        check(helper, network.sheet(smelting.id()) == null && network.sheet(ores.id()) == null, "a deleted sheet node left its sheets behind");
+        check(helper, root.node(smeltingNode) == null, "the sheet node stayed");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void sheetCountIsLimited(GameTestHelper helper) {
         ServerPlayer owner = player(helper, "owner");
         Network network = rig(helper, owner);
+        // The root counts as one of the sheets.
+        network.ensureTree();
         while (network.sheets().size() < Limits.SHEETS) {
             network.sheets().add(new Sheet(UUID.randomUUID(), "s"));
         }
@@ -330,7 +356,7 @@ public final class SafetyTests {
         var buffer = new RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), access);
         io.github.leadassimilator.reticulum.protocol.Views.BlockView.STREAM_CODEC.encode(buffer, block);
         check(helper, io.github.leadassimilator.reticulum.protocol.Views.BlockView.STREAM_CODEC.decode(buffer).equals(block), "the block view changed on the way");
-        var sheet = new io.github.leadassimilator.reticulum.protocol.Views.SheetEntry(UUID.randomUUID(), "Smelting", true, false, true, 2);
+        var sheet = new io.github.leadassimilator.reticulum.protocol.Views.SheetEntry(UUID.randomUUID(), "Smelting", 1, true, false, true, 2);
         var controller = new io.github.leadassimilator.reticulum.protocol.Views.ControllerView(new BlockPos(4, 5, 6), UUID.randomUUID(), "Base", "owner",
                 AccessMode.PASSWORD, true, 3, 7, 1, true, false, 2, true, false, io.github.leadassimilator.reticulum.graph.Redstone.Mode.HIGH,
                 List.of(sheet), List.of("4x iron"), "100 FE");

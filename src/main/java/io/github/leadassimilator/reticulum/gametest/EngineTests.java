@@ -98,6 +98,19 @@ public final class EngineTests {
             return Devices.global(helper.getLevel(), helper.absolutePos(devices.get(i)));
         }
 
+        /** The test sheet's node in its parent (it goes into the root the first time the tree is put right). */
+        Node sheetNode() {
+            network.ensureTree();
+            return network.placement(sheet.id()).node();
+        }
+
+        /** Replaces the test sheet's node in its parent. */
+        void sheetNode(java.util.function.UnaryOperator<Node> change) {
+            network.ensureTree();
+            Network.Placement placement = network.placement(sheet.id());
+            placement.parent().replace(change.apply(placement.node()));
+        }
+
         /** A signal wire into a signal node's input, or into any node's gate with {@link Wire#GATE}. */
         void signal(Node from, Node to, int input) {
             sheet.connect(new Wire(UUID.randomUUID(), from.id(), 0, to.id(), input, 0));
@@ -380,7 +393,9 @@ public final class EngineTests {
         helper.setBlock(new BlockPos(1, 2, 1), Blocks.REDSTONE_BLOCK);
         rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
-        rig.sheet().setRedstone(new Redstone(Redstone.Mode.LOW, Redstone.Source.DEFAULT, Optional.empty(), Optional.empty(), Optional.empty(), ""));
+        // The sheet's node carries the condition: it switches the whole sheet.
+        rig.sheetNode(node -> new Node(node.id(), node.settings(), node.label(), node.enabled(), node.x(), node.y(),
+                new Redstone(Redstone.Mode.LOW, Redstone.Source.DEFAULT, Optional.empty(), Optional.empty(), Optional.empty(), "")));
         helper.startSequence()
                 .thenExecuteAfter(20, () -> {
                     check(helper, rig.count(1, Items.COBBLESTONE) == 0, "sheet ran while its controller was powered");
@@ -910,7 +925,8 @@ public final class EngineTests {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
-        rig.sheet().setEnabled(false);
+        rig.sheetNode();
+        rig.network().setSheetEnabled(rig.sheet(), false);
         helper.runAfterDelay(20, () -> {
             check(helper, rig.count(1, Items.COBBLESTONE) == 0, "disabled sheet moved items");
             helper.succeed();
@@ -1451,20 +1467,109 @@ public final class EngineTests {
         });
     }
 
+    /** Puts the test sheet inside a new sheet, "smelting", placed in the root; returns smelting. */
+    private static Sheet nestInSmelting(Rig rig) {
+        Node node = rig.sheetNode();
+        Sheet smelting = new Sheet(UUID.randomUUID(), "smelting");
+        rig.network().sheets().add(smelting);
+        rig.network().ensureTree();
+        rig.network().root().remove(node.id());
+        smelting.add(node);
+        return smelting;
+    }
+
     @GameTest(template = "empty")
-    public static void folderSwitchedOffStopsItsSheets(GameTestHelper helper) {
+    public static void parentSheetSwitchedOffStopsTheSheetsInIt(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 8));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
-        rig.sheet().setFolder("smelting/ores");
-        rig.network().disabledFolders().add("smelting");
+        Sheet smelting = nestInSmelting(rig);
+        rig.network().setSheetEnabled(smelting, false);
+        check(helper, !rig.network().runs(rig.sheet()), "a sheet inside a switched-off sheet counts as running");
         helper.runAfterDelay(10, () -> {
-            check(helper, rig.count(1, Items.COBBLESTONE) == 0, "a sheet in a switched-off folder ran");
-            rig.network().disabledFolders().clear();
+            check(helper, rig.count(1, Items.COBBLESTONE) == 0, "a sheet inside a switched-off sheet ran");
+            rig.network().setSheetEnabled(smelting, true);
             helper.runAfterDelay(10, () -> {
-                check(helper, rig.count(1, Items.COBBLESTONE) == 8, "the sheet did not run once its folder was back on");
+                check(helper, rig.count(1, Items.COBBLESTONE) == 8, "the sheet did not run once the sheet around it was back on");
                 helper.succeed();
             });
         });
+    }
+
+    /** Items go from a barrel on the root, into a child sheet through its input pin, out through its output pin, on. */
+    @GameTest(template = "empty")
+    public static void flowCrossesAChildSheetThroughItsPins(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.IRON_INGOT, 5));
+        rig.container(0).setItem(1, new ItemStack(Items.DIRT, 5));
+        Sheet child = new Sheet(UUID.randomUUID(), "only ingots");
+        Node in = child.add(Node.of(new NodeSettings.SheetPinSettings(true, "in")));
+        Node filter = child.add(Node.of(new NodeSettings.FilterSettings("tag:c:ingots")));
+        Node out = child.add(Node.of(new NodeSettings.SheetPinSettings(false, "out")));
+        child.connect(Wire.of(in, filter));
+        child.connect(Wire.of(filter, out));
+        rig.network().sheets().add(child);
+        rig.network().ensureTree();
+        Node holder = rig.network().placement(child.id()).node();
+        // The child sits in the root, beside the test sheet: wire the test sheet's nodes to it from the root.
+        Sheet root = rig.network().root();
+        Node source = root.add(Node.of(new NodeSettings.DeviceSettings(rig.device(0), List.of(),
+                List.of(new NodeSettings.Output(ResourceKind.ITEM, List.of(), Optional.empty(), List.of(), 64, 1, 0)))));
+        Node sink = root.add(Node.of(new NodeSettings.DeviceSettings(rig.device(1),
+                List.of(new NodeSettings.Input(ResourceKind.ITEM, List.of(), Optional.empty(), List.of())), List.of())));
+        root.setInterval(1);
+        root.connect(Wire.of(source, holder));
+        root.connect(Wire.of(holder, sink));
+        helper.succeedWhen(() -> {
+            check(helper, rig.compiled().errors().isEmpty(), "errors: " + rig.compiled().errors());
+            check(helper, rig.count(1, Items.IRON_INGOT) == 5, "ingots did not pass through the child sheet");
+            check(helper, rig.count(1, Items.DIRT) == 0 && rig.count(0, Items.DIRT) == 5, "the child sheet's filter was not applied");
+        });
+    }
+
+    /** A signal into a sheet node's gate switches the whole sheet: an AND with nothing wired into it is off. */
+    @GameTest(template = "empty")
+    public static void gateOnASheetNodeStopsTheSheet(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 8));
+        rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
+        Node holder = rig.sheetNode();
+        Sheet root = rig.network().root();
+        Node off = root.add(Node.of(new NodeSettings.LogicSettings(NodeSettings.LogicOp.AND)));
+        Wire gate = root.connect(new Wire(UUID.randomUUID(), off.id(), 0, holder.id(), Wire.GATE, 0));
+        helper.runAfterDelay(10, () -> {
+            check(helper, rig.count(1, Items.COBBLESTONE) == 0, "a sheet whose node's gate was off ran");
+            check(helper, rig.runtime().sheetsOff().contains(rig.sheet().id()), "the sheet wasn't reported as switched off");
+            root.disconnect(gate.id());
+            helper.runAfterDelay(10, () -> {
+                check(helper, rig.count(1, Items.COBBLESTONE) == 8, "the sheet did not run once its gate was gone");
+                helper.succeed();
+            });
+        });
+    }
+
+    /** The tree puts itself right: unplaced sheets go into the root, a second node for one sheet and loops come out. */
+    @GameTest(template = "empty")
+    public static void sheetTreeRepairsItself(GameTestHelper helper) {
+        Network network = NetworkManager.create(helper.getLevel().getServer(), null);
+        Sheet a = new Sheet(UUID.randomUUID(), "a");
+        Sheet b = new Sheet(UUID.randomUUID(), "b");
+        network.sheets().add(a);
+        network.sheets().add(b);
+        network.ensureTree();
+        Sheet root = network.root();
+        check(helper, network.placement(a.id()).parent() == root && network.placement(b.id()).parent() == root, "unplaced sheets weren't put in the root");
+        // b inside a, and a second node for a inside b: a loop, and a sheet placed twice.
+        Node bNode = network.placement(b.id()).node();
+        root.remove(bNode.id());
+        a.add(bNode);
+        b.add(Node.of(new NodeSettings.SheetSettings(a.id())));
+        network.ensureTree();
+        check(helper, network.placement(b.id()).parent() == a, "b didn't stay inside a");
+        check(helper, b.nodes().stream().noneMatch(n -> n.kind() == NodeSettings.Kind.SHEET), "a second node for a stayed in b");
+        check(helper, network.descendants(root).containsAll(List.of(a, b)) && network.descendants(a).equals(List.of(b)), "the tree reads wrong");
+        check(helper, network.path(b).equals("a \u203a b"), "path was " + network.path(b));
+        NetworkManager.delete(helper.getLevel().getServer(), network);
+        helper.succeed();
     }
 }

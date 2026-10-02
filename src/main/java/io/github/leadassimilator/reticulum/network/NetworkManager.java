@@ -137,9 +137,6 @@ public final class NetworkManager {
      */
     static boolean usedBySheets(Network network, GlobalPos pos) {
         for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
-            if (pos.equals(sheet.redstone().device().orElse(null))) {
-                return true;
-            }
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
                 GlobalPos used = switch (node.settings()) {
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings s -> s.device();
@@ -252,9 +249,12 @@ public final class NetworkManager {
             return;
         }
         Role most = cap.atLeast(Role.ADMIN) ? Role.ADMIN : cap;
-        java.util.Set<String> folders = new java.util.HashSet<>();
-        into.sheets().forEach(sheet -> folders.add(sheet.folder()));
+        // The absorbed network's root becomes a sheet named after it, placed in this one's root with all it holds.
+        io.github.leadassimilator.reticulum.graph.Sheet fromRoot = from.root();
+        fromRoot.setName(from.name());
+        fromRoot.setRoot(false);
         into.sheets().addAll(from.sheets());
+        into.ensureTree();
         from.filters().forEach(into.filters()::putIfAbsent);
         List<Member> joining = new ArrayList<>(from.members().values());
         if (from.owner() != null) {
@@ -266,12 +266,6 @@ public final class NetworkManager {
                 into.members().putIfAbsent(member.id(), new Member(member.id(), member.name(), role));
             }
         }
-        from.disabledFolders().stream().filter(folder -> !folders.contains(folder)).forEach(into.disabledFolders()::add);
-        from.switches().folderRedstone().forEach((folder, redstone) -> {
-            if (!folders.contains(folder)) {
-                into.switches().folderRedstone().putIfAbsent(folder, redstone);
-            }
-        });
         from.signalMemory().forEach(into.signalMemory()::putIfAbsent);
         for (io.github.leadassimilator.reticulum.network.Identify identify : from.identified()) {
             if (into.identified().size() < Limits.IDENTIFIES && into.identified().stream().noneMatch(identify::sameTarget)) {

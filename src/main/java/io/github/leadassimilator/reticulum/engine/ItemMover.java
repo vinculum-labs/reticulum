@@ -58,7 +58,7 @@ final class ItemMover {
                     kits.computeIfAbsent(route.kit().id(), k -> new ArrayList<>()).add(route);
                 }
             }
-            int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.sheet().interval();
+            int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.intervalOf(source.node().id());
             UUID id = source.node().id();
             if (!direct.isEmpty() && (due(ctx, id, (long) interval * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, direct))) {
                 if (!ctx.runtime().canAffordOperation()) {
@@ -74,7 +74,7 @@ final class ItemMover {
         }
         for (Map.Entry<UUID, List<CompiledSheet.Route>> kit : kits.entrySet()) {
             UUID id = kit.getKey();
-            if (due(ctx, id, (long) sheet.sheet().interval() * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, kit.getValue())) {
+            if (due(ctx, id, (long) sheet.intervalOf(id) * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, kit.getValue())) {
                 if (!ctx.runtime().canAffordOperation()) {
                     ctx.runtime().status(sheet.owner(id), Status.NO_POWER);
                     continue;

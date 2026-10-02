@@ -96,6 +96,7 @@ public final class Network {
         this.overflow = overflow.orElseGet(OverflowBuffer::new);
         this.signalMemory.putAll(signalMemory);
         this.identified.addAll(identified);
+        ensureTree();
     }
 
     public UUID id() {
@@ -253,24 +254,191 @@ public final class Network {
         return overflow.fluids();
     }
 
-    public java.util.Set<String> disabledFolders() {
-        return switches.disabledFolders();
+    // ---------------------------------------------------------------- the sheet tree
+
+    /** The root sheet: the top of the tree. There is always one once {@link #ensureTree} has run. */
+    public Sheet root() {
+        for (Sheet sheet : sheets) {
+            if (sheet.root()) {
+                return sheet;
+            }
+        }
+        ensureTree();
+        return root();
     }
 
-    /** Whether a sheet may run: it is on, isn't a sub-sheet, and neither its folder nor any folder above it is off. */
+    /** Where a sheet sits: its parent sheet and its node there; null for the root, sub-sheets and unplaced sheets. */
+    public record Placement(Sheet parent, io.github.leadassimilator.reticulum.graph.Node node) {
+    }
+
+    /** Every placed sheet's placement, by sheet id: the sheet nodes on every sheet but sub-sheets. */
+    public Map<UUID, Placement> placements() {
+        Map<UUID, Placement> out = new LinkedHashMap<>();
+        for (Sheet sheet : sheets) {
+            if (sheet.subsheet()) {
+                continue;
+            }
+            for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
+                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.SheetSettings child) {
+                    out.putIfAbsent(child.sheet(), new Placement(sheet, node));
+                }
+            }
+        }
+        return out;
+    }
+
+    @Nullable
+    public Placement placement(UUID sheet) {
+        return placements().get(sheet);
+    }
+
+    /** The sheets inside {@code sheet}, all the way down (not {@code sheet} itself). */
+    public List<Sheet> descendants(Sheet sheet) {
+        Map<UUID, Placement> placements = placements();
+        List<Sheet> out = new ArrayList<>();
+        java.util.ArrayDeque<UUID> todo = new java.util.ArrayDeque<>(List.of(sheet.id()));
+        while (!todo.isEmpty()) {
+            UUID parent = todo.poll();
+            for (Map.Entry<UUID, Placement> entry : placements.entrySet()) {
+                Sheet child = sheet(entry.getKey());
+                if (entry.getValue().parent().id().equals(parent) && child != null && !out.contains(child)) {
+                    out.add(child);
+                    todo.add(child.id());
+                }
+            }
+        }
+        return out;
+    }
+
+    /** A sheet's names from the root down ("Smelting › Ores"), the root left out; just the name when unplaced. */
+    public String path(Sheet sheet) {
+        Map<UUID, Placement> placements = placements();
+        List<String> names = new ArrayList<>();
+        Sheet at = sheet;
+        for (int depth = 0; at != null && !at.root() && depth < 64; depth++) {
+            names.add(0, at.name());
+            Placement placement = placements.get(at.id());
+            at = placement == null ? null : placement.parent();
+        }
+        return String.join(" \u203a ", names);
+    }
+
+    /**
+     * Whether a sheet may run as far as switches go: it is in the tree (not a sub-sheet, not unplaced), and its sheet
+     * node and every sheet node above it are on. The root runs whenever the network does.
+     */
     public boolean runs(Sheet sheet) {
-        if (!sheet.enabled() || sheet.subsheet()) {
+        if (sheet.subsheet()) {
             return false;
         }
-        String folder = sheet.folder();
-        while (!folder.isEmpty()) {
-            if (switches.disabledFolders().contains(folder)) {
+        Map<UUID, Placement> placements = placements();
+        Sheet at = sheet;
+        for (int depth = 0; !at.root(); depth++) {
+            Placement placement = placements.get(at.id());
+            if (placement == null || depth > 64 || !placement.node().enabled()) {
                 return false;
             }
-            int slash = folder.lastIndexOf('/');
-            folder = slash < 0 ? "" : folder.substring(0, slash);
+            at = placement.parent();
         }
         return true;
+    }
+
+    /**
+     * Puts the tree right, and says whether it changed anything: a root sheet exists (made when missing), every sheet
+     * but the root and sub-sheets is placed exactly once, sheet nodes that name a missing sheet, the root, a
+     * sub-sheet, an already placed sheet or one of their own ancestors are dropped, sheets placed nowhere go into the
+     * root, and every sheet pin has a slot. Run after loading, after edits and before compiling.
+     */
+    public boolean ensureTree() {
+        boolean changed = false;
+        Sheet root = null;
+        for (Sheet sheet : sheets) {
+            if (sheet.root() && (root != null || sheet.subsheet())) {
+                sheet.setRoot(false);
+                changed = true;
+            } else if (sheet.root()) {
+                root = sheet;
+            }
+        }
+        if (root == null) {
+            root = new Sheet(UUID.randomUUID(), "Network");
+            root.setRoot(true);
+            sheets.add(0, root);
+            changed = true;
+        }
+        // Sheet nodes: one per sheet, only for sheets that can be placed, never on a sub-sheet.
+        java.util.Set<UUID> placed = new java.util.HashSet<>();
+        for (Sheet sheet : sheets) {
+            for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
+                if (!(node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.SheetSettings child)) {
+                    continue;
+                }
+                Sheet target = sheet(child.sheet());
+                if (sheet.subsheet() || target == null || target.root() || target.subsheet() || target == sheet || !placed.add(target.id())) {
+                    sheet.remove(node.id());
+                    changed = true;
+                }
+            }
+        }
+        // No loops: a sheet placed inside itself (directly or further down) comes out to the root.
+        Map<UUID, Placement> placements = placements();
+        for (Map.Entry<UUID, Placement> entry : placements.entrySet()) {
+            Sheet at = entry.getValue().parent();
+            for (int depth = 0; at != null && !at.root(); depth++) {
+                if (at.id().equals(entry.getKey()) || depth > 64) {
+                    entry.getValue().parent().remove(entry.getValue().node().id());
+                    placed.remove(entry.getKey());
+                    changed = true;
+                    break;
+                }
+                Placement up = placements.get(at.id());
+                at = up == null ? null : up.parent();
+            }
+        }
+        int added = 0;
+        for (Sheet sheet : List.copyOf(sheets)) {
+            if (!sheet.root() && !sheet.subsheet() && !placed.contains(sheet.id())) {
+                float x = 40 + (root.nodes().size() + added) % 6 * 220;
+                float y = 40 + (root.nodes().size() + added) / 6 * 140;
+                root.add(io.github.leadassimilator.reticulum.graph.Node.of(new io.github.leadassimilator.reticulum.graph.NodeSettings.SheetSettings(
+                        sheet.id())).at(x, y));
+                added++;
+                changed = true;
+            }
+        }
+        for (Sheet sheet : sheets) {
+            changed |= sheet.assignPinSlots();
+        }
+        if (changed) {
+            bump();
+        }
+        return changed;
+    }
+
+    /**
+     * Switches a sheet on or off: its sheet node's switch, or the network's for the root. Returns whether it applied
+     * (an unplaced sheet has no switch).
+     */
+    public boolean setSheetEnabled(Sheet sheet, boolean enabled) {
+        if (sheet.root()) {
+            setEnabled(enabled);
+            return true;
+        }
+        Placement placement = placement(sheet.id());
+        if (placement == null) {
+            return false;
+        }
+        placement.parent().replace(placement.node().withEnabled(enabled));
+        return true;
+    }
+
+    /** Whether a sheet's own switch is on (the root's is the network's); its parents may still be off. */
+    public boolean sheetEnabled(Sheet sheet) {
+        if (sheet.root()) {
+            return enabled();
+        }
+        Placement placement = placement(sheet.id());
+        return placement != null && placement.node().enabled();
     }
 
     public int revision() {

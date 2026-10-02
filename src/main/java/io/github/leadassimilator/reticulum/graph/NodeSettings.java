@@ -28,6 +28,8 @@ public sealed interface NodeSettings {
         SPLITTER(SplitterSettings.CODEC, false),
         KIT(KitSettings.CODEC, false),
         DEVICE(DeviceSettings.CODEC, false),
+        /** A child sheet, placed on its parent: its pins are its Sheet input and Sheet output nodes. */
+        SHEET(SheetSettings.CODEC, false),
         SUBSHEET(SubSheetSettings.CODEC, false),
         SHEET_INPUT(SheetPinSettings.INPUT_CODEC, false),
         SHEET_OUTPUT(SheetPinSettings.OUTPUT_CODEC, false),
@@ -255,14 +257,46 @@ public sealed interface NodeSettings {
         }
     }
 
-    /** A named pin of a sub-sheet, placed inside it: where resources enter (input) or leave (output). */
-    record SheetPinSettings(boolean input, String name) implements NodeSettings {
-        public static final MapCodec<SheetPinSettings> INPUT_CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Codec.STRING.optionalFieldOf("name", "").forGetter(SheetPinSettings::name)
-        ).apply(i, name -> new SheetPinSettings(true, name)));
-        public static final MapCodec<SheetPinSettings> OUTPUT_CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Codec.STRING.optionalFieldOf("name", "").forGetter(SheetPinSettings::name)
-        ).apply(i, name -> new SheetPinSettings(false, name)));
+    /**
+     * A child sheet placed on its parent sheet. The child's Sheet input nodes are this node's inputs (left) and its
+     * Sheet output nodes its outputs (right). A sheet is placed exactly once; its node's switch, gate and redstone
+     * condition switch the whole sheet, everything in it included.
+     */
+    record SheetSettings(UUID sheet) implements NodeSettings {
+        public static final MapCodec<SheetSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Ids.UUID_CODEC.fieldOf("sheet").forGetter(SheetSettings::sheet)
+        ).apply(i, SheetSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.SHEET;
+        }
+    }
+
+    /**
+     * A pin on a sheet's edge, placed inside it: where resources or signals enter (input) or leave (output). Wires on
+     * the sheet's node attach by {@code slot}, a number fixed when the pin is made, so adding or removing a pin never
+     * moves the wires on the others. {@code resource} is what it carries (empty: anything, as older pins did).
+     */
+    record SheetPinSettings(boolean input, String name, Optional<ResourceKind> resource, int slot) implements NodeSettings {
+        public SheetPinSettings(boolean input, String name) {
+            this(input, name, Optional.empty(), -1);
+        }
+
+        public static final MapCodec<SheetPinSettings> INPUT_CODEC = codec(true);
+        public static final MapCodec<SheetPinSettings> OUTPUT_CODEC = codec(false);
+
+        private static MapCodec<SheetPinSettings> codec(boolean input) {
+            return RecordCodecBuilder.mapCodec(i -> i.group(
+                    Codec.STRING.optionalFieldOf("name", "").forGetter(SheetPinSettings::name),
+                    ResourceKind.CODEC.optionalFieldOf("resource").forGetter(SheetPinSettings::resource),
+                    Codec.INT.optionalFieldOf("slot", -1).forGetter(SheetPinSettings::slot)
+            ).apply(i, (name, resource, slot) -> new SheetPinSettings(input, name, resource, slot)));
+        }
+
+        public SheetPinSettings withSlot(int slot) {
+            return new SheetPinSettings(input, name, resource, slot);
+        }
 
         @Override
         public Kind kind() {

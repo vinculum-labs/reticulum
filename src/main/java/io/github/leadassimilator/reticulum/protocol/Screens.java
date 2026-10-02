@@ -117,16 +117,33 @@ public final class Screens {
 
     private static List<Views.SheetEntry> sheetEntries(ServerPlayer player, Network network) {
         var runtime = io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(network.id());
+        var compiled = runtime.compiled(network.root(), network);
         List<Views.SheetEntry> entries = new ArrayList<>();
-        for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
-            if (sheet.subsheet()) {
+        // Down the tree, each sheet followed by the ones inside it; the root is the network's own switch.
+        java.util.Map<java.util.UUID, Network.Placement> placements = network.placements();
+        addEntries(network, placements, network.root(), 0, runtime, compiled, entries);
+        return entries;
+    }
+
+    private static void addEntries(Network network, java.util.Map<java.util.UUID, Network.Placement> placements,
+            io.github.leadassimilator.reticulum.graph.Sheet parent, int depth, io.github.leadassimilator.reticulum.engine.NetworkRuntime runtime,
+            io.github.leadassimilator.reticulum.engine.CompiledSheet compiled, List<Views.SheetEntry> entries) {
+        if (depth > 32) {
+            return;
+        }
+        for (io.github.leadassimilator.reticulum.graph.Node node : parent.nodes()) {
+            if (!(node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.SheetSettings child)) {
                 continue;
             }
-            entries.add(new Views.SheetEntry(sheet.id(), sheet.name(), sheet.enabled(), sheet.enabled() && !network.runs(sheet),
-                    runtime.sheetsOff().contains(sheet.id()),
-                    runtime.compiled(sheet, network).errors().size()));
+            io.github.leadassimilator.reticulum.graph.Sheet sheet = network.sheet(child.sheet());
+            Network.Placement placement = placements.get(child.sheet());
+            if (sheet == null || placement == null || placement.node() != node && !placement.node().id().equals(node.id())) {
+                continue;
+            }
+            entries.add(new Views.SheetEntry(sheet.id(), sheet.name(), depth, node.enabled(), node.enabled() && !network.runs(sheet),
+                    runtime.sheetsOff().contains(sheet.id()), compiled.errorsFor(sheet.id()).size()));
+            addEntries(network, placements, sheet, depth + 1, runtime, compiled, entries);
         }
-        return entries;
     }
 
     private static List<String> overflowLines(ServerPlayer player, Network network) {
@@ -157,7 +174,7 @@ public final class Screens {
             }
             // Only the sheets the screen lists: sub-sheets run as part of the sheets that use them.
             case Payloads.ControllerSwitch.SHEET -> payload.sheet().map(network::sheet).filter(sheet -> !sheet.subsheet())
-                    .ifPresent(sheet -> sheet.setEnabled(payload.value() != 0));
+                    .ifPresent(sheet -> network.setSheetEnabled(sheet, payload.value() != 0));
             default -> {
             }
         }

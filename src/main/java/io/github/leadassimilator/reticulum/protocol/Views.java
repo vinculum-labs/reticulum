@@ -104,12 +104,17 @@ public final class Views {
     }
 
     /** One sheet in the controller screen's list. */
-    public record SheetEntry(java.util.UUID id, String name, boolean enabled, boolean folderOff, boolean redstoneOff, int errors) {
-        public static final StreamCodec<RegistryFriendlyByteBuf, SheetEntry> STREAM_CODEC = StreamCodec.composite(
+    /**
+     * A sheet in the controller screen's list, which runs down the tree: {@code depth} below the root (0 for the
+     * root's own sheets), {@code enabled} its own switch, {@code parentOff} a sheet above it off.
+     */
+    public record SheetEntry(java.util.UUID id, String name, int depth, boolean enabled, boolean parentOff, boolean redstoneOff, int errors) {
+        public static final StreamCodec<RegistryFriendlyByteBuf, SheetEntry> STREAM_CODEC = net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs.composite(
                 net.minecraft.core.UUIDUtil.STREAM_CODEC, SheetEntry::id,
                 ByteBufCodecs.STRING_UTF8, SheetEntry::name,
+                ByteBufCodecs.VAR_INT, SheetEntry::depth,
                 ByteBufCodecs.BOOL, SheetEntry::enabled,
-                ByteBufCodecs.BOOL, SheetEntry::folderOff,
+                ByteBufCodecs.BOOL, SheetEntry::parentOff,
                 ByteBufCodecs.BOOL, SheetEntry::redstoneOff,
                 ByteBufCodecs.VAR_INT, SheetEntry::errors,
                 SheetEntry::new);

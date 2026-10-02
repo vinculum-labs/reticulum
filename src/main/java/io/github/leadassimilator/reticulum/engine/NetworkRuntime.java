@@ -52,10 +52,12 @@ public final class NetworkRuntime {
     /** Why each node last moved nothing; absent once it moves again. Keyed by the node the editor shows. */
     private final Map<UUID, Status> statuses = new HashMap<>();
     private final Signals signals = new Signals();
-    /** Sheets whose redstone pulse (or the network's) fired this tick: their item flows do one operation now. */
-    private final Set<UUID> pulsedSheets = new java.util.HashSet<>();
-    /** Sheets switched off by redstone this tick, for the editor. */
+    /** The network's redstone pulse fired this tick: every item flow does one operation now. */
+    private boolean networkPulsed;
+    /** Sheets switched off this tick by a gate or redstone (theirs or a sheet's above them), for the editor. */
     private final Set<UUID> sheetsOff = new java.util.HashSet<>();
+    /** Sub-sheets compiled on their own, only to show their problems in the editor (they never run on their own). */
+    private final Map<UUID, CompiledSheet> templates = new HashMap<>();
     private boolean stopped = true;
     private long ticks;
 
@@ -165,47 +167,35 @@ public final class NetworkRuntime {
         compiled.clear();
     }
 
-    /** The compiled form of a sheet, if the engine has compiled it (sheets are compiled while the network runs). */
+    /** The network as compiled, if the engine has compiled it (it is compiled while the network runs). */
     @Nullable
-    public CompiledSheet compiledIfPresent(UUID sheetId) {
-        return compiled.get(sheetId);
+    public CompiledSheet compiledIfPresent() {
+        return compiled.values().stream().findFirst().orElse(null);
     }
 
     // ---------------------------------------------------------------- ticking
 
     public void tick(MinecraftServer server, Network network) {
         ticks++;
+        if (network.ensureTree()) {
+            NetworkManager.changed(server, network);
+        }
         signals.startTick();
         statuses.values().removeIf(status -> status == Status.SWITCHED_OFF);
-        pulsedSheets.clear();
         sheetsOff.clear();
         Signals.Verdict networkVerdict = signals.check(server, network, "network", network.switches().redstone(), null);
         if (networkVerdict == Signals.Verdict.OFF) {
             dormant(server, network);
             return;
         }
+        networkPulsed = networkVerdict == Signals.Verdict.PULSED;
         stopped = false;
         updateReach(server, network);
         payUpkeep(server, network);
-        List<CompiledSheet> sheets = new ArrayList<>();
-        List<CompiledSheet> dormant = new ArrayList<>();
-        for (Sheet sheet : network.sheets()) {
-            if (!network.runs(sheet)) {
-                continue;
-            }
-            Signals.Verdict verdict = sheetVerdict(server, network, sheet);
-            if (verdict == Signals.Verdict.OFF) {
-                sheetsOff.add(sheet.id());
-                dormant.add(compiled(sheet, network));
-                continue;
-            }
-            sheets.add(compiled(sheet, network));
-            if (verdict == Signals.Verdict.PULSED || networkVerdict == Signals.Verdict.PULSED) {
-                pulsedSheets.add(sheet.id());
-            }
-        }
+        // The whole tree compiles as one: every sheet that runs is in it, and sheet nodes switch what is inside them.
+        List<CompiledSheet> sheets = new ArrayList<>(List.of(compiled(network.root(), network)));
         Context context = new Context(server, network, this);
-        signals.evaluate(context, sheets, dormant);
+        signals.evaluate(context, sheets, List.of());
         if (meLinker != null) {
             List<CompiledSheet.MeLink> links = new ArrayList<>();
             sheets.forEach(sheet -> links.addAll(sheet.meLinks()));
@@ -223,6 +213,7 @@ public final class NetworkRuntime {
                     }
                 }
             }
+            noteSheetsOff(sheet);
         }
         refillTokens(sheets);
         sheets.sort(Comparator.comparingInt((CompiledSheet c) -> c.sheet().priority()).reversed());
@@ -248,14 +239,27 @@ public final class NetworkRuntime {
         if (meLinker != null) {
             meLinker.clear();
         }
-        List<CompiledSheet> sheets = new ArrayList<>();
-        for (Sheet sheet : network.sheets()) {
-            if (network.runs(sheet)) {
-                sheetsOff.add(sheet.id());
-                sheets.add(compiled(sheet, network));
+        CompiledSheet compiled = compiled(network.root(), network);
+        sheetsOff.add(network.root().id());
+        sheetsOff.addAll(compiled.sheetNodes().keySet());
+        signals.evaluate(new Context(server, network, this), List.of(), List.of(compiled));
+    }
+
+    /** Sheets whose sheet node, or a sheet node above it, a gate or redstone switched off this tick. */
+    private void noteSheetsOff(CompiledSheet compiled) {
+        if (signals.off().isEmpty()) {
+            return;
+        }
+        for (Map.Entry<UUID, UUID> entry : compiled.sheetNodes().entrySet()) {
+            UUID node = entry.getValue();
+            for (int depth = 0; node != null && depth < 256; depth++) {
+                if (signals.off().contains(node)) {
+                    sheetsOff.add(entry.getKey());
+                    break;
+                }
+                node = compiled.containerOf(node);
             }
         }
-        signals.evaluate(new Context(server, network, this), List.of(), sheets);
     }
 
     /** The network isn't running: connectors stop giving out redstone, once. */
@@ -456,22 +460,6 @@ public final class NetworkRuntime {
         return unreachable.contains(device);
     }
 
-    /** A sheet runs under its own redstone condition and those of every folder it is in. */
-    private Signals.Verdict sheetVerdict(MinecraftServer server, Network network, Sheet sheet) {
-        Signals.Verdict verdict = signals.check(server, network, "sheet:" + sheet.id(), sheet.redstone(), null);
-        String folder = sheet.folder();
-        while (!folder.isEmpty() && verdict != Signals.Verdict.OFF) {
-            Redstone redstone = network.switches().folderRedstone().get(folder);
-            if (redstone != null) {
-                Signals.Verdict parent = signals.check(server, network, "folder:" + folder, redstone, null);
-                verdict = parent == Signals.Verdict.OFF ? parent : parent == Signals.Verdict.PULSED ? parent : verdict;
-            }
-            int slash = folder.lastIndexOf('/');
-            folder = slash < 0 ? "" : folder.substring(0, slash);
-        }
-        return verdict;
-    }
-
     /** Channel use of each ME pin ("node/out/0"), updated once a second. */
     public Map<String, MeLinker.Usage> meUsage() {
         return meUsage;
@@ -514,7 +502,7 @@ public final class NetworkRuntime {
 
     /** Whether a redstone pulse fired for these routes this tick, so their item operation runs now. */
     boolean forced(CompiledSheet sheet, List<CompiledSheet.Route> routes) {
-        if (pulsedSheets.contains(sheet.sheet().id())) {
+        if (networkPulsed) {
             return true;
         }
         if (signals.pulsed().isEmpty()) {
@@ -539,14 +527,29 @@ public final class NetworkRuntime {
         return true;
     }
 
+    /**
+     * The network as compiled from its root, for any sheet in the tree (they compile as one); a sub-sheet compiled on
+     * its own, only so the editor can show its problems.
+     */
     public CompiledSheet compiled(Sheet sheet, Network network) {
-        CompiledSheet current = compiled.get(sheet.id());
-        if (current == null || !current.isCurrent(sheet, network)) {
-            current = CompiledSheet.compile(sheet, network);
-            compiled.put(sheet.id(), current);
+        if (sheet.subsheet()) {
+            CompiledSheet current = templates.get(sheet.id());
+            if (current == null || !current.isCurrent(sheet, network)) {
+                current = CompiledSheet.compile(sheet, network);
+                templates.put(sheet.id(), current);
+            }
+            return current;
+        }
+        Sheet root = network.root();
+        CompiledSheet current = compiled.get(root.id());
+        if (current == null || !current.isCurrent(root, network)) {
+            compiled.clear();
+            current = CompiledSheet.compile(root, network);
+            compiled.put(root.id(), current);
             for (CompiledSheet.Problem error : current.errors()) {
-                if (reportedErrors.add(sheet.id() + error.message())) {
-                    Reticulum.LOGGER.warn("Network {} sheet '{}': {}", networkId, sheet.name(), error.message());
+                if (reportedErrors.add(current.sheetOf(error.node() == null ? root.id() : error.node()) + error.message())) {
+                    Sheet on = network.sheet(error.node() == null ? root.id() : current.sheetOf(error.node()));
+                    Reticulum.LOGGER.warn("Network {} sheet '{}': {}", networkId, on == null ? root.name() : on.name(), error.message());
                 }
             }
         }

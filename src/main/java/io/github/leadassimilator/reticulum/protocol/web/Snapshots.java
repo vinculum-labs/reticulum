@@ -69,9 +69,7 @@ final class Snapshots {
         boolean canAdmin = role.map(r -> r.atLeast(Role.ADMIN)).orElse(false);
         out.addProperty("canAdmin", canAdmin);
         out.addProperty("hasPassword", network.passwordHash() != null);
-        JsonArray disabledFolders = new JsonArray();
-        network.disabledFolders().forEach(disabledFolders::add);
-        out.add("disabledFolders", disabledFolders);
+        out.addProperty("root", network.root().id().toString());
         out.add("redstone", encode(server, Redstone.CODEC, network.switches().redstone()));
         JsonArray identified = new JsonArray();
         for (io.github.leadassimilator.reticulum.network.Identify identify : network.identified()) {
@@ -80,9 +78,6 @@ final class Snapshots {
             identified.add(json);
         }
         out.add("identified", identified);
-        JsonObject folderRedstone = new JsonObject();
-        network.switches().folderRedstone().forEach((folder, redstone) -> folderRedstone.add(folder, encode(server, Redstone.CODEC, redstone)));
-        out.add("folderRedstone", folderRedstone);
         if (canAdmin) {
             // The member list is shown to those who can change it.
             JsonArray members = new JsonArray();
@@ -101,11 +96,19 @@ final class Snapshots {
 
         NetworkRuntime runtime = NetworkTicker.runtime(network.id());
         JsonArray sheets = new JsonArray();
+        Map<java.util.UUID, Network.Placement> placements = network.placements();
         for (Sheet sheet : network.sheets()) {
             JsonObject json = encode(server, Sheet.CODEC, sheet).getAsJsonObject();
+            // Where it sits in the tree, and its own switch (its sheet node's; the root's is the network's).
+            Network.Placement placement = placements.get(sheet.id());
+            if (placement != null) {
+                json.addProperty("parent", placement.parent().id().toString());
+                json.addProperty("node", placement.node().id().toString());
+            }
+            json.addProperty("enabled", sheet.root() ? network.enabled() : placement != null && placement.node().enabled());
             CompiledSheet compiled = runtime.compiled(sheet, network);
             JsonArray errors = new JsonArray();
-            for (CompiledSheet.Problem problem : compiled.errors()) {
+            for (CompiledSheet.Problem problem : sheet.subsheet() ? compiled.errors() : compiled.errorsFor(sheet.id())) {
                 JsonObject error = new JsonObject();
                 error.addProperty("message", problem.message());
                 if (problem.node() != null) {

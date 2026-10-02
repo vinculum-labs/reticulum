@@ -222,7 +222,7 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.stopped_off", "Switched off");
         add("screen.reticulum.stopped_redstone", "Not running (redstone, or the controller isn't loaded)");
         add("screen.reticulum.no_sheets", "No sheets yet: open the editor to make one");
-        add("screen.reticulum.folder_off", "(folder off)");
+        add("screen.reticulum.parent_off", "(a sheet above is off)");
         add("screen.reticulum.overflow", "Overflow: %s");
 
         add("screen.reticulum.power", "Power: %s / %s FE (%s FE/t)");

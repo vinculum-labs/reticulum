@@ -167,7 +167,8 @@ public final class WebApi {
                         }
                     }
                 } finally {
-                    // Whatever went wrong part way, the edits before it are saved and shown.
+                    // Whatever went wrong part way, the edits before it are saved and shown, with the tree put right.
+                    network.ensureTree();
                     NetworkManager.changed(server, network);
                     // Push right away rather than on the next tick: a paused singleplayer server doesn't tick.
                     pushSnapshots(server, network);
@@ -290,21 +291,55 @@ public final class WebApi {
             String type = string(edit, "type");
             switch (type) {
                 case "importSheet" -> {
-                    // A sheet pasted as JSON (from another world, say): new ids, the same devices by position.
+                    // A sheet pasted as JSON (from another world, say): new ids, the same devices by position, placed
+                    // in the parent asked for (the root when none). Sheet nodes in it are dropped: their sheets aren't here.
                     Sheet pasted = decode(server, Sheet.CODEC, edit.get("sheet"), "sheet");
                     roomForSheet(network);
                     check(Limits.check(pasted));
                     String name = Limits.name(pasted.name());
                     Sheet sheet = pasted.copyWithNewIds(name == null ? "Imported sheet" : name);
+                    sheet.setRoot(false);
                     network.sheets().add(sheet);
+                    if (!sheet.subsheet()) {
+                        place(network, sheet, parentOf(network, edit), edit);
+                    }
                     return new com.google.gson.JsonPrimitive(sheet.id().toString());
                 }
                 case "createSheet" -> {
+                    // A new sheet, placed as a node in its parent (the root when none is given) where the editor asks.
                     roomForSheet(network);
                     String name = Limits.name(string(edit, "name"));
-                    Sheet sheet = new Sheet(UUID.randomUUID(), name == null ? "Sheet " + (network.sheets().size() + 1) : name);
-                    network.sheets().add(sheet);
+                    Sheet sheet = new Sheet(UUID.randomUUID(), name == null ? "Sheet " + network.sheets().size() : name);
+                    if (edit.has("subsheet") && edit.get("subsheet").getAsBoolean()) {
+                        sheet.setSubsheet(true);
+                        network.sheets().add(sheet);
+                    } else {
+                        Sheet parent = parentOf(network, edit);
+                        network.sheets().add(sheet);
+                        place(network, sheet, parent, edit);
+                    }
                     return new com.google.gson.JsonPrimitive(sheet.id().toString());
+                }
+                case "moveSheet" -> {
+                    // Into another parent: its node there (same id, switch and label), wires on the old one dropped.
+                    Sheet sheet = sheet(network, edit);
+                    Sheet parent = parentOf(network, edit);
+                    Network.Placement placement = network.placement(sheet.id());
+                    if (sheet.root() || placement == null) {
+                        throw new RequestException("Only a sheet in the tree can move");
+                    }
+                    if (parent == sheet || network.descendants(sheet).contains(parent)) {
+                        throw new RequestException("A sheet can't go inside itself");
+                    }
+                    if (parent.subsheet()) {
+                        throw new RequestException("Sheets can't go inside a sub-sheet");
+                    }
+                    if (parent != placement.parent()) {
+                        placement.parent().remove(placement.node().id());
+                        float x = edit.has("x") ? edit.get("x").getAsFloat() : placement.node().x();
+                        float y = edit.has("y") ? edit.get("y").getAsFloat() : placement.node().y();
+                        parent.add(placement.node().at(x, y));
+                    }
                 }
                 case "updateSheet" -> {
                     Sheet sheet = sheet(network, edit);
@@ -312,28 +347,24 @@ public final class WebApi {
                         sheet.setName(string(edit, "name"));
                     }
                     if (edit.has("enabled")) {
-                        sheet.setEnabled(edit.get("enabled").getAsBoolean());
+                        // Its sheet node's switch (the network's, for the root).
+                        network.setSheetEnabled(sheet, edit.get("enabled").getAsBoolean());
                     }
                     if (edit.has("interval")) {
                         sheet.setInterval(Math.max(1, edit.get("interval").getAsInt()));
                     }
-                    if (edit.has("folder")) {
-                        sheet.setFolder(edit.get("folder").getAsString());
-                    }
-                    if (edit.has("redstone")) {
-                        sheet.setRedstone(decode(server, Redstone.CODEC, edit.get("redstone"), "redstone"));
-                    }
-                    if (edit.has("subsheet")) {
-                        sheet.setSubsheet(edit.get("subsheet").getAsBoolean());
+                    if (edit.has("subsheet") && !sheet.root() && edit.get("subsheet").getAsBoolean() != sheet.subsheet()) {
+                        boolean subsheet = edit.get("subsheet").getAsBoolean();
+                        if (subsheet && !network.descendants(sheet).isEmpty()) {
+                            throw new RequestException("A sheet with sheets inside it can't be a sub-sheet");
+                        }
+                        Network.Placement placement = network.placement(sheet.id());
+                        if (subsheet && placement != null) {
+                            // Out of the tree: sub-sheets are placed by copy.
+                            placement.parent().remove(placement.node().id());
+                        }
+                        sheet.setSubsheet(subsheet);
                         network.sheets().forEach(Sheet::touch);
-                    }
-                }
-                case "setFolderEnabled" -> {
-                    String folder = Sheet.normalizeFolder(string(edit, "folder"));
-                    if (edit.get("enabled").getAsBoolean()) {
-                        network.disabledFolders().remove(folder);
-                    } else {
-                        network.disabledFolders().add(folder);
                     }
                 }
                 case "renameNetwork" -> network.setName(string(edit, "name"));
@@ -357,15 +388,12 @@ public final class WebApi {
                     admin(network, player);
                     network.members().remove(uuid(edit, "id"));
                 }
-                case "deleteSheet" -> {
-                    Sheet sheet = sheet(network, edit);
-                    network.sheets().remove(sheet);
-                    sheet.nodes().forEach(node -> forgetSignalMemory(network, node.id()));
-                }
+                case "deleteSheet" -> deleteSheet(network, sheet(network, edit));
                 case "addNode", "updateNode" -> {
                     Sheet sheet = sheet(network, edit);
                     Node node = decode(server, Node.CODEC, edit.get("node"), "node");
                     checkPorts(network, node);
+                    checkSheetNode(network, sheet, node, type.equals("addNode"));
                     check(Limits.check(node));
                     if (type.equals("addNode")) {
                         if (sheet.node(node.id()) != null) {
@@ -384,9 +412,15 @@ public final class WebApi {
                     return new com.google.gson.JsonPrimitive(node.id().toString());
                 }
                 case "removeNode" -> {
-                    UUID node = uuid(edit, "node");
-                    sheet(network, edit).remove(node);
-                    forgetSignalMemory(network, node);
+                    UUID id = uuid(edit, "node");
+                    Sheet sheet = sheet(network, edit);
+                    Node node = sheet.node(id);
+                    if (node != null && node.settings() instanceof NodeSettings.SheetSettings child && network.sheet(child.sheet()) != null) {
+                        // A sheet node goes with its sheet and everything in it.
+                        deleteSheet(network, network.sheet(child.sheet()));
+                    }
+                    sheet.remove(id);
+                    forgetSignalMemory(network, id);
                 }
                 case "moveNodes" -> {
                     Sheet sheet = sheet(network, edit);
@@ -475,15 +509,6 @@ public final class WebApi {
                 }
                 case "clearIdentify" -> io.github.leadassimilator.reticulum.network.Identifies.clear(server, network);
                 case "setNetworkRedstone" -> network.switches().setRedstone(decode(server, Redstone.CODEC, edit.get("redstone"), "redstone"));
-                case "setFolderRedstone" -> {
-                    String folder = Sheet.normalizeFolder(string(edit, "folder"));
-                    Redstone redstone = decode(server, Redstone.CODEC, edit.get("redstone"), "redstone");
-                    if (redstone.ignored()) {
-                        network.switches().folderRedstone().remove(folder);
-                    } else {
-                        network.switches().folderRedstone().put(folder, redstone);
-                    }
-                }
                 default -> throw new RequestException("Unknown edit '" + type + "'");
             }
             return com.google.gson.JsonNull.INSTANCE;
@@ -557,6 +582,62 @@ public final class WebApi {
             Map<String, String> templates = new HashMap<>(network.filters());
             templates.put(name, expression);
             return templates;
+        }
+
+        /** The parent sheet an edit names ("parent"), or the root when it names none. */
+        private static Sheet parentOf(Network network, JsonObject edit) throws RequestException {
+            if (!edit.has("parent") || edit.get("parent").isJsonNull()) {
+                return network.root();
+            }
+            Sheet parent = network.sheet(uuid(edit, "parent"));
+            if (parent == null || parent.subsheet()) {
+                throw new RequestException("No such sheet to put it in");
+            }
+            return parent;
+        }
+
+        /** Places a sheet in {@code parent} as a sheet node, where the edit asks ("x", "y") or in the top left. */
+        private static void place(Network network, Sheet sheet, Sheet parent, JsonObject edit) throws RequestException {
+            if (parent.nodes().size() >= Limits.NODES_PER_SHEET) {
+                throw new RequestException("A sheet can have at most " + Limits.NODES_PER_SHEET + " nodes");
+            }
+            float x = edit.has("x") ? edit.get("x").getAsFloat() : 40;
+            float y = edit.has("y") ? edit.get("y").getAsFloat() : 40;
+            parent.add(Node.of(new NodeSettings.SheetSettings(sheet.id())).at(x, y));
+        }
+
+        /**
+         * Sheet nodes come and go with their sheets (New sheet, Delete): one can't be added for a sheet already placed,
+         * and an existing one can't be pointed at another sheet. Sheets can't go inside sub-sheets.
+         */
+        private static void checkSheetNode(Network network, Sheet sheet, Node node, boolean adding) throws RequestException {
+            if (!(node.settings() instanceof NodeSettings.SheetSettings child)) {
+                return;
+            }
+            if (sheet.subsheet()) {
+                throw new RequestException("Sheets can't go inside a sub-sheet");
+            }
+            Node existing = sheet.node(node.id());
+            if (adding || existing == null || !(existing.settings() instanceof NodeSettings.SheetSettings was) || !was.sheet().equals(child.sheet())) {
+                throw new RequestException("Sheets are added with New sheet and moved with Move to");
+            }
+        }
+
+        /** Deletes a sheet with every sheet inside it, and its sheet node. The root stays. */
+        private static void deleteSheet(Network network, Sheet sheet) throws RequestException {
+            if (sheet.root()) {
+                throw new RequestException("The network's top sheet can't be deleted");
+            }
+            Network.Placement placement = network.placement(sheet.id());
+            List<Sheet> gone = new ArrayList<>(network.descendants(sheet));
+            gone.add(sheet);
+            for (Sheet each : gone) {
+                network.sheets().remove(each);
+                each.nodes().forEach(node -> forgetSignalMemory(network, node.id()));
+            }
+            if (placement != null) {
+                placement.parent().remove(placement.node().id());
+            }
         }
 
         private static Sheet sheet(Network network, JsonObject edit) throws RequestException {
@@ -688,11 +769,9 @@ public final class WebApi {
         out.add("status", statuses);
         JsonObject signals = new JsonObject();
         Map<UUID, String> pins = new HashMap<>();
-        for (Sheet sheet : network.sheets()) {
-            CompiledSheet compiled = runtime.compiledIfPresent(sheet.id());
-            if (compiled != null) {
-                pins.putAll(compiled.pinKeys());
-            }
+        CompiledSheet compiled = runtime.compiledIfPresent();
+        if (compiled != null) {
+            pins.putAll(compiled.pinKeys());
         }
         runtime.signalValues().forEach((id, value) -> signals.addProperty(pins.getOrDefault(id, id.toString()), value));
         out.add("signals", signals);

@@ -31,6 +31,14 @@ public record Node(UUID id, NodeSettings settings, Optional<String> label, boole
         return new Node(id, settings, label, enabled, x, y, redstone);
     }
 
+    public Node with(NodeSettings settings) {
+        return new Node(id, settings, label, enabled, x, y, redstone);
+    }
+
+    public Node withEnabled(boolean enabled) {
+        return new Node(id, settings, label, enabled, x, y, redstone);
+    }
+
     public Node at(float x, float y) {
         return new Node(id, settings, label, enabled, x, y, redstone);
     }
