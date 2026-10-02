@@ -7,7 +7,7 @@ web editor that opens in your browser.
 - **One network, many flows.** A connector touches up to six machines. Every flow runs through the same cables; no
   separate pipes per resource and no per-side settings on the block.
 - **Flows are drawn, not configured.** Wire a chest to a furnace to a chest. Add a filter, a splitter or a rate limit
-  in between. Gate a sheet on redstone, a timer or how full a tank is.
+  in between. Switch a sheet with redstone, a timer or how full a tank is.
 - **Built for big bases.** A network with 1,024 connectors and 2,048 routes ticks in about half a millisecond.
 
 ## Getting started
@@ -17,11 +17,11 @@ web editor that opens in your browser.
    Anything a connector touches that holds items, fluids, energy or chemicals (or takes or gives redstone, or is an
    AE2 cable or machine) becomes a **device**.
 3. Right-click the controller and press **Open editor**. Your browser opens the editor for that network.
-4. Make a **sheet**, drag two devices onto it from the device list, and wire the output of one to the input of the
+4. Drag two devices onto the network's sheet from the device list, and wire the output of one to the input of the
    other. The flow runs as soon as the wire is there.
 
 The controller's screen also shows the network at a glance: its sheets (with a switch for each), power, overflow and
-the redstone condition.
+what redstone at the controller does.
 
 ## Blocks and items
 
@@ -49,16 +49,30 @@ driver can't share Direct3D textures with OpenGL, it falls back to a window over
 view (WebKitGTK not installed), or with "Open the editor inside the game" turned off in the client config, it opens
 in your browser.
 
-### Sheets, folders and sub-sheets
+### Sheets
 
-A network has any number of **sheets**, each a flow chart. Sheets can sit in folders, and each sheet and folder can
-be switched off, given a run interval and a priority, or gated on redstone. A network or sheet that redstone switches
-off moves nothing, but its signal logic keeps running, so a condition that reads a signal it sends itself (a sensor
-watching a battery, say) can switch it back on. A sheet marked as a **sub-sheet** can be
-used as a single node in other sheets, with **Sheet input** and **Sheet output** nodes as its pins.
+A network's flows live on **sheets**, each a flow chart, and sheets sit inside sheets: the network has one top sheet,
+and a sheet inside another shows there as a node. Its **Sheet input** and **Sheet output** nodes are that node's pins,
+each carrying one kind of thing (or anything), so flows and signals run between sheets through wires. The sidebar shows
+the tree; drag a sheet onto another to move it.
 
-The device list beside the sheets can show only the devices no sheet uses yet (**Unused**), and a device's panel lists
-where it is used, each sheet a link.
+Open a sheet node in place with the arrow on its header: it becomes a frame with the sheet inside, to edit right there.
+A wire drawn across a frame's edge gets a pin at that edge by itself.
+
+A sheet node's switch, and a signal wired into its gate, switch everything in the sheet. A switched-off sheet moves
+nothing; its signal outputs hold their last value, give a set value, or keep running, as each is set.
+
+A device lives on one sheet: its device node is where it is used. A sheet that needs a device from elsewhere gets it
+wired down through pins. The device list can show only the devices not placed yet (**Unused**), and a device's panel
+says where it lives.
+
+### Blueprints
+
+A **blueprint** is a set to build again and again: a sheet whose device nodes are **slots** for a kind of block. Make
+one from a sheet (the sheet stays as its first copy and keeps running), place **copies** of it on any sheet, and open a
+copy to fill its slots by dropping devices on them. **Fill the rest by layout** finds the other blocks of a set built
+the same way (turned, if need be). A change to the blueprint reaches every copy; a copy can be turned back into a
+normal sheet.
 
 Copy a sheet as JSON and import it into this world or another. Devices are matched by position; ones that don't
 exist show as offline until you pick local ones for them.
@@ -74,7 +88,8 @@ exist show as offline until you pick local ones for them.
 | **Kit** | Moves a set of items all together or not at all (a recipe's worth, for example). |
 | **Level sensor** | How much of a resource a device holds. |
 | **Compare, Logic, Timer, Pulse, Latch, Counter, Delay** | Redstone-style logic on signals of 0–15. |
-| **Transmitter / Receiver** | Send a signal by name from one sheet and pick it up on any other (or in a redstone condition). |
+| **Sheet, Blueprint** | A sheet inside this one, or a copy of a blueprint, as one node with the sheet's pins. |
+| **Network** | Another network, switched on and off by this node's gate. Only that network's admins can place one; the other network keeps the last setting while this one stops. |
 
 ### Filters
 
@@ -108,7 +123,7 @@ is in it.
 ### Dashboard
 
 The dashboard shows what the network costs per tick, its busiest flows, flows that are waiting (and why), sheets and
-folders that are switched off, and what is in the overflow buffer.
+nodes that are switched off, and what is in the overflow buffer.
 
 ## Redstone
 
@@ -116,8 +131,11 @@ Every device a connector touches can be read as a redstone source and driven as 
 connector can switch a lamp on another: put both on a sheet and wire the lever's redstone output to the lamp's
 redstone input. A device's comparator output can be read the same way.
 
-Sheets, folders and the whole network can be gated on redstone: **High** runs while powered, **Low** while not, and
-**Pulse** once per rising edge.
+Every node that moves things, and every sheet, blueprint and network node, has a **gate**: the diamond pin on its
+left. Wire a signal into it to switch the node (a sheet node switches its whole sheet). A gate runs its node **while on**, or does **one operation per pulse**, so a
+button moves exactly one stack.
+
+The controller block takes redstone too: the network can ignore it, run only while powered, or stop while powered.
 
 ## Wireless
 
