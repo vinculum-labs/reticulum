@@ -1,6 +1,5 @@
 <script lang="ts">
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-  import Zap from "@lucide/svelte/icons/zap";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
@@ -19,7 +18,6 @@
     shortLabel,
     sideLabel,
     signalInputs,
-    signalOutput,
     summary,
   } from "../../lib/kinds";
   import { app, deviceName, toggleFrame } from "../../lib/state.svelte";
@@ -93,7 +91,7 @@
       ? (s.outputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/out/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource], handle: `out:${i}` }))
       : holds
         ? (data.holder?.outputs ?? []).map((pin) => holderRow(pin, false))
-        : signal && signalOutput(kind)
+        : signal
           ? [{ label: "out", title: "Output", color, handle: "out:0" }]
           : [],
   );

@@ -641,10 +641,19 @@ export function openCopyNode(): { sheet: Sheet; node: GraphNode & { settings: Co
   return blueprint ? { sheet, node: node as GraphNode & { settings: CopySettings }, blueprint } : null;
 }
 
-/** Sets which blocks fill a copy's slots, undoably. */
-export function setBindings(sheet: Sheet, node: GraphNode & { settings: CopySettings }, bindings: Record<string, Binding>, label = "fill slot") {
-  const next = { ...node, settings: { ...node.settings, bindings } };
-  return edit([{ type: "updateNode", sheet: sheet.id, node: next }], [{ type: "updateNode", sheet: sheet.id, node }], label);
+/**
+ * Changes which blocks fill a copy's slots, undoably. {@code change} gets the fillings as last sent (an earlier fill
+ * may not be back from the server yet) and returns the new ones.
+ */
+export function setBindings(
+  sheet: Sheet,
+  node: GraphNode & { settings: CopySettings },
+  change: (bindings: Record<string, Binding>) => Record<string, Binding>,
+  label = "fill slot",
+) {
+  const before = (sentNodes.get(node.id) ?? node) as GraphNode & { settings: CopySettings };
+  const next = { ...before, settings: { ...before.settings, bindings: change(before.settings.bindings ?? {}) } };
+  return edit([{ type: "updateNode", sheet: sheet.id, node: next }], [{ type: "updateNode", sheet: sheet.id, node: before }], label);
 }
 
 /** Shows the node an error is about: selected, brought into view and pulsing for a moment. */

@@ -20,16 +20,23 @@
   const empty = $derived(slotsOf(blueprint).filter((s) => !bindings[s.id]).length);
 
   function fill(device: Device) {
-    setBindings(sheet, copy, { ...bindings, [slot.id]: { device: device.pos, ...(binding?.turns ? { turns: binding.turns } : {}) } }, `fill ${slotName(slot)}`);
+    setBindings(sheet, copy, (b) => ({ ...b, [slot.id]: { device: device.pos, ...(b[slot.id]?.turns ? { turns: b[slot.id].turns } : {}) } }), `fill ${slotName(slot)}`);
   }
 
   function turn(turns: number) {
-    if (binding) setBindings(sheet, copy, { ...bindings, [slot.id]: { device: binding.device, ...(turns ? { turns } : {}) } }, "turn slot");
+    if (binding) setBindings(sheet, copy, (b) => (b[slot.id] ? { ...b, [slot.id]: { device: b[slot.id].device, ...(turns ? { turns } : {}) } } : b), "turn slot");
   }
 
   function clear() {
-    const { [slot.id]: _gone, ...rest } = bindings;
-    setBindings(sheet, copy, rest, `empty ${slotName(slot)}`);
+    setBindings(
+      sheet,
+      copy,
+      (b) => {
+        const { [slot.id]: _gone, ...rest } = b;
+        return rest;
+      },
+      `empty ${slotName(slot)}`,
+    );
   }
 
   /** Fills the other empty slots from this one: same layout, turned the same, exact kinds of block, unused ones only. */
@@ -41,8 +48,8 @@
       toast("No other slot's block is where the layout says (the same kind of block, unused, at the same place from this one).", "info");
       return;
     }
-    const ok = await setBindings(sheet, copy, result.bindings, "fill by layout");
-    if (ok) toast(`Filled ${result.filled} of ${empty - 1} empty slot${empty - 1 === 1 ? "" : "s"}.`, "info");
+    const ok = await setBindings(sheet, copy, () => result.bindings, "fill by layout");
+    if (ok) toast(`Filled ${result.filled} of ${empty} empty slot${empty === 1 ? "" : "s"}.`, "info");
   }
 </script>
 

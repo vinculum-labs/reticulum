@@ -41,7 +41,7 @@
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
   import { handleIndex, pinResource, toFlow, type FlowView, type NodeData } from "../../lib/graph";
-  import { crossWire } from "../../lib/crossing";
+  import { crossWire, nextOrder } from "../../lib/crossing";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
@@ -106,6 +106,10 @@
     const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes, bindings);
     view = built;
     sizedWith = sizes;
+    untrack(() => {
+      if (app.selectedNodes.some((id) => !built.owner.has(id))) app.selectedNodes = app.selectedNodes.filter((id) => built.owner.has(id));
+      if (app.selectedEdges.some((id) => !built.owner.has(id))) app.selectedEdges = app.selectedEdges.filter((id) => built.owner.has(id));
+    });
     rebuilding = true;
     // Unchanged nodes and wires keep their objects, so Svelte Flow skips them (it compares by identity) instead of
     // re-rendering and re-measuring the whole sheet on every metrics update.
@@ -256,8 +260,7 @@
       await edit(crossing.edits, crossing.undo, "connect across sheets");
       return;
     }
-    const order = (from.wires ?? []).filter((w) => w.from === c.source && (w.output ?? 0) === output).length;
-    const wire: Wire = { id: uuid(), from: c.source, output, to: c.target, input, order };
+    const wire: Wire = { id: uuid(), from: c.source, output, to: c.target, input, order: nextOrder(from, c.source, output) };
     await edit([{ type: "connect", sheet: from.id, wire }], [{ type: "disconnect", sheet: from.id, wire: wire.id }], "connect");
   }
 
@@ -300,9 +303,15 @@
       const on = sheetOf(e.id);
       if (on && !deleted.has(on.id)) touchedSheets.set(on.id, on);
     }
-    // Restore every wire that touched a removed node, plus wires cut on their own.
+    // Restore every wire that touched a removed node, plus wires cut on their own; not those on a deleted sheet's
+    // node, which doesn't come back.
+    const heldNodes = new Set(gone.filter((n) => heldSheet(app.snapshot, nodeOf(n.id))).map((n) => n.id));
     for (const on of touchedSheets.values()) {
       for (const w of on.wires ?? []) {
+        if (heldNodes.has(w.from) || heldNodes.has(w.to)) {
+          if (cut.some((e) => e.id === w.id)) edits.push({ type: "disconnect", sheet: on.id, wire: w.id });
+          continue;
+        }
         const touched = goneIds.has(w.from) || goneIds.has(w.to);
         const cutAlone = cut.some((e) => e.id === w.id) && !touched;
         if (cutAlone) edits.push({ type: "disconnect", sheet: on.id, wire: w.id });
@@ -347,7 +356,8 @@
     const settled = new Set<string>();
     for (let pass = 0; pass < 8; pass++) {
       let shifted = false;
-      for (const [frameId, frame] of view.frames) {
+      // Frames are listed outside in; the innermost go first.
+      for (const [frameId, frame] of [...view.frames].reverse()) {
         const inside = placed.get(frame.sheet);
         const held = app.snapshot?.sheets.find((x) => x.id === frame.sheet);
         const outer = sheetOf(frameId);
@@ -481,9 +491,15 @@
       toast("Drop it on one of the slots (the dashed cards).", "info");
       return;
     }
-    const bindings = copy.node.settings.bindings ?? {};
-    const turns = Object.values(bindings).find((b) => b.turns)?.turns;
-    setBindings(copy.sheet, copy.node, { ...bindings, [slot.id]: { device: device.pos, ...(turns ? { turns } : {}) } }, `fill ${slotName(slot)}`);
+    setBindings(
+      copy.sheet,
+      copy.node,
+      (bindings) => {
+        const turns = Object.values(bindings).find((b) => b.turns)?.turns;
+        return { ...bindings, [slot.id]: { device: device.pos, ...(turns ? { turns } : {}) } };
+      },
+      `fill ${slotName(slot)}`,
+    );
     app.selectedNodes = [slot.id];
   }
 

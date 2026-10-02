@@ -26,6 +26,11 @@ function nodeIn(sheet: Sheet, id: string): GraphNode | undefined {
 /** Room the new pins keep from the sheet's other nodes. */
 const GAP = 60;
 
+/** Where a new wire from this output goes in its order: after the others. */
+export function nextOrder(sheet: Sheet, node: string, output: number): number {
+  return (sheet.wires ?? []).filter((w) => w.from === node && (w.output ?? 0) === output).length;
+}
+
 /**
  * The edits (and their undo) that wire {@code from} to {@code to} across the frames between their sheets: up out of
  * the source's sheet through Sheet outputs, down into the target's through Sheet inputs. A pin already carrying the
@@ -55,20 +60,25 @@ export function crossWire(
 
   const edits: Edit[] = [];
   const undo: Edit[] = [];
-  const connect = (sheet: Sheet, wire: Omit<Wire, "id">) => {
+  const connect = (sheet: Sheet, wire: Omit<Wire, "id" | "order">) => {
     const id = uuid();
-    edits.push({ type: "connect", sheet: sheet.id, wire: { ...wire, id } });
+    edits.push({ type: "connect", sheet: sheet.id, wire: { ...wire, id, order: nextOrder(sheet, wire.from, wire.output ?? 0) } });
     undo.unshift({ type: "disconnect", sheet: sheet.id, wire: id });
   };
+  /**
+   * A new pin: an output right of everything, at the height of what feeds it; an input below everything, at the left
+   * edge. Either way the sheet's top-left corner stays, so an open frame's contents don't jump.
+   */
   const addPin = (sheet: Sheet, input: boolean, y: number): { id: string; slot: number } => {
     const nodes = sheet.nodes ?? [];
     const xs = nodes.map((n) => n.x ?? 0);
+    const ys = nodes.map((n) => n.y ?? 0);
     const slot = nextSlot(sheet, input);
     const node: GraphNode = {
       id: uuid(),
       settings: { kind: input ? "sheet_input" : "sheet_output", name, ...(carried ? { resource: carried } : {}), slot },
-      x: Math.round(input ? (xs.length ? Math.min(...xs) : 0) - 160 - GAP : (xs.length ? Math.max(...xs) : 0) + 160 + GAP),
-      y: Math.round(y),
+      x: Math.round(input ? (xs.length ? Math.min(...xs) : 0) : (xs.length ? Math.max(...xs) : 0) + 160 + GAP),
+      y: Math.round(input ? (ys.length ? Math.max(...ys) + 80 + GAP : 0) : y),
     };
     edits.push({ type: "addNode", sheet: sheet.id, node });
     // Removing the pin takes the wires on it along.
@@ -107,14 +117,12 @@ export function crossWire(
     if (reused) {
       pinId = reused.id;
     } else {
-      const pin = addPin(sheet, true, target.y ?? 0);
+      const pin = addPin(sheet, true, 0);
       pinId = pin.id;
-      const order = (parent.wires ?? []).filter((w) => w.from === at.node && (w.output ?? 0) === at.output).length;
-      connect(parent, { from: at.node, output: at.output, to: sheet.node, input: pin.slot, order });
+      connect(parent, { from: at.node, output: at.output, to: sheet.node, input: pin.slot });
     }
-    at = { node: pinId, output: 0, y: target.y ?? 0 };
+    at = { node: pinId, output: 0, y: 0 };
   }
-  const order = (to.sheet.wires ?? []).filter((w) => w.from === at.node && (w.output ?? 0) === at.output).length;
-  connect(to.sheet, { from: at.node, output: at.output, to: to.node, input: to.index, order });
+  connect(to.sheet, { from: at.node, output: at.output, to: to.node, input: to.index });
   return { edits, undo };
 }

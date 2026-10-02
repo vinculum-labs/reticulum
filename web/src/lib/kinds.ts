@@ -80,11 +80,6 @@ export function signalInputs(kind: NodeKind): string[] {
   }
 }
 
-/** Whether a signal node gives an output to wire on. */
-export function signalOutput(kind: NodeKind): boolean {
-  return isSignal(kind);
-}
-
 /** Kinds a signal wire can switch on and off through their gate (the diamond pin). */
 export function gated(kind: NodeKind): boolean {
   return !isSignal(kind) && kind !== "sheet_input" && kind !== "sheet_output";

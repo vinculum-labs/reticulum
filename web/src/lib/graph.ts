@@ -45,6 +45,11 @@ function frameTop(holder: { inputs: HolderPin[]; outputs: HolderPin[] }): number
   return CARD_HEADER + Math.max(holder.inputs.length, holder.outputs.length, 1) * CARD_ROW + FRAME_PAD;
 }
 
+/** How big a frame is: its contents' box, with room around it and its header and pin rows above. */
+function frameSize(box: { minX: number; minY: number; maxX: number; maxY: number }, holder: { inputs: HolderPin[]; outputs: HolderPin[] }) {
+  return { width: Math.max(box.maxX - box.minX + 2 * FRAME_PAD, 220), height: frameTop(holder) + box.maxY - box.minY + FRAME_PAD };
+}
+
 /**
  * A sheet node opened in place: the sheet inside it, and the offset from a node's spot in that sheet to its spot in
  * the frame (sheet x = position in the frame + dx).
@@ -259,9 +264,7 @@ export function toFlow(
       const probe = contentBox(held, sheets, open, sizes, depth + 1, new Set([...seen, held.id]));
       const frame: Frame = { sheet: held.id, dx: probe.minX - FRAME_PAD, dy: probe.minY - top };
       view.frames.set(n.id, frame);
-      const width = Math.max(probe.maxX - probe.minX + 2 * FRAME_PAD, 220);
-      const height = top + probe.maxY - probe.minY + FRAME_PAD;
-      n.data.frame = { width, height };
+      n.data.frame = frameSize(probe, holder);
       inner.push(() => build(held, n.id, frame, depth + 1, new Set([...seen, held.id])));
     }
     for (const n of nodes) {
@@ -317,8 +320,7 @@ function contentBox(
     const held = s.kind === "sheet" ? sheets.find((x) => x.id === s.sheet) : undefined;
     if (held && open.has(n.id) && depth < 8 && !seen.has(held.id)) {
       const box = contentBox(held, sheets, open, sizes, depth + 1, new Set([...seen, held.id]));
-      const holder = { inputs: holderPins(held, true), outputs: holderPins(held, false) };
-      size = { width: Math.max(box.maxX - box.minX + 2 * FRAME_PAD, 220), height: frameTop(holder) + box.maxY - box.minY + FRAME_PAD };
+      size = frameSize(box, { inputs: holderPins(held, true), outputs: holderPins(held, false) });
     }
     const x = n.x ?? 0, y = n.y ?? 0;
     minX = Math.min(minX, x);
