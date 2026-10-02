@@ -33,10 +33,10 @@
 <div
   class="edge-pin text-xs"
   class:selected
-  style="width: {PIN_W}px; height: {PIN_H}px; line-height: {PIN_H}px; text-align: {input ? 'right' : 'left'}; padding-{input ? 'right' : 'left'}: {PIN_KNOB + 4}px"
+  style="width: {PIN_W}px; height: {PIN_H}px; justify-content: {input ? 'flex-end' : 'flex-start'}; padding-{input ? 'right' : 'left'}: {PIN_KNOB + 4}px"
   title={data.problem ? `${title}\n${data.problem}` : title}
 >
-  <span class="label truncate" style="color: {data.problem ? 'var(--bad)' : 'var(--ink)'}; border-bottom-color: {color}">
+  <span class="label truncate" style="color: {data.problem ? 'var(--bad)' : 'var(--ink)'}">
     {#if data.problem}<TriangleAlert size={10} class="inline" />{/if}
     {name}{#if data.signal !== undefined && resource === "redstone"}<span class="tabular-nums muted"> {data.signal}</span>{/if}
   </span>
@@ -49,17 +49,17 @@
 {/if}
 
 <style>
+  /* The label is centered on the dot's line: the dot sits at the pin's middle. */
   .edge-pin {
     position: relative;
+    display: flex;
+    align-items: center;
   }
   .label {
-    display: inline-block;
     max-width: 100%;
-    padding: 0 3px;
+    padding: 1px 4px;
     line-height: 14px;
-    vertical-align: middle;
     border-radius: 3px;
-    border-bottom: 2px solid;
   }
   .selected .label {
     background: color-mix(in srgb, var(--accent) 30%, transparent);
