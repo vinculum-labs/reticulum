@@ -26,7 +26,7 @@
   import { KIND_ICON } from "../../lib/icons";
   import IdentifyBadge from "../IdentifyBadge.svelte";
 
-  let { id, data, selected }: { id: string; data: NodeData; selected?: boolean } = $props();
+  let { id, data, selected, width, height }: { id: string; data: NodeData; selected?: boolean; width?: number; height?: number } = $props();
   const updateInternals = useUpdateNodeInternals();
 
   const BASE_HEADER = CARD_HEADER;
@@ -176,7 +176,7 @@
   class="rounded-md border text-left text-xs"
   class:frame={!!data.frame}
   style="{data.frame
-    ? `width: ${data.frame.width}px; height: ${data.frame.height}px`
+    ? `width: ${width ?? data.frame.width}px; height: ${height ?? data.frame.height}px`
     : `width: max-content; min-width: ${pinned ? 140 : 110}px; max-width: ${pinned ? 220 : 180}px`}; background: var(--panel); border-color: {selected
     ? 'var(--accent)'
     : data.problem

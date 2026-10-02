@@ -41,7 +41,7 @@
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
-  import { contentCorner, handleIndex, isPin, pinResource, PIN_DOT, toFlow, type FlowView, type NodeData } from "../../lib/graph";
+  import { contentCorner, handleIndex, isPin, pinResource, PIN_DOT, PIN_W, toFlow, type FlowView, type NodeData } from "../../lib/graph";
   import { crossWire, nextOrder } from "../../lib/crossing";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
@@ -169,6 +169,7 @@
 
   function sameNode(a: Node<NodeData>, b: Node<NodeData>): boolean {
     if (a.type !== b.type || a.parentId !== b.parentId || !!a.selected !== !!b.selected || a.position.x !== b.position.x || a.position.y !== b.position.y) return false;
+    if (a.width !== b.width || a.height !== b.height) return false;
     const keys = new Set([...Object.keys(a.data), ...Object.keys(b.data)]) as Set<keyof NodeData>;
     for (const key of keys) if (!sameValue(a.data[key], b.data[key])) return false;
     return true;
@@ -359,9 +360,13 @@
       const node = nodeOf(n.id);
       if (!on || !node) continue;
       const frame = n.parentId ? view.frames.get(n.parentId) : undefined;
+      // In a frame: from where it is on the canvas, as the frame may have grown (and moved) while dragging.
+      const abs = frame ? (flow.getInternalNode(n.id)?.internals.positionAbsolute ?? n.position) : n.position;
+      const x = frame ? abs.x - frame.ax + frame.dx : abs.x;
+      const y = frame ? abs.y - frame.ay + frame.dy : abs.y;
       // A pin sits on the edge: only its height moves (its y is its middle).
-      if (isPin(node)) put(on.id, n.id, node.x ?? 0, n.position.y + PIN_DOT + (frame?.dy ?? 0));
-      else put(on.id, n.id, n.position.x + (frame?.dx ?? 0), n.position.y + (frame?.dy ?? 0));
+      if (isPin(node)) put(on.id, n.id, node.x ?? 0, y + PIN_DOT);
+      else put(on.id, n.id, x, y);
     }
     // Frames whose contents moved, innermost first: moving a frame can shift the one around it in turn.
     const settled = new Set<string>();
@@ -402,6 +407,57 @@
       undo.push({ type: "moveNodes", sheet: sheetId, positions: before });
     }
     return { edits, undo };
+  }
+
+  /**
+   * While dragging: frames grow under the dragged cards (Svelte Flow's expandParent for open sheet nodes, here for
+   * the open sheet's own frame), and their pins stay on their edges as they do.
+   */
+  function keepPinsOnEdges() {
+    const frameOf = new Map(nodes.filter((n) => n.data?.frame).map((n) => [n.id, n]));
+    let backdrop = nodes.find((n) => n.type === "sheetFrame");
+    if (backdrop && view.sheetFrame) {
+      // The open sheet's frame: as big as it was built, or more to take in the cards dragged past it.
+      let { x, y, width, height } = view.sheetFrame;
+      for (const n of nodes) {
+        if (n.parentId || n.type !== "graph" || !n.dragging) continue;
+        const w = n.measured?.width ?? 0;
+        const h = n.measured?.height ?? 0;
+        const left = Math.min(x, n.position.x - 24);
+        const top = Math.min(y, n.position.y - 24);
+        width = Math.max(x + width, n.position.x + w + 24) - left;
+        height = Math.max(y + height, n.position.y + h + 24) - top;
+        x = left;
+        y = top;
+      }
+      const data = backdrop.data as unknown as { width: number; height: number };
+      if (backdrop.position.x !== x || backdrop.position.y !== y || data.width !== width || data.height !== height) {
+        backdrop = { ...backdrop, position: { x, y }, data: { ...backdrop.data, width, height } };
+      } else {
+        backdrop = undefined;
+      }
+    } else {
+      backdrop = undefined;
+    }
+    const box = backdrop ? { x: backdrop.position.x, width: (backdrop.data as unknown as { width: number }).width } : null;
+    let changed = !!backdrop;
+    const next = nodes.map((n) => {
+      if (backdrop && n.type === "sheetFrame") return backdrop;
+      if (n.type !== "pin") return n;
+      const input = n.data.node.settings.kind === "sheet_input";
+      let want: number | undefined;
+      if (n.parentId) {
+        const frame = frameOf.get(n.parentId);
+        const width = frame?.width ?? frame?.measured?.width;
+        if (width) want = input ? 0 : width - PIN_W;
+      } else if (box) {
+        want = input ? box.x : box.x + box.width - PIN_W;
+      }
+      if (want === undefined || n.position.x === want) return n;
+      changed = true;
+      return { ...n, position: { ...n.position, x: want } };
+    });
+    if (changed) nodes = next;
   }
 
   function offered(device: Device): Resource {
@@ -653,6 +709,7 @@
       dragging = true;
       holdMetrics(true);
     }}
+    onnodedrag={keepPinsOnEdges}
     onnodedragstop={dragStop}
     onnodeclick={nodeClick}
     proOptions={{ hideAttribution: true }}

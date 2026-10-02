@@ -111,6 +111,9 @@ export interface Frame {
   sheet: string;
   dx: number;
   dy: number;
+  /** Where the frame sat on the canvas when built: drags are saved from absolute spots, since it may grow mid-drag. */
+  ax: number;
+  ay: number;
 }
 
 /**
@@ -330,18 +333,24 @@ export function toFlow(
       if (!held || !open.has(n.id) || depth >= 8 || seen.has(held.id)) continue;
       // Measure the contents without adding them yet: they go after this frame, which Svelte Flow needs first.
       const within = sheetLayout(held, sheets, open, sizes, depth + 1, new Set([...seen, held.id]), FRAME_TOP);
-      const frame: Frame = { sheet: held.id, dx: within.dx, dy: within.dy };
+      const frame: Frame = { sheet: held.id, dx: within.dx, dy: within.dy, ax: 0, ay: 0 };
       view.frames.set(n.id, frame);
       // The frame's own handles (for wires outside it) level with its pins inside.
       const pins: Record<string, number> = {};
       sheetPins(held, true).forEach((pin, i) => (pins[`in:${pinSlot(pin, i)}`] = (pin.y ?? 0) - within.dy));
       sheetPins(held, false).forEach((pin, i) => (pins[`out:${pinSlot(pin, i)}`] = (pin.y ?? 0) - within.dy));
       n.data.frame = { width: within.width, height: within.height, pins };
+      // Svelte Flow grows a parent while its children are dragged past its edge (expandParent) through these.
+      n.width = within.width;
+      n.height = within.height;
       inner.push(() => build(held, n.id, frame, depth + 1, new Set([...seen, held.id]), within));
     }
     for (const n of nodes) {
       n.position = { x: n.position.x - shift.dx, y: n.position.y - shift.dy };
-      if (parent) n.parentId = parent;
+      if (parent) {
+        n.parentId = parent;
+        n.expandParent = true;
+      }
       view.owner.set(n.id, at.id);
       view.nodes.push(n);
     }
@@ -369,6 +378,16 @@ export function toFlow(
     });
   }
   build(sheet, undefined, { dx: 0, dy: 0 }, 0, new Set([sheet.id]), layout);
+  // Each frame's spot on the canvas: its position plus its parents' (parents come before their children).
+  const absolute = new Map<string, { x: number; y: number }>();
+  for (const n of view.nodes) {
+    const up = n.parentId ? absolute.get(n.parentId) : undefined;
+    absolute.set(n.id, { x: n.position.x + (up?.x ?? 0), y: n.position.y + (up?.y ?? 0) });
+  }
+  for (const [id, frame] of view.frames) {
+    const at = absolute.get(id);
+    if (at) Object.assign(frame, { ax: at.x, ay: at.y });
+  }
   return view;
 }
 
