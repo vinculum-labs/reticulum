@@ -29,7 +29,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   splitter: "Shares between outputs: in turn, in order, by weight, or nearest first",
   kit: "Moves a set of items all together or not at all",
   sheet: "A sheet inside this one: double-click to open it. Its switch and gate switch everything in it",
-  copy: "A copy of a sheet marked as a blueprint, used like one node",
+  copy: "A copy of a blueprint, used like one node: double-click it to fill its slots with blocks",
   sheet_input: "Where resources or signals come into this sheet: a pin on the left of its node",
   sheet_output: "Where resources or signals leave this sheet: a pin on the right of its node",
   level: "How much of a resource a device holds",

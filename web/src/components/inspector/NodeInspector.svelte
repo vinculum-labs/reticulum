@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { app, deviceAt, deviceName, edit, nodeTitle, openDevice, openSheet, rebase } from "../../lib/state.svelte";
+  import { app, deviceAt, deviceName, edit, nodeTitle, openCopy, openDevice, openSheet, rebase } from "../../lib/state.svelte";
+  import { slotsOf } from "../../lib/blueprints";
   import { childSheets } from "../../lib/tree";
   import { KIND_HINT, KIND_LABEL, OP_SYMBOL, gated, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, isSignal } from "../../lib/kinds";
   import {
@@ -295,21 +296,31 @@
   {:else if s.kind === "copy"}
     {@const choices = (app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== sheet.id)}
     {@const used = app.snapshot?.sheets.find((x) => x.id === s.sheet)}
-    <Field label="Blueprint" hint="Only sheets marked “Use as blueprint” are listed. Double-click the node to open it.">
+    <Field label="Blueprint" hint="Double-click the node to open the copy and fill its slots. Another blueprint empties them.">
       <Select
         value={s.sheet}
         disabled={!canEdit}
         placeholder="(missing)"
         options={choices.map((choice) => ({ value: choice.id, label: choice.name }))}
-        onchange={(sheet) => settings({ sheet })}
+        onchange={(sheet) => settings({ sheet, bindings: undefined })}
       />
     </Field>
     {#if used}
+      {@const slots = slotsOf(used)}
+      {@const filled = slots.filter((x) => s.bindings?.[x.id]).length}
       <div class="text-sm">
         <div><span class="muted">Inputs:</span> {sheetPins(used, true).map(pinName).join(", ") || "none"}</div>
         <div><span class="muted">Outputs:</span> {sheetPins(used, false).map(pinName).join(", ") || "none"}</div>
+        {#if slots.length}
+          <div class={filled < slots.length && !sheet.blueprint ? "text-bad" : ""}><span class="muted">Slots filled:</span> {filled} of {slots.length}</div>
+        {/if}
       </div>
-      <button class="btn self-start text-sm" onclick={() => openSheet(used.id)}>Open “{used.name}”</button>
+      <div class="flex flex-wrap gap-2">
+        {#if !sheet.blueprint}
+          <button class="btn text-sm" onclick={() => openCopy(sheet.id, node.id)}>Open the copy</button>
+        {/if}
+        <button class="btn text-sm" onclick={() => openSheet(used.id)}>Edit the blueprint</button>
+      </div>
     {/if}
   {:else if s.kind === "sheet_input" || s.kind === "sheet_output"}
     <Field

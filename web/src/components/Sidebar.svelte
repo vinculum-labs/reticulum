@@ -94,7 +94,7 @@
     }
     const results = await edit([{ type: "importSheet", sheet }]);
     if (results?.[0]) {
-      app.sheetId = results[0] as string;
+      openSheet(results[0] as string);
       toast("Imported. Devices from another world show as offline until you pick local ones for them.", "info");
     }
   }
@@ -271,7 +271,7 @@
               class="flex min-w-0 flex-1 items-center gap-1 text-left"
               onclick={() => openSheet(sheet.id)}
               ondblclick={() => canEdit && (renaming = sheet.id)}
-              title="Runs only where it is placed. Double-click to rename."
+              title="Runs only as its copies. Double-click to rename."
             >
               <Layers size={14} class="shrink-0 muted" /><span class="trim-text truncate">{sheet.name}</span>
               {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
@@ -282,7 +282,7 @@
           {/if}
         </li>
       {:else}
-        <li class="text-xs muted">None yet. A blueprint is used by placing copies of it, like one node.</li>
+        <li class="text-xs muted">None yet. A blueprint is a set to build again and again: make one from a sheet (in its settings), then place copies of it and fill their slots with blocks.</li>
       {/each}
     </ul>
     {#if canEdit}

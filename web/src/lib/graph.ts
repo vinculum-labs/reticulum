@@ -1,7 +1,7 @@
 // Turns a sheet into Svelte Flow nodes and edges.
 
 import type { Edge, Node } from "@xyflow/svelte";
-import type { Device, GlobalPos, GraphNode, MeUsage, Resource, Sheet, Wire } from "./types";
+import type { Binding, Device, GlobalPos, GraphNode, MeUsage, Resource, Sheet, Wire } from "./types";
 export type { MeUsage };
 import { GATE, pinName, pinSlot, posKey, sheetPins } from "./types";
 import { RESOURCE_VAR, formatRate, isSignal } from "./kinds";
@@ -25,6 +25,11 @@ export interface NodeData extends Record<string, unknown> {
   problem?: string;
   /** A sheet node opened in place: drawn as a frame this big, its sheet's nodes inside it. */
   frame?: { width: number; height: number };
+  /**
+   * A blueprint's slot: the kind of block it takes; when a copy is open, whether a block fills it ({@code device}
+   * is then that block) and how far it is turned.
+   */
+  slot?: { block?: string; filled?: boolean; turns?: number };
 }
 
 /** A card's header height and pin row height, as GraphNode draws them. */
@@ -220,6 +225,7 @@ function problemsInside(sheets: Sheet[], sheet: Sheet): number {
 /**
  * Builds the canvas for a sheet. Sheet nodes listed in {@code open} show their sheet in place, as a frame with its
  * nodes and wires inside (and the frames open in those); {@code sizes} are the cards' measured sizes, for sizing frames.
+ * {@code bindings}: a copy is open, the sheet being its blueprint; its slots show the blocks filling them.
  */
 export function toFlow(
   sheet: Sheet,
@@ -231,19 +237,17 @@ export function toFlow(
   wireStyle: string = "default",
   open: Set<string> = new Set(),
   sizes: Map<string, { width: number; height: number }> = new Map(),
+  bindings?: Record<string, Binding>,
 ): FlowView {
   const view: FlowView = { nodes: [], edges: [], owner: new Map(), frames: new Map() };
   const byKey = new Map(devices.map((d) => [posKey(d.pos), d]));
   const byId = new Map(sheets.map((x) => [x.id, x]));
 
-  /**
-   * Adds a sheet's nodes and wires (inside frame {@code parent} when given, shifted by {@code shift}); returns the
-   * box its nodes cover, in sheet coordinates.
-   */
+  /** Adds a sheet's nodes and wires, inside frame {@code parent} when given, shifted by {@code shift}. */
   function build(at: Sheet, parent: string | undefined, shift: { dx: number; dy: number }, depth: number, seen: Set<string>) {
     const { nodes, edges } = sheetFlow(at, sheets, byKey, activity, selected, unit, wireStyle);
+    if (at.blueprint) markSlots(nodes, at === sheet ? bindings : undefined, byKey);
     // Frames first, inside out: a frame's size is its contents'.
-    const sizeOf = new Map<string, { width: number; height: number }>();
     const inner: (() => void)[] = [];
     for (const n of nodes) {
       const s = n.data.node.settings;
@@ -258,7 +262,6 @@ export function toFlow(
       const width = Math.max(probe.maxX - probe.minX + 2 * FRAME_PAD, 220);
       const height = top + probe.maxY - probe.minY + FRAME_PAD;
       n.data.frame = { width, height };
-      sizeOf.set(n.id, { width, height });
       inner.push(() => build(held, n.id, frame, depth + 1, new Set([...seen, held.id])));
     }
     for (const n of nodes) {
@@ -275,6 +278,25 @@ export function toFlow(
   }
   build(sheet, undefined, { dx: 0, dy: 0 }, 0, new Set([sheet.id]));
   return view;
+}
+
+/**
+ * A blueprint's device nodes are slots: they show the kind of block they take, not the block they were laid out on.
+ * With a copy open ({@code bindings}), each shows the block filling it, or that none does.
+ */
+function markSlots(nodes: Node<NodeData>[], bindings: Record<string, Binding> | undefined, byKey: Map<string, Device>) {
+  for (const n of nodes) {
+    const s = n.data.node.settings;
+    if (s.kind !== "device") continue;
+    const binding = bindings?.[n.id];
+    n.data.slot = { block: s.block, filled: bindings ? !!binding : undefined, turns: binding?.turns };
+    n.data.device = binding ? byKey.get(posKey(binding.device)) : undefined;
+    // What moved through the blueprint's own nodes means nothing: it never runs.
+    n.data.rate = 0;
+    n.data.fiveMinutes = 0;
+    n.data.status = undefined;
+    if (bindings && !binding) n.data.problem = "No block fills this slot yet: drop a device from the list on it";
+  }
 }
 
 /** The box a sheet's nodes cover, frames opened in it included (an empty sheet: a small box at 0, 0). */

@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { app, currentSheet, deviceAt, sheetHolding } from "../lib/state.svelte";
+  import { app, currentSheet, deviceAt, openCopyNode, sheetHolding } from "../lib/state.svelte";
+  import CopyPanel from "./inspector/CopyPanel.svelte";
+  import SlotInspector from "./inspector/SlotInspector.svelte";
   import NodeInspector from "./inspector/NodeInspector.svelte";
   import WireInspector from "./inspector/WireInspector.svelte";
   import DeviceInspector from "./inspector/DeviceInspector.svelte";
@@ -16,6 +18,8 @@
   const wireSheet = $derived(!node && app.selectedEdges.length === 1 ? sheetHolding(app.selectedEdges[0]) : undefined);
   const wire = $derived(wireSheet?.wires?.find((w) => w.id === app.selectedEdges[0]));
   const device = $derived(app.selectedDevice ? deviceAt(app.selectedDevice) : undefined);
+  /** A copy open on the canvas: only its slots can be changed, so the side panel is about them. */
+  const copy = $derived(app.copy ? openCopyNode() : null);
 </script>
 
 <!-- A fixed width that nothing inside may widen: no sideways scrolling. -->
@@ -30,6 +34,14 @@
     {#key app.selectedDevice}
       <DeviceInspector {device} />
     {/key}
+  {:else if copy}
+    {#if node?.settings.kind === "device"}
+      {#key node.id}
+        <SlotInspector sheet={copy.sheet} copy={copy.node} blueprint={copy.blueprint} slot={node} />
+      {/key}
+    {:else}
+      <CopyPanel sheet={copy.sheet} copy={copy.node} blueprint={copy.blueprint} />
+    {/if}
   {:else if node && nodeSheet}
     {#key node.id}
       <NodeInspector {node} sheet={nodeSheet} />

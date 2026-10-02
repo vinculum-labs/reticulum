@@ -23,6 +23,7 @@
     summary,
   } from "../../lib/kinds";
   import { app, deviceName, toggleFrame } from "../../lib/state.svelte";
+  import { blockName } from "../../lib/blueprints";
   import DeviceIcon from "../DeviceIcon.svelte";
   import { KIND_ICON } from "../../lib/icons";
   import IdentifyBadge from "../IdentifyBadge.svelte";
@@ -50,7 +51,9 @@
   const holds = $derived(kind === "sheet" || kind === "copy");
   const title = $derived(
     data.node.label ||
-      (data.device
+      (data.slot && !data.device
+        ? `${blockName(data.slot.block)} slot`
+        : data.device
         ? deviceName(data.device)
         : holds
           ? (data.holder?.sheet?.name ?? (kind === "sheet" ? "Missing sheet" : "Missing blueprint"))
@@ -171,7 +174,7 @@
     ? 'var(--accent)'
     : data.problem
       ? 'var(--bad)'
-      : 'var(--line)'}; border-style: {kind === 'copy' ? 'double' : 'solid'}; border-width: {kind === 'copy' ? 3 : kind === 'sheet' ? 2 : 1}px; box-shadow: {selected
+      : 'var(--line)'}; border-style: {kind === 'copy' ? 'double' : data.slot ? 'dashed' : 'solid'}; border-width: {kind === 'copy' ? 3 : kind === 'sheet' ? 2 : 1}px; box-shadow: {selected
     ? '0 0 0 1px var(--accent)'
     : data.problem
       ? '0 0 0 1px var(--bad)'
@@ -180,6 +183,9 @@
   <div class="group flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
     {#if data.device}
       <DeviceIcon item={data.device.icon} size={16} />
+    {:else if data.slot?.block}
+      <!-- A slot shows the kind of block it takes, faded until a block fills it. -->
+      <span class="shrink-0" style="opacity: 0.5"><DeviceIcon item={data.slot.block} size={16} /></span>
     {:else}
       <!-- Nodes without a block of their own get the toolbar's icon for their kind. -->
       {@const KindIcon = KIND_ICON[kind]}
@@ -196,7 +202,9 @@ ${idleTitle}` : idleTitle}
         onpointerenter={() => (hovered = true)}
         onpointerleave={() => (hovered = false)}
       >
-        {#if signal}
+        {#if data.slot}
+          {data.slot.filled === undefined ? "slot" : data.slot.filled ? `fills a slot${data.slot.turns ? `, turned ${(data.slot.turns % 4) * 90}°` : ""}` : "empty slot"}
+        {:else if signal}
           <span class="tabular-nums" style="color: {(data.signal ?? 0) > 0 ? color : 'var(--muted)'}">{data.signal ?? 0}</span>
           · {summary(data.node, app.rateUnit)}
         {:else if data.rate > 0}

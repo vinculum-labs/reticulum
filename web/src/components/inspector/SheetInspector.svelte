@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { app, edit, moveSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
+  import { app, edit, moveSheet, nodeTitle, openCopy, openSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
+  import { confirmDialog } from "../../lib/dialog.svelte";
+  import { copiesOf } from "../../lib/blueprints";
   import { descendants, sheetPath } from "../../lib/tree";
   import type { Sheet } from "../../lib/types";
   import NumberField from "../controls/NumberField.svelte";
@@ -39,6 +41,36 @@
     edit([{ type: "updateSheet", sheet: sheet.id, ...patch }], [{ type: "updateSheet", sheet: sheet.id, ...before }], label);
   }
 
+  const copies = $derived(sheet.blueprint ? copiesOf(snapshot, sheet.id) : []);
+  const hasSheets = $derived(descendants(snapshot, sheet).length > 0);
+
+  /**
+   * Make blueprint: the sheet's devices become slots, and the sheet stays where it is as the blueprint's first copy
+   * (filled with its own blocks). Copy as blueprint ({@code keep}) leaves the sheet as it is.
+   */
+  async function makeBlueprint(keep: boolean) {
+    const network = app.current;
+    if (!keep) {
+      const ok = await confirmDialog({
+        title: `Make a blueprint from “${sheet.name}”?`,
+        message:
+          "Its devices become slots for their kinds of block, and this sheet becomes the blueprint's first copy, filled with its own blocks: it keeps running as it does now. Then place more copies anywhere and fill their slots. This can't be undone.",
+        confirm: "Make blueprint",
+      });
+      if (!ok || app.current !== network) return;
+    }
+    const results = await edit([{ type: "makeBlueprint", sheet: sheet.id, ...(keep ? { keep: true } : {}) }]);
+    if (results?.[0]) {
+      openSheet(results[0] as string);
+      toast(keep ? "Blueprint made; the sheet is as it was." : "Blueprint made; the sheet is now its first copy.", "info");
+    }
+  }
+
+  async function duplicate() {
+    const results = await edit([{ type: "duplicateBlueprint", sheet: sheet.id }]);
+    if (results?.[0]) openSheet(results[0] as string);
+  }
+
   function moveInto(id: string) {
     const target = snapshot.sheets.find((s) => s.id === id);
     if (target) moveSheet(sheet, target);
@@ -75,21 +107,35 @@
     <NumberField value={sheet.interval ?? 10} min={1} max={72_000} width="md" disabled={!canEdit}
       oncommit={(v) => update({ interval: v }, { interval: sheet.interval ?? 10 }, "sheet interval")} />
   </Field>
-  {#if !sheet.root}
-    <label class="flex items-start gap-2 text-sm">
-      <input
-        type="checkbox"
-        checked={sheet.blueprint === true}
-        disabled={!canEdit}
-        onchange={(e) => update({ blueprint: e.currentTarget.checked }, { blueprint: sheet.blueprint === true }, "blueprint")}
-      />
-      <span>
-        Use as blueprint
-        <span class="block text-xs muted">
-          It leaves the tree and stops running on its own; other sheets place copies of it as a node. A sheet with sheets inside it can't be one.
-        </span>
+  {#if sheet.blueprint}
+    <Field label="Copies" hint="Each fills the slots with its own blocks. A change here reaches them all.">
+      <ul class="flex flex-col gap-0.5 text-sm">
+        {#each copies as c (c.node.id)}
+          <li>
+            <button class="list-row w-full truncate rounded px-1 text-left text-accent" onclick={() => openCopy(c.sheet.id, c.node.id)}>
+              {nodeTitle(c.node)} <span class="muted">in {sheetPath(snapshot, c.sheet)}</span>
+            </button>
+          </li>
+        {:else}
+          <li class="muted">None yet: place one with Blueprint in the toolbar of any sheet.</li>
+        {/each}
+      </ul>
+    </Field>
+    {#if canEdit}
+      <button class="btn self-start text-sm" onclick={duplicate} title="A new blueprint like this one, to change without touching this one's copies">Duplicate blueprint</button>
+    {/if}
+  {:else if !sheet.root && canEdit}
+    <div class="flex flex-col gap-1">
+      <div class="flex flex-wrap gap-2">
+        <button class="btn text-sm" disabled={hasSheets} onclick={() => makeBlueprint(false)}
+          title="Its devices become slots; this sheet stays as the first copy, still running on its blocks">Make blueprint…</button>
+        <button class="btn text-sm" disabled={hasSheets} onclick={() => makeBlueprint(true)}
+          title="A new blueprint like this sheet; the sheet stays as it is">Copy as blueprint</button>
+      </div>
+      <span class="text-xs muted">
+        {hasSheets ? "Not for a sheet with sheets inside it (yet): move them out first." : "To build the same set again elsewhere: a blueprint is placed as copies, each filled with its own blocks."}
       </span>
-    </label>
+    </div>
   {/if}
   <button class="btn self-start text-sm" onclick={copyJson} title="To paste into “Import sheet…” here or in another world">Copy as JSON</button>
   <SheetErrors sheetId={sheet.id} errors={sheet.errors} />

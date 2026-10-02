@@ -17,7 +17,26 @@
     type Node,
     type Connection,
   } from "@xyflow/svelte";
-  import { app, createSheet, currentSheet, deviceAt, edit, nodeTitle, openSheet, resync, toast, uuid, holdMetrics, setWireStyle, WIRE_STYLE_LABEL, type WireStyle } from "../../lib/state.svelte";
+  import {
+    app,
+    createSheet,
+    currentSheet,
+    deviceAt,
+    edit,
+    nodeTitle,
+    openCopy,
+    openCopyNode,
+    openSheet,
+    resync,
+    setBindings,
+    toast,
+    uuid,
+    holdMetrics,
+    setWireStyle,
+    WIRE_STYLE_LABEL,
+    type WireStyle,
+  } from "../../lib/state.svelte";
+  import { copiesOf, slotName } from "../../lib/blueprints";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
@@ -43,6 +62,11 @@
 
   const sheet = $derived(currentSheet());
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
+  /** A blueprint copy open on the canvas: its blueprint shows, read-only but for filling its slots. */
+  const copy = $derived(app.copy ? openCopyNode() : null);
+  const editable = $derived(canEdit && !copy);
+  /** How many copies the open blueprint has: editing it changes them all. */
+  const copyCount = $derived(sheet?.blueprint && app.snapshot ? copiesOf(app.snapshot, sheet.id).length : 0);
 
   // A node opened from the dashboard is brought into view once Svelte Flow has measured it.
   $effect(() => {
@@ -78,7 +102,8 @@
     // Frames are sized from their cards as last measured (a guess until then; see below).
     const sizes = new Map<string, { width: number; height: number }>();
     for (const n of untrack(() => nodes)) if (n.measured?.width && !n.data.frame) sizes.set(n.id, { width: n.measured.width, height: n.measured.height ?? 0 });
-    const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes);
+    const bindings = copy ? (copy.node.settings.bindings ?? {}) : undefined;
+    const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes, bindings);
     view = built;
     sizedWith = sizes;
     rebuilding = true;
@@ -372,6 +397,13 @@
       return;
     }
     const needsDevice = kind === "device" || kind === "level";
+    if (into.blueprint && kind === "device" && device) {
+      // A device dropped on a blueprint makes a slot for its kind of block (it isn't tied to that block).
+      const node: GraphNode = { id: uuid(), settings: { ...defaultSettings(kind, device, offered(device)), block: device.block } as GraphNode["settings"], x: Math.round(at.x), y: Math.round(at.y) };
+      const ok = await edit([{ type: "addNode", sheet: into.id, node }], [{ type: "removeNode", sheet: into.id, node: node.id }], "add slot");
+      if (ok) app.selectedNodes = [node.id];
+      return;
+    }
     if (needsDevice && !device) {
       device = (app.selectedDevice && deviceAt(app.selectedDevice)) || app.snapshot?.devices.find((d) => d.state === "active") || null;
       if (!device) {
@@ -381,7 +413,7 @@
     }
     const blueprint = kind === "copy" ? blueprints[0]?.id : undefined;
     if (kind === "copy" && !blueprint) {
-      toast("Mark another sheet as a blueprint first (in its settings).");
+      toast("Make a blueprint first: from a sheet (in its settings), or New blueprint in the list.");
       return;
     }
     const node: GraphNode = {
@@ -416,6 +448,10 @@
     const device = key ? deviceAt(key) : undefined;
     if (!device) return;
     e.preventDefault();
+    if (copy) {
+      fillSlot(e, device);
+      return;
+    }
     const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
     // Dropped in a frame: onto the sheet open there (the innermost frame under the pointer).
     let into: { sheet: Sheet; x: number; y: number; area: number } | null = null;
@@ -430,6 +466,21 @@
     }
     if (into) addNode("device", { x: into.x - 70, y: into.y - 17 }, device, into.sheet);
     else addNode("device", { x: p.x - 70, y: p.y - 17 }, device);
+  }
+
+  /** A device dropped on a slot of the open copy fills it (turned like the copy's other slots). */
+  function fillSlot(e: DragEvent, device: Device) {
+    if (!copy || !canEdit) return;
+    const id = document.elementFromPoint(e.clientX, e.clientY)?.closest(".svelte-flow__node")?.getAttribute("data-id");
+    const slot = sheet?.nodes?.find((n) => n.id === id && n.settings.kind === "device");
+    if (!slot) {
+      toast("Drop it on one of the slots (the dashed cards).", "info");
+      return;
+    }
+    const bindings = copy.node.settings.bindings ?? {};
+    const turns = Object.values(bindings).find((b) => b.turns)?.turns;
+    setBindings(copy.sheet, copy.node, { ...bindings, [slot.id]: { device: device.pos, ...(turns ? { turns } : {}) } }, `fill ${slotName(slot)}`);
+    app.selectedNodes = [slot.id];
   }
 
   /** Blueprints that can be placed here (as copies): not this sheet. */
@@ -447,13 +498,17 @@
     ...(sheet && !sheet.root ? (["sheet_input", "sheet_output"] as NodeKind[]) : []),
   ]);
 
-  /** Double-click a sheet node to open its sheet, or a copy node to open the blueprint it copies. */
+  /**
+   * Double-click a sheet node to open its sheet, or a copy node to open the copy (its blueprint with its blocks); a
+   * copy inside a blueprint opens that blueprint.
+   */
   function nodeClick({ node, event }: { node: Node<NodeData>; event: MouseEvent | TouchEvent }) {
     const s = node.data.node.settings;
-    if (event instanceof MouseEvent && event.detail === 2 && (s.kind === "copy" || s.kind === "sheet")
-        && app.snapshot?.sheets.some((x) => x.id === s.sheet)) {
-      openSheet(s.sheet);
-    }
+    if (!(event instanceof MouseEvent) || event.detail !== 2 || (s.kind !== "copy" && s.kind !== "sheet")) return;
+    if (!app.snapshot?.sheets.some((x) => x.id === s.sheet)) return;
+    const on = sheetOf(node.id);
+    if (s.kind === "copy" && on && !on.blueprint) openCopy(on.id, node.id);
+    else openSheet(s.sheet);
   }
 
   let tidying = $state(false);
@@ -500,9 +555,9 @@
     fitView
     minZoom={0.2}
     maxZoom={2}
-    deleteKey={canEdit && modals.open === 0 ? ["Delete", "Backspace"] : null}
-    nodesDraggable={canEdit}
-    nodesConnectable={canEdit}
+    deleteKey={editable && modals.open === 0 ? ["Delete", "Backspace"] : null}
+    nodesDraggable={editable}
+    nodesConnectable={editable}
     elementsSelectable={true}
     onselectionchange={selectionChange}
     onconnect={connect}
@@ -521,7 +576,7 @@
     <Background gap={24} />
     <Controls showLock={false} />
     <MiniMap pannable zoomable maskStrokeWidth={1} nodeClass={(n) => (n.data?.problem ? "problem" : "")} />
-    {#if canEdit}
+    {#if editable}
       <Panel position="top-left">
         <div class="flex flex-wrap gap-1 rounded-lg border border-line bg-panel p-1">
           {#each palette as kind}
@@ -558,12 +613,24 @@
     {/if}
     {#if sheet && app.snapshot && (!sheet.root || sheet.blueprint)}
       <Panel position="top-right">
-        <Breadcrumbs {sheet} snapshot={app.snapshot} />
+        <Breadcrumbs {sheet} snapshot={app.snapshot} copy={copy ? { sheet: copy.sheet, node: copy.node } : null} />
       </Panel>
     {/if}
     {#if sheet && app.snapshot}
       <Panel position="bottom-center">
         <div class="flex max-w-xl flex-col gap-2">
+          {#if copy}
+            <p class="box text-sm" role="status">
+              A copy of the blueprint “{copy.blueprint.name}”: drop devices from the list on its slots to fill them. To change
+              anything else, edit the blueprint{copyCount > 1 ? ` (that changes all ${copyCount} copies)` : ""}.
+              <button class="btn ml-1 text-xs" onclick={() => openSheet(copy.blueprint.id)}>Edit the blueprint</button>
+            </p>
+          {:else if sheet.blueprint}
+            <p class="box text-sm" role="status">
+              A blueprint: it runs only as its copies. Devices dropped here become slots for their kind of block.
+              {copyCount ? `Changes here reach its ${copyCount === 1 ? "copy" : `${copyCount} copies`}.` : "It has no copies yet."}
+            </p>
+          {/if}
           <SheetOffNotice {sheet} snapshot={app.snapshot} />
           <SheetErrors sheetId={sheet.id} errors={sheet.errors} overlay />
         </div>

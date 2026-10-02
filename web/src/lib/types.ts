@@ -90,9 +90,12 @@ export interface DeviceOutput {
 /** A block that is both fed and emptied: numbered inputs (left) and outputs (right). */
 export interface DeviceNodeSettings {
   kind: "device";
+  /** In a blueprint, a slot: where the block it was made from sat (laying copies out from it). */
   device: GlobalPos;
   inputs?: DeviceInput[];
   outputs?: DeviceOutput[];
+  /** In a blueprint, a slot: the kind of block it takes ("minecraft:furnace"). */
+  block?: string;
 }
 
 /** A child sheet placed on its parent; its pins are the child's Sheet input and Sheet output nodes. */
@@ -105,6 +108,14 @@ export interface SheetNodeSettings {
 export interface CopySettings {
   kind: "copy";
   sheet: string;
+  /** The block filling each slot, by the slot's node id in the blueprint. */
+  bindings?: Record<string, Binding>;
+}
+
+/** The block filling a slot of a copy, and how far the set is turned from the blueprint's (quarter turns clockwise). */
+export interface Binding {
+  device: GlobalPos;
+  turns?: number;
 }
 
 /**
@@ -259,10 +270,10 @@ export interface Device {
   faceNames: Partial<Record<Face, string>>;
   resources?: Partial<Record<Resource, Face[]>>;
   loaded: boolean;
-  /** Gives out redstone (a signal source, or a comparator value). */
   /** Faces whose energy storage takes energy in, and faces it gives energy out of. */
   energyIn?: Face[];
   energyOut?: Face[];
+  /** Gives out redstone (a signal source, or a comparator value). */
   givesRedstone?: boolean;
   /** Reacts to redstone (a door, lamp, piston, machine). */
   takesRedstone?: boolean;

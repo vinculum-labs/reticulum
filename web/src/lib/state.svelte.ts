@@ -2,7 +2,7 @@
 // replaces what is shown. Undo and redo send the inverse edits recorded with each change.
 
 import { Connection } from "./protocol";
-import type { Device, Edit, GlobalPos, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face, Identify, PowerState } from "./types";
+import type { Binding, CopySettings, Device, Edit, GlobalPos, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face, Identify, PowerState } from "./types";
 import { posKey } from "./types";
 import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
@@ -102,6 +102,11 @@ export const app = $state({
   current: null as string | null,
   snapshot: null as Snapshot | null,
   sheetId: null as string | null,
+  /**
+   * A blueprint copy open on the canvas: the sheet its node is on, and that node. The canvas shows its blueprint
+   * ({@code sheetId}), read-only but for filling its slots.
+   */
+  copy: null as { sheet: string; node: string } | null,
   /** Amount moved in the last second, per node and wire id. */
   rates: {} as Record<string, number>,
   /** Amount moved over the last 5 minutes, per node and wire id. */
@@ -284,7 +289,9 @@ function setSnapshot(snapshot: Snapshot): void {
   if (merged !== app.snapshot) app.snapshot = merged;
   const summary = app.networks.find((n) => n.id === snapshot.id);
   if (summary) Object.assign(summary, { name: snapshot.name, running: snapshot.running, enabled: snapshot.enabled });
-  if (!snapshot.sheets.some((s) => s.id === app.sheetId)) app.sheetId = rootSheet(snapshot)?.id ?? snapshot.sheets[0]?.id ?? null;
+  if (!snapshot.sheets.some((s) => s.id === app.sheetId)) openSheet(rootSheet(snapshot)?.id ?? snapshot.sheets[0]?.id ?? "");
+  // A copy open on the canvas that is gone (deleted, turned into a sheet): back to its sheet.
+  else if (app.copy && !openCopyNode()) openSheet(snapshot.sheets.some((s) => s.id === app.copy!.sheet) ? app.copy.sheet : (rootSheet(snapshot)?.id ?? ""));
 }
 
 // ---------------------------------------------------------------- edits
@@ -551,6 +558,11 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
       const s = node.settings;
       if (s.kind === "device") add(s.device, { label, sheetId: sheet.id, nodeId: node.id, home: !sheet.blueprint });
       else if ("device" in s) add(s.device as GlobalPos, { label, sheetId: sheet.id, nodeId: node.id });
+      // A block filling a slot of a copy lives in that copy.
+      if (s.kind === "copy" && !sheet.blueprint) {
+        const copyLabel = `${label} › ${nodeTitle(node)}`;
+        for (const binding of Object.values(s.bindings ?? {})) add(binding.device, { label: copyLabel, sheetId: sheet.id, nodeId: node.id, home: true });
+      }
     }
   }
   return uses;
@@ -598,11 +610,36 @@ export async function moveSheet(sheet: Sheet, parent: Sheet) {
 /** Shows a sheet, with nothing selected (or the given nodes), and the inspector for it. */
 export function openSheet(id: string, select: string[] = [], focus = false): void {
   app.sheetId = id;
+  app.copy = null;
   app.focusNode = focus && select.length ? select[0] : null;
   app.selectedNodes = select;
   app.selectedEdges = [];
   app.selectedDevice = null;
   app.panel = null;
+}
+
+/** Opens a blueprint copy: its blueprint on the canvas, with the blocks filling its slots. */
+export function openCopy(sheetId: string, node: string): void {
+  const held = app.snapshot?.sheets.find((s) => s.id === sheetId)?.nodes?.find((n) => n.id === node);
+  if (held?.settings.kind !== "copy") return;
+  openSheet(held.settings.sheet);
+  app.copy = { sheet: sheetId, node };
+}
+
+/** The copy open on the canvas: the sheet it is on, its node and its blueprint (null when none, or it is gone). */
+export function openCopyNode(): { sheet: Sheet; node: GraphNode & { settings: CopySettings }; blueprint: Sheet } | null {
+  const at = app.copy;
+  const sheet = at && app.snapshot?.sheets.find((s) => s.id === at.sheet);
+  const node = sheet?.nodes?.find((n) => n.id === at!.node);
+  if (!sheet || node?.settings.kind !== "copy") return null;
+  const blueprint = app.snapshot?.sheets.find((s) => s.id === (node.settings as CopySettings).sheet);
+  return blueprint ? { sheet, node: node as GraphNode & { settings: CopySettings }, blueprint } : null;
+}
+
+/** Sets which blocks fill a copy's slots, undoably. */
+export function setBindings(sheet: Sheet, node: GraphNode & { settings: CopySettings }, bindings: Record<string, Binding>, label = "fill slot") {
+  const next = { ...node, settings: { ...node.settings, bindings } };
+  return edit([{ type: "updateNode", sheet: sheet.id, node: next }], [{ type: "updateNode", sheet: sheet.id, node }], label);
 }
 
 /** Shows the node an error is about: selected, brought into view and pulsing for a moment. */
