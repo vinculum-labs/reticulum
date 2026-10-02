@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Zap from "@lucide/svelte/icons/zap";
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
   import type { NodeData } from "../../lib/graph";
@@ -125,15 +126,30 @@
     void pinLayout;
     updateInternals(id);
   });
+
+  // Picked from the sheet's errors: pulse a few times once the view has moved to it, to catch the eye.
+  let card: HTMLDivElement | undefined = $state();
+  $effect(() => {
+    if (app.flashNode !== id || !card) return;
+    const ring = "0 0 0 0 color-mix(in srgb, var(--bad) 80%, transparent)";
+    const wide = "0 0 0 14px color-mix(in srgb, var(--bad) 0%, transparent)";
+    const pulse = card.animate([{ boxShadow: ring }, { boxShadow: wide }], { duration: 700, delay: 300, iterations: 3, easing: "ease-out" });
+    return () => pulse.cancel();
+  });
 </script>
 
 <div
+  bind:this={card}
   class="rounded-md border text-left text-xs"
   style="width: max-content; min-width: {pinned ? 140 : 110}px; max-width: {pinned ? 220 : 180}px; background: var(--panel); border-color: {selected
     ? 'var(--accent)'
-    : 'var(--line)'}; border-style: {kind === 'subsheet' ? 'double' : 'solid'}; border-width: {kind === 'subsheet' ? 3 : 1}px; box-shadow: {selected
+    : data.problem
+      ? 'var(--bad)'
+      : 'var(--line)'}; border-style: {kind === 'subsheet' ? 'double' : 'solid'}; border-width: {kind === 'subsheet' ? 3 : 1}px; box-shadow: {selected
     ? '0 0 0 1px var(--accent)'
-    : '0 1px 3px rgb(0 0 0 / 0.25)'}; opacity: {disabled ? 0.5 : 1}"
+    : data.problem
+      ? '0 0 0 1px var(--bad)'
+      : '0 1px 3px rgb(0 0 0 / 0.25)'}; opacity: {disabled ? 0.5 : 1}"
 >
   <div class="group flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
     {#if data.device}
@@ -200,6 +216,10 @@ ${idleTitle}` : idleTitle}
   {/if}
 </div>
 
+{#if data.problem}
+  <span class="problem-badge" title={data.problem} role="img" aria-label={`Error: ${data.problem}`}><TriangleAlert size={12} /></span>
+{/if}
+
 {#if gated(kind)}
   <!-- A signal wire into the gate switches the node on (above 0) and off. -->
   <!-- On the left, centered on the header: wires come in from the left like every other input (a pin on top had
@@ -230,6 +250,21 @@ ${idleTitle}` : idleTitle}
 {/if}
 
 <style>
+  /* On the card's corner, outside it, so a node with an error can be spotted among many. */
+  .problem-badge {
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--bad);
+    color: var(--panel);
+    box-shadow: 0 0 0 2px var(--panel);
+  }
   /* An unused gate pin stays out of sight until the card is hovered or a wire is being dragged to it. */
   :global(.svelte-flow__handle.gate-pin:not(.wired)) {
     opacity: 0;

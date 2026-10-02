@@ -4,8 +4,10 @@ import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -150,6 +152,28 @@ public final class SafetyTests {
     }
 
     @GameTest(template = "empty")
+    public static void errorsNameTheNodeTheEditorShows(GameTestHelper helper) {
+        Network network = NetworkManager.create(helper.getLevel().getServer(), null);
+        // A sub-sheet with a broken node inside: the error points at the sub-sheet node placed on the main sheet.
+        Sheet inner = new Sheet(UUID.randomUUID(), "inner");
+        inner.setSubsheet(true);
+        inner.add(Node.of(new NodeSettings.SubSheetSettings(UUID.randomUUID())));
+        network.sheets().add(inner);
+        Sheet main = new Sheet(UUID.randomUUID(), "main");
+        Node missing = Node.of(new NodeSettings.SubSheetSettings(UUID.randomUUID()));
+        Node placed = Node.of(new NodeSettings.SubSheetSettings(inner.id()));
+        main.add(missing);
+        main.add(placed);
+        network.sheets().add(main);
+        CompiledSheet compiled = CompiledSheet.compile(main, network);
+        NetworkManager.delete(helper.getLevel().getServer(), network);
+        Set<UUID> shown = new HashSet<>();
+        compiled.errors().forEach(e -> shown.add(e.node() == null ? null : compiled.owner(e.node())));
+        check(helper, shown.equals(Set.of(missing.id(), placed.id())), "errors point at " + shown + ": " + compiled.errors());
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void subSheetsThatExpandTooFarAreRefused(GameTestHelper helper) {
         Network network = NetworkManager.create(helper.getLevel().getServer(), null);
         // A leaf sub-sheet of 10 nodes, then three levels each using the one below 10 times: 10^4 copies of the leaf.
@@ -177,7 +201,7 @@ public final class SafetyTests {
         CompiledSheet compiled = CompiledSheet.compile(main, network);
         long millis = (System.nanoTime() - start) / 1_000_000;
         NetworkManager.delete(helper.getLevel().getServer(), network);
-        check(helper, compiled.errors().stream().anyMatch(e -> e.contains("too big")), "no error for a sheet that expands to 10^5 nodes: " + compiled.errors());
+        check(helper, compiled.errors().stream().anyMatch(e -> e.message().contains("too big")), "no error for a sheet that expands to 10^5 nodes: " + compiled.errors());
         check(helper, millis < 2000, "refusing it took " + millis + " ms");
         helper.succeed();
     }

@@ -234,7 +234,13 @@ export interface Sheet {
   redstone?: Redstone;
   nodes?: GraphNode[];
   wires?: Wire[];
-  errors?: string[];
+  errors?: SheetError[];
+}
+
+/** Something that keeps part of a sheet from running, and the node it is about (when there is one). */
+export interface SheetError {
+  message: string;
+  node?: string;
 }
 
 export interface Device {

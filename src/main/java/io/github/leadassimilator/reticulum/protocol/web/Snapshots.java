@@ -105,7 +105,14 @@ final class Snapshots {
             JsonObject json = encode(server, Sheet.CODEC, sheet).getAsJsonObject();
             CompiledSheet compiled = runtime.compiled(sheet, network);
             JsonArray errors = new JsonArray();
-            compiled.errors().forEach(errors::add);
+            for (CompiledSheet.Problem problem : compiled.errors()) {
+                JsonObject error = new JsonObject();
+                error.addProperty("message", problem.message());
+                if (problem.node() != null) {
+                    error.addProperty("node", compiled.owner(problem.node()).toString());
+                }
+                errors.add(error);
+            }
             json.add("errors", errors);
             sheets.add(json);
         }

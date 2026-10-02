@@ -81,7 +81,7 @@ public final class CompiledSheet {
     /** Revision of every sub-sheet pasted in, so a change to one recompiles the sheets using it. */
     private final Map<UUID, Integer> dependencies = new LinkedHashMap<>();
     private final List<Source> sources = new ArrayList<>();
-    private final List<String> errors = new ArrayList<>();
+    private final List<Problem> errors = new ArrayList<>();
     private final Map<String, Filters.ItemFilter> itemLimitFilters = new LinkedHashMap<>();
     private final Map<String, Filters.FluidFilter> fluidLimitFilters = new LinkedHashMap<>();
     private final Map<String, Filters.ChemicalFilter> chemicalLimitFilters = new LinkedHashMap<>();
@@ -123,8 +123,19 @@ public final class CompiledSheet {
         return sources;
     }
 
-    public List<String> errors() {
+    public List<Problem> errors() {
         return errors;
+    }
+
+    /**
+     * Something that keeps part of the sheet from running. {@code node} is the node it is about, as compiled (a device's
+     * side or a node pasted from a sub-sheet); {@link #owner} maps it to the node the editor shows.
+     */
+    public record Problem(String message, @Nullable UUID node) {
+    }
+
+    private void error(@Nullable Node node, String message) {
+        errors.add(new Problem(message, node == null ? null : node.id()));
     }
 
     // ---------------------------------------------------------------- building
@@ -286,7 +297,7 @@ public final class CompiledSheet {
                 return new NodeSettings.MePortSettings(connector.id(), toConnector.getOpposite());
             }
         }
-        errors.add(describe(node) + ": " + which + " (ME) has no connector on " + (faces.isEmpty() ? "any face" : "that face"));
+        error(node, describe(node) + ": " + which + " (ME) has no connector on " + (faces.isEmpty() ? "any face" : "that face"));
         return null;
     }
 
@@ -323,7 +334,7 @@ public final class CompiledSheet {
                         pinKeys.getOrDefault(wire.to(), wire.to().toString()), b.connector(), b.side()));
             } else if ((a != null || b != null) && wire.input() != Wire.GATE) {
                 Node other = byId.get(a != null ? wire.to() : wire.from());
-                errors.add((other == null ? "A node" : describe(other)) + ": ME pins only link to other ME pins");
+                error(other, (other == null ? "A node" : describe(other)) + ": ME pins only link to other ME pins");
             }
         }
         return ports.keySet();
@@ -397,7 +408,7 @@ public final class CompiledSheet {
         if (carriers.isEmpty()) {
             for (Wire wire : wires) {
                 if (wire.input() == Wire.GATE) {
-                    errors.add("Only signal wires can switch a node on and off");
+                    error(byId.get(wire.to()), "Only signal wires can switch a node on and off");
                 }
             }
             return carriers;
@@ -406,7 +417,7 @@ public final class CompiledSheet {
         for (Wire wire : wires) {
             if (!carriers.contains(wire.from())) {
                 if (wire.input() == Wire.GATE) {
-                    errors.add("Only signal wires can switch a node on and off");
+                    error(byId.get(wire.to()), "Only signal wires can switch a node on and off");
                 }
                 continue;
             }
@@ -422,7 +433,7 @@ public final class CompiledSheet {
                 }
                 in.get(wire.input()).add(wire.from());
             } else if (byId.containsKey(wire.to())) {
-                errors.add(describe(byId.get(wire.to())) + ": a signal wire must go into its gate (the pin on top), not a resource input");
+                error(byId.get(wire.to()), describe(byId.get(wire.to())) + ": a signal wire must go into its gate (the pin on top), not a resource input");
             }
         }
         // Remembering nodes first, then the rest so every node comes after the nodes wired into it.
@@ -463,7 +474,10 @@ public final class CompiledSheet {
             }
         }
         if (ordered.size() < carriers.size()) {
-            errors.add("Signal wires loop back on themselves; a loop must pass through a Latch, Counter or Delay");
+            Set<UUID> placed = new HashSet<>();
+            ordered.forEach(n -> placed.add(n.node().id()));
+            UUID looped = carriers.stream().filter(id -> !placed.contains(id)).findFirst().orElse(null);
+            error(looped == null ? null : byId.get(looped), "Signal wires loop back on themselves; a loop must pass through a Latch, Counter or Delay");
         } else {
             signals.addAll(ordered);
         }
@@ -517,7 +531,7 @@ public final class CompiledSheet {
     private void tooBig(String what) {
         if (!tooBig) {
             tooBig = true;
-            errors.add("This sheet is too big to run: " + what);
+            error(null, "This sheet is too big to run: " + what);
         }
     }
 
@@ -539,11 +553,11 @@ public final class CompiledSheet {
             }
             Sheet used = network.sheet(sub.sheet());
             if (used == null || !used.subsheet()) {
-                errors.add(describe(node) + ": the sub-sheet it uses no longer exists or is no longer marked as a sub-sheet");
+                error(node, describe(node) + ": the sub-sheet it uses no longer exists or is no longer marked as a sub-sheet");
                 continue;
             }
             if (using.contains(used.id()) || using.size() > MAX_SUBSHEET_DEPTH) {
-                errors.add(describe(node) + ": sub-sheet '" + used.name() + "' contains itself");
+                error(node, describe(node) + ": sub-sheet '" + used.name() + "' contains itself");
                 continue;
             }
             dependencies.put(used.id(), used.revision());
@@ -657,12 +671,12 @@ public final class CompiledSheet {
             return;
         }
         if (!walk.onPath.add(node.id())) {
-            errors.add("Wires loop back to " + describe(node) + "; resource wires must not form a cycle");
+            error(node, "Wires loop back to " + describe(node) + "; resource wires must not form a cycle");
             return;
         }
         walk.path.add(owners.getOrDefault(node.id(), node.id()));
         if (node.kind().signal()) {
-            errors.add(describe(node) + " takes signals, not resources");
+            error(node, describe(node) + " takes signals, not resources");
             return;
         }
         if (!(node.settings() instanceof NodeSettings.SinkSettings)) {
@@ -671,7 +685,7 @@ public final class CompiledSheet {
         switch (node.settings()) {
             case NodeSettings.SinkSettings sink -> {
                 if (sink.port().resource() != resource) {
-                    errors.add(describe(node) + " takes " + sink.port().resource().getSerializedName()
+                    error(node, describe(node) + " takes " + sink.port().resource().getSerializedName()
                             + " but is wired to a " + resource.getSerializedName() + " source");
                 } else {
                     walk.raw.add(node.id());
@@ -684,11 +698,11 @@ public final class CompiledSheet {
             case NodeSettings.RateLimitSettings rate -> walk.rateLimits.add(node);
             case NodeSettings.KitSettings kit -> {
                 if (resource != ResourceKind.ITEM) {
-                    errors.add(describe(node) + ": kits only move items");
+                    error(node, describe(node) + ": kits only move items");
                     return;
                 }
                 if (walk.kit != null) {
-                    errors.add(describe(node) + ": a route can pass through only one kit");
+                    error(node, describe(node) + ": a route can pass through only one kit");
                     return;
                 }
                 walk.kit = node;
@@ -736,7 +750,7 @@ public final class CompiledSheet {
         try {
             return new Gate(Filters.items(expression, templates), fluidsOrAny(expression, templates), chemicalsOrNone(expression, templates), false);
         } catch (FilterException e) {
-            errors.add(describe(node) + ": " + e.getMessage());
+            error(node, describe(node) + ": " + e.getMessage());
             return null;
         }
     }
@@ -777,7 +791,7 @@ public final class CompiledSheet {
                 fluidLimitFilters.computeIfAbsent(expression, e -> fluidsOrAny(e, templates));
                 chemicalLimitFilters.computeIfAbsent(expression, e -> chemicalsOrNone(e, templates));
             } catch (FilterException e) {
-                errors.add(describe(node) + ": " + e.getMessage());
+                error(node, describe(node) + ": " + e.getMessage());
             }
         }
     }

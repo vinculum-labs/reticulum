@@ -84,6 +84,6 @@
     </span>
   </label>
   <button class="btn self-start text-sm" onclick={copyJson} title="To paste into “Import sheet…” here or in another world">Copy as JSON</button>
-  <SheetErrors errors={sheet.errors} />
+  <SheetErrors sheetId={sheet.id} errors={sheet.errors} />
   <button class="btn self-start text-sm" onclick={() => (app.panel = "network")}>Network settings…</button>
 </InspectorPanel>

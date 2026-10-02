@@ -544,9 +544,9 @@ public final class NetworkRuntime {
         if (current == null || !current.isCurrent(sheet, network)) {
             current = CompiledSheet.compile(sheet, network);
             compiled.put(sheet.id(), current);
-            for (String error : current.errors()) {
-                if (reportedErrors.add(sheet.id() + error)) {
-                    Reticulum.LOGGER.warn("Network {} sheet '{}': {}", networkId, sheet.name(), error);
+            for (CompiledSheet.Problem error : current.errors()) {
+                if (reportedErrors.add(sheet.id() + error.message())) {
+                    Reticulum.LOGGER.warn("Network {} sheet '{}': {}", networkId, sheet.name(), error.message());
                 }
             }
         }

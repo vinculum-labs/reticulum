@@ -355,7 +355,7 @@
   >
     <Background gap={24} />
     <Controls showLock={false} />
-    <MiniMap pannable zoomable maskStrokeWidth={1} />
+    <MiniMap pannable zoomable maskStrokeWidth={1} nodeClass={(n) => (n.data?.problem ? "problem" : "")} />
     {#if canEdit}
       <Panel position="top-left">
         <div class="flex flex-wrap gap-1 rounded-lg border border-line bg-panel p-1">
@@ -393,7 +393,7 @@
     {/if}
     {#if sheet?.errors?.length}
       <Panel position="bottom-center">
-        <div class="max-w-xl"><SheetErrors errors={sheet.errors} overlay /></div>
+        <div class="max-w-xl"><SheetErrors sheetId={sheet.id} errors={sheet.errors} overlay /></div>
       </Panel>
     {/if}
   </SvelteFlow>

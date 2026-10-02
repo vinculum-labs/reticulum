@@ -205,7 +205,7 @@
               >
                 {#if sheet.subsheet}<Layers size={14} class="shrink-0 muted" />{/if}<span class="trim-text truncate">{sheet.name}</span>
                 {#if app.sheetsOff.includes(sheet.id)}<span class="shrink-0 text-signal" title="Switched off by redstone"><Zap size={12} /></span>{/if}
-                {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.join("\n")}><TriangleAlert size={12} /></span>{/if}
+                {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
               </button>
             {/if}
             {#if canEdit}

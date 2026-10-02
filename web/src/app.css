@@ -261,3 +261,8 @@ img.icon {
   border-radius: 4px;
   overflow: hidden;
 }
+
+/* Nodes with errors stand out on the minimap too. */
+.svelte-flow__minimap-node.problem {
+  fill: var(--bad);
+}

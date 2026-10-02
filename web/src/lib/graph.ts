@@ -21,6 +21,8 @@ export interface NodeData extends Record<string, unknown> {
   signal?: number;
   /** A wire is plugged into its gate (the gate pin shows only then, or on hover). */
   gateWired?: boolean;
+  /** What is wrong with it, one error per line, as the server compiled the sheet. */
+  problem?: string;
 
 }
 
@@ -146,6 +148,10 @@ export function toFlow(
   const rates = activity.rates;
   const byKey = new Map(devices.map((d) => [posKey(d.pos), d]));
   const kinds = resources(sheet);
+  const problems = new Map<string, string>();
+  for (const error of sheet.errors ?? []) {
+    if (error.node) problems.set(error.node, problems.has(error.node) ? `${problems.get(error.node)}\n${error.message}` : error.message);
+  }
   const nodes: Node<NodeData>[] = (sheet.nodes ?? []).map((n) => {
     const s = n.settings;
     const device = "device" in s ? byKey.get(posKey(s.device)) : undefined;
@@ -173,6 +179,7 @@ export function toFlow(
         subsheet,
         signal: isSignal(s.kind) ? (activity.signals[n.id] ?? 0) : undefined,
         gateWired: (sheet.wires ?? []).some((w) => w.to === n.id && (w.input ?? 0) === GATE) || undefined,
+        problem: problems.get(n.id),
       },
     };
   });

@@ -401,7 +401,7 @@ public final class EngineTests {
         rig.signal(b, a, 0);
         helper.succeedWhen(() -> {
             CompiledSheet compiled = rig.compiled();
-            check(helper, compiled != null && compiled.errors().stream().anyMatch(e -> e.contains("loop")), "loop not reported");
+            check(helper, compiled != null && compiled.errors().stream().anyMatch(e -> e.message().contains("loop")), "loop not reported");
         });
     }
 

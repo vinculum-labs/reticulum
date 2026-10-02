@@ -102,6 +102,8 @@ export const app = $state({
   selectedDevice: null as string | null,
   /** A node to bring into view once its sheet is on the canvas (opened from the dashboard). */
   focusNode: null as string | null,
+  /** A node that pulses briefly to draw the eye (one picked from the sheet's errors). */
+  flashNode: null as string | null,
   /** A panel shown in place of the inspector ("network" = network settings). */
   panel: null as "network" | "identified" | "dashboard" | null,
   /** How long the network's ticks take, in ms (last 200 ticks). */
@@ -552,6 +554,16 @@ export function openSheet(id: string, select: string[] = [], focus = false): voi
   app.selectedEdges = [];
   app.selectedDevice = null;
   app.panel = null;
+}
+
+/** Shows the node an error is about: selected, brought into view and pulsing for a moment. */
+export function showNode(sheetId: string, node: string): void {
+  openSheet(sheetId, [node], true);
+  app.flashNode = null;
+  queueMicrotask(() => (app.flashNode = node));
+  setTimeout(() => {
+    if (app.flashNode === node) app.flashNode = null;
+  }, 2500);
 }
 
 /** An identify's color as CSS (the default yellow when none is set). */
