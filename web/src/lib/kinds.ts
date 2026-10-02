@@ -9,7 +9,7 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   splitter: "Splitter",
   kit: "Kit",
   sheet: "Sheet",
-  subsheet: "Sub-sheet",
+  copy: "Blueprint",
   sheet_input: "Sheet input",
   sheet_output: "Sheet output",
   level: "Level sensor",
@@ -29,7 +29,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   splitter: "Shares between outputs: in turn, in order, by weight, or nearest first",
   kit: "Moves a set of items all together or not at all",
   sheet: "A sheet inside this one: double-click to open it. Its switch and gate switch everything in it",
-  subsheet: "A copy of a sheet marked as a sub-sheet, used like one node",
+  copy: "A copy of a sheet marked as a blueprint, used like one node",
   sheet_input: "Where resources or signals come into this sheet: a pin on the left of its node",
   sheet_output: "Where resources or signals leave this sheet: a pin on the right of its node",
   level: "How much of a resource a device holds",
@@ -157,7 +157,7 @@ export function defaultSettings(
   kind: NodeKind,
   device: Device | null,
   resource: Resource,
-  subsheet?: string,
+  blueprint?: string,
 ): NodeSettings {
   switch (kind) {
     case "level":
@@ -175,9 +175,9 @@ export function defaultSettings(
       return { kind };
     case "delay":
       return { kind, ticks: 1 };
-    case "subsheet":
+    case "copy":
     case "sheet":
-      return { kind, sheet: subsheet ?? "" };
+      return { kind, sheet: blueprint ?? "" };
     case "sheet_input":
     case "sheet_output":
       return { kind, name: "" };
@@ -301,8 +301,8 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
             : "round robin";
     case "kit":
       return s.lines.map((l) => `${l.count}× ${l.filter || "anything"}`).join(" + ") + (s.max_kits && s.max_kits > 1 ? `, up to ${s.max_kits}` : "");
-    case "subsheet":
-      return "sub-sheet";
+    case "copy":
+      return "blueprint";
     case "sheet":
       return "sheet";
     case "sheet_input":

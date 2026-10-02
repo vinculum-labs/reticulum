@@ -154,14 +154,14 @@ public final class SafetyTests {
     @GameTest(template = "empty")
     public static void errorsNameTheNodeTheEditorShows(GameTestHelper helper) {
         Network network = NetworkManager.create(helper.getLevel().getServer(), null);
-        // A sub-sheet with a broken node inside: the error points at the sub-sheet node placed on the main sheet.
+        // A blueprint with a broken node inside: the error points at the copy node placed on the main sheet.
         Sheet inner = new Sheet(UUID.randomUUID(), "inner");
-        inner.setSubsheet(true);
-        inner.add(Node.of(new NodeSettings.SubSheetSettings(UUID.randomUUID())));
+        inner.setBlueprint(true);
+        inner.add(Node.of(new NodeSettings.CopySettings(UUID.randomUUID())));
         network.sheets().add(inner);
         Sheet main = new Sheet(UUID.randomUUID(), "main");
-        Node missing = Node.of(new NodeSettings.SubSheetSettings(UUID.randomUUID()));
-        Node placed = Node.of(new NodeSettings.SubSheetSettings(inner.id()));
+        Node missing = Node.of(new NodeSettings.CopySettings(UUID.randomUUID()));
+        Node placed = Node.of(new NodeSettings.CopySettings(inner.id()));
         main.add(missing);
         main.add(placed);
         network.sheets().add(main);
@@ -174,27 +174,27 @@ public final class SafetyTests {
     }
 
     @GameTest(template = "empty")
-    public static void subSheetsThatExpandTooFarAreRefused(GameTestHelper helper) {
+    public static void blueprintCopiesThatExpandTooFarAreRefused(GameTestHelper helper) {
         Network network = NetworkManager.create(helper.getLevel().getServer(), null);
-        // A leaf sub-sheet of 10 nodes, then three levels each using the one below 10 times: 10^4 copies of the leaf.
+        // A leaf blueprint of 10 nodes, then three levels each using the one below 10 times: 10^4 copies of the leaf.
         Sheet below = new Sheet(UUID.randomUUID(), "leaf");
-        below.setSubsheet(true);
+        below.setBlueprint(true);
         for (int i = 0; i < 10; i++) {
             below.add(Node.of(new NodeSettings.RateLimitSettings(20)));
         }
         network.sheets().add(below);
         for (int level = 1; level <= 3; level++) {
             Sheet sheet = new Sheet(UUID.randomUUID(), "level " + level);
-            sheet.setSubsheet(true);
+            sheet.setBlueprint(true);
             for (int i = 0; i < 10; i++) {
-                sheet.add(Node.of(new NodeSettings.SubSheetSettings(below.id())));
+                sheet.add(Node.of(new NodeSettings.CopySettings(below.id())));
             }
             network.sheets().add(sheet);
             below = sheet;
         }
         Sheet main = new Sheet(UUID.randomUUID(), "main");
         for (int i = 0; i < 10; i++) {
-            main.add(Node.of(new NodeSettings.SubSheetSettings(below.id())));
+            main.add(Node.of(new NodeSettings.CopySettings(below.id())));
         }
         network.sheets().add(main);
         long start = System.nanoTime();

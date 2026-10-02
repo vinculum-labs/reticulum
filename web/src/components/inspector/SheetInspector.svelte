@@ -20,7 +20,7 @@
   const targets = $derived.by(() => {
     const inside = new Set(descendants(snapshot, sheet).map((s) => s.id));
     return snapshot.sheets
-      .filter((s) => !s.subsheet && s.id !== sheet.id && !inside.has(s.id))
+      .filter((s) => !s.blueprint && s.id !== sheet.id && !inside.has(s.id))
       .map((s) => ({ value: s.id, label: s.root ? `${s.name} (top)` : sheetPath(snapshot, s) }))
       .sort((a, b) => a.label.localeCompare(b.label));
   });
@@ -45,11 +45,11 @@
   }
 </script>
 
-<InspectorPanel title={sheet.root ? "Top sheet" : sheet.subsheet ? "Sub-sheet" : "Sheet"}>
+<InspectorPanel title={sheet.root ? "Top sheet" : sheet.blueprint ? "Blueprint" : "Sheet"}>
   <Field label="Name">
     <TextField value={sheet.name} required disabled={!canEdit} oncommit={(v) => update({ name: v }, { name: sheet.name }, "rename sheet")} />
   </Field>
-  {#if !sheet.subsheet}
+  {#if !sheet.blueprint}
     <Switch
       label="On"
       title={sheet.root ? "The network's switch: everything in it" : "Its node's switch: everything in it"}
@@ -79,12 +79,12 @@
     <label class="flex items-start gap-2 text-sm">
       <input
         type="checkbox"
-        checked={sheet.subsheet === true}
+        checked={sheet.blueprint === true}
         disabled={!canEdit}
-        onchange={(e) => update({ subsheet: e.currentTarget.checked }, { subsheet: sheet.subsheet === true }, "sub-sheet")}
+        onchange={(e) => update({ blueprint: e.currentTarget.checked }, { blueprint: sheet.blueprint === true }, "blueprint")}
       />
       <span>
-        Use as sub-sheet
+        Use as blueprint
         <span class="block text-xs muted">
           It leaves the tree and stops running on its own; other sheets place copies of it as a node. A sheet with sheets inside it can't be one.
         </span>

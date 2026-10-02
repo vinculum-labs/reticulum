@@ -107,7 +107,7 @@ final class Snapshots {
             json.addProperty("enabled", sheet.root() ? network.enabled() : placement != null && placement.node().enabled());
             CompiledSheet compiled = runtime.compiled(sheet, network);
             JsonArray errors = new JsonArray();
-            for (CompiledSheet.Problem problem : sheet.subsheet() ? compiled.errors() : compiled.errorsFor(sheet.id())) {
+            for (CompiledSheet.Problem problem : sheet.blueprint() ? compiled.errors() : compiled.errorsFor(sheet.id())) {
                 JsonObject error = new JsonObject();
                 error.addProperty("message", problem.message());
                 if (problem.node() != null) {

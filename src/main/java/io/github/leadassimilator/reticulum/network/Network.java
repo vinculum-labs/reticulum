@@ -267,15 +267,15 @@ public final class Network {
         return root();
     }
 
-    /** Where a sheet sits: its parent sheet and its node there; null for the root, sub-sheets and unplaced sheets. */
+    /** Where a sheet sits: its parent sheet and its node there; null for the root, blueprints and unplaced sheets. */
     public record Placement(Sheet parent, io.github.leadassimilator.reticulum.graph.Node node) {
     }
 
-    /** Every placed sheet's placement, by sheet id: the sheet nodes on every sheet but sub-sheets. */
+    /** Every placed sheet's placement, by sheet id: the sheet nodes on every sheet but blueprints. */
     public Map<UUID, Placement> placements() {
         Map<UUID, Placement> out = new LinkedHashMap<>();
         for (Sheet sheet : sheets) {
-            if (sheet.subsheet()) {
+            if (sheet.blueprint()) {
                 continue;
             }
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
@@ -324,11 +324,11 @@ public final class Network {
     }
 
     /**
-     * Whether a sheet may run as far as switches go: it is in the tree (not a sub-sheet, not unplaced), and its sheet
+     * Whether a sheet may run as far as switches go: it is in the tree (not a blueprint, not unplaced), and its sheet
      * node and every sheet node above it are on. The root runs whenever the network does.
      */
     public boolean runs(Sheet sheet) {
-        if (sheet.subsheet()) {
+        if (sheet.blueprint()) {
             return false;
         }
         Map<UUID, Placement> placements = placements();
@@ -345,15 +345,15 @@ public final class Network {
 
     /**
      * Puts the tree right, and says whether it changed anything: a root sheet exists (made when missing), every sheet
-     * but the root and sub-sheets is placed exactly once, sheet nodes that name a missing sheet, the root, a
-     * sub-sheet, an already placed sheet or one of their own ancestors are dropped, sheets placed nowhere go into the
+     * but the root and blueprints is placed exactly once, sheet nodes that name a missing sheet, the root, a
+     * blueprint, an already placed sheet or one of their own ancestors are dropped, sheets placed nowhere go into the
      * root, and every sheet pin has a slot. Run after loading, after edits and before compiling.
      */
     public boolean ensureTree() {
         boolean changed = false;
         Sheet root = null;
         for (Sheet sheet : sheets) {
-            if (sheet.root() && (root != null || sheet.subsheet())) {
+            if (sheet.root() && (root != null || sheet.blueprint())) {
                 sheet.setRoot(false);
                 changed = true;
             } else if (sheet.root()) {
@@ -366,7 +366,7 @@ public final class Network {
             sheets.add(0, root);
             changed = true;
         }
-        // Sheet nodes: one per sheet, only for sheets that can be placed, never on a sub-sheet.
+        // Sheet nodes: one per sheet, only for sheets that can be placed, never on a blueprint.
         java.util.Set<UUID> placed = new java.util.HashSet<>();
         for (Sheet sheet : sheets) {
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
@@ -374,7 +374,7 @@ public final class Network {
                     continue;
                 }
                 Sheet target = sheet(child.sheet());
-                if (sheet.subsheet() || target == null || target.root() || target.subsheet() || target == sheet || !placed.add(target.id())) {
+                if (sheet.blueprint() || target == null || target.root() || target.blueprint() || target == sheet || !placed.add(target.id())) {
                     sheet.remove(node.id());
                     changed = true;
                 }
@@ -397,7 +397,7 @@ public final class Network {
         }
         int added = 0;
         for (Sheet sheet : List.copyOf(sheets)) {
-            if (!sheet.root() && !sheet.subsheet() && !placed.contains(sheet.id())) {
+            if (!sheet.root() && !sheet.blueprint() && !placed.contains(sheet.id())) {
                 float x = 40 + (root.nodes().size() + added) % 6 * 220;
                 float y = 40 + (root.nodes().size() + added) / 6 * 140;
                 root.add(io.github.leadassimilator.reticulum.graph.Node.of(new io.github.leadassimilator.reticulum.graph.NodeSettings.SheetSettings(
@@ -433,13 +433,13 @@ public final class Network {
     }
 
     /**
-     * Where a device lives: the sheet with its device node (in the tree; sub-sheets don't count), and that node. Null
+     * Where a device lives: the sheet with its device node (in the tree; blueprints don't count), and that node. Null
      * when it has none. {@code except} is a node to leave out (the one being edited).
      */
     @Nullable
     public Home home(GlobalPos device, @Nullable UUID except) {
         for (Sheet sheet : sheets) {
-            if (sheet.subsheet()) {
+            if (sheet.blueprint()) {
                 continue;
             }
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {

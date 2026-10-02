@@ -15,7 +15,7 @@ import io.github.leadassimilator.reticulum.network.Limits;
 /**
  * A canvas of nodes and wires. Sheets form a tree: the network's root sheet holds the others as sheet nodes, which
  * hold theirs (a sheet's parent is wherever its sheet node is), and a sheet node's switch, gate and condition switch
- * everything in it. Sub-sheets stand apart, placed by copy. Every edit must go through a method here (or call
+ * everything in it. Blueprints stand apart, placed by copy. Every edit must go through a method here (or call
  * {@link #touch()}) so the engine recompiles it.
  */
 public final class Sheet {
@@ -26,7 +26,7 @@ public final class Sheet {
             Codec.STRING.fieldOf("name").forGetter(s -> s.name),
             Codec.INT.optionalFieldOf("interval", DEFAULT_INTERVAL).forGetter(s -> s.interval),
             Codec.INT.optionalFieldOf("priority", 0).forGetter(s -> s.priority),
-            Codec.BOOL.optionalFieldOf("subsheet", false).forGetter(s -> s.subsheet),
+            Codec.BOOL.optionalFieldOf("blueprint", false).forGetter(s -> s.blueprint),
             Codec.BOOL.optionalFieldOf("root", false).forGetter(s -> s.root),
             Ids.lenientList(Node.CODEC, "node").optionalFieldOf("nodes", List.of()).forGetter(s -> s.nodes),
             Wire.CODEC.listOf().optionalFieldOf("wires", List.of()).forGetter(s -> s.wires)
@@ -36,8 +36,8 @@ public final class Sheet {
     private String name;
     private int interval;
     private int priority;
-    /** A sub-sheet never runs on its own; other sheets place copies of it. */
-    private boolean subsheet;
+    /** A blueprint never runs on its own; other sheets place copies of it. */
+    private boolean blueprint;
     /** The network's root sheet: the top of the tree, switched by the network itself. One per network. */
     private boolean root;
     private final List<Node> nodes = new ArrayList<>();
@@ -49,12 +49,12 @@ public final class Sheet {
         this(id, name, DEFAULT_INTERVAL, 0, false, false, List.of(), List.of());
     }
 
-    private Sheet(UUID id, String name, int interval, int priority, boolean subsheet, boolean root, List<Node> nodes, List<Wire> wires) {
+    private Sheet(UUID id, String name, int interval, int priority, boolean blueprint, boolean root, List<Node> nodes, List<Wire> wires) {
         this.id = id;
         this.name = name;
         this.interval = interval;
         this.priority = priority;
-        this.subsheet = subsheet;
+        this.blueprint = blueprint;
         this.root = root;
         this.nodes.addAll(nodes);
         this.wires.addAll(wires);
@@ -76,7 +76,7 @@ public final class Sheet {
         Sheet copy = new Sheet(UUID.randomUUID(), name);
         copy.setInterval(interval);
         copy.priority = priority;
-        copy.setSubsheet(subsheet);
+        copy.setBlueprint(blueprint);
         java.util.Map<UUID, UUID> ids = new java.util.HashMap<>();
         for (Node node : nodes) {
             UUID id = UUID.randomUUID();
@@ -100,8 +100,8 @@ public final class Sheet {
         }
     }
 
-    public boolean subsheet() {
-        return subsheet;
+    public boolean blueprint() {
+        return blueprint;
     }
 
     public boolean root() {
@@ -113,8 +113,8 @@ public final class Sheet {
         touch();
     }
 
-    public void setSubsheet(boolean subsheet) {
-        this.subsheet = subsheet;
+    public void setBlueprint(boolean blueprint) {
+        this.blueprint = blueprint;
         touch();
     }
 

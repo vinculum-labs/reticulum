@@ -1444,15 +1444,15 @@ public final class EngineTests {
         });
     }
 
-    /** A sub-sheet holding "input -> filter (ingots) -> output", used between a barrel and another barrel. */
+    /** A blueprint holding "input -> filter (ingots) -> output", used between a barrel and another barrel. */
     @GameTest(template = "empty")
-    public static void subSheetIsPastedIn(GameTestHelper helper) {
+    public static void blueprintCopyIsPastedIn(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.IRON_INGOT, 5));
         rig.container(0).setItem(1, new ItemStack(Items.DIRT, 5));
 
         Sheet template = new Sheet(UUID.randomUUID(), "only ingots");
-        template.setSubsheet(true);
+        template.setBlueprint(true);
         Node in = template.add(Node.of(new NodeSettings.SheetPinSettings(true, "in")));
         Node filter = template.add(Node.of(new NodeSettings.FilterSettings("tag:c:ingots")));
         Node out = template.add(Node.of(new NodeSettings.SheetPinSettings(false, "out")));
@@ -1460,12 +1460,12 @@ public final class EngineTests {
         template.connect(Wire.of(filter, out));
         rig.network().sheets().add(template);
 
-        Node sub = rig.node(new NodeSettings.SubSheetSettings(template.id()));
+        Node sub = rig.node(new NodeSettings.CopySettings(template.id()));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), sub);
         rig.wire(sub, rig.sink(1, ResourceKind.ITEM, List.of()));
         helper.succeedWhen(() -> {
-            check(helper, rig.count(1, Items.IRON_INGOT) == 5, "ingots did not pass through the sub-sheet");
-            check(helper, rig.count(1, Items.DIRT) == 0 && rig.count(0, Items.DIRT) == 5, "the sub-sheet's filter was not applied");
+            check(helper, rig.count(1, Items.IRON_INGOT) == 5, "ingots did not pass through the blueprint");
+            check(helper, rig.count(1, Items.DIRT) == 0 && rig.count(0, Items.DIRT) == 5, "the blueprint's filter was not applied");
         });
     }
 

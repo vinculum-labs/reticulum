@@ -30,7 +30,7 @@ public sealed interface NodeSettings {
         DEVICE(DeviceSettings.CODEC, false),
         /** A child sheet, placed on its parent: its pins are its Sheet input and Sheet output nodes. */
         SHEET(SheetSettings.CODEC, false),
-        SUBSHEET(SubSheetSettings.CODEC, false),
+        COPY(CopySettings.CODEC, false),
         SHEET_INPUT(SheetPinSettings.INPUT_CODEC, false),
         SHEET_OUTPUT(SheetPinSettings.OUTPUT_CODEC, false),
         /** Engine-internal: a device's redstone output pin. Never saved or sent. */
@@ -270,17 +270,17 @@ public sealed interface NodeSettings {
     }
 
     /**
-     * A copy of another sheet (one marked as a sub-sheet) placed here. Its pins are that sheet's Sheet input nodes
+     * A copy of another sheet (one marked as a blueprint) placed here. Its pins are that sheet's Sheet input nodes
      * (inputs, left) and Sheet output nodes (outputs, right), each ordered top to bottom as laid out in it.
      */
-    record SubSheetSettings(UUID sheet) implements NodeSettings {
-        public static final MapCodec<SubSheetSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Ids.UUID_CODEC.fieldOf("sheet").forGetter(SubSheetSettings::sheet)
-        ).apply(i, SubSheetSettings::new));
+    record CopySettings(UUID sheet) implements NodeSettings {
+        public static final MapCodec<CopySettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Ids.UUID_CODEC.fieldOf("sheet").forGetter(CopySettings::sheet)
+        ).apply(i, CopySettings::new));
 
         @Override
         public Kind kind() {
-            return Kind.SUBSHEET;
+            return Kind.COPY;
         }
     }
 

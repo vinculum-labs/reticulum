@@ -54,10 +54,10 @@
       .sort((a, b) => deviceName(a).localeCompare(deviceName(b))),
   );
 
-  /** Where a new sheet goes: inside the open sheet (the root while a sub-sheet is open). */
+  /** Where a new sheet goes: inside the open sheet (the root while a blueprint is open). */
   const newSheetParent = $derived.by(() => {
     const open = snapshot.sheets.find((s) => s.id === app.sheetId);
-    return open && !open.subsheet ? open : rootSheet(snapshot) ?? null;
+    return open && !open.blueprint ? open : rootSheet(snapshot) ?? null;
   });
 
   /** A new sheet inside the open one, its node placed right of what is there. */
@@ -71,8 +71,8 @@
     await createSheet(parent, name, { x: right, y: top });
   }
 
-  async function addSubsheet() {
-    const results = await edit([{ type: "createSheet", name: `Sub-sheet ${snapshot.sheets.filter((s) => s.subsheet).length + 1}`, subsheet: true }]);
+  async function addBlueprint() {
+    const results = await edit([{ type: "createSheet", name: `Blueprint ${snapshot.sheets.filter((s) => s.blueprint).length + 1}`, blueprint: true }]);
     if (results?.[0]) openSheet(results[0] as string);
   }
 
@@ -150,7 +150,7 @@
     return out;
   });
 
-  const subsheets = $derived(snapshot.sheets.filter((s) => s.subsheet).sort((a, b) => a.name.localeCompare(b.name)));
+  const blueprints = $derived(snapshot.sheets.filter((s) => s.blueprint).sort((a, b) => a.name.localeCompare(b.name)));
 
   function toggleCollapsed(id: string) {
     const next = new Set(collapsed);
@@ -260,9 +260,9 @@
       <button class="btn mt-2 text-sm" onclick={importSheet} title="Paste a sheet copied with “Copy as JSON”">Import sheet…</button>
     {/if}
 
-    <h2 class="panel-title mt-4 mb-2">Sub-sheets</h2>
+    <h2 class="panel-title mt-4 mb-2">Blueprints</h2>
     <ul class="flex flex-col gap-0.5">
-      {#each subsheets as sheet (sheet.id)}
+      {#each blueprints as sheet (sheet.id)}
         <li class="group flex items-center gap-1.5 rounded-md py-1 pr-2 pl-2" style={sheet.id === app.sheetId ? "background: var(--panel-2)" : ""}>
           {#if renaming === sheet.id}
             <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
@@ -278,15 +278,15 @@
             </button>
           {/if}
           {#if canEdit}
-            <RemoveButton reveal label={`Delete sub-sheet ${sheet.name}`} onclick={() => deleteSheet(sheet)} />
+            <RemoveButton reveal label={`Delete blueprint ${sheet.name}`} onclick={() => deleteSheet(sheet)} />
           {/if}
         </li>
       {:else}
-        <li class="text-xs muted">None yet. A sub-sheet is used by placing copies of it, like one node.</li>
+        <li class="text-xs muted">None yet. A blueprint is used by placing copies of it, like one node.</li>
       {/each}
     </ul>
     {#if canEdit}
-      <button class="btn mt-2 text-sm" onclick={addSubsheet}>New sub-sheet</button>
+      <button class="btn mt-2 text-sm" onclick={addBlueprint}>New blueprint</button>
     {/if}
   </section>
 

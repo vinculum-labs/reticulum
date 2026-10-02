@@ -299,7 +299,7 @@ public final class WebApi {
                     Sheet sheet = pasted.copyWithNewIds(name == null ? "Imported sheet" : name);
                     sheet.setRoot(false);
                     network.sheets().add(sheet);
-                    if (!sheet.subsheet()) {
+                    if (!sheet.blueprint()) {
                         place(network, sheet, parentOf(network, edit), edit);
                     }
                     return new com.google.gson.JsonPrimitive(sheet.id().toString());
@@ -309,8 +309,8 @@ public final class WebApi {
                     roomForSheet(network);
                     String name = Limits.name(string(edit, "name"));
                     Sheet sheet = new Sheet(UUID.randomUUID(), name == null ? "Sheet " + network.sheets().size() : name);
-                    if (edit.has("subsheet") && edit.get("subsheet").getAsBoolean()) {
-                        sheet.setSubsheet(true);
+                    if (edit.has("blueprint") && edit.get("blueprint").getAsBoolean()) {
+                        sheet.setBlueprint(true);
                         network.sheets().add(sheet);
                     } else {
                         Sheet parent = parentOf(network, edit);
@@ -330,8 +330,8 @@ public final class WebApi {
                     if (parent == sheet || network.descendants(sheet).contains(parent)) {
                         throw new RequestException("A sheet can't go inside itself");
                     }
-                    if (parent.subsheet()) {
-                        throw new RequestException("Sheets can't go inside a sub-sheet");
+                    if (parent.blueprint()) {
+                        throw new RequestException("Sheets can't go inside a blueprint");
                     }
                     if (parent != placement.parent()) {
                         placement.parent().remove(placement.node().id());
@@ -352,17 +352,17 @@ public final class WebApi {
                     if (edit.has("interval")) {
                         sheet.setInterval(Math.max(1, edit.get("interval").getAsInt()));
                     }
-                    if (edit.has("subsheet") && !sheet.root() && edit.get("subsheet").getAsBoolean() != sheet.subsheet()) {
-                        boolean subsheet = edit.get("subsheet").getAsBoolean();
-                        if (subsheet && !network.descendants(sheet).isEmpty()) {
-                            throw new RequestException("A sheet with sheets inside it can't be a sub-sheet");
+                    if (edit.has("blueprint") && !sheet.root() && edit.get("blueprint").getAsBoolean() != sheet.blueprint()) {
+                        boolean blueprint = edit.get("blueprint").getAsBoolean();
+                        if (blueprint && !network.descendants(sheet).isEmpty()) {
+                            throw new RequestException("A sheet with sheets inside it can't be a blueprint");
                         }
                         Network.Placement placement = network.placement(sheet.id());
-                        if (subsheet && placement != null) {
-                            // Out of the tree: sub-sheets are placed by copy.
+                        if (blueprint && placement != null) {
+                            // Out of the tree: blueprints are placed by copy.
                             placement.parent().remove(placement.node().id());
                         }
-                        sheet.setSubsheet(subsheet);
+                        sheet.setBlueprint(blueprint);
                         network.sheets().forEach(Sheet::touch);
                     }
                 }
@@ -591,7 +591,7 @@ public final class WebApi {
                 return network.root();
             }
             Sheet parent = network.sheet(uuid(edit, "parent"));
-            if (parent == null || parent.subsheet()) {
+            if (parent == null || parent.blueprint()) {
                 throw new RequestException("No such sheet to put it in");
             }
             return parent;
@@ -609,14 +609,14 @@ public final class WebApi {
 
         /**
          * Sheet nodes come and go with their sheets (New sheet, Delete): one can't be added for a sheet already placed,
-         * and an existing one can't be pointed at another sheet. Sheets can't go inside sub-sheets.
+         * and an existing one can't be pointed at another sheet. Sheets can't go inside blueprints.
          */
         private static void checkSheetNode(Network network, Sheet sheet, Node node, boolean adding) throws RequestException {
             if (!(node.settings() instanceof NodeSettings.SheetSettings child)) {
                 return;
             }
-            if (sheet.subsheet()) {
-                throw new RequestException("Sheets can't go inside a sub-sheet");
+            if (sheet.blueprint()) {
+                throw new RequestException("Sheets can't go inside a blueprint");
             }
             Node existing = sheet.node(node.id());
             if (adding || existing == null || !(existing.settings() instanceof NodeSettings.SheetSettings was) || !was.sheet().equals(child.sheet())) {
@@ -627,10 +627,10 @@ public final class WebApi {
         /**
          * A device lives on one sheet: a second device node for it, anywhere in the tree, is refused (naming where it
          * lives). A device several sheets need goes on the sheet holding them, its flows wired down through pins.
-         * Sub-sheets are left alone: they are placed by copy.
+         * Blueprints are left alone: they are placed by copy.
          */
         private static void checkHome(Network network, Sheet sheet, Node node) throws RequestException {
-            if (sheet.subsheet() || !(node.settings() instanceof NodeSettings.DeviceSettings device)) {
+            if (sheet.blueprint() || !(node.settings() instanceof NodeSettings.DeviceSettings device)) {
                 return;
             }
             Network.Home home = network.home(device.device(), node.id());

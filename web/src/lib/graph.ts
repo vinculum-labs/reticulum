@@ -15,7 +15,7 @@ export interface NodeData extends Record<string, unknown> {
   fiveMinutes: number;
   /** Why it moved nothing on its last attempt. */
   status?: string;
-  /** For a sheet or sub-sheet node: the sheet it holds (or copies) and its pins, in order. */
+  /** For a sheet or copy node: the sheet it holds (or copies) and its pins, in order. */
   holder?: { sheet?: Sheet; inputs: HolderPin[]; outputs: HolderPin[]; problems: number };
   /** For a signal node: its output as last reported. */
   signal?: number;
@@ -58,7 +58,7 @@ export interface FlowView {
   frames: Map<string, Frame>;
 }
 
-/** One pin of a sheet or sub-sheet node: its name, the slot wires attach by, and what it carries (none: anything). */
+/** One pin of a sheet or copy node: its name, the slot wires attach by, and what it carries (none: anything). */
 export interface HolderPin {
   name: string;
   slot: number;
@@ -150,7 +150,7 @@ export function resources(sheet: Sheet, sheets: Sheet[] = []): { wires: Map<stri
       nodes.set(n.id, s.resource);
       emit(n.id, s.resource);
     }
-    if (s.kind === "sheet" || s.kind === "subsheet") {
+    if (s.kind === "sheet" || s.kind === "copy") {
       const held = sheets.find((x) => x.id === s.sheet);
       for (const pin of holderPins(held, false)) if (flows(pin.resource)) emit(n.id, pin.resource, pin.slot);
     }
@@ -163,13 +163,13 @@ export function resources(sheet: Sheet, sheets: Sheet[] = []): { wires: Map<stri
 }
 
 /**
- * What a pin carries: a device node's input or output; a sheet or sub-sheet node's pin by slot (from the sheet it
+ * What a pin carries: a device node's input or output; a sheet or copy node's pin by slot (from the sheet it
  * holds, in {@code sheets}); a Sheet input's output or Sheet output's input. Null when it isn't fixed.
  */
 export function pinResource(node: GraphNode | undefined, direction: "in" | "out", index: number, sheets: Sheet[] = []): Resource | null {
   const s = node?.settings;
   if (s?.kind === "device") return (direction === "in" ? s.inputs?.[index]?.resource : s.outputs?.[index]?.resource) ?? null;
-  if (s?.kind === "sheet" || s?.kind === "subsheet") {
+  if (s?.kind === "sheet" || s?.kind === "copy") {
     const held = sheets.find((x) => x.id === s.sheet);
     return holderPins(held, direction === "in").find((p) => p.slot === index)?.resource ?? null;
   }
@@ -180,7 +180,7 @@ export function pinResource(node: GraphNode | undefined, direction: "in" | "out"
 /** Kinds whose inputs and outputs are numbered pins ("in:0", "out:1"); a sheet node's numbers are its pins' slots. */
 function numbered(node: GraphNode | undefined): boolean {
   const kind = node?.settings.kind;
-  return kind === "device" || kind === "sheet" || kind === "subsheet" || isSignal(kind);
+  return kind === "device" || kind === "sheet" || kind === "copy" || isSignal(kind);
 }
 
 export function sourceHandle(node: GraphNode | undefined, output: number): string {
@@ -327,7 +327,7 @@ function sheetFlow(
     const s = n.settings;
     const device = "device" in s ? byKey.get(posKey(s.device)) : undefined;
     let holder: NodeData["holder"];
-    if (s.kind === "subsheet" || s.kind === "sheet") {
+    if (s.kind === "copy" || s.kind === "sheet") {
       const used = sheets.find((x) => x.id === s.sheet);
       holder = {
         sheet: used,

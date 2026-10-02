@@ -47,13 +47,13 @@
           ? RESOURCE_VAR[data.resource]
           : "var(--muted)",
   );
-  const holds = $derived(kind === "sheet" || kind === "subsheet");
+  const holds = $derived(kind === "sheet" || kind === "copy");
   const title = $derived(
     data.node.label ||
       (data.device
         ? deviceName(data.device)
         : holds
-          ? (data.holder?.sheet?.name ?? (kind === "sheet" ? "Missing sheet" : "Missing sub-sheet"))
+          ? (data.holder?.sheet?.name ?? (kind === "sheet" ? "Missing sheet" : "Missing blueprint"))
           : (s.kind === "sheet_input" || s.kind === "sheet_output") && s.name
             ? s.name
             : KIND_LABEL[kind]),
@@ -63,7 +63,7 @@
 
   type Row = { label: string; title: string; color: string; handle: string };
 
-  /** A sheet or sub-sheet's pin as a row: its handle is its slot, so wires stay on it whatever the order. */
+  /** A sheet or blueprint's pin as a row: its handle is its slot, so wires stay on it whatever the order. */
   function holderRow(pin: HolderPin, input: boolean): Row {
     return {
       label: pin.name,
@@ -73,7 +73,7 @@
     };
   }
 
-  /** Labeled pin rows: a device's inputs and outputs, or a sheet's (or sub-sheet's) pins. */
+  /** Labeled pin rows: a device's inputs and outputs, or a sheet's (or blueprint's) pins. */
   const leftRows = $derived<Row[]>(
     s.kind === "device"
       ? (s.inputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/in/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource], handle: `in:${i}` }))
@@ -171,7 +171,7 @@
     ? 'var(--accent)'
     : data.problem
       ? 'var(--bad)'
-      : 'var(--line)'}; border-style: {kind === 'subsheet' ? 'double' : 'solid'}; border-width: {kind === 'subsheet' ? 3 : kind === 'sheet' ? 2 : 1}px; box-shadow: {selected
+      : 'var(--line)'}; border-style: {kind === 'copy' ? 'double' : 'solid'}; border-width: {kind === 'copy' ? 3 : kind === 'sheet' ? 2 : 1}px; box-shadow: {selected
     ? '0 0 0 1px var(--accent)'
     : data.problem
       ? '0 0 0 1px var(--bad)'

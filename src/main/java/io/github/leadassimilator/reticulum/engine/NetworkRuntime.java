@@ -53,7 +53,7 @@ public final class NetworkRuntime {
     private final Signals signals = new Signals();
     /** Sheets switched off this tick by a gate or redstone (theirs or a sheet's above them), for the editor. */
     private final Set<UUID> sheetsOff = new java.util.HashSet<>();
-    /** Sub-sheets compiled on their own, only to show their problems in the editor (they never run on their own). */
+    /** Blueprints compiled on their own, only to show their problems in the editor (they never run on their own). */
     private final Map<UUID, CompiledSheet> templates = new HashMap<>();
     private boolean stopped = true;
     private long ticks;
@@ -515,11 +515,11 @@ public final class NetworkRuntime {
     }
 
     /**
-     * The network as compiled from its root, for any sheet in the tree (they compile as one); a sub-sheet compiled on
+     * The network as compiled from its root, for any sheet in the tree (they compile as one); a blueprint compiled on
      * its own, only so the editor can show its problems.
      */
     public CompiledSheet compiled(Sheet sheet, Network network) {
-        if (sheet.subsheet()) {
+        if (sheet.blueprint()) {
             CompiledSheet current = templates.get(sheet.id());
             if (current == null || !current.isCurrent(sheet, network)) {
                 current = CompiledSheet.compile(sheet, network);

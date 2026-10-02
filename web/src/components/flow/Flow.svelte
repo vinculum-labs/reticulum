@@ -199,7 +199,7 @@
     if (framesAround(c.source).includes(c.target) || framesAround(c.target).includes(c.source)) return false;
     const sheets = app.snapshot?.sheets ?? [];
     const untypedPin = (node: GraphNode, p: Resource | null) =>
-      !p && ["sheet_input", "sheet_output", "sheet", "subsheet"].includes(node.settings.kind);
+      !p && ["sheet_input", "sheet_output", "sheet", "copy"].includes(node.settings.kind);
     // What each end carries: a pin's resource, "signal" for signal nodes, "flow" for routing nodes.
     const fromPin = pinResource(from, "out", handleIndex(c.sourceHandle), sheets);
     const toPin = c.targetHandle === "gate" ? "signal" : pinResource(to, "in", handleIndex(c.targetHandle), sheets);
@@ -379,14 +379,14 @@
         return;
       }
     }
-    const subsheet = kind === "subsheet" ? subsheets[0]?.id : undefined;
-    if (kind === "subsheet" && !subsheet) {
-      toast("Mark another sheet as a sub-sheet first (in its settings).");
+    const blueprint = kind === "copy" ? blueprints[0]?.id : undefined;
+    if (kind === "copy" && !blueprint) {
+      toast("Mark another sheet as a blueprint first (in its settings).");
       return;
     }
     const node: GraphNode = {
       id: uuid(),
-      settings: defaultSettings(kind, device, device ? offered(device) : "item", subsheet),
+      settings: defaultSettings(kind, device, device ? offered(device) : "item", blueprint),
       x: Math.round(at.x),
       y: Math.round(at.y),
     };
@@ -432,25 +432,25 @@
     else addNode("device", { x: p.x - 70, y: p.y - 17 }, device);
   }
 
-  /** Sheets that can be placed here as sub-sheets: marked as one, and not this sheet. */
-  const subsheets = $derived((app.snapshot?.sheets ?? []).filter((x) => x.subsheet && x.id !== sheet?.id));
+  /** Blueprints that can be placed here (as copies): not this sheet. */
+  const blueprints = $derived((app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== sheet?.id));
   const palette = $derived<NodeKind[]>([
     "device",
     "filter",
     "rate_limit",
     "splitter",
     "kit",
-    // Sheets go inside sheets in the tree, never inside a sub-sheet.
-    ...(sheet?.subsheet ? [] : (["sheet"] as NodeKind[])),
-    ...(subsheets.length ? (["subsheet"] as NodeKind[]) : []),
+    // Sheets go inside sheets in the tree, never inside a blueprint.
+    ...(sheet?.blueprint ? [] : (["sheet"] as NodeKind[])),
+    ...(blueprints.length ? (["copy"] as NodeKind[]) : []),
     // The root has no edge to pin: nothing is outside it.
     ...(sheet && !sheet.root ? (["sheet_input", "sheet_output"] as NodeKind[]) : []),
   ]);
 
-  /** Double-click a sheet node to open its sheet, or a sub-sheet node to open the sub-sheet it copies. */
+  /** Double-click a sheet node to open its sheet, or a copy node to open the blueprint it copies. */
   function nodeClick({ node, event }: { node: Node<NodeData>; event: MouseEvent | TouchEvent }) {
     const s = node.data.node.settings;
-    if (event instanceof MouseEvent && event.detail === 2 && (s.kind === "subsheet" || s.kind === "sheet")
+    if (event instanceof MouseEvent && event.detail === 2 && (s.kind === "copy" || s.kind === "sheet")
         && app.snapshot?.sheets.some((x) => x.id === s.sheet)) {
       openSheet(s.sheet);
     }
@@ -556,7 +556,7 @@
         </div>
       </Panel>
     {/if}
-    {#if sheet && app.snapshot && (!sheet.root || sheet.subsheet)}
+    {#if sheet && app.snapshot && (!sheet.root || sheet.blueprint)}
       <Panel position="top-right">
         <Breadcrumbs {sheet} snapshot={app.snapshot} />
       </Panel>

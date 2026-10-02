@@ -169,8 +169,8 @@ public final class Screens {
                 var modes = io.github.leadassimilator.reticulum.network.Switches.Redstone.values();
                 network.switches().setRedstone(modes[Math.floorMod(payload.value(), modes.length)]);
             }
-            // Only the sheets the screen lists: sub-sheets run as part of the sheets that use them.
-            case Payloads.ControllerSwitch.SHEET -> payload.sheet().map(network::sheet).filter(sheet -> !sheet.subsheet())
+            // Only the sheets the screen lists: blueprints run as part of the sheets that use them.
+            case Payloads.ControllerSwitch.SHEET -> payload.sheet().map(network::sheet).filter(sheet -> !sheet.blueprint())
                     .ifPresent(sheet -> network.setSheetEnabled(sheet, payload.value() != 0));
             default -> {
             }

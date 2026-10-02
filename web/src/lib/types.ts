@@ -101,9 +101,9 @@ export interface SheetNodeSettings {
   sheet: string;
 }
 
-/** A copy of a sub-sheet; its pins are that sheet's Sheet input and Sheet output nodes. */
-export interface SubSheetSettings {
-  kind: "subsheet";
+/** A copy of a blueprint; its pins are that sheet's Sheet input and Sheet output nodes. */
+export interface CopySettings {
+  kind: "copy";
   sheet: string;
 }
 
@@ -189,7 +189,7 @@ export type NodeSettings =
   | KitSettings
   | DeviceNodeSettings
   | SheetNodeSettings
-  | SubSheetSettings
+  | CopySettings
   | SheetPinSettings
   | SignalNodeSettings;
 export type NodeKind = NodeSettings["kind"];
@@ -229,15 +229,15 @@ export interface Sheet {
   name: string;
   /** The network's top sheet: every other sheet sits in it, or in one inside it. Switched by the network. */
   root?: boolean;
-  /** The sheet it sits in, and its sheet node there (both absent for the root and sub-sheets). */
+  /** The sheet it sits in, and its sheet node there (both absent for the root and blueprints). */
   parent?: string;
   node?: string;
   /** Its own switch: its sheet node's (the network's, for the root). Sheets above it may still be off. */
   enabled?: boolean;
   interval?: number;
   priority?: number;
-  /** A sub-sheet never runs on its own; other sheets place copies of it. */
-  subsheet?: boolean;
+  /** A blueprint never runs on its own; other sheets place copies of it. */
+  blueprint?: boolean;
   nodes?: GraphNode[];
   wires?: Wire[];
   errors?: SheetError[];

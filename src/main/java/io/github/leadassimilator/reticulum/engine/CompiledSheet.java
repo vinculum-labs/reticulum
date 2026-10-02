@@ -26,7 +26,7 @@ import io.github.leadassimilator.reticulum.network.Network;
 /**
  * A network's sheets turned into routes: every path from a source through filters, rate limits, splitters and kits to
  * a sink. The whole tree is compiled at once, from the root sheet down: each child sheet's nodes and wires are pasted
- * in where its sheet node is (under their own ids), so routes run across sheets through their pins, and each sub-sheet
+ * in where its sheet node is (under their own ids), so routes run across sheets through their pins, and each blueprint
  * is pasted as a copy. Compiled again whenever a sheet in it changes; problems are collected in {@link #errors()} and
  * the affected routes left out.
  */
@@ -54,7 +54,7 @@ public final class CompiledSheet {
     /**
      * {@code path} lists every node from source to sink and {@code wires} every wire between them, for metrics.
      * {@code controls} holds every node whose redstone condition or gate can switch the route off: the nodes on it,
-     * the device nodes their sources and sinks belong to, and the sub-sheet nodes they were pasted from.
+     * the device nodes their sources and sinks belong to, and the copy nodes they were pasted from.
      */
     public record Route(Node source, Node sink, List<Gate> gates, List<Node> rateLimits, List<Branch> branches,
             @Nullable Node kit, List<Gate> gatesBeforeKit, List<UUID> path, List<UUID> wires, Set<UUID> controls) {
@@ -80,7 +80,7 @@ public final class CompiledSheet {
     /** Network revision when compiled; ME pins resolve to connectors, so sheets with them follow connector changes. */
     private final int networkRevision;
     private boolean followsConnectors;
-    /** Revision of every sheet and sub-sheet pasted in, so a change to one compiles the network again. */
+    /** Revision of every sheet and blueprint pasted in, so a change to one compiles the network again. */
     private final Map<UUID, Integer> dependencies = new LinkedHashMap<>();
     /** For every node as compiled (pasted copies, device sides and pins included): the sheet it shows on. */
     private final Map<UUID, UUID> nodeSheet = new LinkedHashMap<>();
@@ -101,7 +101,7 @@ public final class CompiledSheet {
         this.filtersHash = filtersHash;
     }
 
-    /** Compiles the network from {@code sheet} down: its root sheet to run it, a sub-sheet on its own to check it. */
+    /** Compiles the network from {@code sheet} down: its root sheet to run it, a blueprint on its own to check it. */
     public static CompiledSheet compile(Sheet sheet, Network network) {
         CompiledSheet compiled = new CompiledSheet(sheet, network.filters().hashCode(), network.revision());
         compiled.build(network);
@@ -148,7 +148,7 @@ public final class CompiledSheet {
         return out;
     }
 
-    /** The sheet a compiled node shows on (its own, or the one holding the sub-sheet or device it came from). */
+    /** The sheet a compiled node shows on (its own, or the one holding the blueprint or device it came from). */
     public UUID sheetOf(UUID node) {
         UUID current = node;
         for (int hops = 0; hops < 32; hops++) {
@@ -190,7 +190,7 @@ public final class CompiledSheet {
 
     /**
      * Something that keeps part of the sheet from running. {@code node} is the node it is about, as compiled (a device's
-     * side or a node pasted from a sub-sheet); {@link #owner} maps it to the node the editor shows.
+     * side or a node pasted from a blueprint); {@link #owner} maps it to the node the editor shows.
      */
     public record Problem(String message, @Nullable UUID node) {
     }
@@ -221,7 +221,7 @@ public final class CompiledSheet {
             if (!node.enabled()) {
                 continue;
             }
-            // One node per device in the tree (sub-sheet copies aside): a second one is flagged, though it still runs.
+            // One node per device in the tree (blueprint copies aside): a second one is flagged, though it still runs.
             if (node.settings() instanceof NodeSettings.DeviceSettings device && !owners.containsKey(node.id())) {
                 Node first = homes.putIfAbsent(device.device(), node);
                 if (first != null) {
@@ -425,7 +425,7 @@ public final class CompiledSheet {
     private final List<SignalNode> signals = new ArrayList<>();
     /** Nodes with a signal wire into their gate, and the nodes wired into it. */
     private final Map<UUID, List<UUID>> switchedBy = new LinkedHashMap<>();
-    /** Nodes (by compiled id, including sub-sheet nodes) whose gate runs them once per pulse. */
+    /** Nodes (by compiled id, including copy nodes) whose gate runs them once per pulse. */
     private final Set<UUID> pulseGates = new java.util.HashSet<>();
 
     public List<SignalNode> signals() {
@@ -578,7 +578,7 @@ public final class CompiledSheet {
     }
 
     /**
-     * The given nodes plus everything that holds them: the device nodes of device sides, the sub-sheet nodes of pasted
+     * The given nodes plus everything that holds them: the device nodes of device sides, the copy nodes of pasted
      * copies, and the sheet nodes of the sheets they are on, all the way up, so switching any of those off stops them.
      */
     private Set<UUID> controls(List<UUID> raw) {
@@ -637,8 +637,8 @@ public final class CompiledSheet {
     private final Map<UUID, UUID> owners = new LinkedHashMap<>();
 
     /**
-     * The node the editor shows for a node id: a device node for its internal sources and sinks, the sub-sheet
-     * node for anything pasted in from a sub-sheet, else the node itself.
+     * The node the editor shows for a node id: a device node for its internal sources and sinks, the copy
+     * node for anything pasted in from a blueprint, else the node itself.
      */
     public UUID owner(UUID node) {
         UUID current = node;
@@ -652,10 +652,10 @@ public final class CompiledSheet {
         return current;
     }
 
-    private static final int MAX_SUBSHEET_DEPTH = 8;
+    private static final int MAX_COPY_DEPTH = 8;
     /**
-     * How big a sheet may get with its sub-sheets pasted in, and how much work finding its routes may take. Sub-sheets
-     * inside sub-sheets multiply, and so do splitters whose branches meet again; past these the sheet is refused with
+     * How big a sheet may get with its blueprints pasted in, and how much work finding its routes may take. Blueprints
+     * inside blueprints multiply, and so do splitters whose branches meet again; past these the sheet is refused with
      * an error instead of stalling the server while it compiles.
      */
     private static final int MAX_EXPANDED_NODES = 16_384;
@@ -673,7 +673,7 @@ public final class CompiledSheet {
 
     /**
      * Copies nodes into {@code out}, replacing every sheet node with that sheet's own nodes and wires (under their own
-     * ids) and every sub-sheet node with a copy of that sub-sheet's (under new ids). Wires on either node are moved to
+     * ids) and every copy node with a copy of that blueprint's (under new ids). Wires on either node are moved to
      * the pins inside, by slot. {@code using} is the chain of sheets being pasted (to refuse loops); {@code on} is the
      * sheet these nodes show on.
      */
@@ -688,32 +688,32 @@ public final class CompiledSheet {
                 disabledHolders.add(node.id());
             }
             nodeSheet.putIfAbsent(node.id(), on);
-            if (!child && !(node.settings() instanceof NodeSettings.SubSheetSettings)) {
+            if (!child && !(node.settings() instanceof NodeSettings.CopySettings)) {
                 out.add(node);
                 continue;
             }
             if (node.gate() == Node.Gate.PULSE) {
                 pulseGates.add(node.id());
             }
-            UUID usedId = child ? ((NodeSettings.SheetSettings) node.settings()).sheet() : ((NodeSettings.SubSheetSettings) node.settings()).sheet();
+            UUID usedId = child ? ((NodeSettings.SheetSettings) node.settings()).sheet() : ((NodeSettings.CopySettings) node.settings()).sheet();
             Sheet used = network.sheet(usedId);
-            if (used == null || used.subsheet() != !child) {
+            if (used == null || used.blueprint() != !child) {
                 error(node, describe(node) + (child ? ": the sheet it holds no longer exists"
-                        : ": the sub-sheet it uses no longer exists or is no longer marked as a sub-sheet"));
+                        : ": the blueprint it uses no longer exists or is no longer marked as a blueprint"));
                 continue;
             }
-            if (using.contains(used.id()) || using.size() > MAX_SUBSHEET_DEPTH) {
-                error(node, describe(node) + ": " + (child ? "sheet" : "sub-sheet") + " '" + used.name() + "' contains itself");
+            if (using.contains(used.id()) || using.size() > MAX_COPY_DEPTH) {
+                error(node, describe(node) + ": " + (child ? "sheet" : "blueprint") + " '" + used.name() + "' contains itself");
                 continue;
             }
             dependencies.put(used.id(), used.revision());
             if (out.size() + used.nodes().size() > MAX_EXPANDED_NODES || wires.size() + used.wires().size() > MAX_EXPANDED_WIRES) {
-                tooBig("with its sheets and sub-sheets filled in it has more than " + MAX_EXPANDED_NODES + " nodes or "
+                tooBig("with its sheets and blueprints filled in it has more than " + MAX_EXPANDED_NODES + " nodes or "
                         + MAX_EXPANDED_WIRES + " wires");
                 return;
             }
             // A child sheet keeps its own ids (it is placed once, and the editor shows its nodes' activity); a
-            // sub-sheet's copy gets ids of its own, made from the sub-sheet node's.
+            // blueprint's copy gets ids of its own, made from the copy node's.
             java.util.function.Function<UUID, UUID> copy = child ? id -> id
                     : id -> UUID.nameUUIDFromBytes((node.id() + "/" + id).getBytes(java.nio.charset.StandardCharsets.UTF_8));
             List<Node> copies = new ArrayList<>();

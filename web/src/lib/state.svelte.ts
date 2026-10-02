@@ -508,14 +508,14 @@ export function deviceName(device: Device | undefined): string {
 
 /**
  * What a node is called everywhere (its card, the inspector, the dashboard, wires): its label, else its device's
- * name, else the sub-sheet it uses or its pin name, else its kind.
+ * name, else the blueprint it uses or its pin name, else its kind.
  */
 export function nodeTitle(node: GraphNode | undefined): string {
   if (!node) return "?";
   if (node.label) return node.label;
   const s = node.settings;
   if (s.kind === "device") return deviceName(deviceAt(posKey(s.device)));
-  if (s.kind === "subsheet") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing sub-sheet";
+  if (s.kind === "copy") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing blueprint";
   if (s.kind === "sheet") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing sheet";
   if ((s.kind === "sheet_input" || s.kind === "sheet_output") && s.name) return s.name;
   return KIND_LABEL[s.kind];
@@ -523,7 +523,7 @@ export function nodeTitle(node: GraphNode | undefined): string {
 
 /**
  * One place a device is used: a sheet (which opens it, the node selected), or the network's redstone condition.
- * {@code home}: its device node, where it lives (one per device; sub-sheets' copies aside).
+ * {@code home}: its device node, where it lives (one per device; blueprints' copies aside).
  */
 export interface DeviceUse {
   label: string;
@@ -549,7 +549,7 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
     const label = sheetPath(snapshot, sheet);
     for (const node of sheet.nodes ?? []) {
       const s = node.settings;
-      if (s.kind === "device") add(s.device, { label, sheetId: sheet.id, nodeId: node.id, home: !sheet.subsheet });
+      if (s.kind === "device") add(s.device, { label, sheetId: sheet.id, nodeId: node.id, home: !sheet.blueprint });
       else if ("device" in s) add(s.device as GlobalPos, { label, sheetId: sheet.id, nodeId: node.id });
     }
   }

@@ -292,10 +292,10 @@
     {:else}
       <p class="text-sm text-bad">The sheet this node held is gone.</p>
     {/if}
-  {:else if s.kind === "subsheet"}
-    {@const choices = (app.snapshot?.sheets ?? []).filter((x) => x.subsheet && x.id !== sheet.id)}
+  {:else if s.kind === "copy"}
+    {@const choices = (app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== sheet.id)}
     {@const used = app.snapshot?.sheets.find((x) => x.id === s.sheet)}
-    <Field label="Sub-sheet" hint="Only sheets marked “Use as sub-sheet” are listed. Double-click the node to open it.">
+    <Field label="Blueprint" hint="Only sheets marked “Use as blueprint” are listed. Double-click the node to open it.">
       <Select
         value={s.sheet}
         disabled={!canEdit}

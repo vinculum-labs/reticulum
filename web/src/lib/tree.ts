@@ -1,5 +1,5 @@
 // The sheet tree as the snapshot gives it: the root sheet holds the others as sheet nodes, which hold theirs. A
-// sheet's parent is wherever its sheet node is; sub-sheets stand apart (placed by copy).
+// sheet's parent is wherever its sheet node is; blueprints stand apart (placed by copy).
 
 import type { GraphNode, Sheet, Snapshot } from "./types";
 
@@ -43,7 +43,7 @@ export function descendants(snapshot: Snapshot, sheet: Sheet): Sheet[] {
   return out;
 }
 
-/** "Smelting › Ores": a sheet's names from below the root down to it (the root itself, and sub-sheets: their name). */
+/** "Smelting › Ores": a sheet's names from below the root down to it (the root itself, and blueprints: their name). */
 export function sheetPath(snapshot: Snapshot, sheet: Sheet): string {
   if (sheet.root) return sheet.name;
   return [...ancestors(snapshot, sheet).filter((s) => !s.root), sheet].map((s) => s.name).join(" › ");
@@ -63,7 +63,7 @@ export type OffReason =
   | { kind: "gate" };
 
 export function offReason(snapshot: Snapshot, sheet: Sheet, sheetsOff: string[]): OffReason | null {
-  if (sheet.subsheet) return null;
+  if (sheet.blueprint) return null;
   if (!snapshot.enabled) return { kind: "network" };
   if (!sheet.root && sheet.enabled === false) return { kind: "self" };
   const above = ancestors(snapshot, sheet).find((s) => !s.root && s.enabled === false);
