@@ -184,7 +184,7 @@
                   "folder on/off",
                 )}
             />
-            <span class="flex min-w-0 items-center gap-1 truncate font-medium" class:muted={folderOff(row.path)}><Folder size={14} class="shrink-0 muted" />{row.name}</span>
+            <span class="flex min-w-0 items-center gap-1 truncate font-medium" class:muted={folderOff(row.path)}><Folder size={14} class="shrink-0 muted" /><span class="trim-text truncate">{row.name}</span></span>
           </li>
         {:else}
           {@const sheet = row.sheet}
@@ -203,7 +203,7 @@
                 ondblclick={() => canEdit && (renaming = sheet.id)}
                 title={sheet.subsheet ? "Sub-sheet: runs only where it is placed. Double-click to rename." : "Double-click to rename"}
               >
-                {#if sheet.subsheet}<Layers size={14} class="shrink-0 muted" />{/if}<span class="truncate">{sheet.name}</span>
+                {#if sheet.subsheet}<Layers size={14} class="shrink-0 muted" />{/if}<span class="trim-text truncate">{sheet.name}</span>
                 {#if app.sheetsOff.includes(sheet.id)}<span class="shrink-0 text-signal" title="Switched off by redstone"><Zap size={12} /></span>{/if}
                 {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.join("\n")}><TriangleAlert size={12} /></span>{/if}
               </button>
@@ -253,7 +253,7 @@
             title={`${d.defaultName}\n${d.block}`}
           >
             <DeviceIcon item={d.icon} />
-            <span class="min-w-0 flex-1 truncate" class:muted={d.state !== "active"}>{deviceName(d)}</span>
+            <span class="trim-text min-w-0 flex-1 truncate" class:muted={d.state !== "active"}>{deviceName(d)}</span>
             {#if d.state !== "active"}<span class="text-xs text-warn">{d.state}</span>
             {:else if d.outOfRange}<span class="text-xs text-warn" title="Only wireless connectors the antenna doesn't reach reach it">out of range</span>{/if}
           </button>

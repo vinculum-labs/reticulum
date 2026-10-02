@@ -194,6 +194,15 @@ input[type="checkbox"] {
   color: var(--muted);
 }
 
+/*
+ * A label beside an icon or switch: its box is trimmed to the capitals and baseline, so centering it centers the
+ * letters rather than the font's line box (Segoe UI's sits low). Equal padding keeps descenders from being clipped.
+ */
+.trim-text {
+  text-box: trim-both cap alphabetic;
+  padding-block: 4px;
+}
+
 .panel-title {
   font-size: 11px;
   line-height: 16px;
