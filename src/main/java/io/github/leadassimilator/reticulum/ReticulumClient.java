@@ -30,6 +30,8 @@ public class ReticulumClient {
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> io.github.leadassimilator.reticulum.client.FacadeXray.clear());
         // The in-game editor's page belongs to the world being left.
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> io.github.leadassimilator.reticulum.client.webview.EmbeddedView.close());
+        // And the web view itself ends with the game, before the process exits around it.
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.GameShuttingDownEvent event) -> io.github.leadassimilator.reticulum.client.webview.EmbeddedView.shutdown());
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::registerLayer);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::onRenderLevel);
         // Leaving a world forgets what was lit there.

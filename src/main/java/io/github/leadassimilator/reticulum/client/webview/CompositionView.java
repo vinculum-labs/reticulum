@@ -8,6 +8,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.WGLNVDXInterop;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.sun.jna.Function;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
@@ -17,10 +18,7 @@ import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
 
 import io.github.leadassimilator.reticulum.Reticulum;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.packs.resources.ResourceManager;
 
 /**
  * WebView2 drawn into the game's own frame, so the editor shows in exclusive fullscreen too: the page renders into a
@@ -126,7 +124,7 @@ final class CompositionView {
             options.threadType = 2; // DQTYPE_THREAD_CURRENT
             options.apartmentType = 2; // DQTAT_COM_STA
             PointerByReference out = new PointerByReference();
-            check(NativeLibrary.getInstance("CoreMessaging").getFunction("CreateDispatcherQueueController")
+            check(library("CoreMessaging").getFunction("CreateDispatcherQueueController")
                     .invokeInt(new Object[] {options, out}), "creating a dispatcher queue");
             dispatcher = out.getValue();
             compositor = query(activate("Windows.UI.Composition.Compositor"), IID_COMPOSITOR, true);
@@ -293,7 +291,7 @@ final class CompositionView {
             }
         }
         if (glTexture == 0) {
-            glTexture = GL11.glGenTextures();
+            glTexture = GlStateManager._genTexture();
         }
         interopObject = WGLNVDXInterop.wglDXRegisterObjectNV(interopDevice, Pointer.nativeValue(shared), glTexture,
                 GL11.GL_TEXTURE_2D, WGLNVDXInterop.WGL_ACCESS_READ_ONLY_NV);
@@ -301,13 +299,14 @@ final class CompositionView {
             Reticulum.LOGGER.warn("In-game editor: OpenGL can't share the Direct3D texture");
             return false;
         }
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, glTexture);
+        // Through the game's state tracking, which remembers the bound texture.
+        GlStateManager._bindTexture(glTexture);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
         WGLNVDXInterop.wglDXLockObjectsNV(interopDevice, PointerBuffer.allocateDirect(1).put(0, interopObject));
-        Minecraft.getInstance().getTextureManager().register(FRAME, new SharedTexture(glTexture));
+        FrameTexture.register(FRAME, glTexture);
         return true;
     }
 
@@ -329,8 +328,8 @@ final class CompositionView {
             interopDevice = 0;
         }
         if (glTexture != 0) {
-            Minecraft.getInstance().getTextureManager().release(FRAME);
-            GL11.glDeleteTextures(glTexture);
+            FrameTexture.unregister(FRAME);
+            GlStateManager._deleteTexture(glTexture);
             glTexture = 0;
         }
         for (Pointer p : new Pointer[] {session, pool, item, winrtDevice, context, device, visual, container, compositor, dispatcher}) {
@@ -346,7 +345,7 @@ final class CompositionView {
     private static void createDevice() {
         PointerByReference made = new PointerByReference();
         PointerByReference madeContext = new PointerByReference();
-        Function create = NativeLibrary.getInstance("d3d11").getFunction("D3D11CreateDevice");
+        Function create = library("d3d11").getFunction("D3D11CreateDevice");
         // D3D_DRIVER_TYPE_HARDWARE, D3D11_CREATE_DEVICE_BGRA_SUPPORT (capture needs it), D3D11_SDK_VERSION
         check(create.invokeInt(new Object[] {null, 1, null, 0x20, null, 0, 7, made, new IntByReference(), madeContext}),
                 "creating a Direct3D 11 device");
@@ -354,7 +353,7 @@ final class CompositionView {
         context = madeContext.getValue();
         Pointer dxgi = query(device, IID_DXGI_DEVICE, false);
         PointerByReference inspectable = new PointerByReference();
-        int hr = NativeLibrary.getInstance("d3d11").getFunction("CreateDirect3D11DeviceFromDXGIDevice")
+        int hr = library("d3d11").getFunction("CreateDirect3D11DeviceFromDXGIDevice")
                 .invokeInt(new Object[] {dxgi, inspectable});
         Com.release(dxgi);
         check(hr, "wrapping the Direct3D device for capture");
@@ -392,7 +391,14 @@ final class CompositionView {
     }
 
     private static Function combase(String name) {
-        return NativeLibrary.getInstance("combase").getFunction(name);
+        return library("combase").getFunction(name);
+    }
+
+    /** Libraries held for the session: JNA caches them weakly and unloads one nothing refers to. */
+    private static final java.util.Map<String, NativeLibrary> LIBRARIES = new java.util.HashMap<>();
+
+    private static NativeLibrary library(String name) {
+        return LIBRARIES.computeIfAbsent(name, NativeLibrary::getInstance);
     }
 
     /** QueryInterface that must succeed; {@code releaseSource} lets go of the object asked. */
@@ -457,21 +463,5 @@ final class CompositionView {
         public int bindFlags;
         public int cpuAccessFlags;
         public int miscFlags;
-    }
-
-    /** The shared texture for the game's texture manager; this class owns the OpenGL name and deletes it. */
-    private static final class SharedTexture extends AbstractTexture {
-        SharedTexture(int id) {
-            this.id = id;
-        }
-
-        @Override
-        public void load(ResourceManager manager) {
-        }
-
-        @Override
-        public void releaseId() {
-            id = -1;
-        }
     }
 }

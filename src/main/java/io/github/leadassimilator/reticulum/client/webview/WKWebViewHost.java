@@ -36,6 +36,8 @@ final class WKWebViewHost {
         static final Function POOL_POP;
         static final Function CG_COLOR_CREATE_SRGB;
         static final Function CG_COLOR_RELEASE;
+        /** Held so it stays loaded (JNA caches libraries weakly); the Functions above hold theirs. */
+        static final NativeLibrary WEBKIT;
 
         static {
             NativeLibrary objc = NativeLibrary.getInstance("objc");
@@ -48,7 +50,7 @@ final class WKWebViewHost {
             CG_COLOR_CREATE_SRGB = coreGraphics.getFunction("CGColorCreateSRGB");
             CG_COLOR_RELEASE = coreGraphics.getFunction("CGColorRelease");
             // Loads WebKit so its classes are registered with the runtime.
-            NativeLibrary.getInstance("WebKit");
+            WEBKIT = NativeLibrary.getInstance("WebKit");
         }
     }
 

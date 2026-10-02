@@ -89,6 +89,8 @@ final class WebView2Host {
      */
     private static boolean loaded;
     private static int[] bounds = {0, 0, 1, 1};
+    @Nullable
+    private static NativeLibrary loader;
     /** This session's view is drawn into the game's frame (decided when it is created). */
     private static boolean inFrame;
     /** Drawing into the frame failed once this session: the window is used from then on. */
@@ -157,6 +159,9 @@ final class WebView2Host {
     private static final int[] BUTTON_DOWN = {0x201, 0x204, 0x207, 0x20B, 0x20B};
     private static final int[] BUTTON_KEY = {0x1, 0x2, 0x10, 0x20, 0x40};
 
+    /** user32's GetDoubleClickTime (the Function holds its library). */
+    private static final Function GET_DOUBLE_CLICK_TIME = Function.getFunction("user32", "GetDoubleClickTime");
+
     private static int lastDownKind;
     private static long lastDownTime;
     private static int lastDownX;
@@ -205,7 +210,7 @@ final class WebView2Host {
     }
 
     private static int doubleClickTime() {
-        return NativeLibrary.getInstance("user32").getFunction("GetDoubleClickTime").invokeInt(new Object[0]);
+        return GET_DOUBLE_CLICK_TIME.invokeInt(new Object[0]);
     }
 
     /** Gives the keyboard to the view (a click in it). */
@@ -333,7 +338,8 @@ final class WebView2Host {
             // folders beside javaw.exe, where it can't write.
             Path gameDir = Minecraft.getInstance().gameDirectory.toPath().toAbsolutePath().normalize().resolve("reticulum");
             Path profile = Files.createDirectories(gameDir.resolve("webview2-profile"));
-            NativeLibrary loader = NativeLibrary.getInstance(extractLoader(gameDir.resolve("webview2")).toString());
+            // Held for the session: JNA caches libraries weakly and unloads one nothing refers to.
+            loader = NativeLibrary.getInstance(extractLoader(gameDir.resolve("webview2")).toString());
             Com.Handler environmentHandler = keep(new Com.Handler((Com.Completed) (self, result, made) -> {
                 if (created != generation) {
                     // Closed (or started again) meanwhile: what this call made isn't wanted.

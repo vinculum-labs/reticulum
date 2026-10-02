@@ -8,7 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 
 /**
  * The editor's web view inside the game window, whichever the system provides: WebView2 on Windows, WKWebView on
- * macOS. Elsewhere (Linux) there is none, and the editor opens in the browser.
+ * macOS, WebKitGTK on Linux. Elsewhere there is none, and the editor opens in the browser.
  */
 public final class EmbeddedView {
     /** The color behind the page until it paints (and the editor screen's placeholder), as 0xRRGGBB. */
@@ -76,10 +76,14 @@ public final class EmbeddedView {
         /** Each tick while the editor screen is open. */
         default void tick() {
         }
+
+        /** The game is closing: stop what the view runs on, while the process is still whole. */
+        default void shutdown() {
+        }
     }
 
     /** Chosen once; a host's class is only loaded on its own system. */
-    private static final Host HOST = Platform.isWindows() ? windows() : Platform.isMac() ? mac() : none();
+    private static final Host HOST = Platform.isWindows() ? windows() : Platform.isMac() ? mac() : Platform.isLinux() ? linux() : none();
 
     private EmbeddedView() {
     }
@@ -213,6 +217,65 @@ public final class EmbeddedView {
         };
     }
 
+    private static Host linux() {
+        return new Host() {
+            @Override
+            public boolean supported() {
+                return WebKitGtkHost.supported();
+            }
+
+            @Override
+            public boolean ready() {
+                return WebKitGtkHost.ready();
+            }
+
+            @Override
+            public boolean shown() {
+                return WebKitGtkHost.shown();
+            }
+
+            @Override
+            public void show(@Nullable String url, int x, int y, int width, int height) {
+                WebKitGtkHost.show(url, x, y, width, height);
+            }
+
+            @Override
+            public void hide() {
+                WebKitGtkHost.hide();
+            }
+
+            @Override
+            public void focusGame() {
+            }
+
+            @Override
+            public void close() {
+                WebKitGtkHost.close();
+            }
+
+            @Override
+            public void shutdown() {
+                WebKitGtkHost.shutdown();
+            }
+
+            @Override
+            @Nullable
+            public ResourceLocation frame() {
+                return WebKitGtkHost.frame();
+            }
+
+            @Override
+            public int frameWidth() {
+                return WebKitGtkHost.frameWidth();
+            }
+
+            @Override
+            public int frameHeight() {
+                return WebKitGtkHost.frameHeight();
+            }
+        };
+    }
+
     private static Host none() {
         return new Host() {
             @Override
@@ -287,6 +350,11 @@ public final class EmbeddedView {
     /** Each tick while the editor screen is open. */
     public static void tick() {
         HOST.tick();
+    }
+
+    /** The game is closing. */
+    public static void shutdown() {
+        HOST.shutdown();
     }
 
     /** The view's latest frame for the screen to draw, when the game draws it; null when the system shows the view. */
