@@ -343,6 +343,15 @@ public final class EngineTests {
         helper.setBlock(door, Blocks.OAK_DOOR);
         var level = helper.getLevel();
         check(helper, Devices.givesRedstone(level, helper.absolutePos(lever)) && !Devices.takesRedstone(level, helper.absolutePos(lever)), "lever");
+        BlockPos dust = new BlockPos(1, 1, 3);
+        BlockPos repeater = new BlockPos(3, 1, 3);
+        // Both need something solid under them, or they pop off.
+        helper.setBlock(dust.below(), Blocks.STONE);
+        helper.setBlock(repeater.below(), Blocks.STONE);
+        helper.setBlock(dust, Blocks.REDSTONE_WIRE);
+        helper.setBlock(repeater, Blocks.REPEATER);
+        check(helper, Devices.givesRedstone(level, helper.absolutePos(dust)) && Devices.takesRedstone(level, helper.absolutePos(dust)), "dust");
+        check(helper, Devices.givesRedstone(level, helper.absolutePos(repeater)) && Devices.takesRedstone(level, helper.absolutePos(repeater)), "repeater");
         check(helper, !Devices.givesRedstone(level, helper.absolutePos(lamp)) && Devices.takesRedstone(level, helper.absolutePos(lamp)), "lamp");
         check(helper, !Devices.givesRedstone(level, helper.absolutePos(door)) && Devices.takesRedstone(level, helper.absolutePos(door)), "door");
         helper.succeed();

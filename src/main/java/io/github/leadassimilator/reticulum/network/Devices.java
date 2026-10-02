@@ -13,6 +13,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.DiodeBlock;
+import net.minecraft.world.level.block.RedStoneWireBlock;
 import net.minecraft.world.level.block.RedstoneLampBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -116,13 +118,14 @@ public final class Devices {
     }
 
     /**
-     * Whether the block reacts to redstone: it isn't a signal source itself, and it has a powered, triggered or
-     * extended state (doors, dispensers, pistons), is a lamp, or is a machine (has a block entity).
+     * Whether the block reacts to redstone: it has a powered, triggered or extended state (doors, dispensers, pistons),
+     * is a lamp, or is a machine (has a block entity). Signal sources don't (levers, sensors), except the ones that
+     * carry a signal on: dust, repeaters and comparators, which run either way depending on how they are placed.
      */
     public static boolean takesRedstone(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (state.isSignalSource()) {
-            return false;
+            return state.getBlock() instanceof RedStoneWireBlock || state.getBlock() instanceof DiodeBlock;
         }
         return state.hasProperty(BlockStateProperties.POWERED) || state.hasProperty(BlockStateProperties.TRIGGERED)
                 || state.hasProperty(BlockStateProperties.EXTENDED) || state.getBlock() instanceof RedstoneLampBlock

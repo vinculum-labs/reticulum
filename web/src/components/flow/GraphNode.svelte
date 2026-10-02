@@ -265,6 +265,11 @@ ${idleTitle}` : idleTitle}
     color: var(--panel);
     box-shadow: 0 0 0 2px var(--panel);
   }
+  /* The gate is a diamond, so it can't be taken for an input (round pins). */
+  :global(.svelte-flow__handle.gate-pin) {
+    border-radius: 2px;
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
   /* An unused gate pin stays out of sight until the card is hovered or a wire is being dragged to it. */
   :global(.svelte-flow__handle.gate-pin:not(.wired)) {
     opacity: 0;
