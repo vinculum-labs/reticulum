@@ -7,9 +7,9 @@
 
   /**
    * A sheet's pin, anchored on its frame's edge: the dot sits on the border (inputs left, outputs right) and its name
-   * just inside, above the wire. In an open sheet node the frame's own handle is the dot's outer half (wires from
-   * outside), this the inner half (wires to what is inside); on the open sheet's frame, with nothing outside, it is a
-   * whole dot on the line. Drag it up or down to reorder; select it to name it.
+   * outside the frame, centered on the dot. In an open sheet node the frame's own handle is the dot's outer half
+   * (wires from outside), this the inner half (wires to what is inside); on the open sheet's frame, with nothing
+   * outside, it is a whole dot on the line. Drag it up or down to reorder; select it to name it.
    */
   let { data, selected }: { data: NodeData & { pinSide?: "frame" | "sheet" }; selected?: boolean } = $props();
 
@@ -24,8 +24,8 @@
   const knob = $derived(
     `width: ${PIN_KNOB}px; height: ${PIN_KNOB}px; top: ${PIN_DOT}px; ` +
       (input
-        ? `left: 0; right: auto; transform: translate(${half ? "0" : "-50%"}, -50%); border-radius: ${half ? `0 ${PIN_KNOB}px ${PIN_KNOB}px 0` : "50%"};`
-        : `left: auto; right: 0; transform: translate(${half ? "0" : "50%"}, -50%); border-radius: ${half ? `${PIN_KNOB}px 0 0 ${PIN_KNOB}px` : "50%"};`) +
+        ? `left: auto; right: 0; transform: translate(${half ? "100%" : "50%"}, -50%); border-radius: ${half ? `0 ${PIN_KNOB}px ${PIN_KNOB}px 0` : "50%"};`
+        : `left: 0; right: auto; transform: translate(${half ? "-100%" : "-50%"}, -50%); border-radius: ${half ? `${PIN_KNOB}px 0 0 ${PIN_KNOB}px` : "50%"};`) +
       ` background: ${input ? color : "var(--panel)"}; border: 2px solid ${color}`,
   );
 </script>
@@ -33,7 +33,7 @@
 <div
   class="edge-pin text-xs"
   class:selected
-  style="width: {PIN_W}px; height: {PIN_H}px; text-align: {input ? 'left' : 'right'}; padding-{input ? 'left' : 'right'}: {PIN_KNOB + 4}px"
+  style="width: {PIN_W}px; height: {PIN_H}px; line-height: {PIN_H}px; text-align: {input ? 'right' : 'left'}; padding-{input ? 'right' : 'left'}: {PIN_KNOB + 4}px"
   title={data.problem ? `${title}\n${data.problem}` : title}
 >
   <span class="label truncate" style="color: {data.problem ? 'var(--bad)' : 'var(--ink)'}; border-bottom-color: {color}">
@@ -51,12 +51,13 @@
 <style>
   .edge-pin {
     position: relative;
-    line-height: 14px;
   }
   .label {
     display: inline-block;
     max-width: 100%;
     padding: 0 3px;
+    line-height: 14px;
+    vertical-align: middle;
     border-radius: 3px;
     border-bottom: 2px solid;
   }

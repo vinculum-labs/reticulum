@@ -449,9 +449,9 @@
       if (n.parentId) {
         const frame = frameOf.get(n.parentId);
         const width = frame?.width ?? frame?.measured?.width;
-        if (width) want = input ? 0 : width - PIN_W;
+        if (width) want = input ? -PIN_W : width;
       } else if (box) {
-        want = input ? box.x : box.x + box.width - PIN_W;
+        want = input ? box.x - PIN_W : box.x + box.width;
       }
       if (want === undefined || n.position.x === want) return n;
       changed = true;

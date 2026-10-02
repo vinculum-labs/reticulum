@@ -40,9 +40,9 @@ export const CARD_HEADER = 34;
 export const CARD_ROW = 18;
 /** An edge pin's size; a pin's y in its sheet is its middle (its x doesn't matter: it sits on the edge). */
 export const PIN_W = 110;
-export const PIN_H = 26;
-/** From an edge pin's top to its dot (which sits on the wire's line, the pin's y); and the dot's size. */
-export const PIN_DOT = 19;
+export const PIN_H = 20;
+/** From an edge pin's top to its dot (which sits on the wire's line, the pin's y: the label is centered on it); and the dot's size. */
+export const PIN_DOT = 10;
 export const PIN_KNOB = 10;
 /** Room around a frame's contents, and between edge pins and the cards. */
 const FRAME_PAD = 24;
@@ -93,8 +93,9 @@ function sheetLayout(
   top: number,
 ): SheetLayout {
   const box = contentBox(sheet, sheets, open, sizes, depth, seen);
-  const left = sheetPins(sheet, true).length ? PIN_W + PIN_GAP : FRAME_PAD;
-  const right = sheetPins(sheet, false).length ? PIN_W + PIN_GAP : FRAME_PAD;
+  // Pins' labels sit outside the frame; inside, only room for their wires to leave the edge.
+  const left = sheetPins(sheet, true).length ? PIN_GAP : FRAME_PAD;
+  const right = sheetPins(sheet, false).length ? PIN_GAP : FRAME_PAD;
   return {
     dx: box.minX - left,
     dy: box.minY - top,
@@ -314,8 +315,8 @@ export function toFlow(
       if (!isPin(n.data.node)) continue;
       const input = n.data.node.settings.kind === "sheet_input";
       n.type = "pin";
-      // Its dot on the border: the pin's outer side is the frame's edge.
-      n.position = { x: layout.dx + (input ? 0 : layout.width - PIN_W), y: (n.data.node.y ?? 0) - PIN_DOT };
+      // Its dot on the border, its label outside the frame.
+      n.position = { x: layout.dx + (input ? -PIN_W : layout.width), y: (n.data.node.y ?? 0) - PIN_DOT };
       (n.data as NodeData & { pinSide?: string }).pinSide = frame ? "frame" : "sheet";
     }
   }
@@ -349,7 +350,8 @@ export function toFlow(
       n.position = { x: n.position.x - shift.dx, y: n.position.y - shift.dy };
       if (parent) {
         n.parentId = parent;
-        n.expandParent = true;
+        // Cards grow the frame as they are dragged past its edge; pins live outside it (their labels), so not them.
+        n.expandParent = n.type !== "pin";
       }
       view.owner.set(n.id, at.id);
       view.nodes.push(n);
