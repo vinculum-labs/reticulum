@@ -239,7 +239,8 @@ final class WebKitGtkHost {
     // On the GTK thread: what the view was last told.
     private static boolean pointerInside;
     private static int heldMask;
-    private static int modifierMask;
+    /** The modifier keys down now (GDK mask), read on the game's thread before each mouse event. */
+    private static volatile int modifierMask;
 
     /** Whether the game draws the view now, so the screen passes it the mouse. */
     static boolean drawnByGame() {
@@ -251,6 +252,7 @@ final class WebKitGtkHost {
     }
 
     static void mouseMove(int x, int y) {
+        readModifiers();
         post(() -> {
             Pointer target = viewWindow();
             if (target == null) {
@@ -329,6 +331,7 @@ final class WebKitGtkHost {
         if (button < 0 || button >= GDK_BUTTON.length) {
             return;
         }
+        readModifiers();
         post(() -> {
             Pointer target = viewWindow();
             if (target == null) {
@@ -354,6 +357,7 @@ final class WebKitGtkHost {
      * Fractions (touchpads, high-resolution wheels) go as smooth scrolling (positive y down, positive x right).
      */
     static void wheel(double scrollX, double scrollY, int x, int y) {
+        readModifiers();
         post(() -> {
             Pointer target = viewWindow();
             if (target == null) {
@@ -424,7 +428,6 @@ final class WebKitGtkHost {
             if (target == null) {
                 return;
             }
-            modifierMask = mask;
             Pointer keymap = gdk().getFunction("gdk_keymap_get_for_display").invokePointer(new Object[] {display()});
             IntByReference keyval = new IntByReference();
             if (gdk().getFunction("gdk_keymap_translate_keyboard_state").invokeInt(new Object[] {keymap, keycode, mask, 0, keyval,
@@ -437,6 +440,23 @@ final class WebKitGtkHost {
             event.setShort(48, (short) keycode);
             dispatch(event, keyboardDevice());
         });
+    }
+
+    /**
+     * The modifier keys held right now, from GLFW. Not from the last key event: those carry the keys held before them
+     * (X's way), so releasing Ctrl reported Ctrl as held, and every mouse event after claimed it was.
+     */
+    private static void readModifiers() {
+        long window = Minecraft.getInstance().getWindow().getWindow();
+        int mask = down(window, GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_KEY_RIGHT_SHIFT) ? 1 : 0;
+        mask |= down(window, GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL) ? 1 << 2 : 0;
+        mask |= down(window, GLFW.GLFW_KEY_LEFT_ALT, GLFW.GLFW_KEY_RIGHT_ALT) ? 1 << 3 : 0;
+        mask |= down(window, GLFW.GLFW_KEY_LEFT_SUPER, GLFW.GLFW_KEY_RIGHT_SUPER) ? 1 << 26 : 0;
+        modifierMask = mask;
+    }
+
+    private static boolean down(long window, int left, int right) {
+        return GLFW.glfwGetKey(window, left) == GLFW.GLFW_PRESS || GLFW.glfwGetKey(window, right) == GLFW.GLFW_PRESS;
     }
 
     private static boolean glfwOnWayland() {
