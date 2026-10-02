@@ -53,7 +53,7 @@ public final class CompiledSheet {
 
     /**
      * {@code path} lists every node from source to sink and {@code wires} every wire between them, for metrics.
-     * {@code controls} holds every node whose redstone condition or gate can switch the route off: the nodes on it,
+     * {@code controls} holds every node whose switch or gate can switch the route off: the nodes on it,
      * the device nodes their sources and sinks belong to, and the copy nodes they were pasted from.
      */
     public record Route(Node source, Node sink, List<Gate> gates, List<Node> rateLimits, List<Branch> branches,

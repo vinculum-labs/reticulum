@@ -13,10 +13,8 @@ import io.github.leadassimilator.reticulum.graph.Sheet;
  * changes nothing.
  */
 public final class Limits {
-    /** Network, sheet, device, face, connector, node and signal names. */
+    /** Network, sheet, device, face, connector, node and pin names. */
     public static final int NAME = 64;
-    /** A sheet's folder path, all levels together. */
-    public static final int FOLDER = 256;
     public static final int SHEETS = 256;
     public static final int NODES_PER_SHEET = 1024;
     public static final int WIRES_PER_SHEET = 4096;

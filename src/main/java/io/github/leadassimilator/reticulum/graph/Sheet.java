@@ -14,8 +14,8 @@ import io.github.leadassimilator.reticulum.network.Limits;
 
 /**
  * A canvas of nodes and wires. Sheets form a tree: the network's root sheet holds the others as sheet nodes, which
- * hold theirs (a sheet's parent is wherever its sheet node is), and a sheet node's switch, gate and condition switch
- * everything in it. Blueprints stand apart, placed by copy. Every edit must go through a method here (or call
+ * hold theirs (a sheet's parent is wherever its sheet node is), and a sheet node's switch and gate switch everything
+ * in it. Blueprints stand apart, placed by copy. Every edit must go through a method here (or call
  * {@link #touch()}) so the engine recompiles it.
  */
 public final class Sheet {

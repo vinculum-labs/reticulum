@@ -358,8 +358,8 @@ public sealed interface NodeSettings {
 
     /**
      * A child sheet placed on its parent sheet. The child's Sheet input nodes are this node's inputs (left) and its
-     * Sheet output nodes its outputs (right). A sheet is placed exactly once; its node's switch, gate and redstone
-     * condition switch the whole sheet, everything in it included.
+     * Sheet output nodes its outputs (right). A sheet is placed exactly once; its node's switch and gate switch
+     * the whole sheet, everything in it included.
      */
     record SheetSettings(UUID sheet) implements NodeSettings {
         public static final MapCodec<SheetSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(

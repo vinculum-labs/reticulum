@@ -530,7 +530,7 @@ export function nodeTitle(node: GraphNode | undefined): string {
 }
 
 /**
- * One place a device is used: a sheet (which opens it, the node selected), or the network's redstone condition.
+ * One place a device is used: a sheet (which opens it, the node selected).
  * {@code home}: its device node, where it lives (one per device; blueprints' copies aside).
  */
 export interface DeviceUse {

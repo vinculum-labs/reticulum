@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * An on/off switch for things that run (the network, a sheet, a folder, a node). Checkboxes stay for options and
+   * An on/off switch for things that run (the network, a sheet, a node). Checkboxes stay for options and
    * picking several faces.
    */
   let {
