@@ -52,8 +52,13 @@ export async function layout(
         id: n.id,
         width: size.width,
         height: size.height,
-        // Pins where the card really has them; in side order when the canvas hasn't measured one yet.
-        layoutOptions: { "elk.portConstraints": [...(ports.get(n.id) ?? [])].every((e) => pinAt(pins, n.id, e)) ? "FIXED_POS" : "FIXED_ORDER" },
+        // Pins where the card really has them; in side order when the canvas hasn't measured one yet. A sheet's own
+        // pins keep to their edges: inputs in the first column, outputs in the last.
+        layoutOptions: {
+          "elk.portConstraints": [...(ports.get(n.id) ?? [])].every((e) => pinAt(pins, n.id, e)) ? "FIXED_POS" : "FIXED_ORDER",
+          ...(n.settings.kind === "sheet_input" ? { "elk.layered.layering.layerConstraint": "FIRST" } : {}),
+          ...(n.settings.kind === "sheet_output" ? { "elk.layered.layering.layerConstraint": "LAST" } : {}),
+        },
         ports: [...(ports.get(n.id) ?? [])].map((entry) => {
           const [id, side] = entry.split("|");
           const at = pinAt(pins, n.id, entry);

@@ -104,6 +104,12 @@ function sheetLayout(
   };
 }
 
+/** How big a sheet node opened in place is drawn: its sheet's contents (and the frames open in it) with room around. */
+export function openFrameSize(sheet: Sheet, sheets: Sheet[], open: Set<string>, sizes: Map<string, { width: number; height: number }>) {
+  const layout = sheetLayout(sheet, sheets, open, sizes, 1, new Set([sheet.id]), FRAME_TOP);
+  return { width: layout.width, height: layout.height };
+}
+
 /**
  * A sheet node opened in place: the sheet inside it, and the offset from a node's spot in that sheet to its spot in
  * the frame (sheet x = position in the frame + dx).

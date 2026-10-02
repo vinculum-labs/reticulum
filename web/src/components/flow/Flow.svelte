@@ -43,7 +43,7 @@
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
-  import { contentCorner, handleIndex, isPin, pinResource, resources, PIN_DOT, PIN_W, toFlow, type FlowView, type NodeData } from "../../lib/graph";
+  import { contentCorner, handleIndex, isPin, openFrameSize, pinResource, resources, PIN_DOT, PIN_W, toFlow, type FlowView, type NodeData } from "../../lib/graph";
   import { crossWire, nextOrder } from "../../lib/crossing";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
@@ -717,14 +717,19 @@
   let tidying = $state(false);
 
   /** Lays the sheet out left to right with ELK, as one undoable move. */
+  /**
+   * Lays the sheet out left to right with ELK, as one undoable move: the sheets open in frames on it first, innermost
+   * first, then each sheet around them with its frames at their new sizes.
+   */
   async function tidy() {
-    if (!sheet || tidying) return;
+    if (!sheet || tidying || !app.snapshot) return;
     tidying = true;
     try {
       const sizes = new Map(nodes.map((n) => [n.id, { width: n.measured?.width ?? 160, height: n.measured?.height ?? 60 }]));
-      // Each pin's center on its card, as Svelte Flow measured it.
+      // Each pin's center on its card, as Svelte Flow measured it (not an open frame's: those move with its insides).
       const pins: PinPositions = new Map();
       for (const n of nodes) {
+        if (n.data?.frame) continue;
         const bounds = flow.getInternalNode(n.id)?.internals.handleBounds;
         const byHandle = new Map<string, { x: number; y: number }>();
         for (const h of [...(bounds?.source ?? []), ...(bounds?.target ?? [])]) {
@@ -733,11 +738,36 @@
         pins.set(n.id, byHandle);
       }
       const laidOut = sheet;
-      const positions = await layout(laidOut, sizes, pins);
+      const open = new Set(app.frames);
+      const relaid = new Map<string, Sheet>();
+      const sheetsNow = () => app.snapshot!.sheets.map((x) => relaid.get(x.id) ?? x);
+      const edits: Edit[] = [];
+      const undo: Edit[] = [];
+      /** Lays one sheet out, its open frames sized from their (already laid out) insides; queues the move. */
+      const tidySheet = async (target: Sheet, frames: [string, string][]) => {
+        for (const [frameId, inner] of frames) {
+          const held = relaid.get(inner);
+          if (held) sizes.set(frameId, openFrameSize(held, sheetsNow(), open, sizes));
+        }
+        const positions = (await layout(target, sizes, pins)).map((p) => {
+          // A pin's y is its middle (its x doesn't count: it sits on the edge).
+          const node = target.nodes?.find((n) => n.id === p.id);
+          return node && isPin(node) ? { ...p, y: p.y + PIN_DOT } : p;
+        });
+        relaid.set(target.id, { ...target, nodes: (target.nodes ?? []).map((n) => ({ ...n, ...(positions.find((p) => p.id === n.id) ?? {}) })) });
+        edits.push({ type: "moveNodes", sheet: target.id, positions });
+        undo.push({ type: "moveNodes", sheet: target.id, positions: (target.nodes ?? []).map((n) => ({ id: n.id, x: n.x ?? 0, y: n.y ?? 0 })) });
+      };
+      // view.frames lists frames outside in; inner sheets go first.
+      const frames = [...view.frames];
+      for (const [, frame] of [...frames].reverse()) {
+        const held = app.snapshot.sheets.find((x) => x.id === frame.sheet);
+        if (held) await tidySheet(held, frames.filter(([id]) => view.owner.get(id) === held.id).map(([id, f]) => [id, f.sheet]));
+      }
+      await tidySheet(laidOut, frames.filter(([id]) => view.owner.get(id) === laidOut.id).map(([id, f]) => [id, f.sheet]));
       // Laying out takes a moment; if the sheet changed meanwhile, these positions are for the one laid out.
       if (currentSheet()?.id !== laidOut.id) return;
-      const before = (laidOut.nodes ?? []).map((n) => ({ id: n.id, x: n.x ?? 0, y: n.y ?? 0 }));
-      await edit([{ type: "moveNodes", sheet: laidOut.id, positions }], [{ type: "moveNodes", sheet: laidOut.id, positions: before }], "tidy up");
+      await edit(edits, undo, "tidy up");
       setTimeout(() => flow.fitView({ duration: 300 }), 100);
     } catch (e) {
       toast(`Couldn't tidy up: ${(e as Error).message}`);
