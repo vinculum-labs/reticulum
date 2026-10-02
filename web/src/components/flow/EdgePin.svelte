@@ -5,7 +5,6 @@
   import { PIN_DOT, PIN_H, PIN_KNOB, PIN_W } from "../../lib/graph";
   import { RESOURCE_LABEL, RESOURCE_VAR } from "../../lib/kinds";
   import { pinName } from "../../lib/types";
-  import { app } from "../../lib/state.svelte";
 
   /**
    * A sheet's pin, anchored on its frame's edge: the dot sits on the border (inputs left, outputs right) and its name
@@ -39,9 +38,9 @@
   style="width: {PIN_W}px; height: {PIN_H}px; justify-content: {input ? 'flex-end' : 'flex-start'}; padding-{input ? 'right' : 'left'}: {PIN_KNOB + 4}px"
   title={data.problem ? `${title}\n${data.problem}` : title}
 >
-  <!-- Its color as an underline, or a tag outlined in it with its point at the dot (the side nearest the pin). -->
+  <!-- A tag outlined in the pin's color, its point at the dot (the side nearest the pin). -->
   <span
-    class="label {app.pinStyle} {input ? 'points-right' : 'points-left'}"
+    class="label tag {input ? 'points-right' : 'points-left'}"
     style="--pin-color: {data.problem ? 'var(--bad)' : color}; color: {data.problem ? 'var(--bad)' : 'var(--ink)'}"
   >
     <span class="text truncate">
@@ -72,15 +71,6 @@
   .text {
     display: block;
     min-width: 0;
-  }
-  /* Underlined: an inset line, so the label keeps its height and stays centered on the dot. */
-  .underline .text {
-    padding: 1px 4px;
-    border-radius: 3px 3px 0 0;
-    box-shadow: inset 0 -2px 0 var(--pin-color);
-  }
-  .selected .underline .text {
-    background: color-mix(in srgb, var(--accent) 30%, transparent);
   }
   /*
    * A tag: an outline in the pin's color (the outer layer, 1px larger) around a panel-colored inside, rounded at the
