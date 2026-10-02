@@ -451,6 +451,25 @@
       if (!at || !held || p.x < at.x || p.y < at.y || p.x > at.x + width || p.y > at.y + height) continue;
       if (width * height < target.area) target = { sheet: held, frame, area: width * height };
     }
+    // Onto a closed sheet node (no frame): into its sheet, to the right of what is already there.
+    let intoClosed: { x: number; y: number } | null = null;
+    for (const n of nodes) {
+      const s = n.data?.node?.settings;
+      if (n.type !== "graph" || s?.kind !== "sheet" || n.data.frame || dragged.has(n.id)) continue;
+      const internal = flow.getInternalNode(n.id);
+      const at = internal?.internals.positionAbsolute;
+      const width = internal?.measured.width ?? 0;
+      const height = internal?.measured.height ?? 0;
+      if (!at || p.x < at.x || p.y < at.y || p.x > at.x + width || p.y > at.y + height) continue;
+      const held = app.snapshot.sheets.find((x) => x.id === s.sheet);
+      if (!held) continue;
+      const cardsThere = (held.nodes ?? []).filter((x) => !isPin(x));
+      intoClosed = {
+        x: cardsThere.length ? Math.max(...cardsThere.map((x) => x.x ?? 0)) + 260 : 0,
+        y: cardsThere.length ? Math.min(...cardsThere.map((x) => x.y ?? 0)) : 0,
+      };
+      target = { sheet: held, area: 0 };
+    }
     const from = app.snapshot.sheets.find((x) => x.id === [...owners][0]);
     // Out past the open sheet's own frame (Alt held, so it didn't grow): up into the sheet around this one.
     let intoParent: { x: number; y: number } | null = null;
@@ -474,8 +493,9 @@
     const first = flow.getInternalNode(nodesMoved[0].id)?.internals.positionAbsolute ?? { x: 0, y: 0 };
     const items = nodesMoved.map((node) => {
       const abs = flow.getInternalNode(node.id)?.internals.positionAbsolute ?? { x: node.x ?? 0, y: node.y ?? 0 };
-      // Into the sheet around this one (not on the canvas): beside this sheet's node, keeping their spacing.
-      if (intoParent) return { node, x: intoParent.x + abs.x - first.x, y: intoParent.y + abs.y - first.y };
+      // Into a sheet not on the canvas (around this one, or a closed sheet node's): keeping their spacing.
+      const spot = intoParent ?? intoClosed;
+      if (spot) return { node, x: spot.x + abs.x - first.x, y: spot.y + abs.y - first.y };
       const f = target.frame;
       return { node, x: f ? abs.x - f.ax + f.dx : abs.x, y: f ? abs.y - f.ay + f.dy : abs.y };
     });
@@ -487,6 +507,7 @@
     }
     const ok = await edit(change.edits, change.undo, nodesMoved.length === 1 ? `move to ${target.sheet.name}` : `move ${nodesMoved.length} to ${target.sheet.name}`);
     if (ok && intoParent) toast(`Moved to “${target.sheet.name}”, beside this sheet's node (undo puts it back).`, "info");
+    if (ok && intoClosed) toast(`Moved into “${target.sheet.name}” (undo puts it back).`, "info");
     return true;
   }
 
