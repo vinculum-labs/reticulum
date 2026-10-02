@@ -37,6 +37,23 @@ public final class ReticulumClientConfig {
                     "and on Linux.")
             .define("editorInGame", true);
 
+    /** How the in-game editor shows on Windows. */
+    public enum EditorDisplay {
+        /** Drawn into the game's frame when this computer can, else a window. */
+        AUTO,
+        /** Drawn into the game's frame (a window when that fails). */
+        FRAME,
+        /** A window over the game: doesn't show in exclusive fullscreen. */
+        WINDOW
+    }
+
+    public static final ModConfigSpec.EnumValue<EditorDisplay> EDITOR_DISPLAY = BUILDER
+            .comment("On Windows, how the in-game editor shows. FRAME draws it into the game's own frame, so it shows in",
+                    "fullscreen too. WINDOW puts a window over the game, which fullscreen hides (use windowed mode or the",
+                    "browser there). AUTO draws into the frame when the graphics driver allows it, else uses the window.",
+                    "Takes effect the next time the editor opens after leaving the world, or after a restart.")
+            .defineEnum("editorDisplay", EditorDisplay.AUTO);
+
     public static final ModConfigSpec.BooleanValue KEEP_RUNNING_WHILE_EDITING = BUILDER
             .comment("While the web editor is open in a browser, don't pause the game when its window loses focus, so",
                     "singleplayer worlds keep running and the editor shows live throughput. Pressing Esc still pauses.")

@@ -4,6 +4,8 @@ import javax.annotation.Nullable;
 
 import com.sun.jna.Platform;
 
+import net.minecraft.resources.ResourceLocation;
+
 /**
  * The editor's web view inside the game window, whichever the system provides: WebView2 on Windows, WKWebView on
  * macOS. Elsewhere (Linux) there is none, and the editor opens in the browser.
@@ -33,6 +35,42 @@ public final class EmbeddedView {
         /** Whether the game's fullscreen hides child views (Windows' exclusive fullscreen bypasses the compositor). */
         default boolean hiddenByFullscreen() {
             return false;
+        }
+
+        /** The view's latest frame, when the game draws the view itself (rather than the system showing it). */
+        @Nullable
+        default ResourceLocation frame() {
+            return null;
+        }
+
+        default int frameWidth() {
+            return 0;
+        }
+
+        default int frameHeight() {
+            return 0;
+        }
+
+        /** Mouse input for a view the game draws: a move, wheel or leave (Windows message numbers), at view pixels. */
+        default void mouse(int kind, int keys, int data, int x, int y) {
+        }
+
+        /** A mouse button (GLFW numbering) down or up, at view pixels, for a view the game draws. */
+        default void button(int button, boolean down, int keys, int x, int y) {
+        }
+
+        /** Gives the keyboard to a view the game draws. */
+        default void focusView() {
+        }
+
+        /** Whether a mouse button (GLFW numbering) is really down, for a view the game draws. */
+        default boolean buttonDown(int button) {
+            return true;
+        }
+
+        /** The GLFW cursor shape the page asks for, for a view the game draws (0 for the default). */
+        default int cursor() {
+            return 0;
         }
 
         /** Each tick while the editor screen is open. */
@@ -85,7 +123,48 @@ public final class EmbeddedView {
 
             @Override
             public boolean hiddenByFullscreen() {
-                return true;
+                return !WebView2Host.drawsInFrame();
+            }
+
+            @Override
+            @Nullable
+            public ResourceLocation frame() {
+                return WebView2Host.frame();
+            }
+
+            @Override
+            public int frameWidth() {
+                return CompositionView.frameWidth();
+            }
+
+            @Override
+            public int frameHeight() {
+                return CompositionView.frameHeight();
+            }
+
+            @Override
+            public void mouse(int kind, int keys, int data, int x, int y) {
+                WebView2Host.mouse(kind, keys, data, x, y);
+            }
+
+            @Override
+            public void button(int button, boolean down, int keys, int x, int y) {
+                WebView2Host.button(button, down, keys, x, y);
+            }
+
+            @Override
+            public void focusView() {
+                WebView2Host.focusView();
+            }
+
+            @Override
+            public boolean buttonDown(int button) {
+                return WebView2Host.buttonDown(button);
+            }
+
+            @Override
+            public int cursor() {
+                return WebView2Host.cursor();
             }
         };
     }
@@ -208,5 +287,49 @@ public final class EmbeddedView {
     /** Each tick while the editor screen is open. */
     public static void tick() {
         HOST.tick();
+    }
+
+    /** The view's latest frame for the screen to draw, when the game draws it; null when the system shows the view. */
+    @Nullable
+    public static ResourceLocation frame() {
+        return HOST.frame();
+    }
+
+    /** Whether the game draws the view now, so the screen passes it the mouse. */
+    public static boolean drawnByGame() {
+        return Platform.isWindows() && WebView2Host.drawnInFrame();
+    }
+
+    /** Mouse moves, wheels and leaves (Windows message numbers) for a view the game draws, at view pixels. */
+    public static void mouse(int kind, int keys, int data, int x, int y) {
+        HOST.mouse(kind, keys, data, x, y);
+    }
+
+    /** A mouse button (GLFW numbering) for a view the game draws, at view pixels. */
+    public static void button(int button, boolean down, int keys, int x, int y) {
+        HOST.button(button, down, keys, x, y);
+    }
+
+    public static void focusView() {
+        HOST.focusView();
+    }
+
+    /** Whether a mouse button (GLFW numbering) is really down (the game may not hear it come up). */
+    public static boolean buttonDown(int button) {
+        return HOST.buttonDown(button);
+    }
+
+    /** The GLFW cursor shape the page asks for (0 for the default arrow). */
+    public static int cursor() {
+        return HOST.cursor();
+    }
+
+    /** The frame's size in pixels. */
+    public static int frameWidth() {
+        return HOST.frameWidth();
+    }
+
+    public static int frameHeight() {
+        return HOST.frameHeight();
     }
 }

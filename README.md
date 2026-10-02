@@ -42,7 +42,9 @@ turn that off in the client config.
 
 On Windows and macOS the editor opens inside the game window, using the system's own web view (Edge's WebView2 on
 Windows, Safari's WKWebView on macOS). **Esc** closes whatever is open inside it, then the editor; **Open in browser**
-in its top bar moves it to your browser. On Windows it can't show over exclusive fullscreen: press F11 for a window.
+in its top bar moves it to your browser. On Windows the game draws it into its own frame, so it shows in fullscreen too;
+where the graphics driver can't share Direct3D textures with OpenGL it falls back to a window over the game, which
+fullscreen hides (press F11 for windowed mode). "In-game editor display" in the client config picks either way by hand.
 On Linux, or with "Open the editor inside the game" turned off in the client config, it opens in your browser.
 
 ### Sheets, folders and sub-sheets
