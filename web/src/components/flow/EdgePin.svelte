@@ -4,6 +4,7 @@
   import type { NodeData } from "../../lib/graph";
   import { PIN_DOT, PIN_H, PIN_KNOB, PIN_W } from "../../lib/graph";
   import { RESOURCE_LABEL, RESOURCE_VAR } from "../../lib/kinds";
+  import { pinName } from "../../lib/types";
 
   /**
    * A sheet's pin, anchored on its frame's edge: the dot sits on the border (inputs left, outputs right) and its name
@@ -16,7 +17,7 @@
   const s = $derived(data.node.settings);
   const input = $derived(s.kind === "sheet_input");
   const resource = $derived(s.kind === "sheet_input" || s.kind === "sheet_output" ? s.resource : undefined);
-  const name = $derived((s.kind === "sheet_input" || s.kind === "sheet_output") && s.name ? s.name : input ? "in" : "out");
+  const name = $derived(pinName(data.node));
   const color = $derived(resource ? RESOURCE_VAR[resource] : "var(--muted)");
   const title = $derived(`${input ? "Input" : "Output"} pin “${name}”: ${resource ? RESOURCE_LABEL[resource] : "carries anything"}`);
   /** Half a dot inside a sheet node's frame (its outer half is the frame's handle); a whole one on the open sheet's. */

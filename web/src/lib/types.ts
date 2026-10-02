@@ -396,7 +396,9 @@ export function pinSlot(node: GraphNode, index: number): number {
   return (s.kind === "sheet_input" || s.kind === "sheet_output") && s.slot !== undefined && s.slot >= 0 ? s.slot : index;
 }
 
-export function pinName(node: GraphNode, index: number): string {
+/** A pin's name: its Pin name (or a label set on it before pins had only that), else "in 2" / "out 1". */
+export function pinName(node: GraphNode, index?: number): string {
   const s = node.settings;
-  return (s.kind === "sheet_input" || s.kind === "sheet_output") && s.name ? s.name : `${s.kind === "sheet_input" ? "in" : "out"} ${index + 1}`;
+  const named = (s.kind === "sheet_input" || s.kind === "sheet_output") && s.name ? s.name : node.label;
+  return named || `${s.kind === "sheet_input" ? "in" : "out"}${index === undefined ? "" : ` ${index + 1}`}`;
 }

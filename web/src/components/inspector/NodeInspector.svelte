@@ -147,9 +147,12 @@
     </div>
   {/if}
 
+  <!-- A pin's name is its Pin name, below: one name, not two. -->
+  {#if s.kind !== "sheet_input" && s.kind !== "sheet_output"}
   <Field label="Label" hint={s.kind === "device" ? "Optional; the device's name is shown otherwise." : undefined}>
     <TextField value={node.label} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
   </Field>
+  {/if}
 
   <Switch label="On" checked={node.enabled !== false} disabled={!canEdit} onchange={(on) => save({ ...node, enabled: on }, "node on/off")} />
 
@@ -322,9 +325,11 @@
   {:else if s.kind === "sheet_input" || s.kind === "sheet_output"}
     <Field
       label="Pin name"
-      hint={`Shown on the ${s.kind === "sheet_input" ? "left" : "right"} of this sheet's node. Pins are ordered top to bottom as placed here.`}
+      hint={`Shown by its dot on the sheet's ${s.kind === "sheet_input" ? "left" : "right"} edge, and on the sheet's node. Drag the pin up or down to reorder.`}
     >
-      <TextField value={s.name} disabled={!canEdit} placeholder="e.g. ores" oncommit={(v) => settings({ name: v })} />
+      <!-- A name once set as the node's label shows here too, and moves into the pin's name when edited. -->
+      <TextField value={s.name || node.label} disabled={!canEdit} placeholder="e.g. ores"
+        oncommit={(v) => save({ ...node, label: undefined, settings: { ...s, name: v } }, "rename pin")} />
     </Field>
     <Field label="Carries" hint="Wires of other kinds won't connect to it. Anything: whatever is wired to it.">
       <Select
