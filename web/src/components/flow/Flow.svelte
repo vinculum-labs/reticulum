@@ -16,6 +16,7 @@
     type ConnectionLineType,
     type Node,
     type Connection,
+    type OnConnectEnd,
   } from "@xyflow/svelte";
   import {
     app,
@@ -40,14 +41,16 @@
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
-  import { handleIndex, pinResource, toFlow, type FlowView, type NodeData } from "../../lib/graph";
+  import { contentCorner, handleIndex, isPin, pinResource, PIN_H, toFlow, type FlowView, type NodeData } from "../../lib/graph";
   import { crossWire, nextOrder } from "../../lib/crossing";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
+  import EdgePin from "./EdgePin.svelte";
+  import SheetFrame from "./SheetFrame.svelte";
   import { layout, type PinPositions } from "../../lib/layout";
 
-  const nodeTypes = { graph: GraphNodeView };
+  const nodeTypes = { graph: GraphNodeView, pin: EdgePin, sheetFrame: SheetFrame };
   const flow = useSvelteFlow();
 
   let nodes = $state.raw<Node<NodeData>[]>([]);
@@ -101,11 +104,15 @@
     if (!s || dragging) return;
     // Frames are sized from their cards as last measured (a guess until then; see below).
     const sizes = new Map<string, { width: number; height: number }>();
-    for (const n of untrack(() => nodes)) if (n.measured?.width && !n.data.frame) sizes.set(n.id, { width: n.measured.width, height: n.measured.height ?? 0 });
+    for (const n of untrack(() => nodes)) {
+      if (n.type === "graph" && n.measured?.width && !n.data.frame) sizes.set(n.id, { width: n.measured.width, height: n.measured.height ?? 0 });
+    }
     const bindings = copy ? (copy.node.settings.bindings ?? {}) : undefined;
     const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes, bindings);
     view = built;
     sizedWith = sizes;
+    // The open sheet's frame offers its + input / + output buttons only where the sheet can be edited.
+    for (const n of built.nodes) if (n.type === "sheetFrame") (n.data as unknown as { canAdd: boolean }).canAdd = editable;
     untrack(() => {
       if (app.selectedNodes.some((id) => !built.owner.has(id))) app.selectedNodes = app.selectedNodes.filter((id) => built.owner.has(id));
       if (app.selectedEdges.some((id) => !built.owner.has(id))) app.selectedEdges = app.selectedEdges.filter((id) => built.owner.has(id));
@@ -126,12 +133,13 @@
     queueMicrotask(() => (rebuilding = false));
   });
 
-  // Cards in a frame measured at another size than the frame was sized for: size it again (settles in a pass or two).
+  // Cards in a frame (or the open sheet's) measured at another size than it was sized for: size it again (settles in
+  // a pass or two).
   $effect(() => {
     const list = nodes;
-    if (!list.some((n) => n.parentId)) return;
+    if (!view.sheetFrame && !list.some((n) => n.parentId)) return;
     const off = list.some((n) => {
-      if (!n.parentId || n.data.frame || !n.measured?.width) return false;
+      if (n.type !== "graph" || n.data.frame || !n.measured?.width) return false;
       const used = sizedWith.get(n.id);
       return !used || Math.abs(used.width - n.measured.width) > 1 || Math.abs(used.height - (n.measured.height ?? 0)) > 1;
     });
@@ -224,7 +232,7 @@
     const from = nodeOf(c.source);
     const to = nodeOf(c.target);
     if (!from || !to || c.source === c.target) return false;
-    // A frame's own pins are for wires outside it; inside, wire to its Sheet input and output nodes.
+    // A frame's own handles are for wires outside it; inside, wire to the pins on its edges.
     if (framesAround(c.source).includes(c.target) || framesAround(c.target).includes(c.source)) return false;
     const sheets = app.snapshot?.sheets ?? [];
     const untypedPin = (node: GraphNode, p: Resource | null) =>
@@ -348,9 +356,12 @@
     };
     for (const n of moved) {
       const on = sheetOf(n.id);
-      if (!on) continue;
+      const node = nodeOf(n.id);
+      if (!on || !node) continue;
       const frame = n.parentId ? view.frames.get(n.parentId) : undefined;
-      put(on.id, n.id, n.position.x + (frame?.dx ?? 0), n.position.y + (frame?.dy ?? 0));
+      // A pin sits on the edge: only its height moves (its y is its middle).
+      if (isPin(node)) put(on.id, n.id, node.x ?? 0, n.position.y + PIN_H / 2 + (frame?.dy ?? 0));
+      else put(on.id, n.id, n.position.x + (frame?.dx ?? 0), n.position.y + (frame?.dy ?? 0));
     }
     // Frames whose contents moved, innermost first: moving a frame can shift the one around it in turn.
     const settled = new Set<string>();
@@ -365,8 +376,10 @@
         if (!inside || !held?.nodes?.length || !outer || !node || settled.has(frameId)) continue;
         settled.add(frameId);
         const spot = (n: GraphNode) => inside.get(n.id) ?? { x: n.x ?? 0, y: n.y ?? 0 };
-        const dx = Math.min(...held.nodes.map((n) => spot(n).x)) - Math.min(...held.nodes.map((n) => n.x ?? 0));
-        const dy = Math.min(...held.nodes.map((n) => spot(n).y)) - Math.min(...held.nodes.map((n) => n.y ?? 0));
+        const now = contentCorner(held.nodes, spot);
+        const was = contentCorner(held.nodes);
+        const dx = now.x - was.x;
+        const dy = now.y - was.y;
         if (dx || dy) {
           const at = placed.get(outer.id)?.get(frameId) ?? { x: node.x ?? 0, y: node.y ?? 0 };
           put(outer.id, frameId, at.x + dx, at.y + dy);
@@ -506,6 +519,54 @@
   /** Other networks a Network node here could switch: ones this player admins. */
   const switchable = $derived(app.networks.filter((n) => n.id !== app.current && (n.role === "admin" || n.role === "owner")));
 
+  /**
+   * A wire dragged from a node past the edge of the frame it sits in (and dropped on nothing) makes a pin there: an
+   * output pin past the right edge, an input pin past the left, named and typed after the node, as one change.
+   */
+  async function connectEnd(event: MouseEvent | TouchEvent, state: Parameters<OnConnectEnd>[1]) {
+    wiring = false;
+    if (!editable || !app.snapshot || !state.fromNode || !state.fromHandle || state.toNode) return;
+    const on = sheetOf(state.fromNode.id);
+    const fromNode = nodeOf(state.fromNode.id);
+    if (!on || on.root || !fromNode || isPin(fromNode)) return;
+    const point = "changedTouches" in event ? event.changedTouches[0] : event;
+    const p = flow.screenToFlowPosition({ x: point.clientX, y: point.clientY });
+    // The frame the node sits in: the open sheet's, or an open sheet node's.
+    let box: { x: number; y: number; width: number; height: number } | undefined;
+    let dy = 0;
+    if (on.id === sheet?.id) {
+      box = view.sheetFrame;
+    } else {
+      const entry = [...view.frames].find(([, f]) => f.sheet === on.id);
+      const internal = entry && flow.getInternalNode(entry[0]);
+      if (entry && internal) {
+        box = { ...internal.internals.positionAbsolute, width: internal.measured.width ?? 0, height: internal.measured.height ?? 0 };
+        dy = entry[1].dy;
+      }
+    }
+    if (!box) return;
+    const output = state.fromHandle.type === "source";
+    if (output ? p.x < box.x + box.width : p.x > box.x) return;
+    const index = handleIndex(state.fromHandle.id);
+    const carried =
+      pinResource(fromNode, output ? "out" : "in", index, app.snapshot.sheets) ??
+      (isSignal(fromNode.settings.kind) || state.fromHandle.id === "gate" ? "redstone" : undefined);
+    const pin: GraphNode = {
+      id: uuid(),
+      settings: { kind: output ? "sheet_output" : "sheet_input", name: nodeTitle(fromNode), ...(carried ? { resource: carried } : {}) },
+      x: 0,
+      y: Math.round(on.id === sheet?.id ? p.y : p.y - box.y + dy),
+    };
+    const wire: Wire = output
+      ? { id: uuid(), from: fromNode.id, output: index, to: pin.id, input: 0, order: nextOrder(on, fromNode.id, index) }
+      : { id: uuid(), from: pin.id, output: 0, to: fromNode.id, input: index, order: 0 };
+    await edit(
+      [{ type: "addNode", sheet: on.id, node: pin }, { type: "connect", sheet: on.id, wire }],
+      [{ type: "disconnect", sheet: on.id, wire: wire.id }, { type: "removeNode", sheet: on.id, node: pin.id }],
+      output ? "add output pin" : "add input pin",
+    );
+  }
+
   /** Blueprints that can be placed here (as copies): not this sheet. */
   const blueprints = $derived((app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== sheet?.id));
   const palette = $derived<NodeKind[]>([
@@ -519,8 +580,6 @@
     ...(blueprints.length ? (["copy"] as NodeKind[]) : []),
     // Other networks to switch: only from the tree, never from a blueprint (each copy would switch the same one).
     ...(sheet?.blueprint ? [] : (["network"] as NodeKind[])),
-    // The root has no edge to pin: nothing is outside it.
-    ...(sheet && !sheet.root ? (["sheet_input", "sheet_output"] as NodeKind[]) : []),
   ]);
 
   /**
@@ -587,7 +646,7 @@
     onselectionchange={selectionChange}
     onconnect={connect}
     onconnectstart={() => (wiring = true)}
-    onconnectend={() => (wiring = false)}
+    onconnectend={connectEnd}
     isValidConnection={validConnection}
     ondelete={remove}
     onnodedragstart={() => {

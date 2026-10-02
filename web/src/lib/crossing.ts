@@ -23,8 +23,8 @@ function nodeIn(sheet: Sheet, id: string): GraphNode | undefined {
   return sheet.nodes?.find((n) => n.id === id);
 }
 
-/** Room the new pins keep from the sheet's other nodes. */
-const GAP = 60;
+/** From a card's top to its first pin row: where a wire meets it, so a new pin goes level with that. */
+const LEVEL = 43;
 
 /** Where a new wire from this output goes in its order: after the others. */
 export function nextOrder(sheet: Sheet, node: string, output: number): number {
@@ -66,19 +66,16 @@ export function crossWire(
     undo.unshift({ type: "disconnect", sheet: sheet.id, wire: id });
   };
   /**
-   * A new pin: an output right of everything, at the height of what feeds it; an input below everything, at the left
-   * edge. Either way the sheet's top-left corner stays, so an open frame's contents don't jump.
+   * A new pin on the sheet's edge (inputs left, outputs right), where the wire meets it: level with the node it comes
+   * from or goes to in that sheet. A pin's x doesn't matter; its y is its middle.
    */
   const addPin = (sheet: Sheet, input: boolean, y: number): { id: string; slot: number } => {
-    const nodes = sheet.nodes ?? [];
-    const xs = nodes.map((n) => n.x ?? 0);
-    const ys = nodes.map((n) => n.y ?? 0);
     const slot = nextSlot(sheet, input);
     const node: GraphNode = {
       id: uuid(),
       settings: { kind: input ? "sheet_input" : "sheet_output", name, ...(carried ? { resource: carried } : {}), slot },
-      x: Math.round(input ? (xs.length ? Math.min(...xs) : 0) : (xs.length ? Math.max(...xs) : 0) + 160 + GAP),
-      y: Math.round(input ? (ys.length ? Math.max(...ys) + 80 + GAP : 0) : y),
+      x: 0,
+      y: Math.round(y + LEVEL),
     };
     edits.push({ type: "addNode", sheet: sheet.id, node });
     // Removing the pin takes the wires on it along.
@@ -117,7 +114,9 @@ export function crossWire(
     if (reused) {
       pinId = reused.id;
     } else {
-      const pin = addPin(sheet, true, 0);
+      // Level with what it feeds in this sheet: the next sheet's node on the way down, or the target itself.
+      const next = i + 1 < down.length ? nodeIn(sheet, down[i + 1].node ?? "") : target;
+      const pin = addPin(sheet, true, next?.y ?? 0);
       pinId = pin.id;
       connect(parent, { from: at.node, output: at.output, to: sheet.node, input: pin.slot });
     }

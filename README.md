@@ -52,8 +52,9 @@ in your browser.
 ### Sheets
 
 A network's flows live on **sheets**, each a flow chart, and sheets sit inside sheets: the network has one top sheet,
-and a sheet inside another shows there as a node. Its **Sheet input** and **Sheet output** nodes are that node's pins,
-each carrying one kind of thing (or anything), so flows and signals run between sheets through wires. The sidebar shows
+and a sheet inside another shows there as a node. A sheet is drawn as a frame with its **pins** on its edges, inputs
+left and outputs right, the same pins its node shows; each carries one kind of thing (or anything), so flows and
+signals run between sheets through wires. Add pins with **+ input** / **+ output**, or drag a wire past the edge. The sidebar shows
 the tree; drag a sheet onto another to move it.
 
 Open a sheet node in place with the arrow on its header: it becomes a frame with the sheet inside, to edit right there.

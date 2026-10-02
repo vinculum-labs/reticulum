@@ -591,6 +591,19 @@ export async function createSheet(parent: Sheet | null, name: string, at?: { x: 
   return id;
 }
 
+/** Adds a pin to a sheet's edge (an input on the left, an output on the right), below the pins already there. */
+export async function addSheetPin(sheet: Sheet, input: boolean) {
+  const kind = input ? "sheet_input" : "sheet_output";
+  const same = (sheet.nodes ?? []).filter((n) => n.settings.kind === kind);
+  const y = same.length ? Math.max(...same.map((n) => n.y ?? 0)) + 40 : Math.min(0, ...(sheet.nodes ?? []).map((n) => n.y ?? 0)) + 30;
+  const node: GraphNode = { id: uuid(), settings: { kind, name: "" }, x: 0, y: Math.round(y) };
+  const ok = await edit([{ type: "addNode", sheet: sheet.id, node }], [{ type: "removeNode", sheet: sheet.id, node: node.id }], input ? "add input pin" : "add output pin");
+  if (ok) {
+    app.selectedNodes = [node.id];
+    app.selectedEdges = [];
+  }
+}
+
 /**
  * Moves a sheet (with everything in it) into another sheet. The wires on its node in the old parent drop, so when
  * there are any it asks first, naming what they connect to; undo puts them back.

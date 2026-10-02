@@ -260,8 +260,8 @@
         <div><span class="muted">Outputs:</span> {sheetPins(held, false).map(pinName).join(", ") || "none"}</div>
       </div>
       <p class="text-xs muted">
-        Its switch above switches everything in it, sheets inside included; so does a signal into its gate. Add Sheet input and
-        Sheet output nodes inside it for its pins.
+        Its switch above switches everything in it, sheets inside included; so does a signal into its gate. Its pins sit on its
+        edges: add them with + input / + output inside it, or drag a wire past its edge.
       </p>
       {@const unwired = unwiredPins(held).length}
       <div class="flex flex-wrap gap-2">

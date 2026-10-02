@@ -23,8 +23,11 @@ export interface NodeData extends Record<string, unknown> {
   gateWired?: boolean;
   /** What is wrong with it, one error per line, as the server compiled the sheet. */
   problem?: string;
-  /** A sheet node opened in place: drawn as a frame this big, its sheet's nodes inside it. */
-  frame?: { width: number; height: number };
+  /**
+   * A sheet node opened in place: drawn as a frame this big, its sheet's nodes inside it; its pins' handles sit on
+   * its edges, level with the pins inside ({@code top}: from the frame's top edge).
+   */
+  frame?: { width: number; height: number; pins: Record<string, number> };
   /**
    * A blueprint's slot: the kind of block it takes; when a copy is open, whether a block fills it ({@code device}
    * is then that block) and how far it is turned.
@@ -35,19 +38,66 @@ export interface NodeData extends Record<string, unknown> {
 /** A card's header height and pin row height, as GraphNode draws them. */
 export const CARD_HEADER = 34;
 export const CARD_ROW = 18;
-/** Room around a frame's contents. */
+/** An edge pin's size; a pin's y in its sheet is its middle (its x doesn't matter: it sits on the edge). */
+export const PIN_W = 110;
+export const PIN_H = 22;
+/** Room around a frame's contents, and between edge pins and the cards. */
 const FRAME_PAD = 24;
+const PIN_GAP = 40;
+/** Where the contents start below a frame's top edge: under its header (a sheet node's) or its title line (the open sheet's). */
+const FRAME_TOP = CARD_HEADER + FRAME_PAD;
+const SHEET_TOP = 28 + FRAME_PAD;
 /** A card's size before Svelte Flow has measured it. */
 const GUESS = { width: 160, height: 60 };
 
-/** Where a frame's contents start below its top edge: under its header and pin rows. */
-function frameTop(holder: { inputs: HolderPin[]; outputs: HolderPin[] }): number {
-  return CARD_HEADER + Math.max(holder.inputs.length, holder.outputs.length, 1) * CARD_ROW + FRAME_PAD;
+export function isPin(node: GraphNode): boolean {
+  return node.settings.kind === "sheet_input" || node.settings.kind === "sheet_output";
 }
 
-/** How big a frame is: its contents' box, with room around it and its header and pin rows above. */
-function frameSize(box: { minX: number; minY: number; maxX: number; maxY: number }, holder: { inputs: HolderPin[]; outputs: HolderPin[] }) {
-  return { width: Math.max(box.maxX - box.minX + 2 * FRAME_PAD, 220), height: frameTop(holder) + box.maxY - box.minY + FRAME_PAD };
+/**
+ * The top-left corner of a sheet's contents: cards by their corners, pins by their tops (their x doesn't count).
+ * {@code spot} gives where each node is (as stored, or as just dragged).
+ */
+export function contentCorner(nodes: GraphNode[], spot: (n: GraphNode) => { x: number; y: number } = (n) => ({ x: n.x ?? 0, y: n.y ?? 0 })) {
+  let x = Infinity;
+  let y = Infinity;
+  for (const n of nodes) {
+    const at = spot(n);
+    if (!isPin(n)) x = Math.min(x, at.x);
+    y = Math.min(y, isPin(n) ? at.y - PIN_H / 2 : at.y);
+  }
+  return { x: x === Infinity ? 0 : x, y: y === Infinity ? 0 : y };
+}
+
+/**
+ * How a sheet is laid out in a frame: its size, and the offset from a spot in the sheet to the same spot in the
+ * frame (sheet x = position in the frame + dx). Room is kept on the left for input pins, on the right for outputs.
+ */
+interface SheetLayout {
+  dx: number;
+  dy: number;
+  width: number;
+  height: number;
+}
+
+function sheetLayout(
+  sheet: Sheet,
+  sheets: Sheet[],
+  open: Set<string>,
+  sizes: Map<string, { width: number; height: number }>,
+  depth: number,
+  seen: Set<string>,
+  top: number,
+): SheetLayout {
+  const box = contentBox(sheet, sheets, open, sizes, depth, seen);
+  const left = sheetPins(sheet, true).length ? PIN_W + PIN_GAP : FRAME_PAD;
+  const right = sheetPins(sheet, false).length ? PIN_W + PIN_GAP : FRAME_PAD;
+  return {
+    dx: box.minX - left,
+    dy: box.minY - top,
+    width: Math.max(box.maxX - box.minX + left + right, 240),
+    height: top + box.maxY - box.minY + FRAME_PAD,
+  };
 }
 
 /**
@@ -60,12 +110,16 @@ export interface Frame {
   dy: number;
 }
 
-/** What the canvas shows: nodes and wires, the sheet each one is on, and the open frames by sheet node id. */
+/**
+ * What the canvas shows: nodes and wires, the sheet each one is on, the open frames by sheet node id, and the open
+ * sheet's own frame (where its pins sit; none for the top sheet, which has no pins).
+ */
 export interface FlowView {
   nodes: Node<NodeData>[];
   edges: Edge[];
   owner: Map<string, string>;
   frames: Map<string, Frame>;
+  sheetFrame?: { x: number; y: number; width: number; height: number };
 }
 
 /** One pin of a sheet or copy node: its name, the slot wires attach by, and what it carries (none: anything). */
@@ -248,24 +302,37 @@ export function toFlow(
   const byKey = new Map(devices.map((d) => [posKey(d.pos), d]));
   const byId = new Map(sheets.map((x) => [x.id, x]));
 
+  /** Sheet pins sit on the frame's edges: inputs on the left, outputs on the right, each at its own height. */
+  function placePins(nodes: Node<NodeData>[], layout: SheetLayout) {
+    for (const n of nodes) {
+      if (!isPin(n.data.node)) continue;
+      const input = n.data.node.settings.kind === "sheet_input";
+      n.type = "pin";
+      n.position = { x: layout.dx + (input ? 4 : layout.width - PIN_W - 4), y: (n.data.node.y ?? 0) - PIN_H / 2 };
+    }
+  }
+
   /** Adds a sheet's nodes and wires, inside frame {@code parent} when given, shifted by {@code shift}. */
-  function build(at: Sheet, parent: string | undefined, shift: { dx: number; dy: number }, depth: number, seen: Set<string>) {
+  function build(at: Sheet, parent: string | undefined, shift: { dx: number; dy: number }, depth: number, seen: Set<string>, layout: SheetLayout | null) {
     const { nodes, edges } = sheetFlow(at, sheets, byKey, activity, selected, unit, wireStyle);
     if (at.blueprint) markSlots(nodes, at === sheet ? bindings : undefined, byKey);
+    if (layout) placePins(nodes, layout);
     // Frames first, inside out: a frame's size is its contents'.
     const inner: (() => void)[] = [];
     for (const n of nodes) {
       const s = n.data.node.settings;
       const held = s.kind === "sheet" ? byId.get(s.sheet) : undefined;
       if (!held || !open.has(n.id) || depth >= 8 || seen.has(held.id)) continue;
-      const holder = n.data.holder!;
-      const top = frameTop(holder);
       // Measure the contents without adding them yet: they go after this frame, which Svelte Flow needs first.
-      const probe = contentBox(held, sheets, open, sizes, depth + 1, new Set([...seen, held.id]));
-      const frame: Frame = { sheet: held.id, dx: probe.minX - FRAME_PAD, dy: probe.minY - top };
+      const within = sheetLayout(held, sheets, open, sizes, depth + 1, new Set([...seen, held.id]), FRAME_TOP);
+      const frame: Frame = { sheet: held.id, dx: within.dx, dy: within.dy };
       view.frames.set(n.id, frame);
-      n.data.frame = frameSize(probe, holder);
-      inner.push(() => build(held, n.id, frame, depth + 1, new Set([...seen, held.id])));
+      // The frame's own handles (for wires outside it) level with its pins inside.
+      const pins: Record<string, number> = {};
+      sheetPins(held, true).forEach((pin, i) => (pins[`in:${pinSlot(pin, i)}`] = (pin.y ?? 0) - within.dy));
+      sheetPins(held, false).forEach((pin, i) => (pins[`out:${pinSlot(pin, i)}`] = (pin.y ?? 0) - within.dy));
+      n.data.frame = { width: within.width, height: within.height, pins };
+      inner.push(() => build(held, n.id, frame, depth + 1, new Set([...seen, held.id]), within));
     }
     for (const n of nodes) {
       n.position = { x: n.position.x - shift.dx, y: n.position.y - shift.dy };
@@ -279,7 +346,24 @@ export function toFlow(
     }
     for (const add of inner) add();
   }
-  build(sheet, undefined, { dx: 0, dy: 0 }, 0, new Set([sheet.id]));
+  // The open sheet is a frame too, its pins on its edges; the top sheet has no pins, so no frame.
+  const layout = sheet.root ? null : sheetLayout(sheet, sheets, open, sizes, 0, new Set([sheet.id]), SHEET_TOP);
+  if (layout) {
+    view.sheetFrame = { x: layout.dx, y: layout.dy, width: layout.width, height: layout.height };
+    view.nodes.push({
+      id: `sheet-frame:${sheet.id}`,
+      type: "sheetFrame",
+      position: { x: layout.dx, y: layout.dy },
+      selectable: false,
+      draggable: false,
+      connectable: false,
+      deletable: false,
+      focusable: false,
+      zIndex: -1,
+      data: { sheetId: sheet.id, name: sheet.name, width: layout.width, height: layout.height } as unknown as NodeData,
+    });
+  }
+  build(sheet, undefined, { dx: 0, dy: 0 }, 0, new Set([sheet.id]), layout);
   return view;
 }
 
@@ -302,7 +386,10 @@ function markSlots(nodes: Node<NodeData>[], bindings: Record<string, Binding> | 
   }
 }
 
-/** The box a sheet's nodes cover, frames opened in it included (an empty sheet: a small box at 0, 0). */
+/**
+ * The box a sheet's nodes cover, frames opened in it included (an empty sheet: a small box at 0, 0). Pins count
+ * only for its height: they sit on the edges.
+ */
 function contentBox(
   sheet: Sheet,
   sheets: Sheet[],
@@ -312,21 +399,33 @@ function contentBox(
   seen: Set<string>,
 ): { minX: number; minY: number; maxX: number; maxY: number } {
   const list = sheet.nodes ?? [];
-  if (!list.length) return { minX: 0, minY: 0, maxX: 200, maxY: 80 };
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const n of list) {
+    const x = n.x ?? 0, y = n.y ?? 0;
+    if (isPin(n)) {
+      minY = Math.min(minY, y - PIN_H / 2);
+      maxY = Math.max(maxY, y + PIN_H / 2);
+      continue;
+    }
     let size = sizes.get(n.id) ?? GUESS;
     const s = n.settings;
     const held = s.kind === "sheet" ? sheets.find((x) => x.id === s.sheet) : undefined;
     if (held && open.has(n.id) && depth < 8 && !seen.has(held.id)) {
-      const box = contentBox(held, sheets, open, sizes, depth + 1, new Set([...seen, held.id]));
-      size = frameSize(box, { inputs: holderPins(held, true), outputs: holderPins(held, false) });
+      size = sheetLayout(held, sheets, open, sizes, depth + 1, new Set([...seen, held.id]), FRAME_TOP);
     }
-    const x = n.x ?? 0, y = n.y ?? 0;
     minX = Math.min(minX, x);
     minY = Math.min(minY, y);
     maxX = Math.max(maxX, x + size.width);
     maxY = Math.max(maxY, y + size.height);
+  }
+  if (minX === Infinity) {
+    // Only pins (or nothing): a small empty middle.
+    minX = 0;
+    maxX = 200;
+  }
+  if (minY === Infinity) {
+    minY = 0;
+    maxY = 80;
   }
   return { minX, minY, maxX, maxY };
 }

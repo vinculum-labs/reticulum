@@ -147,7 +147,9 @@
   // Re-measure the handles only when the pins or the header actually change. The row arrays are rebuilt with the
   // node's data (every metrics update), so depending on them directly re-measured every node — a forced layout each —
   // once a second.
-  const pinLayout = $derived(`${leftRows.map((r) => r.handle).join()}|${rightRows.map((r) => r.handle).join()}:${HEADER}`);
+  const pinLayout = $derived(
+    `${leftRows.map((r) => r.handle).join()}|${rightRows.map((r) => r.handle).join()}:${HEADER}:${JSON.stringify(data.frame?.pins ?? null)}`,
+  );
   $effect(() => {
     void pinLayout;
     updateInternals(id);
@@ -238,7 +240,9 @@ ${idleTitle}` : idleTitle}
       </button>
     {/if}
   </div>
-  {#if pinned}
+  {#if data.frame}
+    <!-- An open frame: its pins sit on its edges, inside it, so no rows here. -->
+  {:else if pinned}
     <div class="grid grid-cols-2 gap-2" style="height: {rows * ROW}px; font-size: 10px">
       <div class="flex flex-col">
         {#each leftRows as row}
@@ -283,11 +287,14 @@ ${idleTitle}` : idleTitle}
   />
 {/if}
 {#if pinned}
+  <!-- An open frame's handles sit on its edges, level with its pins inside; a card's beside their rows. -->
   {#each leftRows as row, i (row.handle)}
-    <Handle type="target" position={Position.Left} id={row.handle} style="top: {HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}" />
+    <Handle type="target" position={Position.Left} id={row.handle} title={row.title}
+      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}" />
   {/each}
   {#each rightRows as row, i (row.handle)}
-    <Handle type="source" position={Position.Right} id={row.handle} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}" />
+    <Handle type="source" position={Position.Right} id={row.handle} title={row.title}
+      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}" />
   {/each}
 {:else}
   {#if flowIn}
