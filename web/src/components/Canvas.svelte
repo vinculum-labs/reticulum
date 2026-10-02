@@ -5,10 +5,8 @@
 </script>
 
 {#if app.sheetId}
-  <!-- A canvas per sheet (and per open copy): each starts at its own remembered view. -->
-  {#key `${app.sheetId}/${app.copy?.node ?? ""}`}
-    <Flow />
-  {/key}
+  <!-- One canvas for every sheet: re-making Svelte Flow per sheet leaves its handles on a dead store. -->
+  <Flow />
 {:else}
   <EmptyState fill message="Add a sheet on the left to start building." />
 {/if}

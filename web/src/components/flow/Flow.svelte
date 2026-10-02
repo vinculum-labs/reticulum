@@ -76,13 +76,53 @@
 
   /**
    * Each sheet opens where it was left (pan and zoom, remembered per browser), or fitted to its contents the first
-   * time. The canvas is made anew for every sheet (and copy), so this is how it starts.
+   * time: once its cards are measured and Svelte Flow is ready. The canvas stays for every sheet (re-making Svelte Flow
+   * per sheet left the handle here pointing at a dead store), so this runs whenever the open sheet (or copy) changes.
    */
   const viewKey = $derived(copy ? `copy:${copy.node.id}` : (sheet?.id ?? null));
-  const startView = untrack(() => (viewKey ? savedView(viewKey) : undefined));
+  let viewShown: string | null = null;
+  /** The sheet (or copy) the canvas's nodes are for: right after a switch they are still the last one's. */
+  let builtFor: string | null = null;
+  let flowReady = $state(false);
+  $effect(() => {
+    const key = viewKey;
+    const list = nodes;
+    if (!flowReady || !key || key === viewShown || !container) return;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    // Only once the canvas holds this sheet's nodes, all measured.
+    if (!width || !height || builtFor !== key) return;
+    if (list.some((n) => n.type === "graph" && !n.measured?.width)) return;
+    untrack(() => {
+      viewShown = key;
+      // A node asked for (from the dashboard, an error) is brought into view instead.
+      if (app.focusNode) return;
+      const saved = savedView(key);
+      if (saved) {
+        flow.setViewport(saved);
+        return;
+      }
+      // The box around what is on the sheet itself (frames hold their own): cards as measured, the frame by its data.
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const n of list) {
+        if (n.parentId) continue;
+        const size = n.type === "sheetFrame" ? (n.data as unknown as { width: number; height: number }) : { width: n.measured?.width ?? 0, height: n.measured?.height ?? 0 };
+        minX = Math.min(minX, n.position.x);
+        minY = Math.min(minY, n.position.y);
+        maxX = Math.max(maxX, n.position.x + size.width);
+        maxY = Math.max(maxY, n.position.y + size.height);
+      }
+      if (!(maxX > minX) || !(maxY > minY)) {
+        flow.setViewport({ x: 0, y: 0, zoom: 1 });
+        return;
+      }
+      const zoom = Math.min(1, width / ((maxX - minX) * 1.1), height / ((maxY - minY) * 1.1));
+      flow.setViewport({ x: width / 2 - ((minX + maxX) / 2) * zoom, y: height / 2 - ((minY + maxY) / 2) * zoom, zoom });
+    });
+  });
 
   function moveEnd(_event: unknown, viewport: { x: number; y: number; zoom: number }) {
-    if (viewKey) saveView(viewKey, viewport);
+    if (viewKey && viewKey === viewShown) saveView(viewKey, viewport);
   }
 
   // A node opened from the dashboard is brought into view once Svelte Flow has measured it.
@@ -124,6 +164,7 @@
     const bindings = copy ? (copy.node.settings.bindings ?? {}) : undefined;
     const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes, bindings);
     view = built;
+    builtFor = untrack(() => viewKey);
     sizedWith = sizes;
     // The open sheet's frame offers its + input / + output buttons only where the sheet can be edited.
     for (const n of built.nodes) if (n.type === "sheetFrame") (n.data as unknown as { canAdd: boolean }).canAdd = editable;
@@ -740,9 +781,7 @@
       holdMetrics(true);
     }}
     onmoveend={moveEnd}
-    initialViewport={startView}
-    fitView={!startView}
-    fitViewOptions={{ padding: 0.1, maxZoom: 1 }}
+    oninit={() => (flowReady = true)}
     onnodedrag={keepPinsOnEdges}
     onnodedragstop={dragStop}
     onnodeclick={nodeClick}
