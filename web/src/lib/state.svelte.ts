@@ -498,10 +498,15 @@ export function nodeTitle(node: GraphNode | undefined): string {
   return KIND_LABEL[s.kind];
 }
 
-/** One place a device is used: a sheet (which opens it), or the network's redstone condition. */
+/**
+ * One place a device is used: a sheet (which opens it, the node selected), or the network's redstone condition.
+ * {@code home}: its device node, where it lives (one per device; sub-sheets' copies aside).
+ */
 export interface DeviceUse {
   label: string;
   sheetId?: string;
+  nodeId?: string;
+  home?: boolean;
 }
 
 /**
@@ -514,14 +519,16 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
     if (!pos) return;
     const key = posKey(pos);
     const list = uses.get(key) ?? [];
-    if (!list.some((u) => u.label === use.label && u.sheetId === use.sheetId)) list.push(use);
+    if (!list.some((u) => u.label === use.label && u.sheetId === use.sheetId && !!u.home === !!use.home)) list.push(use);
     uses.set(key, list);
   };
   for (const sheet of snapshot.sheets) {
-    const use = { label: sheetPath(snapshot, sheet), sheetId: sheet.id };
+    const label = sheetPath(snapshot, sheet);
     for (const node of sheet.nodes ?? []) {
-      if ("device" in node.settings) add(node.settings.device as GlobalPos, use);
-      add(node.redstone?.device, use);
+      const s = node.settings;
+      if (s.kind === "device") add(s.device, { label, sheetId: sheet.id, nodeId: node.id, home: !sheet.subsheet });
+      else if ("device" in s) add(s.device as GlobalPos, { label, sheetId: sheet.id, nodeId: node.id });
+      add(node.redstone?.device, { label, sheetId: sheet.id, nodeId: node.id });
     }
   }
   add(snapshot.redstone?.device, { label: "The network's redstone condition" });

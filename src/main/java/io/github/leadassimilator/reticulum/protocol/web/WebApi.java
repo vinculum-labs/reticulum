@@ -394,6 +394,7 @@ public final class WebApi {
                     Node node = decode(server, Node.CODEC, edit.get("node"), "node");
                     checkPorts(network, node);
                     checkSheetNode(network, sheet, node, type.equals("addNode"));
+                    checkHome(network, sheet, node);
                     check(Limits.check(node));
                     if (type.equals("addNode")) {
                         if (sheet.node(node.id()) != null) {
@@ -620,6 +621,22 @@ public final class WebApi {
             Node existing = sheet.node(node.id());
             if (adding || existing == null || !(existing.settings() instanceof NodeSettings.SheetSettings was) || !was.sheet().equals(child.sheet())) {
                 throw new RequestException("Sheets are added with New sheet and moved with Move to");
+            }
+        }
+
+        /**
+         * A device lives on one sheet: a second device node for it, anywhere in the tree, is refused (naming where it
+         * lives). A device several sheets need goes on the sheet holding them, its flows wired down through pins.
+         * Sub-sheets are left alone: they are placed by copy.
+         */
+        private static void checkHome(Network network, Sheet sheet, Node node) throws RequestException {
+            if (sheet.subsheet() || !(node.settings() instanceof NodeSettings.DeviceSettings device)) {
+                return;
+            }
+            Network.Home home = network.home(device.device(), node.id());
+            if (home != null) {
+                throw new RequestException("That device already lives in " + (home.sheet().root() ? home.sheet().name() : network.path(home.sheet()))
+                        + ": a device has one node. Put it on the sheet that holds the ones needing it, and wire it down through pins.");
             }
         }
 

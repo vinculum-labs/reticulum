@@ -295,6 +295,23 @@ public final class SafetyTests {
         helper.succeed();
     }
 
+    /** A device lives on one sheet: a second device node for it, on any sheet of the tree, is refused. */
+    @GameTest(template = "empty")
+    public static void aDeviceHasOneNode(GameTestHelper helper) {
+        ServerPlayer owner = player(helper, "owner");
+        Network network = rig(helper, owner);
+        Sheet root = network.root();
+        var barrel = network.devices().iterator().next().pos();
+        String device = net.minecraft.core.GlobalPos.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, barrel).getOrThrow().toString();
+        String node = "{\"type\":\"addNode\",\"sheet\":\"%s\",\"node\":{\"id\":\"%s\",\"settings\":{\"kind\":\"device\",\"device\":" + device + "}}}";
+        check(helper, edit(owner, network, node.formatted(root.id(), UUID.randomUUID())) == null, "the first node for the barrel was refused");
+        check(helper, edit(owner, network, "{\"type\":\"createSheet\",\"name\":\"other\"}") == null, "creating a sheet failed");
+        Sheet other = network.sheetNamed("other");
+        String refused = edit(owner, network, node.formatted(other.id(), UUID.randomUUID()));
+        check(helper, refused != null && refused.contains("lives in"), "a second node for the barrel was allowed: " + refused);
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void sheetCountIsLimited(GameTestHelper helper) {
         ServerPlayer owner = player(helper, "owner");

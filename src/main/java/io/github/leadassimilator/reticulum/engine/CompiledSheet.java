@@ -217,9 +217,19 @@ public final class CompiledSheet {
         Map<UUID, NodeSettings.DeviceSettings> devices = new LinkedHashMap<>();
         Set<UUID> carriers = compileSignals(flatNodes, flatWires);
         Set<UUID> mePorts = compileMeLinks(flatNodes, flatWires);
+        Map<GlobalPos, Node> homes = new LinkedHashMap<>();
         for (Node node : flatNodes) {
             if (!node.enabled()) {
                 continue;
+            }
+            // One node per device in the tree (sub-sheet copies aside): a second one is flagged, though it still runs.
+            if (node.settings() instanceof NodeSettings.DeviceSettings device && !owners.containsKey(node.id())) {
+                Node first = homes.putIfAbsent(device.device(), node);
+                if (first != null) {
+                    Sheet home = network.sheet(sheetOf(first.id()));
+                    error(node, describe(node) + ": this device already has a node" + (home == null ? "" : " in " + home.name())
+                            + "; a device belongs on one sheet");
+                }
             }
             if (!node.redstone().ignored()) {
                 conditions.put(node.id(), new Condition(node.redstone(),

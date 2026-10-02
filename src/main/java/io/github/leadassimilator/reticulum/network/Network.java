@@ -432,6 +432,30 @@ public final class Network {
         return true;
     }
 
+    /**
+     * Where a device lives: the sheet with its device node (in the tree; sub-sheets don't count), and that node. Null
+     * when it has none. {@code except} is a node to leave out (the one being edited).
+     */
+    @Nullable
+    public Home home(GlobalPos device, @Nullable UUID except) {
+        for (Sheet sheet : sheets) {
+            if (sheet.subsheet()) {
+                continue;
+            }
+            for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
+                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings settings
+                        && settings.device().equals(device) && !node.id().equals(except)) {
+                    return new Home(sheet, node);
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The sheet a device lives in, and its device node there. */
+    public record Home(Sheet sheet, io.github.leadassimilator.reticulum.graph.Node node) {
+    }
+
     /** Whether a sheet's own switch is on (the root's is the network's); its parents may still be off. */
     public boolean sheetEnabled(Sheet sheet) {
         if (sheet.root()) {

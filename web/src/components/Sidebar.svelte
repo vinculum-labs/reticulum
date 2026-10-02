@@ -24,7 +24,9 @@
   /** Show every device, or only those no sheet uses yet (remembered per browser). */
   let deviceFilter = $state<"all" | "unused">(storedDeviceFilter());
   const uses = $derived(deviceUses(snapshot));
-  const unusedCount = $derived(snapshot.devices.filter((d) => !uses.has(posKey(d.pos))).length);
+  /** Devices not placed yet: no device node on any sheet (reading one with a sensor doesn't count). */
+  const placed = (key: string) => (uses.get(key) ?? []).some((u) => u.home);
+  const unusedCount = $derived(snapshot.devices.filter((d) => !placed(posKey(d.pos))).length);
 
   function storedDeviceFilter(): "all" | "unused" {
     try {
@@ -48,7 +50,7 @@
 
   const devices = $derived(
     snapshot.devices
-      .filter((d) => matchesDevice(d, deviceSearch) && (deviceFilter === "all" || !uses.has(posKey(d.pos))))
+      .filter((d) => matchesDevice(d, deviceSearch) && (deviceFilter === "all" || !placed(posKey(d.pos))))
       .sort((a, b) => deviceName(a).localeCompare(deviceName(b))),
   );
 
@@ -297,7 +299,7 @@
         value={deviceFilter}
         options={[
           { value: "all", label: `All (${snapshot.devices.length})` },
-          { value: "unused", label: `Unused (${unusedCount})`, title: "Devices no sheet uses yet" },
+          { value: "unused", label: `Unused (${unusedCount})`, title: "Devices not placed on any sheet yet" },
         ]}
         onchange={setDeviceFilter}
       />
