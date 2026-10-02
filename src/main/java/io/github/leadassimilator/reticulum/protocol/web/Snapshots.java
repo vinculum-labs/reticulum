@@ -240,13 +240,15 @@ final class Snapshots {
         BlockPos at = pos.pos();
         if (level != null && level.isLoaded(at)) {
             BlockState state = level.getBlockState(at);
+            // Another network's controller: only redstone, to switch that network (its own redstone setting decides how).
+            boolean controller = level.getBlockEntity(at) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
             json.addProperty("defaultName", Devices.defaultName(level, at));
             json.addProperty("icon", BuiltInRegistries.ITEM.getKey(Devices.icon(level, at).getItem()).toString());
             JsonObject resources = new JsonObject();
-            resources.add(ResourceKind.ITEM.getSerializedName(), faces(level, at, Capabilities.ItemHandler.BLOCK));
-            resources.add(ResourceKind.FLUID.getSerializedName(), faces(level, at, Capabilities.FluidHandler.BLOCK));
-            resources.add(ResourceKind.ENERGY.getSerializedName(), faces(level, at, Capabilities.EnergyStorage.BLOCK));
-            if (Mods.chemicalCapability() != null) {
+            resources.add(ResourceKind.ITEM.getSerializedName(), controller ? new JsonArray() : faces(level, at, Capabilities.ItemHandler.BLOCK));
+            resources.add(ResourceKind.FLUID.getSerializedName(), controller ? new JsonArray() : faces(level, at, Capabilities.FluidHandler.BLOCK));
+            resources.add(ResourceKind.ENERGY.getSerializedName(), controller ? new JsonArray() : faces(level, at, Capabilities.EnergyStorage.BLOCK));
+            if (Mods.chemicalCapability() != null && !controller) {
                 resources.add(ResourceKind.CHEMICAL.getSerializedName(), faces(level, at, Mods.chemicalCapability()));
             }
             json.add("resources", resources);
@@ -254,7 +256,7 @@ final class Snapshots {
             JsonArray energyIn = new JsonArray();
             JsonArray energyOut = new JsonArray();
             for (FaceKey face : FaceKey.values()) {
-                if (level.getCapability(Capabilities.EnergyStorage.BLOCK, at, face.direction()) instanceof net.neoforged.neoforge.energy.IEnergyStorage energy) {
+                if (!controller && level.getCapability(Capabilities.EnergyStorage.BLOCK, at, face.direction()) instanceof net.neoforged.neoforge.energy.IEnergyStorage energy) {
                     if (energy.canReceive()) {
                         energyIn.add(face.getSerializedName());
                     }

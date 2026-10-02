@@ -166,7 +166,8 @@ public final class NetworkManager {
             return;
         }
         ServerLevel level = server.getLevel(pos.dimension());
-        boolean present = level != null && Devices.isDevice(level, pos.pos())
+        boolean present = level != null && (Devices.isDevice(level, pos.pos())
+                || level.getBlockEntity(pos.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity)
                 && Objects.equals(Devices.blockId(level, pos.pos()), record.blockId());
         record.setState(present ? DeviceRecord.State.ORPHANED : DeviceRecord.State.MISSING);
     }

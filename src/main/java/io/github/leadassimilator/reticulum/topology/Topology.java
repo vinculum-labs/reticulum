@@ -267,7 +267,19 @@ public final class Topology {
             sides.put(dir, comp);
         }
 
+        // A connector from a bound stack joins the network it was bound to, even against another network's cable or
+        // controller: the binding is the player's choice, and sides on other networks are cut.
         UUID primary = own;
+        if (primary == null && bound != null) {
+            Network network = NetworkManager.network(level.getServer(), bound);
+            if (network == null) {
+                message(player, Component.translatable("message.reticulum.network_gone_bound"));
+            } else if (player != null && !Security.canUse(network, player)) {
+                message(player, Component.translatable("message.reticulum.no_access", network.name()));
+            } else {
+                primary = network.id();
+            }
+        }
         boolean ambiguous = false;
         if (primary == null) {
             Section against = placedAgainst == null ? null : sides.get(placedAgainst);
@@ -311,17 +323,6 @@ public final class Topology {
         if (ambiguous && player != null) {
             player.displayClientMessage(Component.translatable("message.reticulum.ambiguous_placement"), true);
         }
-        // A connector from a bound stack joins its network wirelessly, unless a cable already decided.
-        if (primary == null && !ambiguous && bound != null) {
-            Network network = NetworkManager.network(level.getServer(), bound);
-            if (network == null) {
-                message(player, Component.translatable("message.reticulum.network_gone_bound"));
-            } else if (player != null && !Security.canUse(network, player)) {
-                message(player, Component.translatable("message.reticulum.no_access", network.name()));
-            } else {
-                primary = network.id();
-            }
-        }
 
         Section comp = component(level, pos, null);
         UUID decided = decideNetwork(level, comp, primary);
@@ -331,8 +332,31 @@ public final class Topology {
         if (be instanceof ConnectorBlockEntity) {
             rescanConnector(level, pos);
         }
+        // Connectors beside it whose joint was just cut may now reach it as a device (another network's controller).
+        rescanNeighborConnectors(level, pos);
         refreshAround(level, comp.blocks());
         refreshAround(level, Set.of(pos));
+    }
+
+    private static void rescanNeighborConnectors(ServerLevel level, BlockPos pos) {
+        for (Direction dir : Direction.values()) {
+            if (blockEntity(level, pos.relative(dir)) instanceof ConnectorBlockEntity) {
+                rescanConnector(level, pos.relative(dir));
+            }
+        }
+    }
+
+    /**
+     * Whether a connector reaches a device on that side: a device block, or another network's controller, which it can
+     * give redstone to, so one network can switch another through that controller's own redstone setting.
+     */
+    public static boolean reachesDevice(ServerLevel level, BlockPos pos, Direction side) {
+        BlockPos next = pos.relative(side);
+        if (Devices.isDevice(level, next, side.getOpposite())) {
+            return true;
+        }
+        return blockEntity(level, pos) instanceof ConnectorBlockEntity connector && blockEntity(level, next) instanceof ControllerBlockEntity controller
+                && !java.util.Objects.equals(networkOf(level, connector), networkOf(level, controller));
     }
 
     private static void disconnectAutomatically(NetworkBlockEntity be, NetworkBlockEntity neighbor, Direction dir) {
@@ -549,7 +573,7 @@ public final class Topology {
         List<GlobalPos> devices = new ArrayList<>();
         for (Direction dir : Direction.values()) {
             BlockPos next = pos.relative(dir);
-            if (connector.isDeviceEnabled(dir) && Devices.isDevice(level, next, dir.getOpposite())) {
+            if (connector.isDeviceEnabled(dir) && reachesDevice(level, pos, dir)) {
                 devices.add(Devices.global(level, next));
             }
         }
@@ -654,6 +678,9 @@ public final class Topology {
             Role cap = player == null ? Role.ADMIN : Security.role(into, player).orElse(Role.VIEWER);
             NetworkManager.absorb(level.getServer(), into, from, cap);
         }
+        // Joined into one network: a connector at either end no longer gives redstone to the controller at the other.
+        rescanNeighborConnectors(level, pos);
+        rescanNeighborConnectors(level, otherPos);
         Set<BlockPos> changed = new HashSet<>(compA.blocks());
         changed.addAll(compB.blocks());
         refreshAround(level, changed);
@@ -788,6 +815,11 @@ public final class Topology {
     private static Link link(ServerLevel level, BlockPos pos, NetworkBlockEntity be, Direction side, EnumProperty<Link> property) {
         BlockPos next = pos.relative(side);
         if (blockEntity(level, next) != null) {
+            if (be instanceof ConnectorBlockEntity connector && property.getPossibleValues().contains(Link.DEVICE)
+                    && connector.isDeviceEnabled(side) && reachesDevice(level, pos, side)) {
+                // Another network's controller: a device it gives redstone to.
+                return Link.DEVICE;
+            }
             // A disconnected or conflicting joint renders as if nothing were there.
             return connected(level, pos, side) ? Link.CABLE : Link.NONE;
         }

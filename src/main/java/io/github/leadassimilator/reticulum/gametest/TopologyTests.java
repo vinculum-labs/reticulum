@@ -52,6 +52,46 @@ public final class TopologyTests {
         return network;
     }
 
+    /**
+     * A connector bound to network B, placed against network A's controller, stays on B and can power A's controller:
+     * one network switches another through the controller's own redstone setting.
+     */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void boundConnectorSwitchesAnotherNetworksController(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(5, 1, 5), ModBlocks.CONTROLLER.get(), null);
+        Network a = network(helper, new BlockPos(1, 1, 1));
+        Network b = network(helper, new BlockPos(5, 1, 5));
+        check(helper, a != b, "the two controllers share a network");
+        a.switches().setRedstone(io.github.leadassimilator.reticulum.network.Switches.Redstone.LOW);
+
+        // Placed from a stack bound to B, against A's controller.
+        BlockPos at = new BlockPos(2, 1, 1);
+        helper.setBlock(at, ModBlocks.CONNECTOR.get());
+        net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(ModBlocks.CONNECTOR.get());
+        stack.set(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get(), b.id());
+        be(helper, at).applyComponentsFromItemStack(stack);
+        Topology.onPlaced(helper.getLevel(), helper.absolutePos(at), Direction.WEST, null);
+
+        check(helper, b.id().equals(net(helper, at)), "the bound connector joined the controller's network instead of its own");
+        var controllerA = Devices.global(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)));
+        check(helper, b.connectors().stream().anyMatch(c -> c.devices().contains(controllerA)), "the connector doesn't reach A's controller as a device");
+
+        // B always powers A's controller: A, set to stop while powered, stops.
+        var timer = io.github.leadassimilator.reticulum.graph.Node.of(new io.github.leadassimilator.reticulum.graph.NodeSettings.TimerSettings(1));
+        var lamp = io.github.leadassimilator.reticulum.graph.Node.of(new io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings(controllerA,
+                java.util.List.of(new io.github.leadassimilator.reticulum.graph.NodeSettings.Input(io.github.leadassimilator.reticulum.graph.ResourceKind.REDSTONE,
+                        java.util.List.of(), java.util.Optional.empty(), java.util.List.of())), java.util.List.of()));
+        b.root().add(timer);
+        b.root().add(lamp);
+        b.root().connect(new io.github.leadassimilator.reticulum.graph.Wire(UUID.randomUUID(), timer.id(), 0, lamp.id(), 0, 0));
+        helper.succeedWhen(() -> {
+            check(helper, helper.getLevel().getBestNeighborSignal(helper.absolutePos(new BlockPos(1, 1, 1))) > 0, "A's controller isn't powered by B");
+            check(helper, io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(a.id()).sheetsOff().contains(a.root().id()),
+                    "A kept running while its controller was powered");
+        });
+    }
+
     @GameTest(template = "empty")
     public static void cablesAndConnectorJoinController(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
