@@ -180,7 +180,11 @@ public final class NetworkRuntime {
         signals.startTick();
         statuses.values().removeIf(status -> status == Status.SWITCHED_OFF);
         sheetsOff.clear();
-        if (!network.switches().redstone().allows(Signals.atController(server, network))) {
+        // Held by another network's Network node: let go once that node is gone, else do as it last said.
+        if (ticks % 100 == 0) {
+            io.github.leadassimilator.reticulum.network.NetworkLinks.release(server, network);
+        }
+        if (!network.switches().redstone().allows(Signals.atController(server, network)) || !network.switches().heldOn()) {
             dormant(server, network);
             return;
         }
@@ -210,6 +214,9 @@ public final class NetworkRuntime {
             }
             signals.noteAsleep(sheet);
             noteSheetsOff(sheet);
+            for (Node node : sheet.networkNodes()) {
+                io.github.leadassimilator.reticulum.network.NetworkLinks.say(server, network, node, sheet.runs(node.id(), signals.off()));
+            }
         }
         refillTokens(sheets);
         sheets.sort(Comparator.comparingInt((CompiledSheet c) -> c.sheet().priority()).reversed());

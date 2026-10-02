@@ -219,7 +219,7 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.redstone_hint", "What redstone into this controller does to the whole network: nothing, run only while powered, or stop while powered.");
         add("screen.reticulum.running", "Running");
         add("screen.reticulum.stopped_off", "Switched off");
-        add("screen.reticulum.stopped_redstone", "Not running (redstone, or the controller isn't loaded)");
+        add("screen.reticulum.stopped_redstone", "Not running (redstone, another network switching it off, or the controller isn't loaded)");
         add("screen.reticulum.no_sheets", "No sheets yet: open the editor to make one");
         add("screen.reticulum.parent_off", "(a sheet above is off)");
         add("screen.reticulum.overflow", "Overflow: %s");

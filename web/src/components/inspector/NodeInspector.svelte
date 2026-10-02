@@ -293,6 +293,20 @@
     {:else}
       <p class="text-sm text-bad">The sheet this node held is gone.</p>
     {/if}
+  {:else if s.kind === "network"}
+    {@const others = app.networks.filter((n) => n.id !== app.current && (n.role === "admin" || n.role === "owner" || n.id === s.network))}
+    <Field label="Network" hint="It runs only while the signal into this node's gate is on (keeping the last setting while this network stops). Only networks you admin are listed; one network can be switched from one place.">
+      <Select
+        value={s.network}
+        disabled={!canEdit}
+        placeholder="(missing)"
+        options={others.map((n) => ({ value: n.id, label: n.name }))}
+        onchange={(network) => settings({ network })}
+      />
+    </Field>
+    {#if !gateWired}
+      <p class="text-xs muted">Nothing is wired into its gate yet, so it leaves that network on.</p>
+    {/if}
   {:else if s.kind === "copy"}
     {@const choices = (app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== sheet.id)}
     {@const used = app.snapshot?.sheets.find((x) => x.id === s.sheet)}

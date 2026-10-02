@@ -223,7 +223,7 @@
   "screen.reticulum.side.up": "Up",
   "screen.reticulum.side.west": "West",
   "screen.reticulum.stopped_off": "Switched off",
-  "screen.reticulum.stopped_redstone": "Not running (redstone, or the controller isn't loaded)",
+  "screen.reticulum.stopped_redstone": "Not running (redstone, another network switching it off, or the controller isn't loaded)",
   "screen.reticulum.tab_network": "Network",
   "screen.reticulum.tab_settings": "Settings",
   "screen.reticulum.unlink_tool": "Unlink tool",

@@ -339,6 +339,32 @@ public final class SafetyTests {
         helper.succeed();
     }
 
+    /** A Network node needs admin on the network it switches; no switching itself, no loops, one node per network. */
+    @GameTest(template = "empty")
+    public static void networkNodesFollowTheRules(GameTestHelper helper) {
+        ServerPlayer owner = player(helper, "owner");
+        Network network = rig(helper, owner);
+        var server = helper.getLevel().getServer();
+        Network mine = io.github.leadassimilator.reticulum.network.NetworkManager.create(server, owner);
+        Network theirs = io.github.leadassimilator.reticulum.network.NetworkManager.create(server, null);
+        String add = "{\"type\":\"addNode\",\"sheet\":\"%s\",\"node\":{\"id\":\"%s\",\"settings\":{\"kind\":\"network\",\"network\":\"%s\"}}}";
+        UUID first = UUID.randomUUID();
+        check(helper, edit(owner, network, add.formatted(network.root().id(), first, mine.id())) == null, "a Network node for my own network was refused");
+        check(helper, mine.switches().held() != null && mine.switches().held().node().equals(first), "the network isn't held by the node");
+        String again = edit(owner, network, add.formatted(network.root().id(), UUID.randomUUID(), mine.id()));
+        check(helper, again != null && again.contains("already switched"), "a second Network node for one network was allowed: " + again);
+        String self = edit(owner, network, add.formatted(network.root().id(), UUID.randomUUID(), network.id()));
+        check(helper, self != null && self.contains("itself"), "a network was let switch itself: " + self);
+        String loop = edit(owner, mine, add.formatted(mine.root().id(), UUID.randomUUID(), network.id()));
+        check(helper, loop != null && loop.contains("loop"), "a loop of networks was allowed: " + loop);
+        String foreign = edit(owner, network, add.formatted(network.root().id(), UUID.randomUUID(), theirs.id()));
+        check(helper, foreign != null && foreign.contains("admins"), "a network I don't admin was switched: " + foreign);
+        check(helper, edit(owner, network, "{\"type\":\"removeNode\",\"sheet\":\"" + network.root().id() + "\",\"node\":\"" + first + "\"}") == null,
+                "removing the node failed");
+        check(helper, mine.switches().held() == null, "the network is still held after its node went");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void sheetCountIsLimited(GameTestHelper helper) {
         ServerPlayer owner = player(helper, "owner");

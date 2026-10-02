@@ -523,6 +523,7 @@ export function nodeTitle(node: GraphNode | undefined): string {
   const s = node.settings;
   if (s.kind === "device") return deviceName(deviceAt(posKey(s.device)));
   if (s.kind === "copy") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing blueprint";
+  if (s.kind === "network") return app.networks.find((n) => n.id === s.network)?.name ?? "Another network";
   if (s.kind === "sheet") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing sheet";
   if ((s.kind === "sheet_input" || s.kind === "sheet_output") && s.name) return s.name;
   return KIND_LABEL[s.kind];

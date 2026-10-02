@@ -52,6 +52,12 @@
       oncommit={(v) => edit([{ type: "renameNetwork", name: v }], [{ type: "renameNetwork", name: snapshot.name }], "rename network")} />
   </Field>
 
+  {#if snapshot.heldBy}
+    <p class="box text-sm" role="status">
+      Switched by the network “{snapshot.heldBy.name}” (a Network node there): {snapshot.heldBy.on ? "on" : "off"} for now. It keeps the last
+      setting while that network stops.
+    </p>
+  {/if}
   <Field label="Redstone at the controller" hint="What a redstone signal into the controller block does to the whole network.">
     <Segmented
       label="Redstone at the controller"

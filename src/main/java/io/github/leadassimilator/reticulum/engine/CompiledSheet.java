@@ -233,6 +233,11 @@ public final class CompiledSheet {
             if (node.gate() == Node.Gate.PULSE) {
                 pulseGates.add(node.id());
             }
+            if (node.settings() instanceof NodeSettings.NetworkNodeSettings) {
+                // It moves nothing: only its gate matters, read each tick.
+                networkNodes.add(node);
+                continue;
+            }
             if (node.settings() instanceof NodeSettings.DeviceSettings device) {
                 devices.put(node.id(), device);
                 expand(node, device, nodes);
@@ -434,6 +439,26 @@ public final class CompiledSheet {
 
     public Map<UUID, List<UUID>> switchedBy() {
         return switchedBy;
+    }
+
+    /** Network nodes: other networks this one switches with their gates. */
+    private final List<Node> networkNodes = new ArrayList<>();
+
+    public List<Node> networkNodes() {
+        return networkNodes;
+    }
+
+    /** Whether a node runs with these nodes switched off: neither it nor anything holding it is among them. */
+    public boolean runs(UUID node, Set<UUID> off) {
+        if (off.isEmpty()) {
+            return true;
+        }
+        for (UUID id : controls(List.of(node))) {
+            if (off.contains(id)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Whether a node's gate runs it once per pulse (rather than while on). */
