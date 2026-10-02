@@ -190,7 +190,14 @@
       : '0 1px 3px rgb(0 0 0 / 0.25)'}; opacity: {disabled ? 0.5 : 1}"
 >
   <div class="group flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
-    {#if data.device && !sensor}
+    {#if data.device && sensor}
+      <!-- The device it reads, badged as a sensor so the card isn't taken for the device's own. -->
+      {@const SensorIcon = KIND_ICON.level}
+      <span class="relative shrink-0">
+        <DeviceIcon item={data.device.icon} size={16} />
+        <span class="sensor-badge" style="color: {color}"><SensorIcon size={9} /></span>
+      </span>
+    {:else if data.device}
       <DeviceIcon item={data.device.icon} size={16} />
     {:else if data.slot?.block}
       <!-- A slot shows the kind of block it takes, faded until a block fills it. -->
@@ -316,6 +323,16 @@ ${idleTitle}` : idleTitle}
   /* An open sheet: a frame its nodes sit in, a shade off the canvas so they stand out from it. */
   .frame {
     background: color-mix(in srgb, var(--panel) 55%, transparent) !important;
+  }
+  /* A Level sensor's mark on the corner of the device icon it shows. */
+  .sensor-badge {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    display: flex;
+    padding: 1px;
+    border-radius: 50%;
+    background: var(--panel);
   }
   /* On the card's corner, outside it, so a node with an error can be spotted among many. */
   .problem-badge {
