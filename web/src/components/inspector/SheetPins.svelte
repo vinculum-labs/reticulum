@@ -25,6 +25,9 @@
     edit([{ type: "updateNode", sheet: sheet.id, node: after }], [{ type: "updateNode", sheet: sheet.id, node: before }], label);
   }
 
+  /** Which pins' groups are open, by pin: a lone one starts open. Kept here, not worked out (see DeviceNodeEditor). */
+  let openPins = $state<Record<string, boolean>>({});
+
   function remove(pin: GraphNode) {
     const inner = (sheet.wires ?? []).filter((w) => w.from === pin.id || w.to === pin.id);
     edit(
@@ -47,7 +50,7 @@
     {#each pins as pin, i (pin.id)}
       {@const s = pin.settings}
       {@const resource = s.kind === "sheet_input" || s.kind === "sheet_output" ? s.resource : undefined}
-      <details class="box" open={pins.length === 1}>
+      <details class="box" bind:open={() => openPins[pin.id] ?? pins.length === 1, (v) => (openPins[pin.id] = v)}>
         <!-- The ✕ sits in the header, so it shows open or closed; clicking it doesn't open or close the group. -->
         <summary class="flex cursor-pointer items-center gap-2 text-sm">
           <ChevronRight size={14} class="disclosure shrink-0 muted" />

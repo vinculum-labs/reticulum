@@ -49,8 +49,27 @@
     onchange({ ...settings, outputs: outputs.map((x, j) => (j === i ? next : x)) });
   }
 
+  /**
+   * Which groups are open, by number: a lone one starts open, one just added opens. Kept here, since an `open` worked
+   * out from the list would be put back (closing what was opened) on every change to the node.
+   */
+  let openIn = $state<Record<number, boolean>>({});
+  let openOut = $state<Record<number, boolean>>({});
+
+  /** The open states with group i gone: those after it move up one. */
+  function without(open: Record<number, boolean>, i: number): Record<number, boolean> {
+    const next: Record<number, boolean> = {};
+    for (const [k, v] of Object.entries(open)) {
+      const j = Number(k);
+      if (j !== i) next[j > i ? j - 1 : j] = v;
+    }
+    return next;
+  }
+
   /** Removes input or output i; the caller drops its wires and renumbers the wires on later ones. */
   function removeSide(direction: "in" | "out", i: number) {
+    if (direction === "in") openIn = without(openIn, i);
+    else openOut = without(openOut, i);
     const next =
       direction === "in" ? { ...settings, inputs: inputs.filter((_, j) => j !== i) } : { ...settings, outputs: outputs.filter((_, j) => j !== i) };
     onchange(next, direction === "in" ? { in: [i] } : { out: [i] }, `remove ${direction === "in" ? "input" : "output"}`);
@@ -113,10 +132,10 @@
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
     <h3 class="panel-title flex items-center gap-1.5"><PinMark /><span class="trim-text">Inputs (left)</span></h3>
-    <AddButton inset label="Add an input" {disabled} onclick={() => onchange({ ...settings, inputs: [...inputs, { resource: primary }] })} />
+    <AddButton inset label="Add an input" {disabled} onclick={() => ((openIn[inputs.length] = true), onchange({ ...settings, inputs: [...inputs, { resource: primary }] }))} />
   </div>
   {#each inputs as input, i}
-    <details class="box" open={inputs.length === 1}>
+    <details class="box" bind:open={() => openIn[i] ?? inputs.length === 1, (v) => (openIn[i] = v)}>
       <!-- The ✕ sits in the header, so it shows open or closed; clicking it doesn't open or close the group. -->
       <summary class="flex cursor-pointer items-center gap-2 text-sm">
         <ChevronRight size={14} class="disclosure shrink-0 muted" />
@@ -144,10 +163,10 @@
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
     <h3 class="panel-title flex items-center gap-1.5"><PinMark solid /><span class="trim-text">Outputs (right)</span></h3>
-    <AddButton inset label="Add an output" {disabled} onclick={() => onchange({ ...settings, outputs: [...outputs, { resource: primary, per_operation: 0 }] })} />
+    <AddButton inset label="Add an output" {disabled} onclick={() => ((openOut[outputs.length] = true), onchange({ ...settings, outputs: [...outputs, { resource: primary, per_operation: 0 }] }))} />
   </div>
   {#each outputs as output, i}
-    <details class="box" open={outputs.length === 1}>
+    <details class="box" bind:open={() => openOut[i] ?? outputs.length === 1, (v) => (openOut[i] = v)}>
       <!-- The ✕ sits in the header, so it shows open or closed; clicking it doesn't open or close the group. -->
       <summary class="flex cursor-pointer items-center gap-2 text-sm">
         <ChevronRight size={14} class="disclosure shrink-0 muted" />
