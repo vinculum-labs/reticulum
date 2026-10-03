@@ -96,7 +96,7 @@
   </div>
   {#if readBy.length}
     <div class="flex flex-col gap-1 text-sm">
-      <span class="field-label">Also read by</span>
+      <span class="field-label">Also used by</span>
       {#each readBy as use (use.label + (use.sheetId ?? "") + (use.nodeId ?? ""))}
         {#if use.sheetId && use.nodeId}
           <button class="list-row self-start rounded px-1 text-left text-accent" onclick={() => showNode(use.sheetId!, use.nodeId!)}>{use.label}</button>
