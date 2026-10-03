@@ -41,6 +41,7 @@
     deviceUses,
     deviceName,
     undoThis,
+    onPlaceDevice,
     updateNodeEdit,
     pinChanged,
     openDevice,
@@ -812,14 +813,7 @@
   }
 
   // "Add to the open sheet" from a device's menu in the sidebar.
-  $effect(() => {
-    const place = (e: Event) => {
-      const device = deviceAt((e as CustomEvent<string>).detail);
-      if (device) addNode("device", viewCenter(), device);
-    };
-    window.addEventListener("reticulum:place-device", place);
-    return () => window.removeEventListener("reticulum:place-device", place);
-  });
+  $effect(() => onPlaceDevice((device) => addNode("device", viewCenter(), device)));
 
   function viewCenter() {
     const rect = container?.getBoundingClientRect();

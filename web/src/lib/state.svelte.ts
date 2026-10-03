@@ -7,7 +7,7 @@ import { posKey } from "./types";
 import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
 import { descendants, rootSheet, sheetPath } from "./tree";
-import { confirmDialog } from "./dialog.svelte";
+import { confirmDialog, promptDialog } from "./dialog.svelte";
 import { copiesOf } from "./blueprints";
 
 export interface Toast {
@@ -832,4 +832,60 @@ export function undoThis(): () => void {
     if (change && app.undo[app.undo.length - 1] === change) undo();
     else toast("Something else has changed since: use Undo in the top bar.", "info");
   };
+}
+
+/**
+ * Pastes a sheet or blueprint copied with "Copy as JSON" (from this or another world). A blueprint lands among the
+ * blueprints wherever it is pasted; the Blueprints import takes only blueprints (a sheet's devices aren't slots).
+ */
+export async function importSheet(what: "sheet" | "blueprint") {
+  const snapshot = app.snapshot;
+  if (!snapshot) return;
+  const text = await promptDialog({
+    title: what === "blueprint" ? "Import blueprint" : "Import sheet",
+    message: `Paste a ${what} copied with “Copy as JSON”, from this world or another.`,
+    confirm: "Import",
+    multiline: true,
+  });
+  if (!text?.trim()) return;
+  let sheet: { blueprint?: boolean; name?: string } | null = null;
+  try {
+    sheet = JSON.parse(text);
+  } catch {
+    // not JSON: said below
+  }
+  if (!sheet || typeof sheet !== "object") {
+    toast(`That isn't a copied ${what} (not JSON).`);
+    return;
+  }
+  if (what === "blueprint" && !sheet.blueprint) {
+    toast("That's a sheet, not a blueprint — import it with the Sheets import (or make a blueprint from it once it's in).");
+    return;
+  }
+  // A name already taken here gets marked, so the import can be told from what it came from.
+  if (typeof sheet.name === "string" && snapshot.sheets.some((s) => s.name === sheet!.name)) sheet = { ...sheet, name: `${sheet.name} (imported)` };
+  const results = await edit([{ type: "importSheet", sheet }]);
+  if (!results?.[0]) return;
+  openSheet(results[0] as string);
+  if (sheet.blueprint) {
+    toast(
+      what === "blueprint" ? "Imported. Its copies fill its slots with blocks of the same kinds." : "That's a blueprint — it's been added to Blueprints.",
+      "info",
+    );
+  } else {
+    toast("Imported. Devices from another world show as offline until you pick local ones for them.", "info");
+  }
+}
+
+const placeListeners = new Set<(device: Device) => void>();
+
+/** Asks the open canvas to add a node for this device ("Add to the open sheet" in the device list's menu). */
+export function placeDevice(device: Device): void {
+  for (const listener of placeListeners) listener(device);
+}
+
+/** The canvas taking {@link placeDevice} requests while it is shown; returns how to stop. */
+export function onPlaceDevice(listener: (device: Device) => void): () => void {
+  placeListeners.add(listener);
+  return () => placeListeners.delete(listener);
 }
