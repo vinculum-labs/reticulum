@@ -59,7 +59,7 @@
       {#each offered as face}
         <label class="flex items-center gap-1.5 text-sm">
           <input type="checkbox" checked={chosen.has(face)} {disabled} onchange={(e) => toggleFace(face, e.currentTarget.checked)} />
-          {face}{#if device?.faceNames?.[face]}<span class="truncate muted">· {device.faceNames[face]}</span>{/if}
+          <span class="trim-text min-w-0 truncate">{face}{#if device?.faceNames?.[face]}<span class="muted"> · {device.faceNames[face]}</span>{/if}</span>
         </label>
       {/each}
     </div>

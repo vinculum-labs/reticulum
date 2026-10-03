@@ -65,7 +65,7 @@
     border-bottom-right-radius: 6px;
   }
   .segmented:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
     border-radius: 6px;
   }

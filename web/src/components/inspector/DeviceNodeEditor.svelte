@@ -216,7 +216,7 @@
         {#if output.resource === "redstone"}
           <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={output.comparator === true} {disabled} onchange={(e) => setOutput(i, { ...output, comparator: e.currentTarget.checked })} />
-            Comparator value instead (how full it is, and the like)
+            <span class="trim-text">Comparator value instead (how full it is, and the like)</span>
           </label>
           <Help>The redstone the device gives out of the ticked faces (the strongest face when none are ticked), 0 to 15.</Help>
         {:else if output.resource === "me"}
