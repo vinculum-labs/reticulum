@@ -7,6 +7,7 @@
   import Canvas from "./components/Canvas.svelte";
   import Inspector from "./components/Inspector.svelte";
   import Toasts from "./components/Toasts.svelte";
+  import Tooltips from "./components/Tooltips.svelte";
   import Dialog from "./components/Dialog.svelte";
   import EmptyState from "./components/EmptyState.svelte";
   import { modals } from "./lib/dialog.svelte";
@@ -56,4 +57,5 @@
   {/if}
   <Toasts />
   <Dialog />
+  <Tooltips />
 </div>
