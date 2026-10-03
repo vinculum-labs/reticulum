@@ -124,7 +124,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     /** Trades the token in the URL for a session cookie and redirects to the same page without it. */
     private static void handshake(ChannelHandlerContext ctx, FullHttpRequest request, QueryStringDecoder uri, String candidate) {
         if (!tokenMatches(candidate)) {
-            respond(ctx, request, HttpResponseStatus.FORBIDDEN, "text/plain", bytes("This editor link has expired—open it again from the game."));
+            respond(ctx, request, HttpResponseStatus.FORBIDDEN, "text/plain", bytes("This editor link has expired — open it again from the game."));
             return;
         }
         DefaultCookie cookie = new DefaultCookie(cookieName(), WebBridge.token());

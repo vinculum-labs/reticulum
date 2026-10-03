@@ -28,7 +28,7 @@
     const network = app.current;
     const ok = await confirmDialog({
       title: `Turn “${nodeTitle(copy)}” into a normal sheet?`,
-      message: `It stops following “${blueprint.name}”: its nodes become its own, to edit freely. Filled slots become device nodes for their blocks—empty ones point at where the blueprint was laid out. This can't be undone.`,
+      message: `It stops following “${blueprint.name}”: its nodes become its own, to edit freely. Filled slots become device nodes for their blocks — empty ones point at where the blueprint was laid out. This can't be undone.`,
       confirm: "Turn into a sheet",
     });
     if (!ok || app.current !== network) return;
@@ -45,13 +45,13 @@
   {#snippet actions()}
     {#if canEdit}<button class="btn btn-danger px-2" onclick={() => deleteCopy(sheet, copy)} title="Delete this copy" aria-label="Delete copy"><Trash size={16} /></button>{/if}
   {/snippet}
-  <Field label="Name" hint="Optional—the blueprint's name is shown otherwise.">
+  <Field label="Name" hint="Optional — the blueprint's name is shown otherwise.">
     <TextField value={copy.label} disabled={!canEdit} placeholder={blueprint.name} oncommit={rename} />
   </Field>
   <p class="text-sm">
     {#if slots.length}
       {filled} of {slots.length} slot{slots.length === 1 ? "" : "s"} filled.
-      {filled < slots.length ? "Drop devices from the list on the empty (red) ones—routes through an empty slot don't run." : ""}
+      {filled < slots.length ? "Drop devices from the list on the empty (red) ones — routes through an empty slot don't run." : ""}
     {:else}
       Its blueprint has no slots: it works on nothing but what is wired to its pins.
     {/if}

@@ -68,7 +68,7 @@
     const results = await edit([{ type: "makeBlueprint", sheet: sheet.id, ...(keep ? { keep: true } : {}) }]);
     if (results?.[0]) {
       openSheet(results[0] as string);
-      toast(keep ? "Blueprint made—the sheet is as it was." : "Blueprint made—the sheet is now its first copy.", "info");
+      toast(keep ? "Blueprint made — the sheet is as it was." : "Blueprint made — the sheet is now its first copy.", "info");
     }
   }
 
@@ -140,7 +140,7 @@
   {#if !sheet.root}
     <SheetPins {sheet} />
   {/if}
-  <Field label="Item operations every" hint="Ticks between item operations—sources can override it. Fluids, chemicals and energy move every tick.">
+  <Field label="Item operations every" hint="Ticks between item operations — sources can override it. Fluids, chemicals and energy move every tick.">
     <NumberField value={sheet.interval ?? 10} min={1} max={72_000} width="md" disabled={!canEdit}
       oncommit={(v) => update({ interval: v }, { interval: sheet.interval ?? 10 }, "sheet interval")} />
   </Field>
@@ -165,9 +165,9 @@
     <div class="flex flex-col gap-1">
       <div class="flex flex-wrap gap-2">
         <button class="btn text-sm" disabled={hasSheets} onclick={() => makeBlueprint(false)}
-          title="Its devices become slots—this sheet stays as the first copy, still running on its blocks">Make blueprint…</button>
+          title="Its devices become slots — this sheet stays as the first copy, still running on its blocks">Make blueprint…</button>
         <button class="btn text-sm" disabled={hasSheets} onclick={() => makeBlueprint(true)}
-          title="A new blueprint like this sheet—the sheet stays as it is">Copy as blueprint</button>
+          title="A new blueprint like this sheet — the sheet stays as it is">Copy as blueprint</button>
       </div>
       <span class="text-xs muted">
         {hasSheets ? "Not for a sheet with sheets inside it (yet): move them out first." : "To build the same set again elsewhere: a blueprint is placed as copies, each filled with its own blocks."}

@@ -239,7 +239,7 @@ public final class CompiledSheet {
                 if (first != null) {
                     Sheet home = network.sheet(sheetOf(first.id()));
                     error(node, describe(node) + ": this device already has a node" + (home == null ? "" : " in " + home.name())
-                            + "—a device belongs on one sheet");
+                            + " — a device belongs on one sheet");
                 }
             }
             if (node.gate() == Node.Gate.PULSE) {
@@ -582,7 +582,7 @@ public final class CompiledSheet {
             Set<UUID> placed = new HashSet<>();
             ordered.forEach(n -> placed.add(n.node().id()));
             UUID looped = carriers.stream().filter(id -> !placed.contains(id)).findFirst().orElse(null);
-            error(looped == null ? null : byId.get(looped), "Signal wires loop back on themselves—a loop must pass through a Latch, Counter or Delay");
+            error(looped == null ? null : byId.get(looped), "Signal wires loop back on themselves — a loop must pass through a Latch, Counter or Delay");
         } else {
             signals.addAll(ordered);
         }
@@ -845,7 +845,7 @@ public final class CompiledSheet {
             return;
         }
         if (!walk.onPath.add(node.id())) {
-            error(node, "Wires loop back to " + describe(node) + "—resource wires must not form a cycle");
+            error(node, "Wires loop back to " + describe(node) + " — resource wires must not form a cycle");
             return;
         }
         walk.path.add(owners.getOrDefault(node.id(), node.id()));

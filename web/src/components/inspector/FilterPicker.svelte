@@ -203,7 +203,7 @@
                 <button
                   class="picker-cell relative flex items-center justify-center rounded"
                   class:picked={selected?.id === entry.id}
-                  title={`${entry.name}\n${entry.id}\nDouble-click to include—alt-click or right-click to exclude`}
+                  title={`${entry.name}\n${entry.id}\nDouble-click to include — alt-click or right-click to exclude`}
                   onclick={(e) => {
                     selected = entry;
                     if (e.altKey) include(itemTerm(entry.id), true);

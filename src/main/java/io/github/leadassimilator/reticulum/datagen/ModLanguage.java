@@ -34,15 +34,15 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.too_many_members", "A network can have at most %s members");
         add("message.reticulum.password_empty", "The password can't be empty");
         add("message.reticulum.no_access_private", "That network is private");
-        add("message.reticulum.still_has_controller", "These cables belong to %s, which still has its controller—join them to that network instead");
-        add("message.reticulum.ambiguous_placement", "Touches several networks—not connected to any. Use the network tool or the cable screen to connect one.");
-        add("message.reticulum.controller_exists", "%s already has a controller—this one starts a new network");
+        add("message.reticulum.still_has_controller", "These cables belong to %s, which still has its controller — join them to that network instead");
+        add("message.reticulum.ambiguous_placement", "Touches several networks — not connected to any. Use the network tool or the cable screen to connect one.");
+        add("message.reticulum.controller_exists", "%s already has a controller — this one starts a new network");
         add("message.reticulum.controller_reconnected", "Took over %s, which had lost its controller");
         add("command.reticulum.deleted", "Deleted network %s");
         add("command.reticulum.merged", "Merged %s into %s");
         add("command.reticulum.merge_same", "Those are the same network");
-        add("command.reticulum.merge_has_controller", "%s still has a working controller—break it first");
-        add("message.reticulum.network_gone", "The remembered network no longer exists—starting a new one");
+        add("command.reticulum.merge_has_controller", "%s still has a working controller — break it first");
+        add("message.reticulum.network_gone", "The remembered network no longer exists — starting a new one");
         add("message.reticulum.nothing_to_connect", "Nothing to connect on that side");
         add("message.reticulum.disconnected", "Disconnected");
         add("message.reticulum.connected", "Connected");
@@ -52,8 +52,8 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.not_a_device", "That side has no connected device");
         add("message.reticulum.password_required", "Set a password before choosing Password access");
         add("message.reticulum.no_network", "Not connected to a network");
-        add("message.reticulum.protected", "%s is private—only members can break its blocks");
-        add("message.reticulum.protected_private", "This network is private—only members can break its blocks");
+        add("message.reticulum.protected", "%s is private — only members can break its blocks");
+        add("message.reticulum.protected_private", "This network is private — only members can break its blocks");
 
         add("screen.reticulum.connector", "Connector");
         add("screen.reticulum.cable", "Cable");
@@ -175,12 +175,12 @@ public class ModLanguage extends LanguageProvider {
         add("tooltip.reticulum.antenna_1", "Wireless range: %s blocks, same dimension");
         add("tooltip.reticulum.antenna_2", "Wireless range: the whole dimension");
         add("tooltip.reticulum.antenna_3", "Wireless range: every dimension");
-        add("tooltip.reticulum.antenna_use", "Right-click a controller to install it—take it out with the network tool (Configure mode, sneak + right-click)");
+        add("tooltip.reticulum.antenna_use", "Right-click a controller to install it — take it out with the network tool (Configure mode, sneak + right-click)");
         add("tooltip.reticulum.bound_to", "Bound to %s");
         add("tooltip.reticulum.linked_to", "Network: %s");
         add("tooltip.reticulum.tool_configure", "Right-click a joint to connect or disconnect it, or a device side to attach or detach it. Sneak + right-click takes off a facade, or a controller's antenna");
         add("tooltip.reticulum.tool_link", "Sneak + right-click a controller or connector to copy its network. Right-click a connector to bind it. Right-click the air to pick a network (or unlink the tool)");
-        add("tooltip.reticulum.tool_switch", "Sneak + scroll to switch mode—sneak + right-click the air to open the editor");
+        add("tooltip.reticulum.tool_switch", "Sneak + scroll to switch mode — sneak + right-click the air to open the editor");
         add("screen.reticulum.unlink_tool", "Unlink tool");
         add("tool.reticulum.mode.configure", "Configure");
         add("tool.reticulum.mode.link", "Link");
@@ -192,7 +192,7 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.wired_connector", "A cable joins this connector, so the cable decides its network");
         add("message.reticulum.already_bound", "Already on %s");
         add("message.reticulum.bound", "Bound to %s");
-        add("message.reticulum.stack_bound", "Bound %s connector(s) to %s—place them where no cable joins them");
+        add("message.reticulum.stack_bound", "Bound %s connector(s) to %s — place them where no cable joins them");
         add("message.reticulum.network_gone_bound", "That network no longer exists");
         add("message.reticulum.wrong_password", "Wrong password for %s");
         add("message.reticulum.antenna_same", "That antenna is already installed");
@@ -240,7 +240,7 @@ public class ModLanguage extends LanguageProvider {
         add(ModItems.FACADE.get(), "Facade");
         add("item.reticulum.facade_of", "Facade (%s)");
         add("tooltip.reticulum.facade", "Right-click a cable or connector to make it look like this block. Take it off with the network tool (Configure mode, sneak + right-click).");
-        add("tooltip.reticulum.facade_paint", "Right-click to choose any block for the whole stack—sneak + right-click a block to copy how it looks");
+        add("tooltip.reticulum.facade_paint", "Right-click to choose any block for the whole stack — sneak + right-click a block to copy how it looks");
         add("item.reticulum.facade_blank", "Blank Facade");
         add("message.reticulum.facade_copied", "Facades now look like %s");
         add("message.reticulum.not_facade_block", "%s can't be a facade: only full blocks without a block entity");
@@ -256,7 +256,7 @@ public class ModLanguage extends LanguageProvider {
 
         // Identify
         add("tool.reticulum.mode.identify", "Identify");
-        add("tooltip.reticulum.tool_identify", "Right-click a connector or device to light it up (or off)—sneak + right-click lights one face of a device");
+        add("tooltip.reticulum.tool_identify", "Right-click a connector or device to light it up (or off) — sneak + right-click lights one face of a device");
         add("message.reticulum.identified", "Lit up %s");
         add("message.reticulum.unidentified", "Stopped lighting up %s");
         add("message.reticulum.not_a_device_of_yours", "That block isn't a device of a network you can use");
