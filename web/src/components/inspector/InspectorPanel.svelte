@@ -36,11 +36,13 @@
   {#if onback}
     <button class="btn flex items-center gap-1 self-start text-sm" onclick={onback}><ArrowLeft size={14} />{backLabel}</button>
   {/if}
-  <div class="flex items-center gap-2">
+  <!-- Icon and buttons by the title line, not centered on a subtitle that may wrap. -->
+  <div class="flex items-start gap-2">
     {#if icon}{@render icon()}{/if}
     <div class="min-w-0 flex-1">
-      <h2 class="truncate text-base font-semibold" title={title}>{title}</h2>
-      {#if subtitle}<p class="truncate text-xs muted" title={subtitle}>{subtitle}</p>{/if}
+      <!-- Both wrap rather than cut off: a subtitle says what the thing is, and a long name should read in full. -->
+      <h2 class="text-base font-semibold break-words">{title}</h2>
+      {#if subtitle}<p class="text-xs muted">{subtitle}</p>{/if}
     </div>
     {#if actions}{@render actions()}{/if}
     {#if onclose}<button class="btn shrink-0 text-sm" onclick={onclose}>Close</button>{/if}
