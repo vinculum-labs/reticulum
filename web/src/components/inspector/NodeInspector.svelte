@@ -51,9 +51,20 @@
   import AddButton from "../controls/AddButton.svelte";
   import TextField from "../controls/TextField.svelte";
 
-  let { node, sheet }: { node: GraphNode; sheet: Sheet } = $props();
+  let {
+    node,
+    sheet,
+    inCopyAs,
+  }: {
+    node: GraphNode;
+    sheet: Sheet;
+    /** Shown inside an open copy: read-only, its activity kept under this id (the copy's name for it). */
+    inCopyAs?: string;
+  } = $props();
 
-  const canEdit = $derived(app.snapshot?.canEdit ?? false);
+  const canEdit = $derived(!inCopyAs && (app.snapshot?.canEdit ?? false));
+  /** Whose activity to show: its own, or the copy's name for it. A blueprint itself never runs: none. */
+  const activityId = $derived(inCopyAs ?? (sheet.blueprint ? null : node.id));
   const s = $derived(node.settings);
   const signal = $derived(isSignal(s.kind));
   /** The device the node points at, whose names (and face names) can be edited. */
@@ -75,9 +86,9 @@
   /** The side shown, while it still exists (one removed goes back to the whole device). */
   const graphKey = $derived(graphChoices.some((c) => c.value === graphSide) ? graphSide : "");
   const graphItem = $derived.by(() => {
-    if (!graphKey) return node.id;
+    if (!graphKey) return activityId ?? node.id;
     const [direction, index] = graphKey.split(":");
-    return sideId(node.id, direction as "in" | "out", Number(index));
+    return sideId(activityId ?? node.id, direction as "in" | "out", Number(index));
   });
   const graphUnit = $derived.by(() => {
     if (!graphKey || s.kind !== "device") return unit;
@@ -184,7 +195,7 @@
     {#if canEdit}<button class="btn btn-danger px-2" onclick={remove} title="Delete this node" aria-label="Delete node"><Trash size={16} /></button>{/if}
   {/snippet}
 
-  {#if !slot}<ThroughputSummary id={node.id} {signal} />{/if}
+  {#if !slot && activityId}<ThroughputSummary id={activityId} {signal} />{/if}
 
 
   <!--
@@ -418,7 +429,7 @@
     {/if}
   {:else if s.kind === "sheet_input" || s.kind === "sheet_output"}
     <!-- The same fields as its group in the sheet's panel. -->
-    <PinFields {sheet} pin={node} />
+    <PinFields {sheet} pin={node} disabled={!canEdit} />
   {/if}
 
   {#if s.kind === "filter"}
@@ -521,7 +532,7 @@
     </fieldset>
   {/if}
 
-  {#if !signal}
+  {#if !signal && activityId}
     {#if s.kind === "device" && !slot && graphChoices.length > 2}
       <!-- One graph: the whole device's, or one input's or output's (picked here, or by the rate in its header). -->
       <Field label="Graph of">

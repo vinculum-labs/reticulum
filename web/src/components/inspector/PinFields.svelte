@@ -12,9 +12,9 @@
    * same fields wherever a pin is edited (its group in the sheet's panel, or its own panel when picked on the canvas),
    * so the two can't drift apart. A pin just added takes the keyboard in its Name box, to be named straight away.
    */
-  let { sheet, pin }: { sheet: Sheet; pin: GraphNode } = $props();
+  let { sheet, pin, disabled = false }: { sheet: Sheet; pin: GraphNode; disabled?: boolean } = $props();
 
-  const canEdit = $derived(app.snapshot?.canEdit ?? false);
+  const canEdit = $derived(!disabled && (app.snapshot?.canEdit ?? false));
   const s = $derived(pin.settings);
   const input = $derived(s.kind === "sheet_input");
   const resource = $derived(s.kind === "sheet_input" || s.kind === "sheet_output" ? s.resource : undefined);

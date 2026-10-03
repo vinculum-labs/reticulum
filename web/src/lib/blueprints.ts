@@ -131,6 +131,14 @@ export function ownBlocks(blueprint: Sheet, devices: Device[], placed: (device: 
 
 const derived = new Map<string, string>();
 
+/** The server's id for a blueprint's node or wire as it runs in a copy (its activity is kept under it). */
+export function inCopy(copyNode: string, id: string): string {
+  const key = `${copyNode}/${id}`;
+  let name = derived.get(key);
+  if (!name) derived.set(key, (name = nameUuid(key)));
+  return name;
+}
+
 /**
  * Activity as an open copy's nodes and wires show it. The canvas shows the blueprint's own nodes, but the server names
  * them in this copy "<copy node>/<blueprint node>" (as a name UUID), and keeps their activity under those names.
@@ -138,12 +146,7 @@ const derived = new Map<string, string>();
  */
 export function copyActivity(activity: Activity, copyNode: string, blueprint: Sheet): Activity {
   const ids = [...(blueprint.nodes ?? []).map((n) => n.id), ...(blueprint.wires ?? []).map((w) => w.id)];
-  const named = (id: string) => {
-    const key = `${copyNode}/${id}`;
-    let name = derived.get(key);
-    if (!name) derived.set(key, (name = nameUuid(key)));
-    return name;
-  };
+  const named = (id: string) => inCopy(copyNode, id);
   function remap<T>(from: Record<string, T>): Record<string, T> {
     const out: Record<string, T> = {};
     for (const id of ids) {

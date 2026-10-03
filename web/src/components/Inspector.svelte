@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { inCopy } from "../lib/blueprints";
   import { app, currentSheet, deviceAt, openCopyNode, sheetHolding } from "../lib/state.svelte";
   import CopyPanel from "./inspector/CopyPanel.svelte";
   import SlotInspector from "./inspector/SlotInspector.svelte";
@@ -38,6 +39,10 @@
     {#if node?.settings.kind === "device"}
       {#key node.id}
         <SlotInspector sheet={copy.sheet} copy={copy.node} blueprint={copy.blueprint} slot={node} />
+      {/key}
+    {:else if node}
+      {#key node.id}
+        <NodeInspector {node} sheet={copy.blueprint} inCopyAs={inCopy(copy.node.id, node.id)} />
       {/key}
     {:else}
       <CopyPanel sheet={copy.sheet} copy={copy.node} blueprint={copy.blueprint} />

@@ -1,12 +1,15 @@
 <script lang="ts">
   import { app, deviceAt, deviceName, deviceUses, setBindings, toast, undo } from "../../lib/state.svelte";
-  import { blockName, fillByLayout, fillOne, slotName, slotsOf } from "../../lib/blueprints";
+  import { blockName, fillByLayout, fillOne, inCopy, slotName, slotsOf } from "../../lib/blueprints";
+  import { RESOURCE_UNIT } from "../../lib/kinds";
   import { posKey, type CopySettings, type Device, type GraphNode, type Sheet } from "../../lib/types";
   import DeviceIcon from "../DeviceIcon.svelte";
   import Segmented from "../controls/Segmented.svelte";
   import DevicePicker from "./DevicePicker.svelte";
   import Field from "./Field.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
+  import ThroughputSummary from "./ThroughputSummary.svelte";
+  import Chart from "./Chart.svelte";
 
   /** A slot of an open copy: which block fills it, how far it is turned, and filling the rest by layout. */
   let { sheet, copy, blueprint, slot }: { sheet: Sheet; copy: GraphNode & { settings: CopySettings }; blueprint: Sheet; slot: GraphNode } = $props();
@@ -17,6 +20,7 @@
   const filler = $derived(binding ? deviceAt(posKey(binding.device)) : undefined);
   const block = $derived(slot.settings.kind === "device" ? slot.settings.block : undefined);
   const active = $derived((app.snapshot?.devices ?? []).filter((d) => d.state === "active"));
+  const unit = $derived(slot.settings.kind === "device" && slot.settings.outputs?.[0] ? RESOURCE_UNIT[slot.settings.outputs[0].resource] : "units");
   const empty = $derived(slotsOf(blueprint).filter((s) => !bindings[s.id]).length);
 
   /** Fills this slot; the copy's first block fills the rest by layout too (one undo step, offered on the toast). */
@@ -103,5 +107,10 @@
         <button class="btn text-sm" onclick={clear}>Empty this slot</button>
       </div>
     {/if}
+  {/if}
+  <!-- What the block filling it is moving (kept under the copy's name for this slot), and its graph. -->
+  {#if binding}
+    <ThroughputSummary id={inCopy(copy.id, slot.id)} />
+    <Chart item={inCopy(copy.id, slot.id)} unit={unit} />
   {/if}
 </InspectorPanel>
