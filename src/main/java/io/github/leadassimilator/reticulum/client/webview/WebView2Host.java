@@ -53,6 +53,12 @@ final class WebView2Host {
     private static final int COMP_PUT_ROOT_VISUAL_TARGET = 4;
     private static final int COMP_SEND_MOUSE_INPUT = 5;
     private static final int COMP_GET_SYSTEM_CURSOR_ID = 8;
+    // ICoreWebView2CompositionController3: drag and drop, which a view drawn into the frame only gets from its host
+    private static final String IID_COMPOSITION3 = "{9570570e-4d76-4361-9ee1-f04d0dbdfb1e}";
+    private static final int COMP3_DRAG_ENTER = 12;
+    private static final int COMP3_DRAG_LEAVE = 13;
+    private static final int COMP3_DRAG_OVER = 14;
+    private static final int COMP3_DROP = 15;
     // ICoreWebView2Controller
     private static final String IID_CONTROLLER = "{4d00c0d1-9434-4eb6-8078-8697a560334f}";
     private static final int CTL_PUT_IS_VISIBLE = 4;
@@ -284,6 +290,63 @@ final class WebView2Host {
         };
     }
 
+    // ---------------------------------------------------------------- drag and drop, when drawn into the frame
+
+    /**
+     * The game window's drop target while the view is drawn into the frame. A drag inside the page (a device from the
+     * list onto the canvas) is a Windows drag: Windows asks the window under the mouse, the game's, whether it takes
+     * it, and without a target there the cursor is a no-entry sign from the start. This one hands each step to the
+     * view, at its pixels.
+     */
+    @Nullable
+    private static Pointer composition3;
+    private static boolean dropsTaken;
+    private static final Com.Table DROP_TARGET = new Com.Table(
+            (Com.DragEnter) (self, data, keys, point, effect) -> composition3 == null ? -1
+                    : Com.call(composition3, COMP3_DRAG_ENTER, data, keys, viewPoint(point), effect),
+            (Com.DragOver) (self, keys, point, effect) -> composition3 == null ? -1
+                    : Com.call(composition3, COMP3_DRAG_OVER, keys, viewPoint(point), effect),
+            (Com.DragLeave) self -> composition3 == null ? -1 : Com.call(composition3, COMP3_DRAG_LEAVE),
+            (Com.DragEnter) (self, data, keys, point, effect) -> composition3 == null ? -1
+                    : Com.call(composition3, COMP3_DROP, data, keys, viewPoint(point), effect));
+
+    /** A screen point (a POINTL's x low, y high) in the view's pixels. */
+    private static Point viewPoint(long screen) {
+        WinDef.POINT client = new WinDef.POINT((int) screen, (int) (screen >> 32));
+        Function.getFunction("user32", "ScreenToClient").invokeInt(new Object[] {gameWindow().getPointer(), client});
+        Point point = new Point();
+        point.x = client.x - bounds[0];
+        point.y = client.y - bounds[1];
+        return point;
+    }
+
+    private static void takeDrops() {
+        composition3 = Com.query(composition, IID_COMPOSITION3);
+        if (composition3 == null) {
+            Reticulum.LOGGER.warn("This WebView2 can't take drag and drop in the game's frame; dragging onto the canvas won't work");
+            return;
+        }
+        Ole32.INSTANCE.OleInitialize(null);
+        Pointer window = gameWindow().getPointer();
+        // Ours replaces any earlier one; the game's own file drops (resource packs) come back when the view closes.
+        Function.getFunction("ole32", "RevokeDragDrop").invokeInt(new Object[] {window});
+        int r = Function.getFunction("ole32", "RegisterDragDrop").invokeInt(new Object[] {window, DROP_TARGET.pointer()});
+        if (r < 0) {
+            Reticulum.LOGGER.warn("Couldn't take drag and drop for the editor: 0x{}", Integer.toHexString(r));
+            return;
+        }
+        dropsTaken = true;
+    }
+
+    private static void stopDrops() {
+        if (dropsTaken) {
+            Function.getFunction("ole32", "RevokeDragDrop").invokeInt(new Object[] {gameWindow().getPointer()});
+            dropsTaken = false;
+        }
+        Com.release(composition3);
+        composition3 = null;
+    }
+
     /** A Win32 POINT passed by value. */
     @Structure.FieldOrder({"x", "y"})
     public static class Point extends Structure implements Structure.ByValue {
@@ -326,6 +389,7 @@ final class WebView2Host {
     /** Closes the browser for good (leaving the world, or the game closing), releasing what WebView2 handed out. */
     static void close() {
         generation++;
+        stopDrops();
         if (state == State.READY) {
             Com.call(controller, CTL_CLOSE);
         }
@@ -443,6 +507,9 @@ final class WebView2Host {
         if (plain != null) {
             // onController took its own reference.
             Com.release(plain);
+        }
+        if (state == State.READY) {
+            takeDrops();
         }
         if (state == State.READY && !CompositionView.capture()) {
             // Capture can't start here: the window it is, from now on.

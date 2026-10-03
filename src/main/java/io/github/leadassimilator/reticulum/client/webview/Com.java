@@ -74,6 +74,53 @@ final class Com {
         int invoke(Pointer self);
     }
 
+    /** IDropTarget's methods; a POINTL by value is one 64-bit argument (x low, y high) on 64-bit Windows. */
+    interface DragEnter extends Callback {
+        int invoke(Pointer self, Pointer data, int keys, long point, Pointer effect);
+    }
+
+    interface DragOver extends Callback {
+        int invoke(Pointer self, int keys, long point, Pointer effect);
+    }
+
+    interface DragLeave extends Callback {
+        int invoke(Pointer self);
+    }
+
+    /**
+     * A COM object of any interface: QueryInterface, AddRef and Release, then {@code methods} in vtable order. Like a
+     * {@link Handler}, kept for the session by its caller, so the reference count is ignored.
+     */
+    static final class Table {
+        private final Memory object = new Memory(Native.POINTER_SIZE);
+        private final Memory vtable;
+        private final Callback[] keep;
+
+        Table(Callback... methods) {
+            vtable = new Memory((3L + methods.length) * Native.POINTER_SIZE);
+            QueryInterface queryInterface = (self, iid, out) -> {
+                out.setPointer(0, self);
+                return S_OK;
+            };
+            RefCount count = self -> 1;
+            keep = new Callback[methods.length + 2];
+            keep[0] = queryInterface;
+            keep[1] = count;
+            System.arraycopy(methods, 0, keep, 2, methods.length);
+            vtable.setPointer(0, CallbackReference.getFunctionPointer(queryInterface));
+            vtable.setPointer(Native.POINTER_SIZE, CallbackReference.getFunctionPointer(count));
+            vtable.setPointer(2L * Native.POINTER_SIZE, CallbackReference.getFunctionPointer(count));
+            for (int i = 0; i < methods.length; i++) {
+                vtable.setPointer((3L + i) * Native.POINTER_SIZE, CallbackReference.getFunctionPointer(methods[i]));
+            }
+            object.setPointer(0, vtable);
+        }
+
+        Pointer pointer() {
+            return object;
+        }
+    }
+
     /**
      * A minimal COM object for a handler: a vtable of QueryInterface, AddRef, Release and Invoke. Its lifetime is
      * the caller's (kept in a static list), so the reference count is ignored.
