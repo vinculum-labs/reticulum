@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { app, deviceAt, deviceName, deviceUses, setBindings, toast } from "../../lib/state.svelte";
-  import { blockName, fillByLayout, slotName, slotsOf } from "../../lib/blueprints";
+  import { app, deviceAt, deviceName, deviceUses, setBindings, toast, undo } from "../../lib/state.svelte";
+  import { blockName, fillByLayout, fillOne, slotName, slotsOf } from "../../lib/blueprints";
   import { posKey, type CopySettings, type Device, type GraphNode, type Sheet } from "../../lib/types";
   import DeviceIcon from "../DeviceIcon.svelte";
   import Segmented from "../controls/Segmented.svelte";
@@ -19,8 +19,22 @@
   const active = $derived((app.snapshot?.devices ?? []).filter((d) => d.state === "active"));
   const empty = $derived(slotsOf(blueprint).filter((s) => !bindings[s.id]).length);
 
-  function fill(device: Device) {
-    setBindings(sheet, copy, (b) => ({ ...b, [slot.id]: { device: device.pos, ...(b[slot.id]?.turns ? { turns: b[slot.id].turns } : {}) } }), `fill ${slotName(slot)}`);
+  /** Fills this slot; the copy's first block fills the rest by layout too (one undo step, offered on the toast). */
+  async function fill(device: Device) {
+    const uses = deviceUses(app.snapshot!);
+    const placed = (d: Device) => (uses.get(posKey(d.pos)) ?? []).some((u) => u.home);
+    let more = 0;
+    const ok = await setBindings(
+      sheet,
+      copy,
+      (b) => {
+        const result = fillOne(blueprint, b, slot.id, { device: device.pos, ...(b[slot.id]?.turns ? { turns: b[slot.id].turns } : {}) }, app.snapshot!.devices, placed);
+        more = result.more;
+        return result.bindings;
+      },
+      `fill ${slotName(slot)}`,
+    );
+    if (ok && more) toast(`Filled ${more} more slot${more === 1 ? "" : "s"} by layout from this one.`, "info", { label: "Undo", run: undo });
   }
 
   function turn(turns: number) {

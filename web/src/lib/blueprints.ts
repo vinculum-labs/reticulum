@@ -77,6 +77,39 @@ export function fillByLayout(
   return { bindings: next, filled };
 }
 
+/**
+ * One slot of a copy filled with {@code binding}. When it is the copy's first, the other slots are filled by layout
+ * from it too (see {@link fillByLayout}). Returns the new bindings and how many more slots that filled.
+ */
+export function fillOne(
+  blueprint: Sheet,
+  bindings: Record<string, Binding>,
+  slot: string,
+  binding: Binding,
+  devices: Device[],
+  placed: (device: Device) => boolean,
+): { bindings: Record<string, Binding>; more: number } {
+  const first = slotsOf(blueprint).every((s) => s.id === slot || !bindings[s.id]);
+  const next = { ...bindings, [slot]: binding };
+  if (!first) return { bindings: next, more: 0 };
+  const result = fillByLayout(blueprint, next, slot, devices, placed);
+  return { bindings: result.bindings, more: result.filled };
+}
+
+/**
+ * A new copy's slots filled with the blocks the blueprint was made from, each where it still is, still that kind of
+ * block and living nowhere: a copy put back where it was comes back filled.
+ */
+export function ownBlocks(blueprint: Sheet, devices: Device[], placed: (device: Device) => boolean): Record<string, Binding> {
+  const bindings: Record<string, Binding> = {};
+  for (const slot of slotsOf(blueprint)) {
+    const block = slot.settings.block;
+    const found = block ? devices.find((d) => posKey(d.pos) === posKey(slot.settings.device) && d.state === "active") : undefined;
+    if (found && found.block === block && !placed(found)) bindings[slot.id] = { device: found.pos };
+  }
+  return bindings;
+}
+
 /** A copy node's bindings (none yet: empty). */
 export function bindingsOf(node: GraphNode | undefined): Record<string, Binding> {
   return node?.settings.kind === "copy" ? ((node.settings as CopySettings).bindings ?? {}) : {};
