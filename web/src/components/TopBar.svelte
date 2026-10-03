@@ -3,6 +3,8 @@
   import Switch from "./controls/Switch.svelte";
   import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
   import Lightbulb from "@lucide/svelte/icons/lightbulb";
+  import Metronome from "@lucide/svelte/icons/metronome";
+  import Timer from "@lucide/svelte/icons/timer";
   import Redo from "@lucide/svelte/icons/redo-2";
   import Settings from "@lucide/svelte/icons/settings";
   import Trash from "@lucide/svelte/icons/trash";
@@ -115,8 +117,8 @@
       label="Rates per"
       value={app.rateUnit}
       options={[
-        { value: "t", label: "/t", title: "Rates per tick" },
-        { value: "s", label: "/s", title: "Rates per second" },
+        { value: "t", label: "", icon: Metronome, title: "Rates per tick" },
+        { value: "s", label: "", icon: Timer, title: "Rates per second" },
       ]}
       onchange={setRateUnit}
     />

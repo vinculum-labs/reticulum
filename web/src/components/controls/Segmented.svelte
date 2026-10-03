@@ -35,14 +35,16 @@
       type="button"
       role="radio"
       aria-checked={option.value === value}
-      class="btn flex items-center gap-1 {size === 'xs' ? 'text-xs' : 'text-sm'}"
+      class="btn flex items-center gap-1 {size === 'xs' ? 'text-xs' : 'text-sm'} {option.label ? '' : 'px-2'}"
       class:btn-primary={option.value === value}
       tabindex="-1"
       title={option.title}
+      aria-label={option.label ? undefined : option.title}
       {disabled}
       onclick={() => option.value !== value && onchange(option.value)}
     >
-      {#if Icon}<Icon size={14} />{/if}{option.label}
+      <!-- An icon alone (no label, its title spoken instead) is drawn at the top bar's icon size. -->
+      {#if Icon}<Icon size={option.label ? 14 : 16} />{/if}{option.label}
     </button>
   {/each}
 </div>
