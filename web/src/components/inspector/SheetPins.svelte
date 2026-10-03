@@ -55,7 +55,7 @@
         />
         <div class="flex items-center">
           <button class="btn px-1 text-xs" title="Show it on the canvas" onclick={() => showNode(sheet.id, pin.id)}>↗</button>
-          {#if canEdit}<RemoveButton reveal label={`Remove pin ${pinName(pin, i)}`} onclick={() => remove(pin)} />{/if}
+          {#if canEdit}<RemoveButton label={`Remove pin ${pinName(pin, i)}`} onclick={() => remove(pin)} />{/if}
         </div>
       </div>
     {:else}
