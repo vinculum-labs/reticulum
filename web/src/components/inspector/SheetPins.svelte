@@ -2,6 +2,7 @@
   import { addSheetPin, app, edit, rebase, showNode } from "../../lib/state.svelte";
   import { PIN_CARRIES } from "../../lib/kinds";
   import { pinName, sheetPins, type Edit, type GraphNode, type Resource, type Sheet } from "../../lib/types";
+  import AddButton from "../controls/AddButton.svelte";
   import PinMark from "../controls/PinMark.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
   import Select from "../controls/Select.svelte";
@@ -37,9 +38,7 @@
     <div class="flex items-center justify-between">
       <h3 class="panel-title flex items-center gap-1.5"><PinMark solid={input} />{input ? "Input pins (left)" : "Output pins (right)"}</h3>
       {#if canEdit}
-        <button class="btn flex items-center gap-1 text-xs" onclick={() => addSheetPin(sheet, input)}>
-          <PinMark solid={input} />Add
-        </button>
+        <AddButton label={input ? "Add an input pin" : "Add an output pin"} onclick={() => addSheetPin(sheet, input)} />
       {/if}
     </div>
     {#each pins as pin, i (pin.id)}
