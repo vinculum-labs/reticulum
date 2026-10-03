@@ -8,6 +8,7 @@
   import SideEditor from "./SideEditor.svelte";
   import LimitsEditor from "./LimitsEditor.svelte";
   import AmountEditor from "./AmountEditor.svelte";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import DevicePicker from "./DevicePicker.svelte";
   import { unwiredSides, withoutSides } from "../../lib/prune";
   import WhileOffField from "./WhileOffField.svelte";
@@ -79,9 +80,13 @@
     <button class="btn text-sm" {disabled} onclick={() => onchange({ ...settings, inputs: [...inputs, { resource: primary }] })}>+ Input</button>
   </div>
   {#each inputs as input, i}
-    <details class="box relative" open={inputs.length === 1}>
-      <summary class="cursor-pointer pr-6 text-sm">Input {i + 1}: {sideLabel(input)}</summary>
-      <RemoveButton class="absolute top-1.5 right-1.5" label="Remove input {i + 1}" {disabled} onclick={() => removeSide("in", i)} />
+    <details class="box" open={inputs.length === 1}>
+      <!-- The ✕ sits in the header, so it shows open or closed; clicking it doesn't open or close the group. -->
+      <summary class="flex cursor-pointer items-center gap-2 text-sm">
+        <ChevronRight size={14} class="disclosure shrink-0 muted" />
+        <span class="min-w-0 flex-1 truncate">Input {i + 1}: {sideLabel(input)}</span>
+        <RemoveButton label="Remove input {i + 1}" {disabled} onclick={(e) => (e.preventDefault(), removeSide("in", i))} />
+      </summary>
       <div class="mt-2 flex flex-col gap-3">
         <SideEditor side={input} {device} {disabled} onchange={(side) => setInput(i, { ...input, ...side })} />
         {#if input.resource === "redstone"}
@@ -105,9 +110,13 @@
     <button class="btn text-sm" {disabled} onclick={() => onchange({ ...settings, outputs: [...outputs, { resource: primary, per_operation: 0 }] })}>+ Output</button>
   </div>
   {#each outputs as output, i}
-    <details class="box relative" open={outputs.length === 1}>
-      <summary class="cursor-pointer pr-6 text-sm">Output {i + 1}: {sideLabel(output)}</summary>
-      <RemoveButton class="absolute top-1.5 right-1.5" label="Remove output {i + 1}" {disabled} onclick={() => removeSide("out", i)} />
+    <details class="box" open={outputs.length === 1}>
+      <!-- The ✕ sits in the header, so it shows open or closed; clicking it doesn't open or close the group. -->
+      <summary class="flex cursor-pointer items-center gap-2 text-sm">
+        <ChevronRight size={14} class="disclosure shrink-0 muted" />
+        <span class="min-w-0 flex-1 truncate">Output {i + 1}: {sideLabel(output)}</span>
+        <RemoveButton label="Remove output {i + 1}" {disabled} onclick={(e) => (e.preventDefault(), removeSide("out", i))} />
+      </summary>
       <div class="mt-2 flex flex-col gap-3">
         <SideEditor side={output} {device} {disabled} onchange={(side) => setOutput(i, { ...output, ...side })} />
         {#if output.resource === "redstone"}
@@ -131,3 +140,19 @@
     <p class="text-xs muted">No outputs: nothing is taken out of this device.</p>
   {/each}
 </section>
+
+<style>
+  /* A header laid out as a row loses the browser's ▸: this one turns when the group is open. */
+  summary {
+    list-style: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  details[open] > summary :global(.disclosure) {
+    transform: rotate(90deg);
+  }
+  summary :global(.disclosure) {
+    transition: transform 0.15s;
+  }
+</style>
