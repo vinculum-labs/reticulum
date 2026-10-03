@@ -57,6 +57,14 @@
 {/if}
 
 <style>
+  /* Only the tag and the dot take the pointer: the rest of the pin's width (room for long names) lets clicks through. */
+  :global(.svelte-flow__node-pin) {
+    pointer-events: none !important;
+  }
+  :global(.svelte-flow__node-pin .label),
+  :global(.svelte-flow__node-pin .svelte-flow__handle) {
+    pointer-events: auto;
+  }
   /* The label is centered on the dot's line: the dot sits at the pin's middle. */
   .edge-pin {
     position: relative;

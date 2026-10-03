@@ -39,7 +39,7 @@ export interface NodeData extends Record<string, unknown> {
 export const CARD_HEADER = 34;
 export const CARD_ROW = 18;
 /** An edge pin's size; a pin's y in its sheet is its middle (its x doesn't matter: it sits on the edge). */
-export const PIN_W = 110;
+export const PIN_W = 200;
 export const PIN_H = 20;
 /** From an edge pin's top to its dot (which sits on the wire's line, the pin's y: the label is centered on it); and the dot's size. */
 export const PIN_DOT = 10;
