@@ -35,8 +35,10 @@
     const aboveRoom = rect.top - 8;
     const above = below < 200 && aboveRoom > below;
     const w = Math.max(rect.width, width ?? 0);
+    // Kept on screen by the width it really takes (its longest option may make it wider than the box it opens from).
+    const span = Math.max(w, element?.offsetWidth ?? 0);
     position = {
-      left: Math.max(8, Math.min(rect.left, window.innerWidth - w - 8)),
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - span - 8)),
       top: above ? rect.top - 4 : rect.bottom + 4,
       width: w,
       maxHeight: Math.max(120, Math.min(480, above ? aboveRoom : below)),
@@ -48,6 +50,8 @@
     if (!open || !element) return;
     place();
     element.showPopover();
+    // Again now that it is laid out, with its real width.
+    place();
     const release = onEscape(() => close(true));
     const onpointerdown = (e: PointerEvent) => {
       const target = e.target as Node;
@@ -86,7 +90,7 @@
     class="popover m-0 flex flex-col overflow-hidden p-0"
     {role}
     aria-label={label}
-    style="left: {position.left}px; {position.above ? `bottom: ${window.innerHeight - position.top}px` : `top: ${position.top}px`}; min-width: {position.width}px; max-height: {position.maxHeight}px"
+    style="left: {position.left}px; {position.above ? `bottom: ${window.innerHeight - position.top}px` : `top: ${position.top}px`}; min-width: {position.width}px; max-width: calc(100vw - 16px); max-height: {position.maxHeight}px"
     {onfocusout}
   >
     {@render children()}
