@@ -58,7 +58,7 @@
       const ok = await confirmDialog({
         title: `Make a blueprint from “${sheet.name}”?`,
         message:
-          "Its devices become slots for their kinds of block, and this sheet becomes the blueprint's first copy, filled with its own blocks: it keeps running as it does now. Then place more copies anywhere and fill their slots. This can't be undone.",
+          "Its devices become slots for their kinds of blocks, and this sheet becomes the blueprint's first copy, filled with its own blocks: it keeps running as it does now. Then place more copies anywhere and fill their slots. This can't be undone.",
         confirm: "Make blueprint",
       });
       if (!ok || app.current !== network) return;

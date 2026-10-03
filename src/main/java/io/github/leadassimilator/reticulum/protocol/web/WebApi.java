@@ -686,7 +686,7 @@ public final class WebApi {
 
         /**
          * A blueprint made from a sheet in the tree: its nodes and wires (new ids), its device nodes as slots for their
-         * kinds of block. Unless {@code keep}, the sheet becomes the blueprint's first copy, its slots filled with the
+         * kinds of blocks. Unless {@code keep}, the sheet becomes the blueprint's first copy, its slots filled with the
          * sheet's own blocks, so nothing stops running. Sheets with sheets inside them are refused for now.
          */
         private static Sheet makeBlueprint(MinecraftServer server, Network network, Sheet sheet, boolean keep) throws RequestException {

@@ -39,7 +39,7 @@
     );
   }
 
-  /** Fills the other empty slots from this one: same layout, turned the same, exact kinds of block, unused ones only. */
+  /** Fills the other empty slots from this one: same layout, turned the same, exact kinds of blocks, unused ones only. */
   async function fillRest() {
     const uses = deviceUses(app.snapshot!);
     const placed = (d: Device) => (uses.get(posKey(d.pos)) ?? []).some((u) => u.home);
