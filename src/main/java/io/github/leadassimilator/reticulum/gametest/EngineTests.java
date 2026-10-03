@@ -977,10 +977,12 @@ public final class EngineTests {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 8));
         Node source = rig.source(0, ResourceKind.ITEM, List.of(), 1);
-        Node splitter = rig.node(new NodeSettings.SplitterSettings(NodeSettings.SplitMode.WEIGHTED, List.of(3, 1)));
+        UUID toFirst = UUID.randomUUID();
+        UUID toSecond = UUID.randomUUID();
+        Node splitter = rig.node(new NodeSettings.SplitterSettings(NodeSettings.SplitMode.WEIGHTED, java.util.Map.of(toFirst, 3, toSecond, 1)));
         rig.wire(source, splitter);
-        rig.sheet().connect(new Wire(UUID.randomUUID(), splitter.id(), 0, rig.sink(1, ResourceKind.ITEM, List.of()).id(), 0, 0));
-        rig.sheet().connect(new Wire(UUID.randomUUID(), splitter.id(), 0, rig.sink(2, ResourceKind.ITEM, List.of()).id(), 0, 1));
+        rig.sheet().connect(new Wire(toFirst, splitter.id(), 0, rig.sink(1, ResourceKind.ITEM, List.of()).id(), 0, 0));
+        rig.sheet().connect(new Wire(toSecond, splitter.id(), 0, rig.sink(2, ResourceKind.ITEM, List.of()).id(), 0, 1));
         helper.succeedWhen(() -> check(helper, rig.count(1, Items.COBBLESTONE) == 6 && rig.count(2, Items.COBBLESTONE) == 2,
                 "expected 6/2 for weights 3:1, got " + rig.count(1, Items.COBBLESTONE) + "/" + rig.count(2, Items.COBBLESTONE)));
     }

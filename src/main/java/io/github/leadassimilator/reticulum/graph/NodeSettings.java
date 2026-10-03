@@ -174,19 +174,29 @@ public sealed interface NodeSettings {
         public static final Codec<SplitMode> CODEC = StringRepresentable.fromEnum(SplitMode::values);
     }
 
-    /** {@code weights}: for WEIGHTED, one per output in wire order (missing ones count 1). */
-    record SplitterSettings(SplitMode mode, List<Integer> weights) implements NodeSettings {
+    /**
+     * {@code weights}: for WEIGHTED, each branch's by the id of its wire (a missing one counts 1), so a weight stays
+     * with its branch when another is removed or they are reordered.
+     */
+    record SplitterSettings(SplitMode mode, Map<UUID, Integer> weights) implements NodeSettings {
         public static final MapCodec<SplitterSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 SplitMode.CODEC.optionalFieldOf("mode", SplitMode.ROUND_ROBIN).forGetter(SplitterSettings::mode),
-                Codec.INT.listOf().optionalFieldOf("weights", List.of()).forGetter(SplitterSettings::weights)
+                Codec.unboundedMap(Ids.UUID_CODEC, Codec.INT).optionalFieldOf("weights", Map.of()).forGetter(SplitterSettings::weights)
         ).apply(i, SplitterSettings::new));
 
         public SplitterSettings(SplitMode mode) {
-            this(mode, List.of());
+            this(mode, Map.of());
         }
 
-        public int weight(int output) {
-            return output < weights.size() ? Math.max(0, weights.get(output)) : 1;
+        public int weight(UUID wire) {
+            return Math.max(0, weights.getOrDefault(wire, 1));
+        }
+
+        /** The same weights under other wire ids (a blueprint's splitter as pasted into a copy). */
+        public SplitterSettings renamed(java.util.function.Function<UUID, UUID> wireId) {
+            Map<UUID, Integer> out = new java.util.LinkedHashMap<>();
+            weights.forEach((wire, weight) -> out.put(wireId.apply(wire), weight));
+            return new SplitterSettings(mode, out);
         }
 
         @Override

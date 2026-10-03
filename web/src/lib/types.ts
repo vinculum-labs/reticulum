@@ -35,8 +35,8 @@ export type SplitMode = "round_robin" | "priority" | "weighted" | "nearest";
 export interface SplitterSettings {
   kind: "splitter";
   mode?: SplitMode;
-  /** For "weighted": one per output in wire order (missing ones count 1). */
-  weights?: number[];
+  /** For "weighted": each branch's by the id of its wire (a missing one counts 1), so it stays with its branch. */
+  weights?: Record<string, number>;
 }
 
 export interface KitLine {

@@ -145,7 +145,7 @@
     return splitterBranches(sheet, node.id);
   }
 
-  /** Swaps a branch with its neighbor; a weighted splitter's weights move with their branches. */
+  /** Swaps a branch with its neighbor (a weighted splitter's weights are by wire, so they go with their branches). */
   function moveOutput(index: number, step: number) {
     const outs = splitterOutputs();
     const other = index + step;
@@ -154,14 +154,6 @@
     [ids[index], ids[other]] = [ids[other], ids[index]];
     const edits: Edit[] = [{ type: "orderWires", sheet: sheet.id, wires: ids }];
     const undo: Edit[] = [{ type: "orderWires", sheet: sheet.id, wires: outs.map((w) => w.id) }];
-    const weights = node.settings.weights;
-    if (weights?.length) {
-      const next = outs.map((_, j) => weights[j] ?? 1);
-      [next[index], next[other]] = [next[other], next[index]];
-      const { after, before } = rebase(node, { ...node, settings: { ...node.settings, weights: next } });
-      edits.push({ type: "updateNode", sheet: sheet.id, node: after });
-      undo.push({ type: "updateNode", sheet: sheet.id, node: before });
-    }
     edit(edits, undo, "reorder outputs");
   }
 
@@ -480,15 +472,16 @@
           <span class="w-5 shrink-0 text-right tabular-nums muted">{i + 1}.</span>
           {#if s.mode === "weighted"}
             <NumberField
-              value={s.weights?.[i] ?? 1}
+              value={s.weights?.[wire.id] ?? 1}
               min={0}
               max={10_000}
               width="xs"
               disabled={!canEdit}
               title="Weight"
               oncommit={(v) => {
-                const weights = outs.map((_, j) => s.weights?.[j] ?? 1);
-                weights[i] = v ?? 0;
+                // Only the branches it still has: weights of wires since removed are dropped.
+                const weights = Object.fromEntries(outs.map((w) => [w.id, s.weights?.[w.id] ?? 1]));
+                weights[wire.id] = v ?? 0;
                 settings({ weights });
               }}
             />

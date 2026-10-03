@@ -290,7 +290,7 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
       return s.mode === "priority"
         ? "in order"
         : s.mode === "weighted"
-          ? `weighted ${(s.weights?.length ? s.weights : [1]).join(":")}`
+          ? "weighted"
           : s.mode === "nearest"
             ? "nearest first"
             : "round robin";

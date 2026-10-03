@@ -52,7 +52,7 @@ public final class Limits {
             case NodeSettings.SheetPinSettings s when s.name().length() > NAME -> "A pin name can be at most " + NAME + " characters";
             case NodeSettings.KitSettings s when s.lines().size() > KIT_LINES -> "A kit can have at most " + KIT_LINES + " lines";
             case NodeSettings.KitSettings s when s.maxKits() > KITS_PER_OPERATION -> "A kit can move at most " + KITS_PER_OPERATION + " kits at a time";
-            case NodeSettings.SplitterSettings s when s.weights().stream().anyMatch(w -> w < 0 || w > SPLITTER_WEIGHT) ->
+            case NodeSettings.SplitterSettings s when s.weights().values().stream().anyMatch(w -> w < 0 || w > SPLITTER_WEIGHT) ->
                     "A splitter output's weight must be 0 to " + SPLITTER_WEIGHT;
             default -> null;
         };

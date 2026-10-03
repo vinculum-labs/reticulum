@@ -752,6 +752,10 @@ public final class CompiledSheet {
                         continue;
                     }
                     pasted = pasted.with(bound);
+                    // A splitter's weights are by wire, and the copy's wires have ids of their own.
+                    if (pasted.settings() instanceof NodeSettings.SplitterSettings splitter && !splitter.weights().isEmpty()) {
+                        pasted = pasted.with(splitter.renamed(copy));
+                    }
                 }
                 copies.add(pasted);
                 if (child) {
@@ -912,7 +916,7 @@ public final class CompiledSheet {
         NodeSettings.SplitMode mode = from.settings() instanceof NodeSettings.SplitterSettings s ? s.mode() : NodeSettings.SplitMode.ROUND_ROBIN;
         int[] weights = new int[wires.size()];
         for (int i = 0; i < weights.length; i++) {
-            weights[i] = from.settings() instanceof NodeSettings.SplitterSettings s && mode == NodeSettings.SplitMode.WEIGHTED ? s.weight(i) : 1;
+            weights[i] = from.settings() instanceof NodeSettings.SplitterSettings s && mode == NodeSettings.SplitMode.WEIGHTED ? s.weight(wires.get(i).id()) : 1;
         }
         for (int i = 0; i < wires.size(); i++) {
             Walk next = walk.copy();

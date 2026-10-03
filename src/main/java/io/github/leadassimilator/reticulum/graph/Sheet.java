@@ -90,9 +90,18 @@ public final class Sheet {
             ids.put(node.id(), id);
             copy.add(node.withId(id));
         }
+        java.util.Map<UUID, UUID> wireIds = new java.util.HashMap<>();
         for (Wire wire : wires) {
             if (ids.containsKey(wire.from()) && ids.containsKey(wire.to())) {
-                copy.connect(new Wire(UUID.randomUUID(), ids.get(wire.from()), wire.output(), ids.get(wire.to()), wire.input(), wire.order()));
+                UUID id = UUID.randomUUID();
+                wireIds.put(wire.id(), id);
+                copy.connect(new Wire(id, ids.get(wire.from()), wire.output(), ids.get(wire.to()), wire.input(), wire.order()));
+            }
+        }
+        // A splitter's weights are by wire: they follow the wires to their new ids.
+        for (Node node : List.copyOf(copy.nodes)) {
+            if (node.settings() instanceof NodeSettings.SplitterSettings splitter && !splitter.weights().isEmpty()) {
+                copy.replace(node.with(splitter.renamed(id -> wireIds.getOrDefault(id, id))));
             }
         }
         return copy;
