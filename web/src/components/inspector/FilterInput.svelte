@@ -30,7 +30,7 @@
     placeholder?: string;
     error?: string | null;
     label?: string;
-    /** Buttons between the box and ? (the field's Pick…). */
+    /** Buttons between the box and ? (the field's picker funnel). */
     extra?: Snippet;
   } = $props();
 
