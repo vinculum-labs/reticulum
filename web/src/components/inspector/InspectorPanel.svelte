@@ -36,16 +36,16 @@
   {#if onback}
     <button class="btn flex items-center gap-1 self-start text-sm" onclick={onback}><ArrowLeft size={14} />{backLabel}</button>
   {/if}
-  <!-- Icon and buttons by the title line, not centered on a subtitle that may wrap. -->
-  <div class="flex items-start gap-2">
-    {#if icon}{@render icon()}{/if}
-    <div class="min-w-0 flex-1">
-      <!-- Both wrap rather than cut off: a subtitle says what the thing is, and a long name should read in full. -->
-      <h2 class="text-base font-semibold break-words">{title}</h2>
-      {#if subtitle}<p class="text-xs muted">{subtitle}</p>{/if}
+  <!-- The icon, title and buttons on one line; a long title wraps rather than being cut off. -->
+  <div class="flex flex-col gap-1">
+    <div class="flex items-center gap-2">
+      {#if icon}{@render icon()}{/if}
+      <h2 class="min-w-0 flex-1 text-base font-semibold break-words">{title}</h2>
+      {#if actions}{@render actions()}{/if}
+      {#if onclose}<button class="btn shrink-0 text-sm" onclick={onclose}>Close</button>{/if}
     </div>
-    {#if actions}{@render actions()}{/if}
-    {#if onclose}<button class="btn shrink-0 text-sm" onclick={onclose}>Close</button>{/if}
+    <!-- What it is, under the whole line and flush with the rest of the panel's text, wrapped in full. -->
+    {#if subtitle}<p class="text-xs muted">{subtitle}</p>{/if}
   </div>
   {@render children()}
 </div>
