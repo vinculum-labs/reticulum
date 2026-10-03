@@ -2,6 +2,7 @@
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Layers from "@lucide/svelte/icons/layers";
+  import Import from "@lucide/svelte/icons/import";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import { app, createSheet, deleteCopy, deleteSheet, deviceUses, edit, deviceName, matchesDevice, moveSheet, openCopy, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
   import { childSheets, descendants, offReason, rootSheet } from "../lib/tree";
@@ -202,7 +203,12 @@
     <!-- Padded right like the rows below, so the + ends where their switches do. -->
     <div class="mb-2 flex items-center justify-between pr-2">
       <h2 class="panel-title">Sheets</h2>
-      {#if canEdit}<AddButton label={`New sheet in ${newSheetParent?.name ?? "the network"}`} onclick={addSheet} />{/if}
+      {#if canEdit}
+        <div class="flex items-center gap-1">
+          <AddButton icon={Import} label="Import sheet: paste one copied with “Copy as JSON”" onclick={importSheet} />
+          <AddButton label={`New sheet in ${newSheetParent?.name ?? "the network"}`} onclick={addSheet} />
+        </div>
+      {/if}
     </div>
     <ul class="flex flex-col gap-0.5">
       {#each rows as row (row.kind === "sheet" ? row.sheet.id : row.node.id)}
@@ -318,9 +324,6 @@
         {/if}
       {/each}
     </ul>
-    {#if canEdit}
-      <button class="btn mt-2 text-sm" onclick={importSheet} title="Paste a sheet copied with “Copy as JSON”">Import sheet…</button>
-    {/if}
 
     <div class="mt-4 mb-2 flex items-center justify-between pr-2">
       <h2 class="panel-title">Blueprints</h2>

@@ -1,16 +1,24 @@
 <script lang="ts">
+  import type { Component } from "svelte";
   import Plus from "@lucide/svelte/icons/plus";
 
   /**
    * The + beside a list's heading that adds one more to it: the counterpart of RemoveButton's ✕, the same size and
    * look. {@code label} says what it adds: the tooltip and the spoken name. {@code inset} sets it in by a box's border
-   * and padding, to line up with the ✕ of the boxed groups below it.
+   * and padding, to line up with the ✕ of the boxed groups below it. {@code icon} draws another heading action in the
+   * same look (Import beside the Sheets +).
    */
-  let { label, onclick, disabled = false, inset = false }: { label: string; onclick: () => void; disabled?: boolean; inset?: boolean } = $props();
+  let {
+    label,
+    onclick,
+    disabled = false,
+    inset = false,
+    icon: Icon = Plus,
+  }: { label: string; onclick: () => void; disabled?: boolean; inset?: boolean; icon?: Component<{ size?: number | string }> } = $props();
 </script>
 
 <button type="button" class="add-button flex shrink-0 items-center justify-center rounded muted" class:inset title={label} aria-label={label} {disabled} {onclick}>
-  <Plus size={16} />
+  <Icon size={16} />
 </button>
 
 <style>
