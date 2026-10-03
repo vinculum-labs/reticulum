@@ -173,7 +173,7 @@
         <li
           class="group flex items-center gap-1.5 rounded-md py-1 pr-2"
           class:drop-target={dropOn === sheet.id}
-          style="padding-left: {row.depth * 14 + 4}px; {sheet.id === app.sheetId ? 'background: var(--panel-2)' : ''}"
+          style="padding-left: {row.depth * 8 + 4}px; {sheet.id === app.sheetId ? 'background: var(--panel-2)' : ''}"
           draggable={canEdit && !sheet.root}
           ondragstart={(e) => {
             dragged = sheet.id;
