@@ -4,6 +4,7 @@
   import Layers from "@lucide/svelte/icons/layers";
   import Import from "@lucide/svelte/icons/import";
   import Funnel from "@lucide/svelte/icons/funnel";
+  import Share from "@lucide/svelte/icons/share";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import { app, createSheet, deleteCopy, deleteSheet, deviceUses, edit, deviceName, matchesDevice, moveSheet, openCopy, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
   import { childSheets, descendants, offReason, rootSheet } from "../lib/tree";
@@ -143,6 +144,78 @@
       openTemplate = name;
       renamingTemplate = name;
     }
+  }
+
+  /** Copies every filter template as JSON, to paste with the templates' import here or in another world. */
+  async function exportTemplates() {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify({ filterTemplates: snapshot.filters }, null, 2));
+      const n = Object.keys(snapshot.filters).length;
+      toast(`Copied ${n} template${n === 1 ? "" : "s"}. Paste them with the templates' import, here or in another world.`, "info");
+    } catch {
+      toast("Couldn't reach the clipboard.");
+    }
+  }
+
+  /**
+   * Pastes templates copied with the export (or a plain name → filter map). New names are added; names already here
+   * with another filter are replaced only when asked. Sent so that a template comes after any it uses (@other), as
+   * the server checks each one as it is saved. One undoable change.
+   */
+  async function importTemplates() {
+    const text = await promptDialog({
+      title: "Import filter templates",
+      message: "Paste templates copied with the templates' export, from this world or another.",
+      confirm: "Import",
+      multiline: true,
+    });
+    if (!text?.trim()) return;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = null;
+    }
+    const map = (parsed && typeof parsed === "object" && "filterTemplates" in parsed ? (parsed as { filterTemplates: unknown }).filterTemplates : parsed) as Record<string, unknown> | null;
+    const incoming = map && typeof map === "object" ? Object.entries(map).filter((e): e is [string, string] => typeof e[1] === "string") : [];
+    if (!incoming.length) {
+      toast("That isn't copied filter templates.");
+      return;
+    }
+    const clashing = incoming.filter(([name, expression]) => name in snapshot.filters && snapshot.filters[name] !== expression);
+    const same = incoming.filter(([name, expression]) => snapshot.filters[name] === expression);
+    if (clashing.length) {
+      const ok = await confirmDialog({
+        title: `Replace ${clashing.length} template${clashing.length === 1 ? "" : "s"}?`,
+        message: `${clashing.map(([n]) => "@" + n).join(", ")} already ${clashing.length === 1 ? "exists" : "exist"} here with another filter. Replace ${clashing.length === 1 ? "it" : "them"} with the imported ${clashing.length === 1 ? "one" : "ones"}? Cancel imports nothing.`,
+        confirm: "Replace",
+      });
+      if (!ok) return;
+    }
+    const todo = incoming.filter(([name]) => !same.some(([s]) => s === name));
+    if (!todo.length) {
+      toast("Those templates are all here already.", "info");
+      return;
+    }
+    // Those a template uses first: each in turn once every @name in it is here or already sent.
+    const ordered: [string, string][] = [];
+    const known = new Set(Object.keys(snapshot.filters).filter((n) => !todo.some(([t]) => t === n)));
+    let left = todo;
+    while (left.length) {
+      const ready = left.filter(([, expression]) => [...expression.matchAll(/@([A-Za-z0-9_\-.]+)/g)].every((m) => known.has(m[1]) || !left.some(([n]) => n === m[1])));
+      const batch = ready.length ? ready : left; // a loop between them: let the server say so
+      for (const entry of batch) {
+        ordered.push(entry);
+        known.add(entry[0]);
+      }
+      left = left.filter((e) => !batch.includes(e));
+    }
+    const ok = await edit(
+      ordered.map(([name, expression]) => ({ type: "setFilter", name, expression })),
+      ordered.map(([name]) => ({ type: "setFilter", name, expression: snapshot.filters[name] ?? null })).reverse(),
+      "import filter templates",
+    );
+    if (ok) toast(`Imported ${ordered.length} template${ordered.length === 1 ? "" : "s"}.`, "info");
   }
 
   /** Renames a template: saved under the new name, the old one gone (filters using @old aren't changed). */
@@ -454,7 +527,13 @@
     <!-- As Sheets and Blueprints: a + on the heading, a row each; a row opens to edit its filter. -->
     <div class="mb-2 flex items-center justify-between pr-2">
       <h2 class="panel-title">Filter templates</h2>
-      {#if canEdit}<AddButton label="New filter template" onclick={addTemplate} />{/if}
+      <div class="flex items-center gap-1">
+        {#if Object.keys(snapshot.filters).length}<AddButton icon={Share} label="Export templates: copy them all as JSON" onclick={exportTemplates} />{/if}
+        {#if canEdit}
+          <AddButton icon={Import} label="Import templates: paste ones copied with the export" onclick={importTemplates} />
+          <AddButton label="New filter template" onclick={addTemplate} />
+        {/if}
+      </div>
     </div>
     <ul class="flex flex-col gap-0.5">
       {#each Object.entries(snapshot.filters) as [name, expression] (name)}
