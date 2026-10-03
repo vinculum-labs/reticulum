@@ -854,7 +854,7 @@
 
   /** Blueprints that can be placed here (as copies): not this sheet. */
   const blueprints = $derived((app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== sheet?.id));
-  /** The toolbar's groups: nodes that move things, then (after Redstone) the ones that hold other nodes. */
+  /** The toolbar's groups: nodes that move things (with the Redstone menu), then the ones that hold other nodes. */
   const movers: NodeKind[] = ["device", "filter", "rate_limit", "splitter", "kit"];
   const holders = $derived<NodeKind[]>([
     // Sheets go inside sheets in the tree, never inside a blueprint.
@@ -988,7 +988,7 @@
     <MiniMap pannable zoomable maskStrokeWidth={1} nodeClass={(n) => (n.data?.problem ? "problem" : "")} />
     {#if editable}
       <Panel position="top-left">
-        <!-- Grouped by thin dividers, not colors (a color means what flows): moving things | redstone | holders | the canvas. -->
+        <!-- Grouped by thin dividers, not colors (a color means what flows): nodes (Redstone too) | holders | the canvas. -->
         <div class="flex flex-wrap gap-1 rounded-lg border border-line bg-panel p-1">
           {#snippet addButton(kind: NodeKind)}
             {@const Icon = KIND_ICON[kind]}
@@ -997,7 +997,6 @@
             </button>
           {/snippet}
           {#each movers as kind (kind)}{@render addButton(kind)}{/each}
-          <span class="toolbar-divider" aria-hidden="true"></span>
           <MenuButton
             label="Redstone"
             icon={ZapIcon}
