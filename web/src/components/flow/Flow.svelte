@@ -38,6 +38,8 @@
     toast,
     uuid,
     holdMetrics,
+    deviceUses,
+    deviceName,
     setWireStyle,
     WIRE_STYLE_LABEL,
     type WireStyle,
@@ -51,7 +53,7 @@
   import { moveAcross } from "../../lib/moveAcross";
   import { KIND_HINT, KIND_LABEL, RESOURCE_VAR, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
-  import { GATE } from "../../lib/types";
+  import { GATE, posKey } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
   import ConnectionLine from "./ConnectionLine.svelte";
   import { pinDrop } from "../../lib/pinDrop.svelte";
@@ -676,11 +678,8 @@
     }
     const needsDevice = kind === "device" || kind === "level";
     if (needsDevice && !device) {
-      device = (app.selectedDevice && deviceAt(app.selectedDevice)) || app.snapshot?.devices.find((d) => d.state === "active") || null;
-      if (!device) {
-        toast("There are no devices on this network yet.");
-        return;
-      }
+      device = toolbarDevice(kind, into);
+      if (!device) return;
     }
     if (into.blueprint && kind === "device" && device) {
       // A device on a blueprint (dropped, or the toolbar's: the selected one) makes a slot for its kind of block (it isn't tied to that block).
@@ -705,6 +704,27 @@
       app.selectedNodes = [node.id];
       app.selectedEdges = [];
     }
+  }
+
+  /**
+   * The device the toolbar's Device (or Level sensor) uses: the one selected in the list, else the first one. A device
+   * node on a sheet of the tree is its block's one home, so it takes one that has none yet; a slot or a sensor can
+   * name any. Says why when there is none.
+   */
+  function toolbarDevice(kind: NodeKind, into: Sheet): Device | null {
+    const devices = (app.snapshot?.devices ?? []).filter((d) => d.state === "active");
+    if (!devices.length) {
+      toast("There are no devices on this network yet.");
+      return null;
+    }
+    const selected = app.selectedDevice ? deviceAt(app.selectedDevice) : undefined;
+    if (kind !== "device" || into.blueprint) return selected ?? devices[0];
+    const uses = deviceUses(app.snapshot!);
+    const free = (d: Device) => !(uses.get(posKey(d.pos)) ?? []).some((u) => u.home);
+    const pick = selected && free(selected) ? selected : devices.find(free);
+    if (!pick) toast("Every device already has a node (each lives on one sheet). Move its node, or wire to it through pins.");
+    else if (selected && pick !== selected) toast(`${deviceName(selected)} already has a node, so this one is ${deviceName(pick)}.`);
+    return pick ?? null;
   }
 
   function viewCenter() {
