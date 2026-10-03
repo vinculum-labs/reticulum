@@ -3,18 +3,18 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Layers from "@lucide/svelte/icons/layers";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-  import { app, createSheet, deviceUses, edit, deviceName, matchesDevice, moveSheet, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
+  import { app, createSheet, deviceUses, edit, deviceName, matchesDevice, moveSheet, openCopy, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
   import { childSheets, descendants, offReason, rootSheet } from "../lib/tree";
   import Segmented from "./controls/Segmented.svelte";
   import { confirmDialog, promptDialog } from "../lib/dialog.svelte";
-  import { posKey, type Sheet } from "../lib/types";
+  import { posKey, type GraphNode, type Sheet } from "../lib/types";
   import DeviceIcon from "./DeviceIcon.svelte";
   import IdentifyBadge from "./IdentifyBadge.svelte";
   import FilterField from "./inspector/FilterField.svelte";
   import RemoveButton from "./controls/RemoveButton.svelte";
   import TextField from "./controls/TextField.svelte";
   import Switch from "./controls/Switch.svelte";
-  import { treeStatus } from "../lib/status";
+  import { copyStatus, treeStatus } from "../lib/status";
 
   const snapshot = $derived(app.snapshot!);
   const canEdit = $derived(snapshot.canEdit);
@@ -116,25 +116,46 @@
 
   // ---------------------------------------------------------------- the sheet tree
 
-  type Row = { sheet: Sheet; depth: number; children: number };
+  /** A row of the tree: a sheet, or a blueprint copy placed on one (it runs there, so it shows there). */
+  type Row =
+    | { kind: "sheet"; sheet: Sheet; depth: number; children: number }
+    | { kind: "copy"; holder: Sheet; node: GraphNode; depth: number };
 
   let collapsed = $state(new Set<string>());
 
-  /** The tree as an indented list: the root, then each sheet followed by the ones inside it (by name). */
+  /** The tree as an indented list: the root, then each sheet followed by the ones inside it, then its copies (by name). */
   const rows = $derived.by(() => {
     const out: Row[] = [];
     const root = rootSheet(snapshot);
     if (!root) return out;
     const add = (sheet: Sheet, depth: number) => {
       const children = childSheets(snapshot, sheet.id);
-      out.push({ sheet, depth, children: children.length });
-      if (!collapsed.has(sheet.id) && depth < 32) for (const child of children) add(child, depth + 1);
+      const copies = (sheet.nodes ?? []).filter((n) => n.settings.kind === "copy").sort((a, b) => copyName(a).localeCompare(copyName(b)));
+      out.push({ kind: "sheet", sheet, depth, children: children.length + copies.length });
+      if (collapsed.has(sheet.id) || depth >= 32) return;
+      for (const child of children) add(child, depth + 1);
+      for (const node of copies) out.push({ kind: "copy", holder: sheet, node, depth: depth + 1 });
     };
     add(root, 0);
     return out;
   });
 
   const blueprints = $derived(snapshot.sheets.filter((s) => s.blueprint).sort((a, b) => a.name.localeCompare(b.name)));
+
+  function blueprintOf(node: GraphNode): Sheet | undefined {
+    const id = node.settings.kind === "copy" ? node.settings.sheet : undefined;
+    return snapshot.sheets.find((s) => s.id === id);
+  }
+
+  /** A copy's name in the tree: its label, else its blueprint's. */
+  function copyName(node: GraphNode): string {
+    return node.label || blueprintOf(node)?.name || "Copy";
+  }
+
+  /** A copy's own switch (its node's), as one undoable change. */
+  function setCopyEnabled(holder: Sheet, node: GraphNode, on: boolean) {
+    edit([{ type: "updateNode", sheet: holder.id, node: { ...node, enabled: on } }], [{ type: "updateNode", sheet: holder.id, node }], "copy on/off");
+  }
 
   function toggleCollapsed(id: string) {
     const next = new Set(collapsed);
@@ -168,7 +189,39 @@
   <section class="p-3">
     <h2 class="panel-title mb-2">Sheets</h2>
     <ul class="flex flex-col gap-0.5">
-      {#each rows as row (row.sheet.id)}
+      {#each rows as row (row.kind === "sheet" ? row.sheet.id : row.node.id)}
+        {#if row.kind === "copy"}
+          {@const holderOff = offReason(snapshot, row.holder, app.sheetsOff)}
+          {@const status = copyStatus(row.node, row.holder, holderOff, snapshot.running, snapshot.enabled, unpowered)}
+          {@const open = app.copy?.node === row.node.id}
+          {@const name = copyName(row.node)}
+          <!-- A copy: opens its blueprint with its blocks. No chevron (nothing goes inside a copy), not dragged (moved as a node). -->
+          <li class="group flex items-center gap-1.5 rounded-md py-1 pr-2" style="padding-left: {row.depth * 8 + 4}px; {open ? 'background: var(--panel-2)' : ''}">
+            <span class="w-4 shrink-0"></span>
+            <span class="status relative flex shrink-0" style="color: {status.color}" title={status.title} role="img" aria-label={status.title}>
+              <status.icon size={14} />
+              {#each status.badges as badge (badge.corner)}
+                <span class="badge {badge.corner}" style="color: {badge.color}"><badge.icon size={8} /></span>
+              {/each}
+            </span>
+            <button
+              class="flex min-w-0 flex-1 items-center gap-1 text-left"
+              class:muted={status.color === "var(--muted)"}
+              onclick={() => openCopy(row.holder.id, row.node.id)}
+              title={`A copy of the blueprint “${blueprintOf(row.node)?.name ?? "?"}”: open it to fill its slots`}
+            >
+              <span class="trim-text truncate">{name}</span>
+            </button>
+            <Switch
+              hideLabel
+              small
+              label={`Copy ${name} on/off`}
+              checked={row.node.enabled !== false}
+              disabled={!canEdit}
+              onchange={(on) => setCopyEnabled(row.holder, row.node, on)}
+            />
+          </li>
+        {:else}
         {@const sheet = row.sheet}
         {@const off = offReason(snapshot, sheet, app.sheetsOff)}
         {@const status = treeStatus(sheet, off, snapshot.running, snapshot.enabled, unpowered)}
@@ -176,7 +229,7 @@
         <li
           class="group flex items-center gap-1.5 rounded-md py-1 pr-2"
           class:drop-target={dropOn === sheet.id}
-          style="padding-left: {row.depth * 8 + 4}px; {sheet.id === app.sheetId ? 'background: var(--panel-2)' : ''}"
+          style="padding-left: {row.depth * 8 + 4}px; {sheet.id === app.sheetId && !app.copy ? 'background: var(--panel-2)' : ''}"
           draggable={canEdit && !sheet.root}
           ondragstart={(e) => {
             dragged = sheet.id;
@@ -239,6 +292,7 @@
             onchange={(on) => setSheetEnabled(sheet, on)}
           />
         </li>
+        {/if}
       {/each}
     </ul>
     {#if canEdit}
@@ -252,7 +306,8 @@
     <h2 class="panel-title mt-4 mb-2">Blueprints</h2>
     <ul class="flex flex-col gap-0.5">
       {#each blueprints as sheet (sheet.id)}
-        <li class="group flex items-center gap-1.5 rounded-md py-1 pr-2 pl-2" style={sheet.id === app.sheetId ? "background: var(--panel-2)" : ""}>
+        <!-- Lit while the blueprint itself is open, not while one of its copies is (that one's row in the tree lights). -->
+        <li class="group flex items-center gap-1.5 rounded-md py-1 pr-2 pl-2" style={sheet.id === app.sheetId && !app.copy ? "background: var(--panel-2)" : ""}>
           {#if renaming === sheet.id}
             <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
           {:else}

@@ -9,7 +9,7 @@ import ZapOff from "@lucide/svelte/icons/zap-off";
 import type { Component } from "svelte";
 import { KIND_ICON } from "./icons";
 import type { OffReason } from "./tree";
-import type { Sheet } from "./types";
+import type { GraphNode, Sheet } from "./types";
 
 export interface Status {
   icon: Component<{ size?: number | string; class?: string }>;
@@ -71,4 +71,18 @@ export function treeStatus(sheet: Sheet, off: OffReason | null, running: boolean
     lines.push(...sheet.errors.map((e) => e.message));
   }
   return { icon: sheet.root ? NetworkIcon : KIND_ICON.sheet, color, badges, title: lines.join("\n") };
+}
+
+/**
+ * A blueprint copy in the tree, read like a sheet: off by its node's switch or the sheet holding it, with the problems
+ * the server put on its node.
+ */
+export function copyStatus(node: GraphNode, holder: Sheet, holderOff: OffReason | null, running: boolean, enabled: boolean, unpowered: boolean): TreeStatus {
+  const off: OffReason | null =
+    node.enabled === false ? { kind: "self" }
+      : !holderOff ? null
+      : holderOff.kind === "network" || holderOff.kind === "parent" ? holderOff
+      : { kind: "parent", sheet: holder };
+  const errors = (holder.errors ?? []).filter((e) => e.node === node.id);
+  return { ...treeStatus({ ...holder, root: false, errors }, off, running, enabled, unpowered), icon: KIND_ICON.copy };
 }
