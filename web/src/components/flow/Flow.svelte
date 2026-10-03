@@ -3,8 +3,10 @@
   import { modals } from "../../lib/dialog.svelte";
   import SheetErrors from "../inspector/SheetErrors.svelte";
   import SheetOffNotice from "./SheetOffNotice.svelte";
-  import { KIND_ICON, SparklesIcon, SplineIcon, ZapIcon } from "../../lib/icons";
-  import MenuButton from "./MenuButton.svelte";
+  import Toolbar from "./Toolbar.svelte";
+  import { edgeMenu, nodeMenu, paneMenu, selectionMenu, type Canvas } from "../../lib/canvasMenus";
+  import { sameEdge, sameIds, sameNode } from "../../lib/flowReuse";
+  import { tidyMoves } from "../../lib/tidy";
   import {
     SvelteFlow,
     Background,
@@ -42,33 +44,15 @@
     deviceName,
     undoThis,
     onPlaceDevice,
-    updateNodeEdit,
-    pinChanged,
-    openDevice,
-    rebase,
-    setSheetEnabled,
-    setWireStyle,
-    WIRE_STYLE_LABEL,
-    type WireStyle,
   } from "../../lib/state.svelte";
   import { copiesOf, copyActivity, fillOne, nowhere, ownBlocks, slotName } from "../../lib/blueprints";
-  import BlockPicker from "../inspector/BlockPicker.svelte";
-  import { identifyItem, openMenu, type MenuItem } from "../../lib/menu.svelte";
-  import Maximize from "@lucide/svelte/icons/maximize";
-  import Plus from "@lucide/svelte/icons/plus";
-  import Pencil from "@lucide/svelte/icons/pencil";
-  import Trash from "@lucide/svelte/icons/trash";
-  import Unplug from "@lucide/svelte/icons/unplug";
-  import Power from "@lucide/svelte/icons/power";
-  import PowerOff from "@lucide/svelte/icons/power-off";
-  import ExternalLink from "@lucide/svelte/icons/external-link";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
-  import { contentCorner, handleIndex, isPin, openFrameSize, pinResource, resources, PIN_DOT, PIN_W, toFlow, type FlowView, type NodeData } from "../../lib/graph";
+  import { contentCorner, handleIndex, isPin, pinResource, resources, PIN_DOT, PIN_W, toFlow, type FlowView, type NodeData } from "../../lib/graph";
   import { crossWire, nextOrder } from "../../lib/crossing";
   import { moveAcross } from "../../lib/moveAcross";
-  import { KIND_HINT, KIND_LABEL, PIN_CARRIES, RESOURCE_VAR, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
+  import { RESOURCE_VAR, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { CopySettings, Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
   import { GATE, posKey } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
@@ -76,7 +60,7 @@
   import { pinDrop } from "../../lib/pinDrop.svelte";
   import EdgePin from "./EdgePin.svelte";
   import SheetFrame from "./SheetFrame.svelte";
-  import { layout, type PinPositions } from "../../lib/layout";
+  import type { PinPositions } from "../../lib/layout";
 
   const nodeTypes = { graph: GraphNodeView, pin: EdgePin, sheetFrame: SheetFrame };
   const flow = useSvelteFlow();
@@ -245,38 +229,6 @@
       }
     });
   });
-
-
-
-  function sameValue(a: unknown, b: unknown): boolean {
-    return a === b || (typeof a === "object" && typeof b === "object" && JSON.stringify(a) === JSON.stringify(b));
-  }
-
-  function sameNode(a: Node<NodeData>, b: Node<NodeData>): boolean {
-    if (a.type !== b.type || a.parentId !== b.parentId || !!a.selected !== !!b.selected || a.position.x !== b.position.x || a.position.y !== b.position.y) return false;
-    if (a.width !== b.width || a.height !== b.height) return false;
-    const keys = new Set([...Object.keys(a.data), ...Object.keys(b.data)]) as Set<keyof NodeData>;
-    for (const key of keys) if (!sameValue(a.data[key], b.data[key])) return false;
-    return true;
-  }
-
-  function sameEdge(a: Edge, b: Edge): boolean {
-    return (
-      a.source === b.source &&
-      a.target === b.target &&
-      a.sourceHandle === b.sourceHandle &&
-      a.targetHandle === b.targetHandle &&
-      a.type === b.type &&
-      !!a.selected === !!b.selected &&
-      a.animated === b.animated &&
-      a.label === b.label &&
-      a.style === b.style
-    );
-  }
-
-  function sameIds(a: string[], b: string[]): boolean {
-    return a.length === b.length && a.every((id, i) => id === b[i]);
-  }
 
   /*
    * The selection is the app's: what the user does on the canvas sets it (a click, Shift- or Ctrl-click, a box dragged
@@ -794,13 +746,10 @@
     return pick ?? null;
   }
 
-  const DeviceKindIcon = KIND_ICON.device;
-
   /** A slot on the open blueprint, at the middle of the view: made from a device here, or a kind from the catalog. */
-  async function addSlot(pick: { block: string; device?: Device }) {
+  async function addSlot(pick: { block: string; device?: Device }, asked: { x: number; y: number } | null) {
     if (!sheet) return;
-    const at = slotAt ?? viewCenter();
-    slotAt = null;
+    const at = asked ?? viewCenter();
     if (pick.device) return addNode("device", at, pick.device);
     const node: GraphNode = {
       id: uuid(),
@@ -863,169 +812,32 @@
 
   // ---------------------------------------------------------------- right-click menus
 
-  /** Where a right-click on the canvas asked a Slot… to go (the block picker it opens places it there). */
-  let slotAt: { x: number; y: number } | null = null;
-  let slotPicker: BlockPicker | undefined = $state();
+  let toolbar: Toolbar | undefined = $state();
 
-  /** On empty canvas: add a node at that spot (in the sheet open there), lay out, fit. */
-  function paneMenu(event: MouseEvent) {
-    const place = sheetAt(event.clientX, event.clientY);
-    if (!place || copy) return openMenu(event, [{ label: "Fit to view", icon: Maximize, run: () => flow.fitView({ padding: 0.1, duration: 200 }) }]);
-    const at = { x: place.x - 70, y: place.y - 17 };
-    const add = (kind: NodeKind, blueprintId?: string): MenuItem => ({
-      label: KIND_LABEL[kind],
-      icon: KIND_ICON[kind],
-      run: () => addNode(kind, at, null, place.sheet, blueprintId),
-    });
-    const others = (app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== place.sheet.id);
-    openMenu(event, [
-      editable && {
-        label: "Add here",
-        icon: Plus,
-        items: [
-          place.sheet.blueprint
-            ? { label: "Slot…", icon: KIND_ICON.device, run: () => ((slotAt = at), slotPicker?.openList()) }
-            : add("device"),
-          add("filter"),
-          add("rate_limit"),
-          add("splitter"),
-          add("kit"),
-          { label: "Redstone", icon: ZapIcon, items: SIGNAL_KINDS.map((k) => add(k)) },
-          "-",
-          !place.sheet.blueprint && add("sheet"),
-          others.length > 0 && {
-            label: "Blueprint",
-            icon: KIND_ICON.copy,
-            items: others.map((b) => ({ label: b.name, icon: KIND_ICON.copy, run: () => addNode("copy", at, null, place.sheet, b.id) })),
-          },
-        ],
-      },
-      "-",
-      editable && { label: "Tidy up", icon: SparklesIcon, disabled: tidying || !sheet?.nodes?.length, run: tidy },
-      { label: "Fit to view", icon: Maximize, run: () => flow.fitView({ padding: 0.1, duration: 200 }) },
-    ]);
-  }
-
-  /** On a card or a pin tag: what can be done to it from here. */
-  function nodeMenu(node: Node<NodeData>, event: MouseEvent) {
-    if (node.type === "sheetFrame") return paneMenu(event);
-    // An open frame's body is that sheet's canvas; its header is the sheet node's.
-    if (node.data.frame && !(event.target instanceof Element && event.target.closest("[data-card-header]"))) return paneMenu(event);
-    const graphNode = nodeOf(node.id);
-    const on = sheetOf(node.id);
-    if (!graphNode || !on) return;
-    if (!app.selectedNodes.includes(node.id)) select([node.id], []);
-    const s = graphNode.settings;
-    const wired = (on.wires ?? []).filter((w) => w.from === node.id || w.to === node.id);
-    const remove: MenuItem = { label: "Delete", icon: Trash, danger: true, shortcut: "Del", disabled: !editable, run: () => flow.deleteElements({ nodes: [{ id: node.id }] }) };
-    if (isPin(graphNode)) {
-      const resource = s.kind === "sheet_input" || s.kind === "sheet_output" ? s.resource : undefined;
-      return openMenu(event, [
-        editable && { label: "Rename", icon: Pencil, run: () => nameNode(node.id) },
-        editable && {
-          label: "Carries",
-          items: PIN_CARRIES.map((c) => ({ label: c.label, checked: (resource ?? "") === c.value, run: () => savePin(on, graphNode, (c.value || undefined) as Resource | undefined) })),
-        },
-        "-",
-        remove,
-      ]);
-    }
-    const device = s.kind === "device" && !on.blueprint ? deviceAt(posKey(s.device)) : undefined;
-    const held = s.kind === "sheet" || s.kind === "copy" ? app.snapshot?.sheets.find((x) => x.id === s.sheet) : undefined;
-    const enabled = s.kind === "sheet" ? held?.enabled !== false : graphNode.enabled !== false;
-    openMenu(event, [
-      held && {
-        label: "Open",
-        icon: ExternalLink,
-        run: () => (s.kind === "copy" && !on.blueprint ? openCopy(on.id, node.id) : openSheet(held.id)),
-      },
-      editable && { label: "Rename", icon: Pencil, run: () => nameNode(node.id) },
-      editable && { label: enabled ? "Turn off" : "Turn on", icon: enabled ? PowerOff : Power, run: () => switchNode(on, graphNode, held, !enabled) },
-      device && identifyItem(device.pos),
-      device && { label: "Device panel…", icon: KIND_ICON.device, run: () => openDevice(device) },
-      editable && wired.length > 0 && { label: wired.length === 1 ? "Disconnect its wire" : `Disconnect all ${wired.length} wires`, icon: Unplug, run: () => disconnectAll(on, node.id) },
-      "-",
-      remove,
-    ]);
-  }
-
-  /** On a wire: put a node in it, or remove it. */
-  function edgeMenu(edge: Edge, event: MouseEvent) {
-    const on = sheetOf(edge.id);
-    const wire = on?.wires?.find((w) => w.id === edge.id);
-    if (!on || !wire) return;
-    if (!app.selectedEdges.includes(edge.id)) select([], [edge.id]);
-    const place = sheetAt(event.clientX, event.clientY);
-    const at = place && place.sheet.id === on.id ? { x: place.x - 70, y: place.y - 17 } : { x: 0, y: 0 };
-    const insert = (kind: NodeKind): MenuItem => ({ label: KIND_LABEL[kind], icon: KIND_ICON[kind], run: () => insertOnWire(on, wire, kind, at) });
-    openMenu(event, [
-      editable && !(edge.data as { signal?: boolean } | undefined)?.signal && {
-        label: "Insert",
-        icon: Plus,
-        items: [insert("filter"), insert("rate_limit"), insert("splitter")],
-      },
-      "-",
-      { label: "Delete", icon: Trash, danger: true, shortcut: "Del", disabled: !editable, run: () => flow.deleteElements({ edges: [{ id: edge.id }] }) },
-    ]);
-  }
-
-  /** On a box of several selected cards. */
-  function selectionMenu(nodes: Node[], event: MouseEvent) {
-    openMenu(event, [
-      { label: `Delete ${nodes.length} nodes`, icon: Trash, danger: true, shortcut: "Del", disabled: !editable, run: () => flow.deleteElements({ nodes: nodes.map((n) => ({ id: n.id })) }) },
-    ]);
-  }
-
-  /** Selects a node and puts the keyboard in its Name box in the side panel. */
-  function nameNode(id: string) {
-    select([id], []);
-    app.panel = null;
-    app.nameNode = id;
-  }
-
-  /** A node's switch (a sheet node's is its sheet's). */
-  function switchNode(on: Sheet, node: GraphNode, held: Sheet | undefined, enabled: boolean) {
-    if (node.settings.kind === "sheet" && held) return setSheetEnabled(held, enabled);
-    updateNodeEdit(on.id, node, { ...node, enabled }, enabled ? "switch on" : "switch off");
-  }
-
-  function savePin(on: Sheet, pin: GraphNode, resource: Resource | undefined) {
-    updateNodeEdit(on.id, pin, pinChanged(pin, { resource }), "pin type");
-  }
-
-  /** Removes every wire on a node, as one undoable change. */
-  function disconnectAll(on: Sheet, id: string) {
-    const wires = (on.wires ?? []).filter((w) => w.from === id || w.to === id);
-    edit(
-      wires.map((w) => ({ type: "disconnect", sheet: on.id, wire: w.id })),
-      wires.map((wire) => ({ type: "connect", sheet: on.id, wire })),
-      "disconnect",
-    );
-  }
-
-  /**
-   * Puts a new node in a wire: the wire goes, and two take its place, from where it came into the node and from the
-   * node to where it went (a filter passes on its matches). One undoable change; the node is selected.
-   */
-  async function insertOnWire(on: Sheet, wire: Wire, kind: NodeKind, at: { x: number; y: number }) {
-    const node: GraphNode = { id: uuid(), settings: defaultSettings(kind, null, "item"), x: Math.round(at.x), y: Math.round(at.y) };
-    const into: Wire = { id: uuid(), from: wire.from, ...(wire.output ? { output: wire.output } : {}), to: node.id, ...(wire.order !== undefined ? { order: wire.order } : {}) };
-    const out: Wire = { id: uuid(), from: node.id, to: wire.to, ...(wire.input ? { input: wire.input } : {}) };
-    const ok = await edit(
-      [
-        { type: "disconnect", sheet: on.id, wire: wire.id },
-        { type: "addNode", sheet: on.id, node },
-        { type: "connect", sheet: on.id, wire: into },
-        { type: "connect", sheet: on.id, wire: out },
-      ],
-      [
-        { type: "removeNode", sheet: on.id, node: node.id },
-        { type: "connect", sheet: on.id, wire },
-      ],
-      `insert ${KIND_LABEL[kind].toLowerCase()}`,
-    );
-    if (ok) select([node.id], []);
-  }
+  /** What the right-click menus (lib/canvasMenus) need of the canvas. */
+  const canvas: Canvas = {
+    get editable() {
+      return editable;
+    },
+    get inCopy() {
+      return !!copy;
+    },
+    get tidying() {
+      return tidying;
+    },
+    get sheet() {
+      return sheet;
+    },
+    sheetAt,
+    sheetOf,
+    nodeOf,
+    select,
+    addNode: (kind, at, device, into, blueprintId) => addNode(kind, at, device, into, blueprintId),
+    pickSlot: (at) => toolbar?.pickSlot(at),
+    tidy,
+    fit: () => flow.fitView({ padding: 0.1, duration: 200 }),
+    remove: ({ nodes: n = [], edges: e = [] }) => flow.deleteElements({ nodes: n.map((id) => ({ id })), edges: e.map((id) => ({ id })) }),
+  };
 
   /** A device dropped on a slot of the open copy fills it (turned like the copy's other slots). */
   async function fillSlot(e: DragEvent, device: Device) {
@@ -1058,10 +870,6 @@
     return (deviceUses(app.snapshot!).get(posKey(device.pos)) ?? []).some((u) => u.home);
   }
 
-  /**
-   * A wire dragged from a node past the edge of the frame it sits in (and dropped on nothing) makes a pin there: an
-   * output pin past the right edge, an input pin past the left, named and typed after the node, as one change.
-   */
   /**
    * Where a wire dragged from a node would make a pin if dropped at {@code p} (canvas coordinates): past the right
    * edge of the frame the node sits in for an output, past the left for an input. Null anywhere else. The preview
@@ -1145,13 +953,6 @@
 
   /** Blueprints that can be placed here (as copies): not this sheet. */
   const blueprints = $derived((app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== sheet?.id));
-  /** The toolbar's groups: nodes that move things (with the Redstone menu), then the ones that hold other nodes. */
-  const movers: NodeKind[] = ["device", "filter", "rate_limit", "splitter", "kit"];
-  const holders = $derived<NodeKind[]>([
-    // Sheets go inside sheets in the tree, never inside a blueprint.
-    ...(sheet?.blueprint ? [] : (["sheet"] as NodeKind[])),
-    ...(blueprints.length ? (["copy"] as NodeKind[]) : []),
-  ]);
 
   /**
    * Double-click a sheet node to open its sheet, or a copy node to open the copy (its blueprint with its blocks); a
@@ -1173,7 +974,6 @@
 
   let tidying = $state(false);
 
-  /** Lays the sheet out left to right with ELK, as one undoable move. */
   /**
    * Lays the sheet out left to right with ELK, as one undoable move: the sheets open in frames on it first, innermost
    * first, then each sheet around them with its frames at their new sizes.
@@ -1195,33 +995,7 @@
         pins.set(n.id, byHandle);
       }
       const laidOut = sheet;
-      const open = new Set(app.frames);
-      const relaid = new Map<string, Sheet>();
-      const sheetsNow = () => app.snapshot!.sheets.map((x) => relaid.get(x.id) ?? x);
-      const edits: Edit[] = [];
-      const undo: Edit[] = [];
-      /** Lays one sheet out, its open frames sized from their (already laid out) insides; queues the move. */
-      const tidySheet = async (target: Sheet, frames: [string, string][]) => {
-        for (const [frameId, inner] of frames) {
-          const held = relaid.get(inner);
-          if (held) sizes.set(frameId, openFrameSize(held, sheetsNow(), open, sizes));
-        }
-        const positions = (await layout(target, sizes, pins)).map((p) => {
-          // A pin's y is its middle (its x doesn't count: it sits on the edge).
-          const node = target.nodes?.find((n) => n.id === p.id);
-          return node && isPin(node) ? { ...p, y: p.y + PIN_DOT } : p;
-        });
-        relaid.set(target.id, { ...target, nodes: (target.nodes ?? []).map((n) => ({ ...n, ...(positions.find((p) => p.id === n.id) ?? {}) })) });
-        edits.push({ type: "moveNodes", sheet: target.id, positions });
-        undo.push({ type: "moveNodes", sheet: target.id, positions: (target.nodes ?? []).map((n) => ({ id: n.id, x: n.x ?? 0, y: n.y ?? 0 })) });
-      };
-      // view.frames lists frames outside in; inner sheets go first.
-      const frames = [...view.frames];
-      for (const [, frame] of [...frames].reverse()) {
-        const held = app.snapshot.sheets.find((x) => x.id === frame.sheet);
-        if (held) await tidySheet(held, frames.filter(([id]) => view.owner.get(id) === held.id).map(([id, f]) => [id, f.sheet]));
-      }
-      await tidySheet(laidOut, frames.filter(([id]) => view.owner.get(id) === laidOut.id).map(([id, f]) => [id, f.sheet]));
+      const { edits, undo } = await tidyMoves(laidOut, app.snapshot.sheets, view, sizes, pins, new Set(app.frames));
       // Laying out takes a moment; if the sheet changed meanwhile, these positions are for the one laid out.
       if (currentSheet()?.id !== laidOut.id) return;
       await edit(edits, undo, "tidy up");
@@ -1266,10 +1040,10 @@
     onnodeclick={nodeClick}
     onedgeclick={edgeClick}
     onpaneclick={() => select([], [])}
-    onpanecontextmenu={({ event }) => paneMenu(event)}
-    onnodecontextmenu={({ node, event }) => nodeMenu(node, event)}
-    onedgecontextmenu={({ edge, event }) => edgeMenu(edge, event)}
-    onselectioncontextmenu={({ nodes, event }) => selectionMenu(nodes, event)}
+    onpanecontextmenu={({ event }) => paneMenu(canvas, event)}
+    onnodecontextmenu={({ node, event }) => nodeMenu(canvas, node, event)}
+    onedgecontextmenu={({ edge, event }) => edgeMenu(canvas, edge, event)}
+    onselectioncontextmenu={({ nodes, event }) => selectionMenu(canvas, nodes, event)}
     onselectionend={boxSelected}
     proOptions={{ hideAttribution: true }}
   >
@@ -1291,57 +1065,7 @@
     <MiniMap pannable zoomable maskStrokeWidth={1} nodeClass={(n) => (n.data?.problem ? "problem" : "")} />
     {#if editable}
       <Panel position="top-left">
-        <!-- Grouped by thin dividers, not colors (a color means what flows): nodes (Redstone too) | holders | the canvas. -->
-        <div class="flex flex-wrap gap-1 rounded-lg border border-line bg-panel p-1">
-          {#snippet addButton(kind: NodeKind)}
-            {@const Icon = KIND_ICON[kind]}
-            <button class="btn flex items-center gap-1 text-sm" title={KIND_HINT[kind]} onclick={() => addNode(kind, viewCenter())}>
-              <Icon size={14} />{KIND_LABEL[kind]}
-            </button>
-          {/snippet}
-          {#each movers as kind (kind)}
-            {#if kind === "device" && sheet?.blueprint}
-              <!-- On a blueprint a device is a slot: the kind of block it takes, from a device here or the catalog. -->
-              <BlockPicker bind:this={slotPicker} devices={app.snapshot?.devices ?? []} onchange={addSlot}>
-                {#snippet button({ open })}
-                  <button class="btn flex items-center gap-1 text-sm" title="A slot: a kind of block each copy fills with one" onclick={() => ((slotAt = null), open())}>
-                    <DeviceKindIcon size={14} />Slot
-                  </button>
-                {/snippet}
-              </BlockPicker>
-            {:else}
-              {@render addButton(kind)}
-            {/if}
-          {/each}
-          <MenuButton
-            label="Redstone"
-            icon={ZapIcon}
-            color="var(--c-signal)"
-            items={SIGNAL_KINDS.map((kind) => ({ key: kind, label: KIND_LABEL[kind], hint: KIND_HINT[kind], icon: KIND_ICON[kind] }))}
-            onpick={(kind) => addNode(kind as NodeKind, viewCenter())}
-          />
-          <span class="toolbar-divider" aria-hidden="true"></span>
-          {#if holders.length}
-            {#each holders as kind (kind)}{@render addButton(kind)}{/each}
-            <span class="toolbar-divider" aria-hidden="true"></span>
-          {/if}
-          <!-- Wire style: a canvas setting, remembered in this browser. -->
-          <MenuButton
-            label={WIRE_STYLE_LABEL[app.wireStyle]}
-            icon={SplineIcon}
-            width={140}
-            title="How wires are drawn between pins (remembered in this browser)"
-            items={(Object.keys(WIRE_STYLE_LABEL) as WireStyle[]).map((style) => ({
-              key: style,
-              label: WIRE_STYLE_LABEL[style],
-              checked: style === app.wireStyle,
-            }))}
-            onpick={(style) => setWireStyle(style as WireStyle)}
-          />
-          <button class="btn flex items-center gap-1 text-sm" title="Lay the sheet out left to right" disabled={tidying || !sheet?.nodes?.length} onclick={tidy}>
-            <SparklesIcon size={14} />Tidy up
-          </button>
-        </div>
+        <Toolbar bind:this={toolbar} {sheet} {tidying} onadd={(kind) => addNode(kind, viewCenter())} onslot={addSlot} ontidy={tidy} />
       </Panel>
     {/if}
     {#if sheet && app.snapshot && (!sheet.root || sheet.blueprint)}
@@ -1402,11 +1126,5 @@
     border-radius: 4px;
     background: var(--panel);
     white-space: nowrap;
-  }
-  .toolbar-divider {
-    align-self: stretch;
-    width: 1px;
-    margin: 2px 2px;
-    background: var(--line);
   }
 </style>
