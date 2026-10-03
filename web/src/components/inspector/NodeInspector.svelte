@@ -7,7 +7,6 @@
   import { childSheets } from "../../lib/tree";
   import { KIND_HINT, KIND_LABEL, OP_SYMBOL, gated, sideLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR, isSignal } from "../../lib/kinds";
   import {
-    SIDES,
     posKey,
     pinName,
     pinSlot,

@@ -36,16 +36,15 @@
     openSheet,
     resync,
     showNode,
-    setBindings,
     toast,
     uuid,
     holdMetrics,
-    deviceUses,
     deviceName,
-    undoThis,
     onPlaceDevice,
+    fillSlot,
+    homeCheck,
   } from "../../lib/state.svelte";
-  import { copiesOf, copyActivity, fillOne, nowhere, ownBlocks, slotName } from "../../lib/blueprints";
+  import { copiesOf, copyActivity, nowhere, ownBlocks } from "../../lib/blueprints";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
@@ -54,7 +53,7 @@
   import { moveAcross } from "../../lib/moveAcross";
   import { RESOURCE_VAR, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { CopySettings, Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
-  import { GATE, posKey } from "../../lib/types";
+  import { GATE } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
   import ConnectionLine from "./ConnectionLine.svelte";
   import { pinDrop } from "../../lib/pinDrop.svelte";
@@ -714,7 +713,7 @@
     };
     // A copy comes filled with the blocks its blueprint was made from, where they are still free (one put back).
     const used = kind === "copy" && !into.blueprint ? app.snapshot?.sheets.find((x) => x.id === blueprint) : undefined;
-    const own = used ? ownBlocks(used, app.snapshot!.devices, homed) : {};
+    const own = used ? ownBlocks(used, app.snapshot!.devices, homeCheck()) : {};
     if (Object.keys(own).length) (node.settings as CopySettings).bindings = own;
     const ok = await edit([{ type: "addNode", sheet: into.id, node }], [{ type: "removeNode", sheet: into.id, node: node.id }], "add node");
     if (ok) {
@@ -738,8 +737,8 @@
     }
     const selected = app.selectedDevice ? deviceAt(app.selectedDevice) : undefined;
     if (kind !== "device" || into.blueprint) return selected ?? devices[0];
-    const uses = deviceUses(app.snapshot!);
-    const free = (d: Device) => !(uses.get(posKey(d.pos)) ?? []).some((u) => u.home);
+    const homed = homeCheck();
+    const free = (d: Device) => !homed(d);
     const pick = selected && free(selected) ? selected : devices.find(free);
     if (!pick) toast("Every device already has a node (each lives on one sheet). Move its node, or wire to it through pins.");
     else if (selected && pick !== selected) toast(`${deviceName(selected)} already has a node, so this one is ${deviceName(pick)}.`);
@@ -784,7 +783,7 @@
     if (!device) return;
     e.preventDefault();
     if (copy) {
-      fillSlot(e, device);
+      dropOnSlot(e, device);
       return;
     }
     const into = sheetAt(e.clientX, e.clientY);
@@ -839,8 +838,8 @@
     remove: ({ nodes: n = [], edges: e = [] }) => flow.deleteElements({ nodes: n.map((id) => ({ id })), edges: e.map((id) => ({ id })) }),
   };
 
-  /** A device dropped on a slot of the open copy fills it (turned like the copy's other slots). */
-  async function fillSlot(e: DragEvent, device: Device) {
+  /** A device dropped on a slot of the open copy fills it. */
+  async function dropOnSlot(e: DragEvent, device: Device) {
     if (!copy || !canEdit) return;
     const id = document.elementFromPoint(e.clientX, e.clientY)?.closest(".svelte-flow__node")?.getAttribute("data-id");
     const slot = sheet?.nodes?.find((n) => n.id === id && n.settings.kind === "device");
@@ -848,26 +847,8 @@
       toast("Drop it on one of the slots.", "info");
       return;
     }
-    // The copy's first block fills the rest by layout too: one undo step, offered on the toast.
-    let more = 0;
-    const ok = await setBindings(
-      copy.sheet,
-      copy.node,
-      (bindings) => {
-        const turns = Object.values(bindings).find((b) => b.turns)?.turns;
-        const result = fillOne(copy.blueprint, bindings, slot.id, { device: device.pos, ...(turns ? { turns } : {}) }, app.snapshot!.devices, homed);
-        more = result.more;
-        return result.bindings;
-      },
-      `fill ${slotName(slot)}`,
-    );
+    await fillSlot(copy.sheet, copy.node, copy.blueprint, slot, device);
     app.selectedNodes = [slot.id];
-    if (ok && more) toast(`Filled ${more} more slot${more === 1 ? "" : "s"} by layout from this one.`, "info", { label: "Undo", run: undoThis() });
-  }
-
-  /** Whether a device already has its home: a device node on a sheet of the tree, or a slot of a copy it fills. */
-  function homed(device: Device): boolean {
-    return (deviceUses(app.snapshot!).get(posKey(device.pos)) ?? []).some((u) => u.home);
   }
 
   /**

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { app, deviceAt, deviceName, deviceUses, setBindings, toast, undoThis } from "../../lib/state.svelte";
-  import { blockName, fillByLayout, fillOne, inCopy, slotName, slotsOf } from "../../lib/blueprints";
+  import { app, deviceAt, deviceName, fillSlot, homeCheck, setBindings, toast } from "../../lib/state.svelte";
+  import { blockName, fillByLayout, inCopy, slotName, slotsOf } from "../../lib/blueprints";
   import { RESOURCE_UNIT } from "../../lib/kinds";
   import { posKey, type CopySettings, type Device, type GraphNode, type Sheet } from "../../lib/types";
   import DeviceIcon from "../DeviceIcon.svelte";
@@ -23,22 +23,8 @@
   const unit = $derived(slot.settings.kind === "device" && slot.settings.outputs?.[0] ? RESOURCE_UNIT[slot.settings.outputs[0].resource] : "units");
   const empty = $derived(slotsOf(blueprint).filter((s) => !bindings[s.id]).length);
 
-  /** Fills this slot; the copy's first block fills the rest by layout too (one undo step, offered on the toast). */
-  async function fill(device: Device) {
-    const uses = deviceUses(app.snapshot!);
-    const placed = (d: Device) => (uses.get(posKey(d.pos)) ?? []).some((u) => u.home);
-    let more = 0;
-    const ok = await setBindings(
-      sheet,
-      copy,
-      (b) => {
-        const result = fillOne(blueprint, b, slot.id, { device: device.pos, ...(b[slot.id]?.turns ? { turns: b[slot.id].turns } : {}) }, app.snapshot!.devices, placed);
-        more = result.more;
-        return result.bindings;
-      },
-      `fill ${slotName(slot)}`,
-    );
-    if (ok && more) toast(`Filled ${more} more slot${more === 1 ? "" : "s"} by layout from this one.`, "info", { label: "Undo", run: undoThis() });
+  function fill(device: Device) {
+    fillSlot(sheet, copy, blueprint, slot, device);
   }
 
   function turn(turns: number) {
@@ -59,9 +45,7 @@
 
   /** Fills the other empty slots from this one: same layout, turned the same, exact kinds of blocks, unused ones only. */
   async function fillRest() {
-    const uses = deviceUses(app.snapshot!);
-    const placed = (d: Device) => (uses.get(posKey(d.pos)) ?? []).some((u) => u.home);
-    const result = fillByLayout(blueprint, bindings, slot.id, app.snapshot!.devices, placed);
+    const result = fillByLayout(blueprint, bindings, slot.id, app.snapshot!.devices, homeCheck());
     if (!result.filled) {
       toast("No other slot's block is where the layout says (the same kind of block, unused, at the same place from this one).", "info");
       return;

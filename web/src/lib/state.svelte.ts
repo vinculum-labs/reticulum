@@ -8,7 +8,7 @@ import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
 import { descendants, rootSheet, sheetPath } from "./tree";
 import { confirmDialog, promptDialog } from "./dialog.svelte";
-import { copiesOf } from "./blueprints";
+import { copiesOf, fillOne, slotName } from "./blueprints";
 
 export interface Toast {
   id: number;
@@ -888,4 +888,35 @@ export function placeDevice(device: Device): void {
 export function onPlaceDevice(listener: (device: Device) => void): () => void {
   placeListeners.add(listener);
   return () => placeListeners.delete(listener);
+}
+
+/**
+ * Whether a device already has its home: a device node on a sheet of the tree, or a slot of a copy it fills. Worked
+ * out once, for asking about many devices.
+ */
+export function homeCheck(): (device: Device) => boolean {
+  const uses = app.snapshot ? deviceUses(app.snapshot) : new Map<string, DeviceUse[]>();
+  return (device) => (uses.get(posKey(device.pos)) ?? []).some((u) => u.home);
+}
+
+/**
+ * Fills a slot of a copy with a device, turned as the slot already was (else as the copy's other slots are). The
+ * copy's first block fills the rest by layout too: one undo step, offered on the toast.
+ */
+export async function fillSlot(holder: Sheet, copy: GraphNode & { settings: CopySettings }, blueprint: Sheet, slot: GraphNode, device: Device): Promise<boolean> {
+  const homed = homeCheck();
+  let more = 0;
+  const ok = await setBindings(
+    holder,
+    copy,
+    (bindings) => {
+      const turns = bindings[slot.id]?.turns ?? Object.values(bindings).find((b) => b.turns)?.turns;
+      const result = fillOne(blueprint, bindings, slot.id, { device: device.pos, ...(turns ? { turns } : {}) }, app.snapshot!.devices, homed);
+      more = result.more;
+      return result.bindings;
+    },
+    `fill ${slotName(slot)}`,
+  );
+  if (ok && more) toast(`Filled ${more} more slot${more === 1 ? "" : "s"} by layout from this one.`, "info", { label: "Undo", run: undoThis() });
+  return !!ok;
 }
