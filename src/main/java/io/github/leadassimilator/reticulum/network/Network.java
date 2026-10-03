@@ -412,6 +412,8 @@ public final class Network {
             }
         }
         // No loops: a sheet placed inside itself (directly or further down) comes out to the root.
+        // XXX: the walk uses the placements from before any is removed, so every sheet in a loop comes out (with its
+        // pin wires), where taking one out would do. Only a corrupt save has loops: moveSheet refuses them.
         Map<UUID, Placement> placements = placements();
         for (Map.Entry<UUID, Placement> entry : placements.entrySet()) {
             Sheet at = entry.getValue().parent();
