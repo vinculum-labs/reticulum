@@ -186,12 +186,13 @@ function disconnectAll(on: Sheet, id: string) {
 }
 
 /**
- * Puts a new node in a wire: the wire goes, and two take its place, from where it came into the node (keeping its
- * place among a splitter's branches) and from the node to where it went. One undoable change; the node is selected.
+ * Puts a new node in a wire: the wire goes, and two take its place, from where it came into the node and from the node
+ * to where it went. The first keeps the wire's id and order, so it stays the same branch of a splitter (its weight is
+ * by wire id). One undoable change; the node is selected.
  */
 async function insertOnWire(canvas: Canvas, on: Sheet, wire: Wire, kind: NodeKind, at: { x: number; y: number }) {
   const node: GraphNode = { id: uuid(), settings: defaultSettings(kind, null, "item"), x: Math.round(at.x), y: Math.round(at.y) };
-  const into: Wire = { id: uuid(), from: wire.from, ...(wire.output ? { output: wire.output } : {}), to: node.id, ...(wire.order !== undefined ? { order: wire.order } : {}) };
+  const into: Wire = { id: wire.id, from: wire.from, ...(wire.output ? { output: wire.output } : {}), to: node.id, ...(wire.order !== undefined ? { order: wire.order } : {}) };
   const out: Wire = { id: uuid(), from: node.id, to: wire.to, ...(wire.input ? { input: wire.input } : {}) };
   const ok = await edit(
     [

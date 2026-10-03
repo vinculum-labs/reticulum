@@ -182,6 +182,11 @@ public final class CompiledSheet {
         return sheetNodes;
     }
 
+    /** Every copy node pasted in (a copy inside a copy under its pasted id): each switches what it holds, as a sheet node does. */
+    public Set<UUID> copyNodes() {
+        return copyNodes;
+    }
+
     /** The sheet node holding a node pasted in from a child sheet (a sheet node for one inside another), or null. */
     @Nullable
     public UUID containerOf(UUID node) {
@@ -611,7 +616,8 @@ public final class CompiledSheet {
 
     /** For every node pasted in from a child sheet: that sheet's sheet node. Not an owner: the node shows as itself. */
     private final Map<UUID, UUID> containers = new LinkedHashMap<>();
-    /** Sheet nodes whose own switch is off: what is in them is compiled but stays off. */
+    private final Set<UUID> copyNodes = new java.util.HashSet<>();
+    /** Sheet and copy nodes whose own switch is off: what is in them is compiled but stays off. */
     private final Set<UUID> disabledHolders = new java.util.HashSet<>();
     /** Signal outputs (a sheet's output pins, devices' redstone inputs) by what they do while their sheet is off. */
     private final Map<UUID, NodeSettings.OffBehavior> whileOff = new LinkedHashMap<>();
@@ -701,12 +707,16 @@ public final class CompiledSheet {
     private void paste(Network network, List<Node> from, List<Node> out, List<Wire> wires, List<UUID> using, UUID on) {
         for (Node node : from) {
             boolean child = node.settings() instanceof NodeSettings.SheetSettings;
-            // A switched-off sheet still compiles (marked off), so its signal outputs can hold while it is off.
-            if (!node.enabled() && !child) {
+            boolean holds = child || node.settings() instanceof NodeSettings.CopySettings;
+            // A switched-off sheet or copy still compiles (marked off), so its signal outputs can hold while it is off.
+            if (!node.enabled() && !holds) {
                 continue;
             }
             if (!node.enabled()) {
                 disabledHolders.add(node.id());
+            }
+            if (!child && holds) {
+                copyNodes.add(node.id());
             }
             nodeSheet.putIfAbsent(node.id(), on);
             if (!child && !(node.settings() instanceof NodeSettings.CopySettings)) {
@@ -857,7 +867,15 @@ public final class CompiledSheet {
             error(node, "Wires loop back to " + describe(node) + " — resource wires must not form a cycle");
             return;
         }
-        walk.path.add(owners.getOrDefault(node.id(), node.id()));
+        // Counted under its own id (a device's input or output under its device node), and the copies it sits in once
+        // each: a copy's nodes show their own activity in the open copy, and the copy node what passed through it.
+        UUID shown = node.settings() instanceof NodeSettings.SourceSettings || node.settings() instanceof NodeSettings.SinkSettings
+                ? owners.getOrDefault(node.id(), node.id())
+                : node.id();
+        walk.path.add(shown);
+        for (UUID up = owners.get(shown); up != null && !walk.path.contains(up); up = owners.get(up)) {
+            walk.path.add(up);
+        }
         if (node.kind().signal()) {
             error(node, describe(node) + " takes signals, not resources");
             return;

@@ -16,6 +16,8 @@ public final class Limits {
     /** Network, sheet, device, face, connector, node and pin names. */
     public static final int NAME = 64;
     public static final int SHEETS = 256;
+    /** How many sheets deep the tree may go below the root (the editor's lists and the tree repair go no further). */
+    public static final int SHEET_DEPTH = 32;
     public static final int NODES_PER_SHEET = 1024;
     public static final int WIRES_PER_SHEET = 4096;
     public static final int FILTER_TEMPLATES = 256;

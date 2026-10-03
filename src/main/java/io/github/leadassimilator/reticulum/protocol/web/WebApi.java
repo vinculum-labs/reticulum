@@ -62,6 +62,9 @@ public final class WebApi {
     /** Players whose editor shows the network list, and the list they were last sent. */
     private static final Map<UUID, String> LIST_LISTENERS = new HashMap<>();
     private static int nextMessage;
+    /** Edits only taken alone in a batch: what they change can't be put back if a later edit is refused. */
+    private static final java.util.Set<String> ALONE = java.util.Set.of("relinkDevice", "deleteOrphan", "setAccess", "setPassword", "setMember",
+            "removeMember");
 
     private WebApi() {
     }
@@ -155,7 +158,16 @@ public final class WebApi {
                 }
                 JsonObject out = ok(id);
                 JsonArray created = new JsonArray();
-                // All or nothing: the editor counts a refused batch (an undo, an import) as not made at all.
+                // All or nothing: the editor counts a refused batch (an undo, an import) as not made at all. Edits to
+                // what a checkpoint doesn't hold (device records, access, members) come on their own.
+                if (edits.size() > 1) {
+                    for (JsonElement e : edits) {
+                        String type = e.isJsonObject() && e.getAsJsonObject().has("type") ? e.getAsJsonObject().get("type").getAsString() : "";
+                        if (ALONE.contains(type)) {
+                            throw new RequestException("'" + type + "' has to be sent on its own");
+                        }
+                    }
+                }
                 Network.Checkpoint before = network.checkpoint();
                 try {
                     for (int i = 0; i < edits.size(); i++) {
@@ -170,6 +182,7 @@ public final class WebApi {
                     }
                 } catch (RequestException | RuntimeException e) {
                     before.restore();
+                    io.github.leadassimilator.reticulum.network.Identifies.syncAll(server);
                     throw e;
                 } finally {
                     // Saved and shown either way, with the tree put right.
@@ -307,7 +320,7 @@ public final class WebApi {
                     network.sheets().add(sheet);
                     // A device of this network keeps its one node: pasting a sheet of this world again is refused.
                     for (Node node : sheet.nodes()) {
-                        checkHome(network, sheet, node);
+                        checkHome(network, sheet, node, null);
                     }
                     if (!sheet.blueprint()) {
                         place(network, sheet, parentOf(network, edit), edit);
@@ -343,6 +356,7 @@ public final class WebApi {
                     if (parent.blueprint()) {
                         throw new RequestException("Sheets can't go inside a blueprint");
                     }
+                    deepEnough(network, parent, network.height(sheet));
                     if (parent != placement.parent()) {
                         if (parent.nodes().size() >= Limits.NODES_PER_SHEET) {
                             throw new RequestException("A sheet can have at most " + Limits.NODES_PER_SHEET + " nodes");
@@ -419,7 +433,7 @@ public final class WebApi {
                     Node node = decode(server, Node.CODEC, edit.get("node"), "node");
                     checkPorts(network, sheet, node);
                     checkSheetNode(network, sheet, node, type.equals("addNode"));
-                    checkHome(network, sheet, node);
+                    checkHome(network, sheet, node, type.equals("updateNode") ? sheet.node(node.id()) : null);
                     check(Limits.check(node));
                     if (type.equals("addNode")) {
                         if (sheet.node(node.id()) != null) {
@@ -745,12 +759,20 @@ public final class WebApi {
 
         /** Places a sheet in {@code parent} as a sheet node, where the edit asks ("x", "y") or in the top left. */
         private static void place(Network network, Sheet sheet, Sheet parent, JsonObject edit) throws RequestException {
+            deepEnough(network, parent, 0);
             if (parent.nodes().size() >= Limits.NODES_PER_SHEET) {
                 throw new RequestException("A sheet can have at most " + Limits.NODES_PER_SHEET + " nodes");
             }
             float x = edit.has("x") ? edit.get("x").getAsFloat() : 40;
             float y = edit.has("y") ? edit.get("y").getAsFloat() : 40;
             parent.add(Node.of(new NodeSettings.SheetSettings(sheet.id())).at(x, y));
+        }
+
+        /** Refuses putting a sheet {@code height} levels deep inside {@code parent} past the tree's depth limit. */
+        private static void deepEnough(Network network, Sheet parent, int height) throws RequestException {
+            if (network.depth(parent) + 1 + height > Limits.SHEET_DEPTH) {
+                throw new RequestException("Sheets can go at most " + Limits.SHEET_DEPTH + " deep");
+            }
         }
 
         /**
@@ -779,12 +801,19 @@ public final class WebApi {
          * lives). A device several sheets need goes on the sheet holding them, its flows wired down through pins.
          * Blueprints are left alone: they are placed by copy.
          */
-        private static void checkHome(Network network, Sheet sheet, Node node) throws RequestException {
+        /**
+         * A device has one node. Only the devices this edit gives the node are checked ({@code before}: the node as it
+         * was), so a node can still be edited when a merge left its device with two (the problem says so).
+         */
+        private static void checkHome(Network network, Sheet sheet, Node node, @Nullable Node before) throws RequestException {
             if (sheet.blueprint()) {
                 return;
             }
+            java.util.Set<net.minecraft.core.GlobalPos> had = before == null ? java.util.Set.of() : homes(network, before);
             if (node.settings() instanceof NodeSettings.DeviceSettings device) {
-                livesNowhere(network, device.device(), node.id());
+                if (!had.contains(device.device())) {
+                    livesNowhere(network, device.device(), node.id());
+                }
             } else if (node.settings() instanceof NodeSettings.CopySettings copy) {
                 // A block filling a slot of a copy lives there, like a device node: once, in one slot.
                 java.util.Set<net.minecraft.core.GlobalPos> seen = new java.util.HashSet<>();
@@ -792,9 +821,22 @@ public final class WebApi {
                     if (!seen.add(binding.device())) {
                         throw new RequestException("One block can't fill two slots");
                     }
-                    livesNowhere(network, binding.device(), node.id());
+                    if (!had.contains(binding.device())) {
+                        livesNowhere(network, binding.device(), node.id());
+                    }
                 }
             }
+        }
+
+        /** The devices a node is the home of: a device node's device, the blocks filling a copy's slots. */
+        private static java.util.Set<net.minecraft.core.GlobalPos> homes(Network network, Node node) {
+            java.util.Set<net.minecraft.core.GlobalPos> out = new java.util.HashSet<>();
+            if (node.settings() instanceof NodeSettings.DeviceSettings device) {
+                out.add(device.device());
+            } else if (node.settings() instanceof NodeSettings.CopySettings copy) {
+                io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network.sheet(copy.sheet()), copy).values().forEach(b -> out.add(b.device()));
+            }
+            return out;
         }
 
         private static void livesNowhere(Network network, net.minecraft.core.GlobalPos device, UUID except) throws RequestException {

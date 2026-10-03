@@ -298,6 +298,25 @@ public final class Network {
         return placements().get(sheet);
     }
 
+    /** How many sheets {@code sheet} sits inside (0 for the root, or a sheet not in the tree). */
+    public int depth(Sheet sheet) {
+        Map<UUID, Placement> placements = placements();
+        int depth = 0;
+        for (Placement at = placements.get(sheet.id()); at != null && depth <= Limits.SHEET_DEPTH * 2; at = placements.get(at.parent().id())) {
+            depth++;
+        }
+        return depth;
+    }
+
+    /** How many levels of sheets are inside {@code sheet} (0 when none). */
+    public int height(Sheet sheet) {
+        int deepest = depth(sheet);
+        for (Sheet inside : descendants(sheet)) {
+            deepest = Math.max(deepest, depth(inside));
+        }
+        return deepest - depth(sheet);
+    }
+
     /** The sheets inside {@code sheet}, all the way down (not {@code sheet} itself). */
     public List<Sheet> descendants(Sheet sheet) {
         Map<UUID, Placement> placements = placements();
@@ -493,12 +512,22 @@ public final class Network {
         for (Sheet sheet : sheets) {
             saved.put(sheet, sheet.saved());
         }
-        return new Checkpoint(name, saved, new LinkedHashMap<>(filters), new LinkedHashMap<>(signalMemory), switches.enabled(), switches.redstone());
+        Map<DeviceRecord, DeviceNames> names = new LinkedHashMap<>();
+        for (DeviceRecord device : devices.values()) {
+            names.put(device, new DeviceNames(device.name(), device.faceNames()));
+        }
+        return new Checkpoint(name, saved, new LinkedHashMap<>(filters), new LinkedHashMap<>(signalMemory), switches.enabled(), switches.redstone(),
+                List.copyOf(identified), names);
+    }
+
+    /** A device's name and face names, as a checkpoint keeps them. */
+    private record DeviceNames(@Nullable String name, Map<FaceKey, String> faces) {
     }
 
     /**
-     * A network's sheets, filter templates, latch and counter memory, name and switches at one moment. An edit batch is
-     * all or nothing: when one of its edits is refused, the ones before it are undone with this.
+     * A network's sheets, filter templates, latch and counter memory, name, switches, identifies and device names at one
+     * moment. An edit batch is all or nothing: when one of its edits is refused, the ones before it are undone with
+     * this. (Edits changing anything else, which device records there are, access and members, come on their own.)
      */
     public final class Checkpoint {
         private final String name;
@@ -507,15 +536,19 @@ public final class Network {
         private final Map<String, Long> signalMemory;
         private final boolean enabled;
         private final Switches.Redstone redstone;
+        private final List<Identify> identified;
+        private final Map<DeviceRecord, DeviceNames> names;
 
         private Checkpoint(String name, Map<Sheet, Sheet> sheets, Map<String, String> filters, Map<String, Long> signalMemory, boolean enabled,
-                Switches.Redstone redstone) {
+                Switches.Redstone redstone, List<Identify> identified, Map<DeviceRecord, DeviceNames> names) {
             this.name = name;
             this.sheets = sheets;
             this.filters = filters;
             this.signalMemory = signalMemory;
             this.enabled = enabled;
             this.redstone = redstone;
+            this.identified = identified;
+            this.names = names;
         }
 
         /** Puts the network back as it was (the same sheet objects, in their order; sheets made since are dropped). */
@@ -532,6 +565,14 @@ public final class Network {
             Network.this.signalMemory.putAll(signalMemory);
             switches.setEnabled(enabled);
             switches.setRedstone(redstone);
+            Network.this.identified.clear();
+            Network.this.identified.addAll(identified);
+            names.forEach((device, saved) -> {
+                device.setName(saved.name());
+                for (FaceKey face : FaceKey.values()) {
+                    device.setFaceName(face, saved.faces().get(face));
+                }
+            });
             bump();
         }
     }

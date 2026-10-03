@@ -189,6 +189,34 @@ public final class WebApiTests {
         helper.succeed();
     }
 
+    /** Sheets nest at most Limits.SHEET_DEPTH deep: one more is refused rather than taken and later moved to the root. */
+    @GameTest(template = "empty")
+    public static void sheetsNestOnlySoDeep(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.setOwner(player.getUUID(), "web-test");
+        String id = network.id().toString();
+        String parent = network.root().id().toString();
+        for (int i = 0; i < io.github.leadassimilator.reticulum.network.Limits.SHEET_DEPTH; i++) {
+            parent = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"s" + i
+                    + "\",\"parent\":\"" + parent + "\"}]}").getAsJsonArray("results").get(0).getAsString();
+        }
+        try {
+            WebApi.handle(player, JsonParser.parseString("{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"deep\",\"parent\":\""
+                    + parent + "\"}]}").getAsJsonObject(), "t");
+            helper.fail("A sheet past the depth limit was accepted");
+        } catch (WebApi.RequestException expected) {
+            // expected
+        }
+        if (network.depth(network.sheet(UUID.fromString(parent))) != io.github.leadassimilator.reticulum.network.Limits.SHEET_DEPTH) {
+            helper.fail("The deepest sheet isn't where it was put: depth " + network.depth(network.sheet(UUID.fromString(parent))));
+        }
+        helper.succeed();
+    }
+
     /** Renaming a filter template renames it where it is used: other templates and the filters nodes hold. */
     @GameTest(template = "empty")
     public static void renamingATemplateRenamesItsUses(GameTestHelper helper) {

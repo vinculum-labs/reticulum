@@ -177,10 +177,15 @@ final class Signals {
         return value;
     }
 
-    /** After switching: the sheet nodes now off, whose sheets' logic sleeps next tick. */
+    /** After switching: the sheet and copy nodes now off, whose logic sleeps next tick. */
     void noteAsleep(CompiledSheet sheet) {
         Set<UUID> now = new HashSet<>();
         for (UUID holder : sheet.sheetNodes().values()) {
+            if (off.contains(holder)) {
+                now.add(holder);
+            }
+        }
+        for (UUID holder : sheet.copyNodes()) {
             if (off.contains(holder)) {
                 now.add(holder);
             }
