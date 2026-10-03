@@ -8,6 +8,7 @@ import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
 import { descendants, rootSheet, sheetPath } from "./tree";
 import { confirmDialog } from "./dialog.svelte";
+import { copiesOf } from "./blueprints";
 
 export interface Toast {
   id: number;
@@ -747,13 +748,32 @@ export async function deleteSheet(sheet: Sheet) {
     nodes ? `its ${nodes} node${nodes === 1 ? "" : "s"} and their wires` : "",
     inside ? `the ${inside} sheet${inside === 1 ? "" : "s"} inside it` : "",
   ].filter(Boolean);
+  const what = sheet.blueprint ? "blueprint" : "sheet";
+  // A blueprint's copies keep their nodes but have nothing left to run.
+  const copies = sheet.blueprint ? copiesOf(app.snapshot!, sheet.id).length : 0;
+  const message = [
+    parts.length ? `${parts.join(" and ")[0].toUpperCase()}${parts.join(" and ").slice(1)} go with it.` : "",
+    copies === 1 ? "Its copy stops working and shows an error until deleted." : "",
+    copies > 1 ? `Its ${copies} copies stop working and show an error until deleted.` : "",
+  ].filter(Boolean).join(" ");
   const ok = await confirmDialog({
-    title: `Delete the sheet “${sheet.name}”?`,
-    message: parts.length ? `${parts.join(" and ")[0].toUpperCase()}${parts.join(" and ").slice(1)} go with it.` : undefined,
-    confirm: "Delete sheet",
+    title: `Delete the ${what} “${sheet.name}”?`,
+    message: message || undefined,
+    confirm: `Delete ${what}`,
     danger: true,
   });
   if (ok) {
     edit([{ type: "deleteSheet", sheet: sheet.id }]);
   }
+}
+
+/** Deletes a blueprint copy (its node and wires, one undoable change); an open copy goes back to the sheet that held it. */
+export async function deleteCopy(holder: Sheet, node: GraphNode) {
+  const wires = (holder.wires ?? []).filter((w) => w.from === node.id || w.to === node.id);
+  const ok = await edit(
+    [{ type: "removeNode", sheet: holder.id, node: node.id }],
+    [{ type: "addNode", sheet: holder.id, node } as Edit, ...wires.map((wire) => ({ type: "connect", sheet: holder.id, wire }) as Edit)],
+    "delete copy",
+  );
+  if (ok && app.copy?.node === node.id) openSheet(holder.id);
 }

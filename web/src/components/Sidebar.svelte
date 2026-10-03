@@ -3,7 +3,7 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Layers from "@lucide/svelte/icons/layers";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-  import { app, createSheet, deviceUses, edit, deviceName, matchesDevice, moveSheet, openCopy, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
+  import { app, createSheet, deleteCopy, deleteSheet, deviceUses, edit, deviceName, matchesDevice, moveSheet, openCopy, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
   import { childSheets, descendants, offReason, rootSheet } from "../lib/tree";
   import Segmented from "./controls/Segmented.svelte";
   import { confirmDialog, promptDialog } from "../lib/dialog.svelte";
@@ -216,6 +216,7 @@
                 class="flex min-w-0 flex-1 items-center gap-1 text-left"
                 class:muted={status.color === "var(--muted)"}
                 onclick={() => openCopy(row.holder.id, row.node.id)}
+                onkeydown={(e) => e.key === "Delete" && canEdit && (e.preventDefault(), deleteCopy(row.holder, row.node))}
                 ondblclick={() => canEdit && (renaming = row.node.id)}
                 title={`A copy of the blueprint “${blueprintOf(row.node)?.name ?? "?"}”: open it to fill its slots. Double-click to rename.`}
               >
@@ -286,6 +287,7 @@
               class:font-medium={sheet.root}
               class:muted={off !== null}
               onclick={() => openSheet(sheet.id)}
+              onkeydown={(e) => e.key === "Delete" && canEdit && !sheet.root && (e.preventDefault(), deleteSheet(sheet))}
               ondblclick={() => canEdit && (renaming = sheet.id)}
               title={sheet.root ? "The network's top sheet. Double-click to rename." : "Double-click to rename; drag onto another sheet to move it inside"}
             >
@@ -324,6 +326,7 @@
             <button
               class="flex min-w-0 flex-1 items-center gap-1 text-left"
               onclick={() => openSheet(sheet.id)}
+              onkeydown={(e) => e.key === "Delete" && canEdit && (e.preventDefault(), deleteSheet(sheet))}
               ondblclick={() => canEdit && (renaming = sheet.id)}
               title="Runs only as its copies. Double-click to rename."
             >
