@@ -500,6 +500,8 @@
         <legend class="field-label">Items in one kit (all move together, or none)</legend>
         <AddButton label="Add an item" disabled={!canEdit || s.lines.length >= 64} onclick={() => settings({ lines: [...s.lines, { filter: "", count: 1 }] })} />
       </div>
+      <!-- Started over when a line is added or removed, as caps are (no ids to keep an open picker on its line). -->
+      {#key s.lines.length}
       {#each s.lines as line, i}
         <div class="flex items-start gap-1">
           <NumberField
@@ -518,6 +520,7 @@
           <RemoveButton class="mt-1" label="Remove item" disabled={!canEdit || s.lines.length === 1} onclick={() => settings({ lines: s.lines.filter((_, j) => j !== i) })} />
         </div>
       {/each}
+      {/key}
       <Field label="Kits per operation">
         <NumberField value={s.max_kits ?? 1} min={1} max={64} disabled={!canEdit} oncommit={(v) => settings({ max_kits: v })} />
       </Field>

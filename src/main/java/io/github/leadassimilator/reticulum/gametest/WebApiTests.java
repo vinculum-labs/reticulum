@@ -156,6 +156,39 @@ public final class WebApiTests {
         helper.succeed();
     }
 
+    /** Removing a sheet pin removes the wires on it one level up, on the sheet's node: none is left on a gone handle. */
+    @GameTest(template = "empty")
+    public static void removingAPinRemovesItsWiresOutside(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.setOwner(player.getUUID(), "web-test");
+        String id = network.id().toString();
+        String inner = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"inner\"}]}")
+                .getAsJsonArray("results").get(0).getAsString();
+        Network.Placement placed = network.placement(UUID.fromString(inner));
+        if (placed == null) {
+            helper.fail("The new sheet has no node");
+            return;
+        }
+        String outer = placed.parent().id().toString();
+        String holder = placed.node().id().toString();
+        String pin = UUID.randomUUID().toString();
+        String filter = UUID.randomUUID().toString();
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":["
+                + "{\"type\":\"addNode\",\"sheet\":\"" + inner + "\",\"node\":{\"id\":\"" + pin + "\",\"settings\":{\"kind\":\"sheet_input\",\"name\":\"in\",\"slot\":0}}},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + outer + "\",\"node\":{\"id\":\"" + filter + "\",\"settings\":{\"kind\":\"filter\",\"expression\":\"\"}}},"
+                + "{\"type\":\"connect\",\"sheet\":\"" + outer + "\",\"wire\":{\"id\":\"" + UUID.randomUUID() + "\",\"from\":\"" + filter + "\",\"to\":\"" + holder + "\",\"input\":0}}"
+                + "]}");
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"removeNode\",\"sheet\":\"" + inner + "\",\"node\":\"" + pin + "\"}]}");
+        if (placed.parent().wires().stream().anyMatch(w -> w.to().toString().equals(holder))) {
+            helper.fail("A wire is left on the removed pin's handle");
+        }
+        helper.succeed();
+    }
+
     /** Renaming a filter template renames it where it is used: other templates and the filters nodes hold. */
     @GameTest(template = "empty")
     public static void renamingATemplateRenamesItsUses(GameTestHelper helper) {

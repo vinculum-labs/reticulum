@@ -53,7 +53,7 @@
   import { moveAcross } from "../../lib/moveAcross";
   import { RESOURCE_VAR, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { CopySettings, Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
-  import { GATE } from "../../lib/types";
+  import { GATE, pinSlot, sheetPins } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
   import ConnectionLine from "./ConnectionLine.svelte";
   import { pinDrop } from "../../lib/pinDrop.svelte";
@@ -421,6 +421,20 @@
         const cutAlone = cut.some((e) => e.id === w.id) && !touched;
         if (cutAlone) edits.push({ type: "disconnect", sheet: on.id, wire: w.id });
         if (touched || cutAlone) undo.push({ type: "connect", sheet: on.id, wire: w });
+      }
+    }
+    // A pin's wires on its sheet's node, one level up, go with it (the server drops them); undo puts them back.
+    for (const n of gone) {
+      const on = sheetOf(n.id);
+      const node = nodeOf(n.id);
+      const s = node?.settings;
+      if (!on?.node || deleted.has(on.id) || !node || !(s?.kind === "sheet_input" || s?.kind === "sheet_output")) continue;
+      const parent = app.snapshot?.sheets.find((x) => x.nodes?.some((h) => h.id === on.node));
+      const slot = pinSlot(node, sheetPins(on, s.kind === "sheet_input").indexOf(node));
+      for (const w of parent?.wires ?? []) {
+        const attached = s.kind === "sheet_input" ? w.to === on.node && (w.input ?? 0) === slot : w.from === on.node && (w.output ?? 0) === slot;
+        const restored = undo.some((e) => e.type === "connect" && (e.wire as Wire).id === w.id);
+        if (attached && !restored && !goneIds.has(w.from) && !goneIds.has(w.to)) undo.push({ type: "connect", sheet: parent!.id, wire: w });
       }
     }
     app.selectedNodes = [];

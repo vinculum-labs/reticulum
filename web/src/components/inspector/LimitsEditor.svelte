@@ -34,6 +34,9 @@
     <legend class="field-label">{keep ? "Keep rules (leave at least)" : "Caps (stop inserting at)"}</legend>
     <AddButton inset label={keep ? "Add a keep rule" : "Add a cap"} {disabled} onclick={() => onchange([...limits, { scope: "per_type", amount: keep ? 16 : 64, filter: "" }])} />
   </div>
+  <!-- Rows have no ids: when one is added or removed (here, or by an undo), the rows start over, so an open picker
+       can't apply to the row that moved into its place. -->
+  {#key limits.length}
   {#each limits as limit, i}
     <div class="box flex flex-col gap-1">
       <div class="flex items-center gap-1.5 text-sm">
@@ -56,4 +59,5 @@
       {/if}
     </div>
   {/each}
+  {/key}
 </fieldset>

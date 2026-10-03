@@ -447,6 +447,7 @@ public final class WebApi {
                     }
                     if (node != null) {
                         forgetNode(network, sheet, node);
+                        dropHolderWires(network, sheet, node);
                     }
                     sheet.remove(id);
                 }
@@ -623,6 +624,24 @@ public final class WebApi {
             if (depth < NESTING && node.settings() instanceof NodeSettings.CopySettings copy && network.sheet(copy.sheet()) instanceof Sheet blueprint) {
                 for (Node inner : blueprint.nodes()) {
                     forgetRunning(network, inCopy(id, inner.id()), inner, depth + 1);
+                }
+            }
+        }
+
+        /**
+         * A sheet pin's wires on the sheet's node, one level up, go with it: left, they would hang off a handle that
+         * is gone, and reattach to a later pin given its slot.
+         */
+        private static void dropHolderWires(Network network, Sheet sheet, Node node) {
+            Network.Placement placed = network.placement(sheet.id());
+            if (placed == null || !(node.settings() instanceof NodeSettings.SheetPinSettings pin) || pin.slot() < 0) {
+                return;
+            }
+            UUID holder = placed.node().id();
+            for (Wire wire : List.copyOf(placed.parent().wires())) {
+                boolean on = pin.input() ? wire.to().equals(holder) && wire.input() == pin.slot() : wire.from().equals(holder) && wire.output() == pin.slot();
+                if (on) {
+                    placed.parent().disconnect(wire.id());
                 }
             }
         }
