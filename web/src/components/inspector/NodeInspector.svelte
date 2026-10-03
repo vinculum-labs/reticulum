@@ -194,11 +194,11 @@
       />
     </Field>
   {:else if s.kind === "copy"}
-    <Field label="Name" hint="Optional; the blueprint's name is shown otherwise.">
+    <Field label="Name" hint="Optional—the blueprint's name is shown otherwise.">
       <TextField value={node.label} disabled={!canEdit} placeholder={app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Optional"} oncommit={(v) => save({ ...node, label: v || undefined }, "rename copy")} />
     </Field>
   {:else if s.kind !== "sheet_input" && s.kind !== "sheet_output"}
-    <Field label="Name" hint={slot ? "Optional; the kind of block is shown otherwise." : `Optional; “${KIND_LABEL[s.kind]}” is shown otherwise.`}>
+    <Field label="Name" hint={slot ? "Optional—the kind of block is shown otherwise." : `Optional—“${KIND_LABEL[s.kind]}” is shown otherwise.`}>
       <TextField value={node.label} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
     </Field>
   {/if}
@@ -241,7 +241,7 @@
       />
     </Field>
     {#if s.resource !== "energy"}
-      <Field label="Count only" hint="A filter; empty counts everything.">
+      <Field label="Count only" hint="A filter—empty counts everything.">
         <FilterField value={s.filter ?? ""} disabled={!canEdit} kind={catalogKind(s.resource)} devices={[s.device]} onchange={(filter) => settings({ filter })} />
       </Field>
     {/if}

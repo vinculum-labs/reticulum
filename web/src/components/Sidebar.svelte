@@ -289,7 +289,7 @@
               onclick={() => openSheet(sheet.id)}
               onkeydown={(e) => e.key === "Delete" && canEdit && !sheet.root && (e.preventDefault(), deleteSheet(sheet))}
               ondblclick={() => canEdit && (renaming = sheet.id)}
-              title={sheet.root ? "The network's top sheet. Double-click to rename." : "Double-click to rename; drag onto another sheet to move it inside"}
+              title={sheet.root ? "The network's top sheet. Double-click to rename." : "Double-click to rename—drag onto another sheet to move it inside"}
             >
               <span class="trim-text truncate">{sheet.name}</span>
             </button>

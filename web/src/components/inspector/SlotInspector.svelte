@@ -70,7 +70,7 @@
 <InspectorPanel title={slotName(slot)} subtitle={`A slot for: ${blockName(block)}`}>
   {#snippet icon()}<DeviceIcon item={filler?.icon ?? block} size={32} />{/snippet}
 
-  <Field label="Filled by" hint="Or drop a device from the list on the slot. Any block can fill it; one that doesn't fit shows as a problem.">
+  <Field label="Filled by" hint="Or drop a device from the list on the slot. Any block can fill it—one that doesn't fit shows as a problem.">
     <DevicePicker devices={active} value={binding?.device} placeholder="Empty: choose a block…" disabled={!canEdit} onchange={fill} />
   </Field>
   {#if binding && !filler}

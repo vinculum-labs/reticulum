@@ -192,11 +192,17 @@ public final class CompiledSheet {
      * Something that keeps part of the sheet from running. {@code node} is the node it is about, as compiled (a device's
      * side or a node pasted from a blueprint); {@link #owner} maps it to the node the editor shows.
      */
-    public record Problem(String message, @Nullable UUID node) {
+    /**
+     * A problem, about a node when {@code node} is set. {@code detail} is the message without the node's name in front
+     * (when it starts with it), for the editor to show the node itself there instead.
+     */
+    public record Problem(String message, @Nullable UUID node, @Nullable String detail) {
     }
 
     private void error(@Nullable Node node, String message) {
-        errors.add(new Problem(message, node == null ? null : node.id()));
+        String named = node == null ? null : describe(node) + ": ";
+        String detail = named != null && message.startsWith(named) ? message.substring(named.length()) : null;
+        errors.add(new Problem(message, node == null ? null : node.id(), detail));
     }
 
     // ---------------------------------------------------------------- building
@@ -233,7 +239,7 @@ public final class CompiledSheet {
                 if (first != null) {
                     Sheet home = network.sheet(sheetOf(first.id()));
                     error(node, describe(node) + ": this device already has a node" + (home == null ? "" : " in " + home.name())
-                            + "; a device belongs on one sheet");
+                            + "—a device belongs on one sheet");
                 }
             }
             if (node.gate() == Node.Gate.PULSE) {
@@ -576,7 +582,7 @@ public final class CompiledSheet {
             Set<UUID> placed = new HashSet<>();
             ordered.forEach(n -> placed.add(n.node().id()));
             UUID looped = carriers.stream().filter(id -> !placed.contains(id)).findFirst().orElse(null);
-            error(looped == null ? null : byId.get(looped), "Signal wires loop back on themselves; a loop must pass through a Latch, Counter or Delay");
+            error(looped == null ? null : byId.get(looped), "Signal wires loop back on themselves—a loop must pass through a Latch, Counter or Delay");
         } else {
             signals.addAll(ordered);
         }
@@ -839,7 +845,7 @@ public final class CompiledSheet {
             return;
         }
         if (!walk.onPath.add(node.id())) {
-            error(node, "Wires loop back to " + describe(node) + "; resource wires must not form a cycle");
+            error(node, "Wires loop back to " + describe(node) + "—resource wires must not form a cycle");
             return;
         }
         walk.path.add(owners.getOrDefault(node.id(), node.id()));

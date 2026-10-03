@@ -19,7 +19,7 @@ public final class ReticulumClientConfig {
             .define("webAddress", "127.0.0.1");
 
     public static final ModConfigSpec.IntValue WEB_PORT = BUILDER
-            .comment("Port the web editor listens on. 0 (the default) tries 38291, or the port it last used; when that is taken it",
+            .comment("Port the web editor listens on. 0 (the default) tries 38291, or the port it last used—when that is taken it",
                     "picks a free one and remembers it (in reticulum-web.json next to this file). Any other value uses that port,",
                     "falling back to a free one for that run if it is taken.")
             .defineInRange("webPort", 0, 0, 65535);
@@ -27,7 +27,7 @@ public final class ReticulumClientConfig {
     public static final ModConfigSpec.BooleanValue REMEMBER_LOGIN = BUILDER
             .comment("Keep the web editor logged in across game and browser restarts (for 90 days), so bookmarks and open pages",
                     "keep working. The secret is kept in reticulum-web.json next to this file. Set to false for a new secret each",
-                    "time the game starts and a login that ends when the browser closes; you then open the editor from the game",
+                    "time the game starts and a login that ends when the browser closes—you then open the editor from the game",
                     "each session. Takes effect the next time the game starts.")
             .define("rememberLogin", true);
 

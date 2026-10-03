@@ -2,6 +2,7 @@ package io.github.leadassimilator.reticulum.protocol.web;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -111,7 +112,12 @@ final class Snapshots {
                 JsonObject error = new JsonObject();
                 error.addProperty("message", problem.message());
                 if (problem.node() != null) {
-                    error.addProperty("node", compiled.owner(problem.node()).toString());
+                    UUID owner = compiled.owner(problem.node());
+                    error.addProperty("node", owner.toString());
+                    // Only about the node the editor shows: one inside a copy is named in the message, the copy shown.
+                    if (problem.detail() != null && owner.equals(problem.node())) {
+                        error.addProperty("detail", problem.detail());
+                    }
                 }
                 errors.add(error);
             }

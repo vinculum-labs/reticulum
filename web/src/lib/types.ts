@@ -262,6 +262,8 @@ export interface Sheet {
 export interface SheetError {
   message: string;
   node?: string;
+  /** The message without the node's name in front: shown after the node itself. */
+  detail?: string;
 }
 
 export interface Device {

@@ -37,8 +37,8 @@ export const KIND_HINT: Record<NodeKind, string> = {
   logic: "AND, OR, NOT / NOR, XOR, NAND or XNOR of every wire into it.",
   timer: "A one-tick pulse every so many ticks.",
   pulse: "A short pulse each time its input turns on.",
-  latch: "Set turns it on, reset turns it off; it remembers in between.",
-  counter: "Counts each time its input turns on; reset sets it back to 0.",
+  latch: "Set turns it on, reset turns it off—it remembers in between.",
+  counter: "Counts each time its input turns on—reset sets it back to 0.",
   delay: "Its input, some ticks later.",
 };
 

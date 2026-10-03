@@ -13,7 +13,7 @@
   const mode = $derived(value?.mode ?? "hold");
 </script>
 
-<Field label="While its sheet is off" hint="Hold keeps the last value; Fixed gives a set value; Keep running works out what feeds it as usual.">
+<Field label="While its sheet is off" hint="Hold keeps the last value. Fixed gives a set value. Keep running works out what feeds it as usual.">
   <div class="flex items-center gap-2">
     <Segmented
       label="While its sheet is off"
