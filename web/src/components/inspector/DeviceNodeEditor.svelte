@@ -2,10 +2,10 @@
   import Scissors from "@lucide/svelte/icons/scissors";
   import { app } from "../../lib/state.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
-  import { RESOURCE_VAR, offeredResources, sideLabel } from "../../lib/kinds";
+  import { RESOURCE_VAR, defaultSettings, offeredResources, sideLabel } from "../../lib/kinds";
   import PinMark from "../controls/PinMark.svelte";
   import AddButton from "../controls/AddButton.svelte";
-  import { posKey, type DeviceInput, type DeviceNodeSettings, type DeviceOutput, type Resource, type Sheet } from "../../lib/types";
+  import { posKey, type Device, type DeviceInput, type DeviceNodeSettings, type DeviceOutput, type Resource, type Sheet } from "../../lib/types";
   import Field from "./Field.svelte";
   import SideEditor from "./SideEditor.svelte";
   import LimitsEditor from "./LimitsEditor.svelte";
@@ -60,6 +60,31 @@
   const unwired = $derived(unwiredSides(sheet, { id: nodeId, settings }));
   const unwiredCount = $derived(unwired.in.length + unwired.out.length);
 
+  /**
+   * Points the node at another device (a slot: another kind of block) and re-pins it for that device: inputs and outputs
+   * with wires stay (a mismatch shows as their warning), the rest go, and the new device's usual ones are added where
+   * no kept one already covers them. One undoable change.
+   */
+  function repick(picked: Device) {
+    const fresh = defaultSettings("device", picked, offeredResources(picked.resources)[0] ?? "item") as DeviceNodeSettings;
+    const kept = withoutSides(settings, unwired);
+    const faces = (f: string[] | undefined) => (f ? [...f].sort().join() : "all");
+    const covers = (a: DeviceInput | DeviceOutput, b: DeviceInput | DeviceOutput) => a.resource === b.resource && faces(a.faces) === faces(b.faces);
+    const keptIn = kept.inputs ?? [];
+    const keptOut = kept.outputs ?? [];
+    onchange(
+      {
+        ...settings,
+        device: picked.pos,
+        ...(slot ? { block: picked.block } : {}),
+        inputs: [...keptIn, ...(fresh.inputs ?? []).filter((f) => !keptIn.some((k) => covers(k, f)))],
+        outputs: [...keptOut, ...(fresh.outputs ?? []).filter((f) => !keptOut.some((k) => covers(k, f)))],
+      },
+      unwired,
+      slot ? "slot block" : "device",
+    );
+  }
+
   /** Removes every input and output nothing is wired to, as one undoable change. */
   function prune() {
     onchange(withoutSides(settings, unwired), unwired, "prune");
@@ -68,11 +93,11 @@
 
 {#if slot}
   <Field label="Kind of block" hint="Taken from a device: copies fill this slot with that kind of block. Fill the rest by layout measures from where this one sits.">
-    <DevicePicker {devices} value={settings.device} {disabled} onchange={(d) => onchange({ ...settings, device: d.pos, block: d.block }, undefined, "slot block")} />
+    <DevicePicker {devices} value={settings.device} {disabled} onchange={repick} />
   </Field>
 {:else}
   <Field label="Device">
-    <DevicePicker {devices} value={settings.device} {disabled} onchange={(d) => onchange({ ...settings, device: d.pos })} />
+    <DevicePicker {devices} value={settings.device} {disabled} onchange={repick} />
   </Field>
 {/if}
 
