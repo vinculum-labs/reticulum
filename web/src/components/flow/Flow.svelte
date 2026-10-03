@@ -890,7 +890,7 @@
         icon: Plus,
         items: [
           place.sheet.blueprint
-            ? { label: "Slot…", icon: KIND_ICON.device, hint: "A kind of block each copy fills", run: () => ((slotAt = at), slotPicker?.openList()) }
+            ? { label: "Slot…", icon: KIND_ICON.device, run: () => ((slotAt = at), slotPicker?.openList()) }
             : add("device"),
           add("filter"),
           add("rate_limit"),
@@ -943,7 +943,6 @@
       held && {
         label: "Open",
         icon: ExternalLink,
-        hint: s.kind === "copy" ? "The blueprint with this copy's blocks" : undefined,
         run: () => (s.kind === "copy" && !on.blueprint ? openCopy(on.id, node.id) : openSheet(held.id)),
       },
       editable && { label: "Rename", icon: Pencil, run: () => nameNode(node.id) },
@@ -969,7 +968,6 @@
       editable && !(edge.data as { signal?: boolean } | undefined)?.signal && {
         label: "Insert",
         icon: Plus,
-        hint: "Splits the wire and puts the node in between",
         items: [insert("filter"), insert("rate_limit"), insert("splitter")],
       },
       "-",

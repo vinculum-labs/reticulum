@@ -292,7 +292,7 @@
       { label: "Open", icon: ExternalLink, run: () => openSheet(sheet.id) },
       canEdit && { label: "Rename", icon: Pencil, hint: sheet.root ? "Renames the network too" : undefined, run: () => (renaming = sheet.id) },
       canEdit && { label: "New sheet inside", icon: Plus, run: () => addSheet(sheet) },
-      canEdit && { label: sheet.enabled !== false ? "Turn off" : "Turn on", icon: sheet.enabled !== false ? PowerOff : Power, hint: sheet.root ? "The network's switch" : undefined, run: () => setSheetEnabled(sheet, sheet.enabled === false) },
+      canEdit && { label: sheet.enabled !== false ? "Turn off" : "Turn on", icon: sheet.enabled !== false ? PowerOff : Power, run: () => setSheetEnabled(sheet, sheet.enabled === false) },
       "-",
       { label: "Copy as JSON", icon: Copy, run: () => copySheetJson(sheet) },
       canEdit && !sheet.root && "-",
@@ -302,7 +302,7 @@
 
   function copyMenu(e: MouseEvent, holder: Sheet, node: GraphNode) {
     openMenu(e, [
-      { label: "Open", icon: ExternalLink, hint: "The blueprint with this copy's blocks", run: () => openCopy(holder.id, node.id) },
+      { label: "Open", icon: ExternalLink, run: () => openCopy(holder.id, node.id) },
       canEdit && { label: "Rename", icon: Pencil, run: () => (renaming = node.id) },
       canEdit && { label: node.enabled !== false ? "Turn off" : "Turn on", icon: node.enabled !== false ? PowerOff : Power, run: () => setCopyEnabled(holder, node, node.enabled === false) },
       canEdit && "-",
@@ -314,7 +314,7 @@
     openMenu(e, [
       { label: "Open", icon: ExternalLink, run: () => openSheet(sheet.id) },
       canEdit && { label: "Rename", icon: Pencil, run: () => (renaming = sheet.id) },
-      canEdit && { label: "Duplicate", icon: CopyPlus, hint: "A new blueprint like this one", run: () => duplicateBlueprint(sheet) },
+      canEdit && { label: "Duplicate", icon: CopyPlus, run: () => duplicateBlueprint(sheet) },
       "-",
       { label: "Copy as JSON", icon: Copy, run: () => copySheetJson(sheet) },
       canEdit && "-",
@@ -328,7 +328,7 @@
     const canPlace = canEdit && d.state === "active" && !!open && !app.copy && (open.blueprint || !homed);
     openMenu(e, [
       identifyItem(d.pos),
-      { label: "Names…", icon: Pencil, hint: "Its name and its faces'", run: () => openDevice(d) },
+      { label: "Names…", icon: Pencil, run: () => openDevice(d) },
       canEdit && {
         label: open?.blueprint ? "Add a slot to the open blueprint" : "Add to the open sheet",
         icon: Plus,

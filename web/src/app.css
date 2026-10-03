@@ -24,6 +24,8 @@
   --c-me: #1d9a8f;
   --canvas: #f0f2f6;
   --grid: #d9dde6;
+  --scroll-thumb: #c3c9d4;
+  --scroll-thumb-hover: #a3abba;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,6 +50,8 @@
     --c-me: #3cc8ba;
     --canvas: #151920;
     --grid: #262c37;
+    --scroll-thumb: #3a4150;
+    --scroll-thumb-hover: #4d5568;
   }
 }
 
@@ -94,6 +98,33 @@ body {
   /* A fieldset is at least as wide as its content by default (min-content), so a long field pushed it out of the panel. */
   fieldset {
     min-width: 0;
+  }
+
+  /*
+   * Scrollbars in the theme's colors: a thin rounded thumb on no track. WebView2 (Chromium) draws the ::-webkit ones
+   * (setting scrollbar-color there would turn them off); other browsers get the standard properties.
+   */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--scroll-thumb) padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scroll-thumb-hover);
+  }
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scroll-thumb) transparent;
+    }
   }
 }
 

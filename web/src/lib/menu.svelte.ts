@@ -67,5 +67,5 @@ export function identifyItem(device: GlobalPos): MenuItem {
   const target = { kind: "device" as const, device };
   return isIdentified(target)
     ? { label: "Stop identifying", icon: LightbulbOff, run: () => toggleIdentify(target) }
-    : { label: "Identify", icon: Lightbulb, hint: "Light it up in the world", run: () => toggleIdentify(target) };
+    : { label: "Identify", icon: Lightbulb, run: () => toggleIdentify(target) };
 }
