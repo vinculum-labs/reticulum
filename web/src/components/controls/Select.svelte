@@ -4,6 +4,8 @@
     label: string;
     disabled?: boolean;
     title?: string;
+    /** A colored dot before the label (a resource's color, say); "none": an empty ring, for "anything". */
+    swatch?: string;
   }
 </script>
 
@@ -103,6 +105,7 @@
   onclick={() => (open ? popover?.close(false) : show())}
   {onkeydown}
 >
+  {#if current?.swatch}<span class="swatch" class:ring={current.swatch === "none"} style="--c: {current.swatch}"></span>{/if}
   <span class="min-w-0 flex-1 truncate" class:muted={!current}>{current?.label ?? placeholder}</span>
   <ChevronDown size={14} class="shrink-0 muted" />
 </button>
@@ -125,6 +128,7 @@
         onclick={() => pick(i)}
       >
         <span class="w-4 shrink-0 text-accent">{#if option.value === value}<Check size={14} />{/if}</span>
+        {#if option.swatch}<span class="swatch" class:ring={option.swatch === "none"} style="--c: {option.swatch}"></span>{/if}
         <span class="min-w-0 flex-1 truncate">{option.label}</span>
       </button>
     {/each}
@@ -132,6 +136,17 @@
 </Popover>
 
 <style>
+  .swatch {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--c);
+  }
+  .swatch.ring {
+    background: transparent;
+    border: 2px solid var(--muted);
+  }
   /* Looks like the other fields (inputs, the device picker). */
   .select {
     background: var(--field);

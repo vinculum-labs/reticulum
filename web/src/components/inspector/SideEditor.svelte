@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { RESOURCE_LABEL, offeredResources } from "../../lib/kinds";
+  import { RESOURCE_LABEL, RESOURCE_VAR, offeredResources } from "../../lib/kinds";
   import { SIDES, type Device, type Face, type Resource, type Side } from "../../lib/types";
   import NumberField from "../controls/NumberField.svelte";
   import Select from "../controls/Select.svelte";
@@ -44,7 +44,7 @@
   <Select
     value={side.resource}
     {disabled}
-    options={choices.map((r) => ({ value: r, label: RESOURCE_LABEL[r] }))}
+    options={choices.map((r) => ({ value: r, label: RESOURCE_LABEL[r], swatch: RESOURCE_VAR[r] }))}
     onchange={(resource) => onchange({ ...side, resource, faces: [] })}
   />
 </Field>

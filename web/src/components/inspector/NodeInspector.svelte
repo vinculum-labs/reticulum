@@ -3,7 +3,7 @@
   import { slotsOf } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
-  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, PIN_CARRIES, gated, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, isSignal } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, PIN_CARRIES, gated, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR, isSignal } from "../../lib/kinds";
   import {
     SIDES,
     posKey,
@@ -198,7 +198,7 @@
       <Select
         value={s.resource}
         disabled={!canEdit}
-        options={Object.entries(RESOURCE_LABEL).filter(([key]) => moves(key as Resource)).map(([key, label]) => ({ value: key as Resource, label }))}
+        options={Object.entries(RESOURCE_LABEL).filter(([key]) => moves(key as Resource)).map(([key, label]) => ({ value: key as Resource, label, swatch: RESOURCE_VAR[key as Resource] }))}
         onchange={(resource) => settings({ resource })}
       />
     </Field>

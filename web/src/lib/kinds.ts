@@ -329,11 +329,12 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
 }
 
 /** What a sheet pin can carry, for its type picker: anything, or one kind. */
-export const PIN_CARRIES: { value: string; label: string }[] = [
-  { value: "", label: "Anything" },
+export const PIN_CARRIES: { value: string; label: string; swatch: string }[] = [
+  { value: "", label: "Anything", swatch: "none" },
   ...(["item", "fluid", "energy", "chemical", "redstone", "me"] as Resource[]).map((r) => ({
     value: r as string,
     label: RESOURCE_LABEL[r],
+    swatch: RESOURCE_VAR[r],
   })),
 ];
 
