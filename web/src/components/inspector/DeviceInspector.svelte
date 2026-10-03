@@ -122,7 +122,10 @@
           oncommit={(v) => renameFace(face, v)} />
         {#if face !== "unsided"}
           <IdentifyToggle target={{ kind: "face", device: device.pos, face }} title="Light this face up in the world until turned off" />
-        {:else}<span></span>{/if}
+        {:else}
+          <!-- Unsided is the block taken as a whole: its ID lights the whole block, as the device's own does. -->
+          <IdentifyToggle target={{ kind: "device", device: device.pos }} title="Light the whole block up in the world until turned off" />
+        {/if}
       </div>
     {/each}
   </fieldset>
