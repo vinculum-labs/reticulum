@@ -53,6 +53,8 @@
   import type { Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
   import { GATE } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
+  import ConnectionLine from "./ConnectionLine.svelte";
+  import { pinDrop } from "../../lib/pinDrop.svelte";
   import EdgePin from "./EdgePin.svelte";
   import SheetFrame from "./SheetFrame.svelte";
   import { layout, type PinPositions } from "../../lib/layout";
@@ -821,6 +823,12 @@
     return drop && { ...drop, color: drop.carried ? RESOURCE_VAR[drop.carried] : "var(--muted)" };
   });
 
+  // The dragged wire is drawn only as far as that pin's dot.
+  $effect(() => {
+    const preview = pinPreview;
+    pinDrop.at = preview ? { ...preview.edge, output: preview.output } : null;
+  });
+
   async function connectEnd(event: MouseEvent | TouchEvent, state: Parameters<OnConnectEnd>[1]) {
     wiring = false;
     if (!state.fromNode || !state.fromHandle || state.toNode) return;
@@ -940,6 +948,7 @@
     bind:nodes
     bind:edges
     connectionLineType={app.wireStyle as ConnectionLineType}
+    connectionLineComponent={ConnectionLine}
     {nodeTypes}
     minZoom={0.2}
     maxZoom={2}
