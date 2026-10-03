@@ -788,3 +788,20 @@ export async function deleteCopy(holder: Sheet, node: GraphNode) {
   );
   if (ok && app.copy?.node === node.id) openSheet(holder.id);
 }
+
+/** Copies a sheet or blueprint as JSON, to paste with the matching import here or in another world. */
+export async function copySheetJson(sheet: Sheet) {
+  const { errors: _errors, parent: _parent, node: _node, enabled: _enabled, root: _root, ...plain } = sheet;
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(plain, null, 2));
+    toast(`Copied. Paste it with the ${sheet.blueprint ? "Blueprints" : "Sheets"} import, here or in another world.`, "info");
+  } catch {
+    toast("Couldn't reach the clipboard.");
+  }
+}
+
+/** A new blueprint like this one, opened (to change without touching this one's copies). */
+export async function duplicateBlueprint(sheet: Sheet) {
+  const results = await edit([{ type: "duplicateBlueprint", sheet: sheet.id }]);
+  if (results?.[0]) openSheet(results[0] as string);
+}

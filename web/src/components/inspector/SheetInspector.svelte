@@ -1,6 +1,6 @@
 <script lang="ts">
   import Trash from "@lucide/svelte/icons/trash";
-  import { app, deleteSheet, edit, moveSheet, nodeTitle, openCopy, openSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
+  import { app, copySheetJson, deleteSheet, duplicateBlueprint, edit, moveSheet, nodeTitle, openCopy, openSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { copiesOf } from "../../lib/blueprints";
   import { pruneDevices, pruneSheet } from "../../lib/prune";
@@ -33,15 +33,7 @@
       .sort((a, b) => a.label.localeCompare(b.label));
   });
 
-  async function copyJson() {
-    const { errors: _errors, parent: _parent, node: _node, enabled: _enabled, root: _root, ...plain } = sheet;
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(plain, null, 2));
-      toast(`Copied. Paste it with the ${sheet.blueprint ? "Blueprints" : "Sheets"} import, here or in another world.`, "info");
-    } catch {
-      toast("Couldn't reach the clipboard.");
-    }
-  }
+  const copyJson = () => copySheetJson(sheet);
 
   function update(patch: Record<string, unknown>, before: Record<string, unknown>, label: string) {
     edit([{ type: "updateSheet", sheet: sheet.id, ...patch }], [{ type: "updateSheet", sheet: sheet.id, ...before }], label);
@@ -72,10 +64,7 @@
     }
   }
 
-  async function duplicate() {
-    const results = await edit([{ type: "duplicateBlueprint", sheet: sheet.id }]);
-    if (results?.[0]) openSheet(results[0] as string);
-  }
+  const duplicate = () => duplicateBlueprint(sheet);
 
   /** Prune pins for every device node on this sheet. */
   const prunable = $derived(pruneSheet(sheet).count);

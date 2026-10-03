@@ -4,13 +4,21 @@
   import Layers from "@lucide/svelte/icons/layers";
   import Import from "@lucide/svelte/icons/import";
   import Funnel from "@lucide/svelte/icons/funnel";
+  import ExternalLink from "@lucide/svelte/icons/external-link";
+  import Pencil from "@lucide/svelte/icons/pencil";
+  import Plus from "@lucide/svelte/icons/plus";
+  import Copy from "@lucide/svelte/icons/copy";
+  import CopyPlus from "@lucide/svelte/icons/copy-plus";
+  import Trash from "@lucide/svelte/icons/trash";
+  import Lightbulb from "@lucide/svelte/icons/lightbulb";
+  import { openMenu } from "../lib/menu.svelte";
   import Share from "@lucide/svelte/icons/share";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-  import { app, createSheet, deleteCopy, deleteSheet, deviceUses, edit, deviceName, matchesDevice, moveSheet, openCopy, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
+  import { app, copySheetJson, createSheet, deleteCopy, deleteSheet, deviceUses, duplicateBlueprint, edit, isIdentified, toggleIdentify, deviceName, matchesDevice, moveSheet, openCopy, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
   import { childSheets, descendants, offReason, rootSheet } from "../lib/tree";
   import Segmented from "./controls/Segmented.svelte";
   import { confirmDialog, promptDialog } from "../lib/dialog.svelte";
-  import { posKey, type GraphNode, type Sheet } from "../lib/types";
+  import { posKey, type Device, type GraphNode, type Sheet } from "../lib/types";
   import DeviceIcon from "./DeviceIcon.svelte";
   import IdentifyBadge from "./IdentifyBadge.svelte";
   import FilterField from "./inspector/FilterField.svelte";
@@ -70,8 +78,7 @@
    * A new sheet inside the open one, its node placed right of what is there. Its row shows (its parent opened in the
    * tree) with its name box focused, to type the name straight away.
    */
-  async function addSheet() {
-    const parent = newSheetParent;
+  async function addSheet(parent: Sheet | null = newSheetParent) {
     const nodes = parent?.nodes ?? [];
     const right = nodes.length ? Math.max(...nodes.map((n) => n.x ?? 0)) + 260 : 40;
     const top = nodes.length ? Math.min(...nodes.map((n) => n.y ?? 0)) : 40;
@@ -277,6 +284,60 @@
     return node.label || blueprintOf(node)?.name || "Copy";
   }
 
+  // ---------------------------------------------------------------- right-click menus
+
+  function sheetMenu(e: MouseEvent, sheet: Sheet) {
+    openMenu(e, [
+      { label: "Open", icon: ExternalLink, run: () => openSheet(sheet.id) },
+      canEdit && { label: "Rename", icon: Pencil, hint: sheet.root ? "Renames the network too" : undefined, run: () => (renaming = sheet.id) },
+      canEdit && { label: "New sheet inside", icon: Plus, run: () => addSheet(sheet) },
+      canEdit && { label: "On", checked: sheet.enabled !== false, hint: sheet.root ? "The network's switch" : undefined, run: () => setSheetEnabled(sheet, sheet.enabled === false) },
+      "-",
+      { label: "Copy as JSON", icon: Copy, run: () => copySheetJson(sheet) },
+      canEdit && !sheet.root && "-",
+      canEdit && !sheet.root && { label: "Delete", icon: Trash, danger: true, shortcut: "Del", run: () => deleteSheet(sheet) },
+    ]);
+  }
+
+  function copyMenu(e: MouseEvent, holder: Sheet, node: GraphNode) {
+    openMenu(e, [
+      { label: "Open", icon: ExternalLink, hint: "The blueprint with this copy's blocks", run: () => openCopy(holder.id, node.id) },
+      canEdit && { label: "Rename", icon: Pencil, run: () => (renaming = node.id) },
+      canEdit && { label: "On", checked: node.enabled !== false, run: () => setCopyEnabled(holder, node, node.enabled === false) },
+      canEdit && "-",
+      canEdit && { label: "Delete", icon: Trash, danger: true, shortcut: "Del", run: () => deleteCopy(holder, node) },
+    ]);
+  }
+
+  function blueprintMenu(e: MouseEvent, sheet: Sheet) {
+    openMenu(e, [
+      { label: "Open", icon: ExternalLink, run: () => openSheet(sheet.id) },
+      canEdit && { label: "Rename", icon: Pencil, run: () => (renaming = sheet.id) },
+      canEdit && { label: "Duplicate", icon: CopyPlus, hint: "A new blueprint like this one", run: () => duplicateBlueprint(sheet) },
+      "-",
+      { label: "Copy as JSON", icon: Copy, run: () => copySheetJson(sheet) },
+      canEdit && "-",
+      canEdit && { label: "Delete", icon: Trash, danger: true, shortcut: "Del", run: () => deleteSheet(sheet) },
+    ]);
+  }
+
+  function deviceMenu(e: MouseEvent, d: Device) {
+    const open = snapshot.sheets.find((s) => s.id === app.sheetId);
+    const homed = (deviceUses(snapshot).get(posKey(d.pos)) ?? []).some((u) => u.home);
+    const canPlace = canEdit && d.state === "active" && !!open && !app.copy && (open.blueprint || !homed);
+    openMenu(e, [
+      { label: "Identify", icon: Lightbulb, hint: "Light it up in the world", checked: isIdentified({ kind: "device", device: d.pos }), run: () => toggleIdentify({ kind: "device", device: d.pos }) },
+      { label: "Names…", icon: Pencil, hint: "Its name and its faces'", run: () => openDevice(d) },
+      canEdit && {
+        label: open?.blueprint ? "Add a slot to the open blueprint" : "Add to the open sheet",
+        icon: Plus,
+        disabled: !canPlace,
+        hint: !canPlace && homed && !open?.blueprint ? "It already has a node" : undefined,
+        run: () => window.dispatchEvent(new CustomEvent("reticulum:place-device", { detail: posKey(d.pos) })),
+      },
+    ]);
+  }
+
   /** A copy's own name (its node's label); blank goes back to its blueprint's. */
   function renameCopy(holder: Sheet, node: GraphNode, name: string) {
     edit([{ type: "updateNode", sheet: holder.id, node: { ...node, label: name || undefined } }], [{ type: "updateNode", sheet: holder.id, node }], "rename copy");
@@ -350,6 +411,7 @@
                 class="flex min-w-0 flex-1 items-center gap-1 text-left"
                 class:muted={status.color === "var(--muted)"}
                 onclick={() => openCopy(row.holder.id, row.node.id)}
+                oncontextmenu={(e) => copyMenu(e, row.holder, row.node)}
                 onkeydown={(e) => e.key === "Delete" && canEdit && (e.preventDefault(), deleteCopy(row.holder, row.node))}
                 ondblclick={() => canEdit && (renaming = row.node.id)}
                 title={`A copy of the blueprint “${blueprintOf(row.node)?.name ?? "?"}”: open it to fill its slots. Double-click to rename.`}
@@ -421,6 +483,7 @@
               class:font-medium={sheet.root}
               class:muted={off !== null}
               onclick={() => openSheet(sheet.id)}
+              oncontextmenu={(e) => sheetMenu(e, sheet)}
               onkeydown={(e) => e.key === "Delete" && canEdit && !sheet.root && (e.preventDefault(), deleteSheet(sheet))}
               ondblclick={() => canEdit && (renaming = sheet.id)}
               title={sheet.root ? "The network's top sheet. Double-click to rename." : "Double-click to rename — drag onto another sheet to move it inside"}
@@ -461,6 +524,7 @@
             <button
               class="flex min-w-0 flex-1 items-center gap-1 text-left"
               onclick={() => openSheet(sheet.id)}
+              oncontextmenu={(e) => blueprintMenu(e, sheet)}
               onkeydown={(e) => e.key === "Delete" && canEdit && (e.preventDefault(), deleteSheet(sheet))}
               ondblclick={() => canEdit && (renaming = sheet.id)}
               title="Runs only as its copies. Double-click to rename."
@@ -501,6 +565,7 @@
             draggable={canEdit && d.state === "active"}
             ondragstart={(e) => dragDevice(e, key)}
             onclick={() => openDevice(d)}
+            oncontextmenu={(e) => deviceMenu(e, d)}
             title={`${d.defaultName}\n${d.block}`}
           >
             <DeviceIcon item={d.icon} />
