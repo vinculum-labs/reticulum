@@ -172,6 +172,7 @@
     }
     const bindings = copy ? (copy.node.settings.bindings ?? {}) : undefined;
     const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes, bindings);
+    const before = view.owner;
     view = built;
     builtFor = untrack(() => viewKey);
     sizedWith = sizes;
@@ -180,13 +181,12 @@
     // The open sheet's frame offers its + input / + output buttons only where the sheet can be edited.
     for (const n of built.nodes) if (n.type === "sheetFrame") (n.data as unknown as { canAdd: boolean }).canAdd = editable;
     untrack(() => {
-      // Gone from the canvas: no longer selected. Not one just added to be named, which the server's update may not
-      // have brought yet.
-      const kept = (id: string) => built.owner.has(id) || id === app.nameNode;
+      // Gone from the canvas: no longer selected. Not something the canvas hasn't had yet (a node just added, before
+      // the server's update brings it).
+      const kept = (id: string) => built.owner.has(id) || !before.has(id);
       if (app.selectedNodes.some((id) => !kept(id))) app.selectedNodes = app.selectedNodes.filter(kept);
-      if (app.selectedEdges.some((id) => !built.owner.has(id))) app.selectedEdges = app.selectedEdges.filter((id) => built.owner.has(id));
+      if (app.selectedEdges.some((id) => !kept(id))) app.selectedEdges = app.selectedEdges.filter(kept);
     });
-    rebuilding = true;
     // Unchanged nodes and wires keep their objects, so Svelte Flow skips them (it compares by identity) instead of
     // re-rendering and re-measuring the whole sheet on every metrics update.
     const oldNodes = new Map(untrack(() => nodes).map((n) => [n.id, n]));
@@ -199,7 +199,6 @@
       const old = oldEdges.get(e.id);
       return old && sameEdge(old, e) ? old : e;
     });
-    queueMicrotask(() => (rebuilding = false));
   });
 
   // Cards in a frame (or the open sheet's) measured at another size than it was sized for: size it again (settles in
@@ -229,8 +228,7 @@
     });
   });
 
-  /** Set while new nodes are being handed to the canvas, which may report the selection as empty meanwhile. */
-  let rebuilding = false;
+
 
   function sameValue(a: unknown, b: unknown): boolean {
     return a === b || (typeof a === "object" && typeof b === "object" && JSON.stringify(a) === JSON.stringify(b));
@@ -262,22 +260,47 @@
     return a.length === b.length && a.every((id, i) => id === b[i]);
   }
 
-  /**
-   * Only real changes count: the canvas reports the selection again whenever its nodes are rebuilt (every network
-   * update), and a fresh but equal list, or a passing empty one mid-rebuild, would remount the side panel.
+  /*
+   * The selection is the app's: what the user does on the canvas sets it (a click, Shift- or Ctrl-click, a box dragged
+   * round cards, starting to drag a card, a click on nothing), and the cards only show it. The canvas's own selection
+   * reports aren't used: it sends one after every rebuild, from the selection the rebuild started from, which would
+   * undo a selection made in code meanwhile (a node just added, one shown from a list).
    */
-  function selectionChange({ nodes: n, edges: e }: { nodes: Node[]; edges: Edge[] }) {
-    const nodeIds = n.map((x) => x.id);
-    const edgeIds = e.map((x) => x.id);
-    if (rebuilding && nodeIds.length === 0 && edgeIds.length === 0) return;
-    // Nor can it let go of a node just added to be named: the network's update rebuilds the canvas from the selection
-    // before it, and the empty one it then reports would drop the new node. Leaving its name box ends that.
-    if (nodeIds.length === 0 && edgeIds.length === 0 && app.nameNode && app.selectedNodes.includes(app.nameNode)) return;
-    const changed = !sameIds(nodeIds, app.selectedNodes) || !sameIds(edgeIds, app.selectedEdges);
+
+  /** A click that adds to the selection (or takes one out) rather than replacing it: Shift, Ctrl or ⌘ held. */
+  function adding(event: Event): boolean {
+    return event instanceof MouseEvent && (event.shiftKey || event.ctrlKey || event.metaKey);
+  }
+
+  function toggled(ids: string[], id: string): string[] {
+    return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
+  }
+
+  /** Only real changes: an equal list again would remount the side panel. Picking something closes an open device. */
+  function select(nodeIds: string[], edgeIds: string[]) {
     if (!sameIds(nodeIds, app.selectedNodes)) app.selectedNodes = nodeIds;
     if (!sameIds(edgeIds, app.selectedEdges)) app.selectedEdges = edgeIds;
-    // Picking something else on the canvas closes an open device; the same selection reported again doesn't.
-    if (changed && (n.length || e.length)) app.selectedDevice = null;
+    if (nodeIds.length || edgeIds.length) app.selectedDevice = null;
+  }
+
+  function edgeClick({ edge, event }: { edge: Edge; event: MouseEvent }) {
+    if (adding(event)) select(app.selectedNodes, toggled(app.selectedEdges, edge.id));
+    else select([], [edge.id]);
+  }
+
+  /** A box dragged round cards: what it took in, as the canvas marked it. */
+  function boxSelected() {
+    select(
+      flow.getNodes().filter((n) => n.selected && n.selectable !== false).map((n) => n.id),
+      flow.getEdges().filter((e) => e.selected).map((e) => e.id),
+    );
+  }
+
+  /** Dragging a card that isn't selected takes it (alone, or added with Shift / Ctrl): the drag moves what is selected. */
+  function dragTakes(target: Node | null, event: Event) {
+    if (!target || target.selectable === false || app.selectedNodes.includes(target.id)) return;
+    if (adding(event)) select([...app.selectedNodes, target.id], app.selectedEdges);
+    else select([target.id], []);
   }
 
   /** The sheet a node or wire on the canvas is on: this one, or one open in a frame. */
@@ -910,6 +933,11 @@
    * copy inside a blueprint opens that blueprint.
    */
   function nodeClick({ node, event }: { node: Node<NodeData>; event: MouseEvent | TouchEvent }) {
+    if (node.selectable !== false) {
+      if (adding(event)) select(toggled(app.selectedNodes, node.id), app.selectedEdges);
+      else select([node.id], []);
+    }
+    if (!node.data?.node) return;
     const s = node.data.node.settings;
     if (!(event instanceof MouseEvent) || event.detail !== 2 || (s.kind !== "copy" && s.kind !== "sheet")) return;
     if (!app.snapshot?.sheets.some((x) => x.id === s.sheet)) return;
@@ -996,13 +1024,13 @@
     nodesDraggable={editable}
     nodesConnectable={editable}
     elementsSelectable={true}
-    onselectionchange={selectionChange}
     onconnect={connect}
     onconnectstart={() => (wiring = true)}
     onconnectend={connectEnd}
     isValidConnection={validConnection}
     ondelete={remove}
-    onnodedragstart={() => {
+    onnodedragstart={({ targetNode, event }) => {
+      dragTakes(targetNode, event);
       dragging = true;
       holdMetrics(true);
     }}
@@ -1011,6 +1039,9 @@
     onnodedrag={keepPinsOnEdges}
     onnodedragstop={dragStop}
     onnodeclick={nodeClick}
+    onedgeclick={edgeClick}
+    onpaneclick={() => select([], [])}
+    onselectionend={boxSelected}
     proOptions={{ hideAttribution: true }}
   >
     <Background gap={24} />
