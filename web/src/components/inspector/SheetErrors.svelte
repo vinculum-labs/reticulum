@@ -20,27 +20,33 @@
 </script>
 
 {#if errors?.length}
-  <div class="box box-bad flex flex-col gap-1.5 text-sm" style={overlay ? "background: var(--panel)" : ""} role="alert">
+  <div class="box box-bad flex flex-col gap-0.5 text-sm" style={overlay ? "background: var(--panel)" : ""} role="alert">
     {#each errors as error}
       {@const node = error.node && error.detail ? nodeOf(error.node) : undefined}
       {#if error.node}
-        <button class="error-link flex flex-wrap items-center gap-x-2 gap-y-1 text-left" title="Show this node" onclick={() => showNode(sheetId, error.node!)}>
+        <button class="error-link -mx-1 flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-1 py-0.5 text-left" title="Show this node" onclick={() => showNode(sheetId, error.node!)}>
           {#if node}
             <NodeChip {node} />
-            <span class="message min-w-0 flex-1">{error.detail}</span>
+            <!-- Its own sentence now that the name is the chip: capitalized. -->
+            <span class="message min-w-0 flex-1">{error.detail!.charAt(0).toUpperCase() + error.detail!.slice(1)}</span>
           {:else}
             <span class="message">{error.message}</span>
           {/if}
         </button>
       {:else}
-        <div>{error.message}</div>
+        <div class="py-0.5">{error.message}</div>
       {/if}
     {/each}
   </div>
 {/if}
 
 <style>
-  .error-link:hover .message {
-    text-decoration: underline;
+  /* A clickable row lights up as a whole, in the box's red, rather than underlining its text. */
+  .error-link {
+    cursor: pointer;
+  }
+  .error-link:hover,
+  .error-link:focus-visible {
+    background: color-mix(in srgb, var(--bad) 14%, transparent);
   }
 </style>
