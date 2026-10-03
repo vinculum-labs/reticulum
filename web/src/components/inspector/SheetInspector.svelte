@@ -37,7 +37,7 @@
     const { errors: _errors, parent: _parent, node: _node, enabled: _enabled, root: _root, ...plain } = sheet;
     try {
       await navigator.clipboard.writeText(JSON.stringify(plain, null, 2));
-      toast("Copied. Paste it into “Import sheet…” here or in another world.", "info");
+      toast(`Copied. Paste it with the ${sheet.blueprint ? "Blueprints" : "Sheets"} import, here or in another world.`, "info");
     } catch {
       toast("Couldn't reach the clipboard.");
     }
@@ -194,7 +194,7 @@
     >
     </div>
   {/if}
-  <button class="btn self-start text-sm" onclick={copyJson} title="To paste into “Import sheet…” here or in another world">Copy as JSON</button>
+  <button class="btn self-start text-sm" onclick={copyJson} title={`To paste with the ${sheet.blueprint ? "Blueprints" : "Sheets"} import, here or in another world`}>Copy as JSON</button>
   <SheetErrors sheetId={sheet.id} errors={sheet.errors} />
   <button class="btn self-start text-sm" onclick={() => (app.panel = "network")}>Network settings…</button>
 </InspectorPanel>

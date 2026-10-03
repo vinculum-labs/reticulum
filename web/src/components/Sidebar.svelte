@@ -87,24 +87,43 @@
   }
 
   /** Pastes a sheet copied with "Copy as JSON" (from this or another world) as a new sheet. */
-  async function importSheet() {
+  /**
+   * Pastes a sheet or blueprint copied with "Copy as JSON" (from this or another world). A blueprint lands among the
+   * blueprints wherever it is pasted; the Blueprints import takes only blueprints (a sheet's devices aren't slots).
+   */
+  async function importSheet(what: "sheet" | "blueprint") {
     const text = await promptDialog({
-      title: "Import sheet",
-      message: "Paste a sheet copied with “Copy as JSON”, from this world or another.",
+      title: what === "blueprint" ? "Import blueprint" : "Import sheet",
+      message: `Paste a ${what} copied with “Copy as JSON”, from this world or another.`,
       confirm: "Import",
       multiline: true,
     });
     if (!text?.trim()) return;
-    let sheet: unknown;
+    let sheet: { blueprint?: boolean; name?: string } | null = null;
     try {
       sheet = JSON.parse(text);
     } catch {
-      toast("That isn't a copied sheet (not JSON).");
+      // not JSON: said below
+    }
+    if (!sheet || typeof sheet !== "object") {
+      toast(`That isn't a copied ${what} (not JSON).`);
       return;
     }
+    if (what === "blueprint" && !sheet.blueprint) {
+      toast("That's a sheet, not a blueprint — import it with the Sheets import (or make a blueprint from it once it's in).");
+      return;
+    }
+    // A name already taken here gets marked, so the import can be told from what it came from.
+    if (typeof sheet.name === "string" && snapshot.sheets.some((s) => s.name === sheet!.name)) sheet = { ...sheet, name: `${sheet.name} (imported)` };
     const results = await edit([{ type: "importSheet", sheet }]);
-    if (results?.[0]) {
-      openSheet(results[0] as string);
+    if (!results?.[0]) return;
+    openSheet(results[0] as string);
+    if (sheet.blueprint) {
+      toast(
+        what === "blueprint" ? "Imported. Its copies fill its slots with blocks of the same kinds." : "That's a blueprint — it's been added to Blueprints.",
+        "info",
+      );
+    } else {
       toast("Imported. Devices from another world show as offline until you pick local ones for them.", "info");
     }
   }
@@ -205,7 +224,7 @@
       <h2 class="panel-title">Sheets</h2>
       {#if canEdit}
         <div class="flex items-center gap-1">
-          <AddButton icon={Import} label="Import sheet: paste one copied with “Copy as JSON”" onclick={importSheet} />
+          <AddButton icon={Import} label="Import sheet: paste one copied with “Copy as JSON”" onclick={() => importSheet("sheet")} />
           <AddButton label={`New sheet in ${newSheetParent?.name ?? "the network"}`} onclick={addSheet} />
         </div>
       {/if}
@@ -327,7 +346,12 @@
 
     <div class="mt-4 mb-2 flex items-center justify-between pr-2">
       <h2 class="panel-title">Blueprints</h2>
-      {#if canEdit}<AddButton label="New blueprint" onclick={addBlueprint} />{/if}
+      {#if canEdit}
+        <div class="flex items-center gap-1">
+          <AddButton icon={Import} label="Import blueprint: paste one copied with “Copy as JSON”" onclick={() => importSheet("blueprint")} />
+          <AddButton label="New blueprint" onclick={addBlueprint} />
+        </div>
+      {/if}
     </div>
     <ul class="flex flex-col gap-0.5">
       {#each blueprints as sheet (sheet.id)}
