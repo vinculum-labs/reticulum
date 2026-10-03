@@ -107,10 +107,16 @@ public final class Network {
         return name;
     }
 
+    /** Renames the network, and its root sheet with it: the top of the tree goes by the network's name. */
     public void setName(String name) {
         String value = DeviceRecord.blankToNull(name);
         if (value != null) {
             this.name = value;
+            for (Sheet sheet : sheets) {
+                if (sheet.root()) {
+                    sheet.setName(value);
+                }
+            }
         }
     }
 
@@ -361,9 +367,15 @@ public final class Network {
             }
         }
         if (root == null) {
-            root = new Sheet(UUID.randomUUID(), "Network");
+            root = new Sheet(UUID.randomUUID(), name != null ? name : "Network");
             root.setRoot(true);
             sheets.add(0, root);
+            changed = true;
+        }
+        // The root goes by the network's name (renaming either renames both).
+        String rootName = Limits.name(name);
+        if (rootName != null && !root.name().equals(rootName)) {
+            root.setName(name);
             changed = true;
         }
         // Sheet nodes: one per sheet, only for sheets that can be placed, never on a blueprint.

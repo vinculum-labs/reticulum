@@ -3,14 +3,10 @@
   import Switch from "./controls/Switch.svelte";
   import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
   import Lightbulb from "@lucide/svelte/icons/lightbulb";
-  import Play from "@lucide/svelte/icons/circle-play";
-  import Stop from "@lucide/svelte/icons/circle-stop";
   import Redo from "@lucide/svelte/icons/redo-2";
   import Settings from "@lucide/svelte/icons/settings";
   import Trash from "@lucide/svelte/icons/trash";
   import Undo from "@lucide/svelte/icons/undo-2";
-  import Unplug from "@lucide/svelte/icons/unplug";
-  import ZapOff from "@lucide/svelte/icons/zap-off";
   import {
     app,
     edit,
@@ -23,6 +19,7 @@
     setRateUnit,
   } from "../lib/state.svelte";
   import { confirmDialog } from "../lib/dialog.svelte";
+  import { networkStatus } from "../lib/status";
 
   const snapshot = $derived(app.snapshot);
 
@@ -50,15 +47,6 @@
   const power = $derived(app.power ?? app.snapshot?.power);
 
   /** The network's state as an icon, a color and a tooltip. */
-  function networkStatus(running: boolean, enabled: boolean, unpowered: boolean) {
-    if (running && unpowered) {
-      return { icon: ZapOff, color: "var(--bad)", title: "No power: the controller has too little FE for this network, so only energy flows run" };
-    }
-    if (running) return { icon: Play, color: "var(--good)", title: "Running" };
-    if (enabled) return { icon: Unplug, color: "var(--warn)", title: "No controller loaded: the controller's chunk isn't loaded, so nothing runs" };
-    return { icon: Stop, color: "var(--muted)", title: "Off: switched off with the On checkbox" };
-  }
-
   /** How long the saving dot stays once lit, so a quick save shows as a calm blip instead of a flicker. */
   const SAVING_MIN_MS = 1000;
   let saving = $state(false);

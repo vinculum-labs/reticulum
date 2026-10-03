@@ -346,7 +346,11 @@ public final class WebApi {
                 case "updateSheet" -> {
                     Sheet sheet = sheet(network, edit);
                     if (edit.has("name")) {
-                        sheet.setName(string(edit, "name"));
+                        if (sheet.root()) {
+                            network.setName(string(edit, "name")); // the root goes by the network's name
+                        } else {
+                            sheet.setName(string(edit, "name"));
+                        }
                     }
                     if (edit.has("enabled")) {
                         // Its sheet node's switch (the network's, for the root).

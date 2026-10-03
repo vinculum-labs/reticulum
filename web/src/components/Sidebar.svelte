@@ -3,7 +3,6 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Layers from "@lucide/svelte/icons/layers";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-  import Zap from "@lucide/svelte/icons/zap";
   import { app, createSheet, deviceUses, edit, deviceName, matchesDevice, moveSheet, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
   import { childSheets, descendants, offReason, rootSheet } from "../lib/tree";
   import Segmented from "./controls/Segmented.svelte";
@@ -15,9 +14,12 @@
   import RemoveButton from "./controls/RemoveButton.svelte";
   import TextField from "./controls/TextField.svelte";
   import Switch from "./controls/Switch.svelte";
+  import { networkStatus, sheetStatus } from "../lib/status";
 
   const snapshot = $derived(app.snapshot!);
   const canEdit = $derived(snapshot.canEdit);
+  const power = $derived(app.power ?? snapshot.power);
+  const network = $derived(networkStatus(snapshot.running, snapshot.enabled, !!power?.enabled && !power.powered));
 
   let newSheet = $state("");
   let deviceSearch = $state("");
@@ -169,6 +171,7 @@
       {#each rows as row (row.sheet.id)}
         {@const sheet = row.sheet}
         {@const off = offReason(snapshot, sheet, app.sheetsOff)}
+        {@const status = sheet.root ? network : sheetStatus(sheet, off, network)}
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <li
           class="group flex items-center gap-1.5 rounded-md py-1 pr-2"
@@ -205,6 +208,8 @@
           {:else}
             <span class="w-4 shrink-0"></span>
           {/if}
+          <!-- How it is doing, left of its name: the network's state on the top row; a sheet's problems, why it is off, or running. -->
+          <span class="flex shrink-0" style="color: {status.color}" title={status.title} role="img" aria-label={status.title}><status.icon size={14} /></span>
           {#if renaming === sheet.id}
             <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
           {:else}
@@ -217,8 +222,6 @@
               title={sheet.root ? "The network's top sheet. Double-click to rename." : "Double-click to rename; drag onto another sheet to move it inside"}
             >
               <span class="trim-text truncate">{sheet.name}</span>
-              {#if off?.kind === "gate"}<span class="shrink-0 text-signal" title="Switched off by a signal into its node's gate"><Zap size={12} /></span>{/if}
-              {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
             </button>
           {/if}
           <!-- At the row's end, so the tree's switches line up in a column whatever the depth. Deleting is in the sheet's panel. -->
