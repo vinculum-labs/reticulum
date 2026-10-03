@@ -43,6 +43,8 @@
   import RemoveButton from "../controls/RemoveButton.svelte";
   import Select from "../controls/Select.svelte";
   import WhileOffField from "./WhileOffField.svelte";
+  import DeviceIcon from "../DeviceIcon.svelte";
+  import { KIND_ICON } from "../../lib/icons";
   import SheetPins from "./SheetPins.svelte";
   import TextField from "../controls/TextField.svelte";
 
@@ -132,6 +134,14 @@
 </script>
 
 <InspectorPanel title={KIND_LABEL[s.kind]} subtitle={KIND_HINT[s.kind]}>
+  {#snippet icon()}
+    {#if s.kind === "device" && namedDevice}
+      <DeviceIcon item={namedDevice.icon} size={28} />
+    {:else}
+      {@const KindIcon = KIND_ICON[s.kind]}
+      <span class="shrink-0 muted"><KindIcon size={24} /></span>
+    {/if}
+  {/snippet}
   {#snippet actions()}
     {#if canEdit}<button class="btn btn-danger text-sm" onclick={remove}>Delete</button>{/if}
   {/snippet}

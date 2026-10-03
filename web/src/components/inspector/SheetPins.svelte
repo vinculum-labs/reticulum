@@ -2,6 +2,7 @@
   import { addSheetPin, app, edit, rebase, showNode } from "../../lib/state.svelte";
   import { PIN_CARRIES } from "../../lib/kinds";
   import { pinName, sheetPins, type Edit, type GraphNode, type Resource, type Sheet } from "../../lib/types";
+  import PinMark from "../controls/PinMark.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
   import Select from "../controls/Select.svelte";
   import TextField from "../controls/TextField.svelte";
@@ -34,10 +35,10 @@
   {@const pins = sheetPins(sheet, input)}
   <section class="flex flex-col gap-1">
     <div class="flex items-center justify-between">
-      <h3 class="panel-title">{input ? "Input pins (left)" : "Output pins (right)"}</h3>
+      <h3 class="panel-title flex items-center gap-1.5"><PinMark solid={input} />{input ? "Input pins (left)" : "Output pins (right)"}</h3>
       {#if canEdit}
         <button class="btn flex items-center gap-1 text-xs" onclick={() => addSheetPin(sheet, input)}>
-          <span class="pin-icon" class:solid={input} aria-hidden="true"></span>Add
+          <PinMark solid={input} />Add
         </button>
       {/if}
     </div>
@@ -64,14 +65,3 @@
   </section>
 {/each}
 
-<style>
-  .pin-icon {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    border: 2px solid currentColor;
-  }
-  .pin-icon.solid {
-    background: currentColor;
-  }
-</style>

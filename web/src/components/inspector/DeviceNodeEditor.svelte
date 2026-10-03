@@ -2,7 +2,8 @@
   import Scissors from "@lucide/svelte/icons/scissors";
   import { app } from "../../lib/state.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
-  import { offeredResources, sideLabel } from "../../lib/kinds";
+  import { RESOURCE_VAR, offeredResources, sideLabel } from "../../lib/kinds";
+  import PinMark from "../controls/PinMark.svelte";
   import { posKey, type DeviceInput, type DeviceNodeSettings, type DeviceOutput, type Resource, type Sheet } from "../../lib/types";
   import Field from "./Field.svelte";
   import SideEditor from "./SideEditor.svelte";
@@ -76,7 +77,7 @@
 
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
-    <h3 class="panel-title">Inputs (left)</h3>
+    <h3 class="panel-title flex items-center gap-1.5"><PinMark />Inputs (left)</h3>
     <button class="btn text-sm" {disabled} onclick={() => onchange({ ...settings, inputs: [...inputs, { resource: primary }] })}>+ Input</button>
   </div>
   {#each inputs as input, i}
@@ -84,6 +85,7 @@
       <!-- The ✕ sits in the header, so it shows open or closed; clicking it doesn't open or close the group. -->
       <summary class="flex cursor-pointer items-center gap-2 text-sm">
         <ChevronRight size={14} class="disclosure shrink-0 muted" />
+        <PinMark color={RESOURCE_VAR[input.resource]} />
         <span class="min-w-0 flex-1 truncate">Input {i + 1}: {sideLabel(input)}</span>
         <RemoveButton label="Remove input {i + 1}" {disabled} onclick={(e) => (e.preventDefault(), removeSide("in", i))} />
       </summary>
@@ -106,7 +108,7 @@
 
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
-    <h3 class="panel-title">Outputs (right)</h3>
+    <h3 class="panel-title flex items-center gap-1.5"><PinMark solid />Outputs (right)</h3>
     <button class="btn text-sm" {disabled} onclick={() => onchange({ ...settings, outputs: [...outputs, { resource: primary, per_operation: 0 }] })}>+ Output</button>
   </div>
   {#each outputs as output, i}
@@ -114,6 +116,7 @@
       <!-- The ✕ sits in the header, so it shows open or closed; clicking it doesn't open or close the group. -->
       <summary class="flex cursor-pointer items-center gap-2 text-sm">
         <ChevronRight size={14} class="disclosure shrink-0 muted" />
+        <PinMark solid color={RESOURCE_VAR[output.resource]} />
         <span class="min-w-0 flex-1 truncate">Output {i + 1}: {sideLabel(output)}</span>
         <RemoveButton label="Remove output {i + 1}" {disabled} onclick={(e) => (e.preventDefault(), removeSide("out", i))} />
       </summary>
