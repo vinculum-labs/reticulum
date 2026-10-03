@@ -656,8 +656,14 @@ public final class WebApi {
                 livesNowhere(network, device.device(), node.id());
             } else if (node.settings() instanceof NodeSettings.CopySettings copy) {
                 // A block filling a slot of a copy lives there, like a device node: once, in one slot.
+                // Only slots the blueprint still has: one taken out leaves its block free.
+                Sheet blueprint = network.sheet(copy.sheet());
                 java.util.Set<net.minecraft.core.GlobalPos> seen = new java.util.HashSet<>();
-                for (NodeSettings.Binding binding : copy.bindings().values()) {
+                for (var entry : copy.bindings().entrySet()) {
+                    NodeSettings.Binding binding = entry.getValue();
+                    if (blueprint == null || blueprint.node(entry.getKey()) == null) {
+                        continue;
+                    }
                     if (!seen.add(binding.device())) {
                         throw new RequestException("One block can't fill two slots");
                     }

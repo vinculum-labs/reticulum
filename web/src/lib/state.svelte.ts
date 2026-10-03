@@ -595,7 +595,11 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
       // A block filling a slot of a copy lives in that copy.
       if (s.kind === "copy" && !sheet.blueprint) {
         const copyLabel = `${label} › ${nodeTitle(node)}`;
-        for (const binding of Object.values(s.bindings ?? {})) add(binding.device, { label: copyLabel, sheetId: sheet.id, nodeId: node.id, home: true });
+        const blueprint = snapshot.sheets.find((b) => b.id === s.sheet);
+        for (const [slot, binding] of Object.entries(s.bindings ?? {})) {
+          // Only slots the blueprint still has: one taken out leaves its block free (as the server sees it).
+          if (blueprint?.nodes?.some((n) => n.id === slot)) add(binding.device, { label: copyLabel, sheetId: sheet.id, nodeId: node.id, home: true });
+        }
       }
     }
   }
