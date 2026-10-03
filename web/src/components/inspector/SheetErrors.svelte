@@ -20,11 +20,12 @@
 </script>
 
 {#if errors?.length}
-  <div class="box box-bad flex flex-col gap-0.5 text-sm" style={overlay ? "background: var(--panel)" : ""} role="alert">
+  <!-- The rows carry the box's padding, so a lit row reaches its border (the rounded corners clip it). -->
+  <div class="errors box box-bad flex flex-col overflow-hidden text-sm" style={overlay ? "background: var(--panel)" : ""} role="alert">
     {#each errors as error}
       {@const node = error.node && error.detail ? nodeOf(error.node) : undefined}
       {#if error.node}
-        <button class="error-link -mx-1 flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-1 py-0.5 text-left" title="Show this node" onclick={() => showNode(sheetId, error.node!)}>
+        <button class="error-link row flex flex-wrap items-center gap-x-2 gap-y-1 text-left" title="Show this node" onclick={() => showNode(sheetId, error.node!)}>
           {#if node}
             <NodeChip {node} />
             <!-- Its own sentence now that the name is the chip: capitalized. -->
@@ -34,13 +35,19 @@
           {/if}
         </button>
       {:else}
-        <div class="py-0.5">{error.message}</div>
+        <div class="row">{error.message}</div>
       {/if}
     {/each}
   </div>
 {/if}
 
 <style>
+  .errors {
+    padding: 0;
+  }
+  .row {
+    padding: 0.375rem 0.5rem;
+  }
   /* A clickable row lights up as a whole, in the box's red, rather than underlining its text. */
   .error-link {
     cursor: pointer;
