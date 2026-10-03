@@ -3,6 +3,7 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Layers from "@lucide/svelte/icons/layers";
   import Import from "@lucide/svelte/icons/import";
+  import Funnel from "@lucide/svelte/icons/funnel";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import { app, createSheet, deleteCopy, deleteSheet, deviceUses, edit, deviceName, matchesDevice, moveSheet, openCopy, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
   import { childSheets, descendants, offReason, rootSheet } from "../lib/tree";
@@ -48,8 +49,9 @@
     }
   }
   let renaming = $state<string | null>(null);
-  let newFilterName = $state("");
-  let newFilterExpr = $state("");
+  /** The filter template open for editing (its filter shown under its row), and the one being renamed. */
+  let openTemplate = $state<string | null>(null);
+  let renamingTemplate = $state<string | null>(null);
 
   const devices = $derived(
     snapshot.devices
@@ -130,6 +132,34 @@
 
   function renameSheet(sheet: Sheet, name: string) {
     edit([{ type: "updateSheet", sheet: sheet.id, name }], [{ type: "updateSheet", sheet: sheet.id, name: sheet.name }], "rename sheet");
+  }
+
+  /** A new template under the first free name ("template", "template2", ...), open with its name box focused. */
+  async function addTemplate() {
+    let name = "template";
+    for (let i = 2; name in snapshot.filters; i++) name = `template${i}`;
+    const ok = await edit([{ type: "setFilter", name, expression: "" }], [{ type: "setFilter", name, expression: null }], "add filter template");
+    if (ok) {
+      openTemplate = name;
+      renamingTemplate = name;
+    }
+  }
+
+  /** Renames a template: saved under the new name, the old one gone (filters using @old aren't changed). */
+  function renameTemplate(from: string, to: string) {
+    to = to.trim().replace(/^@/, "");
+    if (!to || to === from) return;
+    if (to in snapshot.filters) {
+      toast(`There's already a template @${to}.`);
+      return;
+    }
+    const expression = snapshot.filters[from] ?? "";
+    edit(
+      [{ type: "setFilter", name: to, expression }, { type: "setFilter", name: from, expression: null }],
+      [{ type: "setFilter", name: from, expression }, { type: "setFilter", name: to, expression: null }],
+      "rename filter template",
+    );
+    if (openTemplate === from) openTemplate = to;
   }
 
   function saveFilter(name: string, expression: string | null) {
@@ -421,35 +451,44 @@
   </section>
 
   <section class="border-t border-line p-3">
-    <h2 class="panel-title mb-2">Filter templates</h2>
-    <p class="mb-2 text-xs muted">Use them in any filter as <code>@name</code>.</p>
-    <ul class="flex flex-col gap-2">
+    <!-- As Sheets and Blueprints: a + on the heading, a row each; a row opens to edit its filter. -->
+    <div class="mb-2 flex items-center justify-between pr-2">
+      <h2 class="panel-title">Filter templates</h2>
+      {#if canEdit}<AddButton label="New filter template" onclick={addTemplate} />{/if}
+    </div>
+    <ul class="flex flex-col gap-0.5">
       {#each Object.entries(snapshot.filters) as [name, expression] (name)}
-        <li class="flex flex-col gap-1">
-          <div class="flex items-center justify-between">
-            <code>@{name}</code>
-            {#if canEdit}<RemoveButton label={`Delete template @${name}`} onclick={() => saveFilter(name, null)} />{/if}
+        {@const open = openTemplate === name}
+        <li class="flex flex-col rounded-md" style={open ? "background: var(--panel-2)" : ""}>
+          <div class="flex items-center gap-1.5 py-1 pr-2 pl-2">
+            <Funnel size={14} class="shrink-0 muted" />
+            {#if renamingTemplate === name}
+              <TextField class="min-w-0 flex-1 font-mono" value={name} required autofocus oncommit={(v) => renameTemplate(name, v)} onfinish={() => (renamingTemplate = null)} />
+            {:else}
+              <button
+                class="flex min-w-0 flex-1 items-baseline gap-2 text-left"
+                onclick={() => (openTemplate = open ? null : name)}
+                ondblclick={() => canEdit && (renamingTemplate = name)}
+                onkeydown={(e) => e.key === "Delete" && canEdit && (e.preventDefault(), saveFilter(name, null))}
+                title={`Use it in any filter as @${name}. Click to edit its filter, double-click to rename.`}
+              >
+                <code class="trim-text shrink-0">@{name}</code>
+                <!-- Its filter at a glance; open, the box below shows it. -->
+                {#if !open}<span class="trim-text min-w-0 truncate font-mono text-xs muted">{expression || "everything"}</span>{/if}
+              </button>
+            {/if}
+            {#if open && canEdit}<RemoveButton label={`Delete template @${name}`} onclick={() => saveFilter(name, null)} />{/if}
           </div>
-          <FilterField value={expression} disabled={!canEdit} onchange={(v) => saveFilter(name, v)} />
+          {#if open}
+            <div class="px-2 pb-2">
+              <FilterField value={expression} disabled={!canEdit} placeholder="everything" onchange={(v) => saveFilter(name, v)} />
+            </div>
+          {/if}
         </li>
+      {:else}
+        <li class="text-xs muted">None yet. A template is a named filter: use it in any filter as <code>@name</code>.</li>
       {/each}
     </ul>
-    {#if canEdit}
-      <form
-        class="mt-2 flex flex-col gap-1"
-        onsubmit={(e) => {
-          e.preventDefault();
-          if (!newFilterName.trim()) return;
-          saveFilter(newFilterName, newFilterExpr);
-          newFilterName = "";
-          newFilterExpr = "";
-        }}
-      >
-        <input placeholder="Template name" aria-label="Template name" bind:value={newFilterName} />
-        <FilterField value={newFilterExpr} onchange={(v) => (newFilterExpr = v)} placeholder="e.g. tag:c:ores" />
-        <button class="btn self-start" type="submit" disabled={!newFilterName.trim()}>Save template</button>
-      </form>
-    {/if}
   </section>
 </aside>
 
