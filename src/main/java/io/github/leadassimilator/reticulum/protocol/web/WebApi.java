@@ -17,6 +17,7 @@ import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Codec;
 
+import io.github.leadassimilator.reticulum.filter.FilterRefs;
 import io.github.leadassimilator.reticulum.security.NetworkAdmin;
 import io.github.leadassimilator.reticulum.engine.Metrics;
 import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
@@ -519,9 +520,16 @@ public final class WebApi {
                     // A template renamed where it is used too: other templates and every filter on every sheet and
                     // blueprint that names it. The reverse rename undoes it.
                     String from = string(edit, "from");
-                    String to = Limits.name(string(edit, "to"));
+                    String asked = string(edit, "to");
+                    String to = Limits.name(asked);
                     if (to == null) {
                         throw new RequestException("A filter template needs a name");
+                    }
+                    if (!to.equals(asked)) {
+                        throw new RequestException("That name is too long, or starts or ends with a space");
+                    }
+                    if (to.contains("\"") || to.contains("\\")) {
+                        throw new RequestException("A template name can't hold \" or \\");
                     }
                     if (!network.filters().containsKey(from)) {
                         throw new RequestException("There's no filter template @" + from);
@@ -529,15 +537,22 @@ public final class WebApi {
                     if (!from.equals(to) && network.filters().containsKey(to)) {
                         throw new RequestException("There's already a filter template @" + to);
                     }
-                    java.util.function.UnaryOperator<String> renamed = e -> e == null ? null
-                            : io.github.leadassimilator.reticulum.filter.FilterRefs.rename(e, from, to);
+                    // Filters already naming the new name (a template since removed) would be taken over by the rename,
+                    // and the reverse rename would then change them too: refused, so undo always restores.
+                    boolean taken = network.filters().values().stream().anyMatch(e -> FilterRefs.mentions(e, to))
+                            || network.sheets().stream().flatMap(s -> s.nodes().stream())
+                                    .anyMatch(n -> FilterRefs.filters(n.settings()).stream().anyMatch(e -> FilterRefs.mentions(e, to)));
+                    if (taken && !from.equals(to)) {
+                        throw new RequestException("Filters already use @" + to + " (no such template): change those first, or pick another name");
+                    }
+                    java.util.function.UnaryOperator<String> renamed = e -> e == null ? null : FilterRefs.rename(e, from, to);
                     Map<String, String> templates = new java.util.LinkedHashMap<>();
                     network.filters().forEach((name, expression) -> templates.put(name.equals(from) ? to : name, renamed.apply(expression)));
                     network.filters().clear();
                     network.filters().putAll(templates);
                     for (Sheet sheet : network.sheets()) {
                         for (Node node : List.copyOf(sheet.nodes())) {
-                            NodeSettings next = io.github.leadassimilator.reticulum.filter.FilterRefs.rename(node.settings(), renamed);
+                            NodeSettings next = FilterRefs.rename(node.settings(), renamed);
                             if (!next.equals(node.settings())) {
                                 sheet.replace(node.with(next));
                             }
@@ -690,14 +705,8 @@ public final class WebApi {
                 livesNowhere(network, device.device(), node.id());
             } else if (node.settings() instanceof NodeSettings.CopySettings copy) {
                 // A block filling a slot of a copy lives there, like a device node: once, in one slot.
-                // Only slots the blueprint still has: one taken out leaves its block free.
-                Sheet blueprint = network.sheet(copy.sheet());
                 java.util.Set<net.minecraft.core.GlobalPos> seen = new java.util.HashSet<>();
-                for (var entry : copy.bindings().entrySet()) {
-                    NodeSettings.Binding binding = entry.getValue();
-                    if (blueprint == null || blueprint.node(entry.getKey()) == null) {
-                        continue;
-                    }
+                for (NodeSettings.Binding binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network.sheet(copy.sheet()), copy).values()) {
                     if (!seen.add(binding.device())) {
                         throw new RequestException("One block can't fill two slots");
                     }

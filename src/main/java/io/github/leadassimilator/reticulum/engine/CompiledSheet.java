@@ -190,11 +190,8 @@ public final class CompiledSheet {
 
     /**
      * Something that keeps part of the sheet from running. {@code node} is the node it is about, as compiled (a device's
-     * side or a node pasted from a blueprint); {@link #owner} maps it to the node the editor shows.
-     */
-    /**
-     * A problem, about a node when {@code node} is set. {@code detail} is the message without the node's name in front
-     * (when it starts with it), for the editor to show the node itself there instead.
+     * side or a node pasted from a blueprint); {@link #owner} maps it to the node the editor shows. {@code detail} is
+     * the message without the node's name in front (when it starts with it), for the editor to show the node itself.
      */
     public record Problem(String message, @Nullable UUID node, @Nullable String detail) {
     }
@@ -652,6 +649,13 @@ public final class CompiledSheet {
 
     /** Node ids of the sources and sinks a device node is made of, mapped back to the device node (for metrics). */
     private final Map<UUID, UUID> owners = new LinkedHashMap<>();
+    /** Nodes pasted in from a blueprint for a copy (not a device's sides, which are its device node's own). */
+    private final Set<UUID> fromCopies = new HashSet<>();
+
+    /** Whether a compiled node was pasted in from a blueprint for a copy. */
+    public boolean fromCopy(UUID node) {
+        return fromCopies.contains(node);
+    }
 
     /**
      * The node the editor shows for a node id: a device node for its internal sources and sinks, the copy
@@ -754,6 +758,7 @@ public final class CompiledSheet {
                     containers.put(pasted.id(), node.id());
                 } else {
                     owners.put(pasted.id(), node.id());
+                    fromCopies.add(pasted.id());
                 }
             }
             if (child) {

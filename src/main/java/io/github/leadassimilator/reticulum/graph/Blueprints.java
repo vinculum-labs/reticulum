@@ -49,6 +49,19 @@ public final class Blueprints {
         return out;
     }
 
+    /** A copy's bindings for the slots its blueprint still has (one taken out leaves its block free). */
+    public static Map<UUID, NodeSettings.Binding> liveBindings(@Nullable Sheet blueprint, NodeSettings.CopySettings copy) {
+        Map<UUID, NodeSettings.Binding> out = new HashMap<>();
+        if (blueprint != null) {
+            copy.bindings().forEach((slot, binding) -> {
+                if (blueprint.node(slot) != null) {
+                    out.put(slot, binding);
+                }
+            });
+        }
+        return out;
+    }
+
     /** How a slot is named in messages: its label, else its kind of block. */
     public static String slotName(Node slot) {
         if (slot.label().isPresent()) {

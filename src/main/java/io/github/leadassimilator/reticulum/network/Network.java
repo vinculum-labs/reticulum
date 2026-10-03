@@ -375,7 +375,7 @@ public final class Network {
         // The root goes by the network's name (renaming either renames both).
         String rootName = Limits.name(name);
         if (rootName != null && !root.name().equals(rootName)) {
-            root.setName(name);
+            root.setName(rootName);
             changed = true;
         }
         // Sheet nodes: one per sheet, only for sheets that can be placed, never on a blueprint.
@@ -464,10 +464,8 @@ public final class Network {
                     return new Home(sheet, node);
                 }
                 if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.CopySettings copy) {
-                    Sheet blueprint = sheet(copy.sheet());
-                    for (var binding : copy.bindings().entrySet()) {
-                        // Only slots the blueprint still has: one taken out leaves its block free.
-                        if (binding.getValue().device().equals(device) && blueprint != null && blueprint.node(binding.getKey()) != null) {
+                    for (var binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(sheet(copy.sheet()), copy).values()) {
+                        if (binding.device().equals(device)) {
                             return new Home(sheet, node);
                         }
                     }

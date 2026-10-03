@@ -3,6 +3,8 @@ package io.github.leadassimilator.reticulum.filter;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
+import javax.annotation.Nullable;
+
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 
 /**
@@ -21,8 +23,9 @@ public final class FilterRefs {
         int n = expression.length();
         while (i < n) {
             char c = expression.charAt(i);
-            // Quoted text, and a /regex/ after "name:", are copied as they are.
-            if (c == '"' || (c == '/' && i > 0 && expression.charAt(i - 1) == ':')) {
+            // Quoted text and a /regex/ after "name:" are copied as they are (a quote anywhere else is plain text, as
+            // the parser reads it; one after '@' is a quoted template name, below).
+            if ((c == '"' || c == '/') && i > 0 && expression.charAt(i - 1) == ':') {
                 int end = closing(expression, i, c);
                 out.append(expression, i, end);
                 i = end;
@@ -53,15 +56,31 @@ public final class FilterRefs {
         return out.toString();
     }
 
-    /** A node's settings with every filter they hold passed through {@code f} (the same object when none changes). */
+    /** Whether an expression names template {@code name} (whole name, outside quoted text and regexes). */
+    public static boolean mentions(@Nullable String expression, String name) {
+        return expression != null && !rename(expression, name, name + '\u0001').equals(expression);
+    }
+
+    /** Every filter a node's saved settings hold (blank ones too). */
+    public static List<String> filters(NodeSettings settings) {
+        List<String> out = new java.util.ArrayList<>();
+        rename(settings, e -> {
+            out.add(e == null ? "" : e);
+            return e;
+        });
+        return out;
+    }
+
+    /**
+     * A node's saved settings with every filter they hold passed through {@code f}. The one list of settings that hold
+     * filters (the engine's own source and sink settings are made from a device's, and never saved).
+     */
     public static NodeSettings rename(NodeSettings settings, UnaryOperator<String> f) {
         return switch (settings) {
             case NodeSettings.FilterSettings s -> new NodeSettings.FilterSettings(f.apply(s.expression()));
             case NodeSettings.LevelSettings s -> new NodeSettings.LevelSettings(s.resource(), s.device(), s.faces(), f.apply(s.filter()), s.output(), s.low(), s.high());
             case NodeSettings.KitSettings s -> new NodeSettings.KitSettings(
                     s.lines().stream().map(l -> new NodeSettings.KitLine(f.apply(l.filter()), l.count())).toList(), s.maxKits());
-            case NodeSettings.SourceSettings s -> new NodeSettings.SourceSettings(s.port(), limits(s.keep(), f), s.perOperation(), s.interval(), s.priority());
-            case NodeSettings.SinkSettings s -> new NodeSettings.SinkSettings(s.port(), limits(s.caps(), f));
             case NodeSettings.DeviceSettings s -> new NodeSettings.DeviceSettings(
                     s.device(),
                     s.inputs().stream().map(x -> new NodeSettings.Input(x.resource(), x.faces(), x.slots(), limits(x.caps(), f), x.whileOff())).toList(),

@@ -106,11 +106,11 @@ final class WebView2Host {
      * COM callback objects. WebView2 may call one after the editor was closed (a world left while it was still
      * starting), so none is ever let go: their memory must outlive any call. There are a handful per session.
      */
-    private static final java.util.List<Com.Handler> HANDLERS = new java.util.ArrayList<>();
+    private static final java.util.List<Com.Table> HANDLERS = new java.util.ArrayList<>();
     /** Bumped by every create and close; a callback from an earlier one releases what it was given and does nothing. */
     private static int generation;
 
-    private static Com.Handler keep(Com.Handler handler) {
+    private static Com.Table keep(Com.Table handler) {
         HANDLERS.add(handler);
         return handler;
     }
@@ -301,13 +301,14 @@ final class WebView2Host {
     @Nullable
     private static Pointer composition3;
     private static boolean dropsTaken;
-    private static final Com.Table DROP_TARGET = new Com.Table(
+    private static boolean oleReady;
+    private static final Com.Table DROP_TARGET = new Com.Table(new String[] {Com.IID_UNKNOWN, Com.IID_DROP_TARGET},
             (Com.DragEnter) (self, data, keys, point, effect) -> composition3 == null ? -1
                     : Com.call(composition3, COMP3_DRAG_ENTER, data, keys, viewPoint(point), effect),
             (Com.DragOver) (self, keys, point, effect) -> composition3 == null ? -1
                     : Com.call(composition3, COMP3_DRAG_OVER, keys, viewPoint(point), effect),
             (Com.DragLeave) self -> composition3 == null ? -1 : Com.call(composition3, COMP3_DRAG_LEAVE),
-            (Com.DragEnter) (self, data, keys, point, effect) -> composition3 == null ? -1
+            (Com.Drop) (self, data, keys, point, effect) -> composition3 == null ? -1
                     : Com.call(composition3, COMP3_DROP, data, keys, viewPoint(point), effect));
 
     /** A screen point (a POINTL's x low, y high) in the view's pixels. */
@@ -320,13 +321,30 @@ final class WebView2Host {
         return point;
     }
 
+    /**
+     * Takes the game window's drops for the view: only while it is drawn into the frame and shown, so files dragged
+     * onto the game's own screens (resource packs) reach the game the rest of the time.
+     */
     private static void takeDrops() {
-        composition3 = Com.query(composition, IID_COMPOSITION3);
-        if (composition3 == null) {
-            Reticulum.LOGGER.warn("This WebView2 can't take drag and drop in the game's frame; dragging onto the canvas won't work");
+        if (dropsTaken || !inFrame || !visible || state != State.READY) {
             return;
         }
-        Ole32.INSTANCE.OleInitialize(null);
+        if (composition3 == null) {
+            composition3 = Com.query(composition, IID_COMPOSITION3);
+            if (composition3 == null) {
+                Reticulum.LOGGER.warn("This WebView2 can't take drag and drop in the game's frame; dragging onto the canvas won't work");
+                return;
+            }
+        }
+        if (!oleReady) {
+            // Once per session, on the thread that owns the game window (S_FALSE: already set up there, also fine).
+            int ole = Ole32.INSTANCE.OleInitialize(null).intValue();
+            if (ole < 0) {
+                Reticulum.LOGGER.warn("Couldn't set up drag and drop for the editor: 0x{}", Integer.toHexString(ole));
+                return;
+            }
+            oleReady = true;
+        }
         Pointer window = gameWindow().getPointer();
         // Ours replaces any earlier one; the game's own file drops (resource packs) come back when the view closes.
         Function.getFunction("ole32", "RevokeDragDrop").invokeInt(new Object[] {window});
@@ -338,13 +356,12 @@ final class WebView2Host {
         dropsTaken = true;
     }
 
+    /** Gives the game window's drops back (the view hidden or closed). */
     private static void stopDrops() {
         if (dropsTaken) {
             Function.getFunction("ole32", "RevokeDragDrop").invokeInt(new Object[] {gameWindow().getPointer()});
             dropsTaken = false;
         }
-        Com.release(composition3);
-        composition3 = null;
     }
 
     /** A Win32 POINT passed by value. */
@@ -372,6 +389,7 @@ final class WebView2Host {
     /** Hides the view and gives the keyboard back to the game; the page stays loaded (and connected) for next time. */
     static void hide() {
         visible = false;
+        stopDrops();
         GLFW.glfwSetWindowAttrib(Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_AUTO_ICONIFY, GLFW.GLFW_TRUE);
         if (state == State.READY) {
             Com.call(controller, CTL_PUT_IS_VISIBLE, 0);
@@ -390,6 +408,8 @@ final class WebView2Host {
     static void close() {
         generation++;
         stopDrops();
+        Com.release(composition3);
+        composition3 = null;
         if (state == State.READY) {
             Com.call(controller, CTL_CLOSE);
         }
@@ -427,7 +447,7 @@ final class WebView2Host {
             Path profile = Files.createDirectories(gameDir.resolve("webview2-profile"));
             // Held for the session: JNA caches libraries weakly and unloads one nothing refers to.
             loader = NativeLibrary.getInstance(extractLoader(gameDir.resolve("webview2")).toString());
-            Com.Handler environmentHandler = keep(new Com.Handler((Com.Completed) (self, result, made) -> {
+            Com.Table environmentHandler = keep(Com.handler((Com.Completed) (self, result, made) -> {
                 if (created != generation) {
                     // Closed (or started again) meanwhile: what this call made isn't wanted.
                     return Com.S_OK;
@@ -469,7 +489,7 @@ final class WebView2Host {
         }
         inFrame = target != null;
         Pointer visual = target;
-        Com.Handler controllerHandler = keep(new Com.Handler((Com.Completed) (self, result, controllerMade) -> {
+        Com.Table controllerHandler = keep(Com.handler((Com.Completed) (self, result, controllerMade) -> {
             if (created != generation) {
                 if (controllerMade != null) {
                     // A controller nobody will show: close it rather than leave its browser process running.
@@ -508,9 +528,7 @@ final class WebView2Host {
             // onController took its own reference.
             Com.release(plain);
         }
-        if (state == State.READY) {
-            takeDrops();
-        }
+        takeDrops();
         if (state == State.READY && !CompositionView.capture()) {
             // Capture can't start here: the window it is, from now on.
             frameFailed = true;
@@ -535,7 +553,7 @@ final class WebView2Host {
         PointerByReference core = new PointerByReference();
         Com.call(controller, CTL_GET_CORE_WEBVIEW2, core);
         webview = core.getValue();
-        Com.Handler navigationHandler = keep(new Com.Handler((Com.Event) (self, sender, args) -> {
+        Com.Table navigationHandler = keep(Com.handler((Com.Event) (self, sender, args) -> {
             if (!loaded && state == State.READY) {
                 loaded = true;
                 apply();
@@ -566,6 +584,7 @@ final class WebView2Host {
             Com.call(controller, CTL_PUT_BOUNDS, rect);
             // It renders only while visible, and it draws into a texture nobody sees until the screen does.
             Com.call(controller, CTL_PUT_IS_VISIBLE, visible ? 1 : 0);
+            takeDrops();
             return;
         }
         // GLFW rebuilds the window's style when it enters or leaves fullscreen, dropping WS_CLIPCHILDREN.

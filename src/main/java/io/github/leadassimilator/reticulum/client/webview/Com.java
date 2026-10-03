@@ -14,6 +14,9 @@ import com.sun.jna.ptr.PointerByReference;
 /** Calling COM objects through JNA by vtable slot, and the small COM objects WebView2 calls back. */
 final class Com {
     static final int S_OK = 0;
+    static final int E_NOINTERFACE = 0x80004002;
+    static final String IID_UNKNOWN = "{00000000-0000-0000-C000-000000000046}";
+    static final String IID_DROP_TARGET = "{00000122-0000-0000-C000-000000000046}";
 
     private Com() {
     }
@@ -87,18 +90,39 @@ final class Com {
         int invoke(Pointer self);
     }
 
+    /** IDropTarget's Drop: the same arguments as DragEnter. */
+    interface Drop extends Callback {
+        int invoke(Pointer self, Pointer data, int keys, long point, Pointer effect);
+    }
+
+    /** A WebView2 handler (a "completed" or event handler): an object of one method, Invoke, answering any interface. */
+    static Table handler(Callback invoke) {
+        return new Table(null, invoke);
+    }
+
     /**
-     * A COM object of any interface: QueryInterface, AddRef and Release, then {@code methods} in vtable order. Like a
-     * {@link Handler}, kept for the session by its caller, so the reference count is ignored.
+     * A COM object: QueryInterface, AddRef and Release, then {@code methods} in vtable order. Kept for the session by
+     * its caller, so the reference count is ignored. {@code interfaces} are the IIDs it answers to (asked for any
+     * other, it says it has none; null answers all, enough for WebView2's own handlers). One that crosses processes
+     * (a drop target, which OLE marshals) must name its own: asked for IMarshal, saying yes would have OLE call its
+     * methods as IMarshal's.
      */
     static final class Table {
         private final Memory object = new Memory(Native.POINTER_SIZE);
         private final Memory vtable;
         private final Callback[] keep;
 
-        Table(Callback... methods) {
+        Table(@Nullable String[] interfaces, Callback... methods) {
             vtable = new Memory((3L + methods.length) * Native.POINTER_SIZE);
+            Guid.GUID[] accepted = interfaces == null ? null : java.util.Arrays.stream(interfaces).map(Com::iid).toArray(Guid.GUID[]::new);
             QueryInterface queryInterface = (self, iid, out) -> {
+                if (accepted != null) {
+                    Guid.GUID asked = new Guid.GUID(iid);
+                    if (java.util.Arrays.stream(accepted).noneMatch(asked::equals)) {
+                        out.setPointer(0, Pointer.NULL);
+                        return E_NOINTERFACE;
+                    }
+                }
                 out.setPointer(0, self);
                 return S_OK;
             };
@@ -121,32 +145,4 @@ final class Com {
         }
     }
 
-    /**
-     * A minimal COM object for a handler: a vtable of QueryInterface, AddRef, Release and Invoke. Its lifetime is
-     * the caller's (kept in a static list), so the reference count is ignored.
-     */
-    static final class Handler {
-        private final Memory object = new Memory(Native.POINTER_SIZE);
-        private final Memory vtable = new Memory(4L * Native.POINTER_SIZE);
-        private final QueryInterface queryInterface = (self, iid, out) -> {
-            out.setPointer(0, self);
-            return S_OK;
-        };
-        private final RefCount addRef = self -> 1;
-        private final RefCount release = self -> 1;
-        private final Callback invoke;
-
-        Handler(Callback invoke) {
-            this.invoke = invoke;
-            vtable.setPointer(0, CallbackReference.getFunctionPointer(queryInterface));
-            vtable.setPointer(Native.POINTER_SIZE, CallbackReference.getFunctionPointer(addRef));
-            vtable.setPointer(2L * Native.POINTER_SIZE, CallbackReference.getFunctionPointer(release));
-            vtable.setPointer(3L * Native.POINTER_SIZE, CallbackReference.getFunctionPointer(invoke));
-            object.setPointer(0, vtable);
-        }
-
-        Pointer pointer() {
-            return object;
-        }
-    }
 }
