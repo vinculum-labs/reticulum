@@ -35,7 +35,7 @@
   }
 </script>
 
-<InspectorPanel title={nodeTitle(copy)} subtitle={`A copy of the blueprint “${blueprint.name}”, in ${sheetPath(app.snapshot!, sheet)}`}>
+<InspectorPanel title={nodeTitle(copy)} subtitle={`A copy of the blueprint “${blueprint.name}”, in ${sheetPath(app.snapshot!, sheet)}.`}>
   <Field label="Name" hint="Optional; the blueprint's name is shown otherwise.">
     <TextField value={copy.label} disabled={!canEdit} placeholder={blueprint.name} oncommit={rename} />
   </Field>
