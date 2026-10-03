@@ -333,7 +333,7 @@ export const PIN_CARRIES: { value: string; label: string }[] = [
   { value: "", label: "Anything" },
   ...(["item", "fluid", "energy", "chemical", "redstone", "me"] as Resource[]).map((r) => ({
     value: r as string,
-    label: r === "redstone" ? "Signal (redstone)" : RESOURCE_LABEL[r],
+    label: RESOURCE_LABEL[r],
   })),
 ];
 
