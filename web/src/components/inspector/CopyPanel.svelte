@@ -5,6 +5,7 @@
   import { sheetPath } from "../../lib/tree";
   import type { CopySettings, GraphNode, Sheet } from "../../lib/types";
   import InspectorPanel from "./InspectorPanel.svelte";
+  import { KIND_ICON } from "../../lib/icons";
   import Field from "./Field.svelte";
   import TextField from "../controls/TextField.svelte";
 
@@ -36,6 +37,10 @@
 </script>
 
 <InspectorPanel title={nodeTitle(copy)} subtitle={`A copy of the blueprint “${blueprint.name}”, in ${sheetPath(app.snapshot!, sheet)}.`}>
+  {#snippet icon()}
+    {@const CopyIcon = KIND_ICON.copy}
+    <span class="shrink-0 muted"><CopyIcon size={24} /></span>
+  {/snippet}
   <Field label="Name" hint="Optional; the blueprint's name is shown otherwise.">
     <TextField value={copy.label} disabled={!canEdit} placeholder={blueprint.name} oncommit={rename} />
   </Field>

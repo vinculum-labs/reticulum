@@ -5,6 +5,8 @@
   import { copiesOf } from "../../lib/blueprints";
   import { pruneDevices, pruneSheet } from "../../lib/prune";
   import Scissors from "@lucide/svelte/icons/scissors";
+  import NetworkIcon from "@lucide/svelte/icons/network";
+  import { KIND_ICON } from "../../lib/icons";
   import { descendants, sheetPath } from "../../lib/tree";
   import type { Sheet } from "../../lib/types";
   import NumberField from "../controls/NumberField.svelte";
@@ -101,6 +103,11 @@
 </script>
 
 <InspectorPanel title={sheet.root ? "Top sheet" : sheet.blueprint ? "Blueprint" : "Sheet"}>
+  {#snippet icon()}
+    <!-- As in the tree: the network's icon for the top sheet, a blueprint's or a sheet's for the rest. -->
+    {@const KindIcon = sheet.root ? NetworkIcon : KIND_ICON[sheet.blueprint ? "copy" : "sheet"]}
+    <span class="shrink-0 muted"><KindIcon size={24} /></span>
+  {/snippet}
   {#snippet actions()}
     {#if canEdit && !sheet.root}<button class="btn btn-danger px-2" onclick={() => deleteSheet(sheet)} title={sheet.blueprint ? "Delete this blueprint" : "Delete this sheet"} aria-label={sheet.blueprint ? "Delete blueprint" : "Delete sheet"}><Trash size={16} /></button>{/if}
   {/snippet}
