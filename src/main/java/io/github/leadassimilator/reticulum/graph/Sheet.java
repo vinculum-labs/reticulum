@@ -98,10 +98,12 @@ public final class Sheet {
                 copy.connect(new Wire(id, ids.get(wire.from()), wire.output(), ids.get(wire.to()), wire.input(), wire.order()));
             }
         }
-        // A splitter's weights are by wire: they follow the wires to their new ids.
+        // A splitter's weights are by wire, and a Level sensor's slot by node: they follow them to their new ids.
         for (Node node : List.copyOf(copy.nodes)) {
             if (node.settings() instanceof NodeSettings.SplitterSettings splitter && !splitter.weights().isEmpty()) {
                 copy.replace(node.with(splitter.renamed(id -> wireIds.getOrDefault(id, id))));
+            } else if (node.settings() instanceof NodeSettings.LevelSettings level && level.slot().isPresent() && ids.containsKey(level.slot().get())) {
+                copy.replace(node.with(level.readingSlot(ids.get(level.slot().get()), level.device())));
             }
         }
         return copy;

@@ -145,6 +145,8 @@ export interface LevelSettings {
   output?: "amount" | "range" | "comparator";
   low?: number;
   high?: number;
+  /** On a blueprint: the slot whose block it reads, by the slot node's id (each copy reads the block filling it). */
+  slot?: string;
 }
 
 export type CompareOp = "lt" | "le" | "gt" | "ge" | "eq" | "ne";

@@ -6,7 +6,6 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
-import net.minecraft.core.GlobalPos;
 
 /**
  * Blueprints: reusable sheets whose device nodes are slots, placeholders for a kind of block. A copy of one (a copy
@@ -18,35 +17,31 @@ public final class Blueprints {
 
     /**
      * A blueprint node as a copy with these bindings has it: a slot gets its block (faces turned to match), a Level
-     * node reading a slot's block reads the block filling it. Null for a slot nothing fills: it can't run.
+     * node reading a slot reads the block filling it. Null for a slot nothing fills, or a sensor reading one: it can't run.
      */
     @Nullable
-    public static NodeSettings bound(Node inner, Map<UUID, NodeSettings.Binding> bindings, Map<GlobalPos, NodeSettings.Binding> byLayout) {
+    public static NodeSettings bound(Node inner, Map<UUID, NodeSettings.Binding> bindings) {
         return switch (inner.settings()) {
             case NodeSettings.DeviceSettings device -> {
                 NodeSettings.Binding binding = bindings.get(inner.id());
                 yield binding == null ? null : device.boundTo(binding);
             }
-            case NodeSettings.LevelSettings level -> {
-                NodeSettings.Binding binding = byLayout.get(level.device());
-                yield binding == null ? level : level.reading(binding.device(), NodeSettings.Binding.turn(level.faces(), binding.turns()));
+            case NodeSettings.LevelSettings level when level.slot().isPresent() -> {
+                NodeSettings.Binding binding = bindings.get(level.slot().get());
+                yield binding == null ? null : level.readingDevice(binding.device(), NodeSettings.Binding.turn(level.faces(), binding.turns()));
             }
             default -> inner.settings();
         };
     }
 
-    /** Each bound slot's binding by the block position the slot was laid out at (what Level nodes in it name). */
-    public static Map<GlobalPos, NodeSettings.Binding> byLayout(Sheet blueprint, Map<UUID, NodeSettings.Binding> bindings) {
-        Map<GlobalPos, NodeSettings.Binding> out = new HashMap<>();
-        if (bindings.isEmpty()) {
-            return out;
-        }
-        for (Node node : blueprint.nodes()) {
-            if (node.settings() instanceof NodeSettings.DeviceSettings device && bindings.containsKey(node.id())) {
-                out.put(device.device(), bindings.get(node.id()));
-            }
-        }
-        return out;
+    /** The slot a blueprint node needs filled to run: itself for a slot, the slot it reads for a Level node. */
+    @Nullable
+    public static UUID slotNeeded(Node inner) {
+        return switch (inner.settings()) {
+            case NodeSettings.DeviceSettings device -> inner.id();
+            case NodeSettings.LevelSettings level -> level.slot().orElse(null);
+            default -> null;
+        };
     }
 
     /** A copy's bindings for the slots its blueprint still has (one taken out leaves its block free). */

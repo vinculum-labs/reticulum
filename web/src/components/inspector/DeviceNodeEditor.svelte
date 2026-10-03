@@ -110,8 +110,7 @@
     change(
       {
         ...settings,
-        // XXX: the slot's layout position moves to the picked device's (or nowhere): Level sensors on the blueprint find
-        // their slot by that position, so in every copy they then read the old position's block instead of the slot's.
+        // A slot's layout position moves with the pick; Level sensors find their slot by id, so they still read it.
         device: fresh.device,
         ...(slot ? { block: picked.block } : {}),
         inputs: [...keptIn, ...(fresh.inputs ?? []).filter((f) => !keptIn.some((k) => covers(k, f)))],

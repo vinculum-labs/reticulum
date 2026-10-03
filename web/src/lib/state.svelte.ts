@@ -679,7 +679,8 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
       // Its node (its home), or on a blueprint a slot made from it; else a node reading it (a Level sensor).
       if (s.kind === "device" && !sheet.blueprint) add(s.device, { label, sheetId: sheet.id, nodeId: node.id, home: true });
       else if (s.kind === "device") add(s.device, { label: `${label}: a blueprint slot is made from it (where its layout measures from)`, sheetId: sheet.id, nodeId: node.id });
-      else if ("device" in s) add(s.device as GlobalPos, { label: `${label}: a ${KIND_LABEL[s.kind]} reads it`, sheetId: sheet.id, nodeId: node.id });
+      // A sensor reading a blueprint slot reads whatever fills it, not the block the slot was laid out on.
+      else if ("device" in s && !(s.kind === "level" && s.slot)) add(s.device as GlobalPos, { label: `${label}: a ${KIND_LABEL[s.kind]} reads it`, sheetId: sheet.id, nodeId: node.id });
       // A block filling a slot of a copy lives in that copy.
       if (s.kind === "copy" && !sheet.blueprint) {
         const copyLabel = `${label} › ${nodeTitle(node)}`;

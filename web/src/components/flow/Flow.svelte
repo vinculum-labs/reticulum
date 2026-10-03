@@ -44,7 +44,7 @@
     fillSlot,
     homeCheck,
   } from "../../lib/state.svelte";
-  import { copiesOf, copyActivity, nowhere, ownBlocks } from "../../lib/blueprints";
+  import { copiesOf, copyActivity, nowhere, ownBlocks, slotsOf } from "../../lib/blueprints";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
@@ -709,6 +709,19 @@
         const placed = app.snapshot?.sheets.find((s) => s.id === id)?.node;
         if (placed) app.selectedNodes = [placed];
       }
+      return;
+    }
+    // A Level sensor on a blueprint reads its first slot (each copy: the block filling it); with no slots, a device.
+    const firstSlot = into.blueprint && kind === "level" && !device ? slotsOf(into)[0] : undefined;
+    if (firstSlot) {
+      const node: GraphNode = {
+        id: uuid(),
+        settings: { kind: "level", device: firstSlot.settings.device, resource: "item", filter: "", slot: firstSlot.id },
+        x: Math.round(at.x),
+        y: Math.round(at.y),
+      };
+      const ok = await edit([{ type: "addNode", sheet: into.id, node }], [{ type: "removeNode", sheet: into.id, node: node.id }], "add node");
+      if (ok) select([node.id], []);
       return;
     }
     const needsDevice = kind === "device" || kind === "level";

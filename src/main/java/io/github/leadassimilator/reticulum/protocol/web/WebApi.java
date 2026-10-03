@@ -439,6 +439,7 @@ public final class WebApi {
                     Sheet sheet = sheet(network, edit);
                     Node node = decode(server, Node.CODEC, edit.get("node"), "node");
                     checkPorts(network, sheet, node);
+                    checkSlotRead(sheet, node);
                     checkSheetNode(network, sheet, node, type.equals("addNode"));
                     checkHome(network, sheet, node, type.equals("updateNode") ? sheet.node(node.id()) : null);
                     check(Limits.check(node));
@@ -799,6 +800,16 @@ public final class WebApi {
             parent.add(Node.of(new NodeSettings.SheetSettings(sheet.id())).at(x, y));
         }
 
+        /** A Level sensor reading a slot: only on a blueprint, and a slot of that blueprint. */
+        private static void checkSlotRead(Sheet sheet, Node node) throws RequestException {
+            if (node.settings() instanceof NodeSettings.LevelSettings level && level.slot().isPresent()) {
+                Node slot = sheet.node(level.slot().get());
+                if (!sheet.blueprint() || slot == null || !(slot.settings() instanceof NodeSettings.DeviceSettings)) {
+                    throw new RequestException("A Level sensor can only read a slot of its own blueprint");
+                }
+            }
+        }
+
         /** Refuses putting a sheet {@code height} levels deep inside {@code parent} past the tree's depth limit. */
         private static void deepEnough(Network network, Sheet parent, int height) throws RequestException {
             if (network.depth(parent) + 1 + height > Limits.SHEET_DEPTH) {
@@ -895,12 +906,20 @@ public final class WebApi {
             Sheet blueprint = sheet.copyWithNewIds(keep ? Limits.name(sheet.name() + " blueprint") : sheet.name(), ids);
             blueprint.setBlueprint(true);
             Map<UUID, NodeSettings.Binding> bindings = new HashMap<>();
+            Map<GlobalPos, UUID> slotOf = new HashMap<>();
             for (Node original : sheet.nodes()) {
                 if (original.settings() instanceof NodeSettings.DeviceSettings device) {
                     var record = network.device(device.device());
                     Node slot = blueprint.node(ids.get(original.id()));
                     blueprint.replace(slot.with(device.withBlock(record == null ? java.util.Optional.empty() : java.util.Optional.of(record.blockId()))));
                     bindings.put(slot.id(), new NodeSettings.Binding(device.device(), 0));
+                    slotOf.putIfAbsent(device.device(), slot.id());
+                }
+            }
+            // A Level sensor reading one of the sheet's devices reads that device's slot: in each copy, its block.
+            for (Node node : List.copyOf(blueprint.nodes())) {
+                if (node.settings() instanceof NodeSettings.LevelSettings level && level.slot().isEmpty() && slotOf.containsKey(level.device())) {
+                    blueprint.replace(node.with(level.readingSlot(slotOf.get(level.device()), level.device())));
                 }
             }
             network.sheets().add(blueprint);
@@ -941,12 +960,14 @@ public final class WebApi {
             Map<UUID, UUID> ids = new HashMap<>();
             Sheet sheet = blueprint.copyWithNewIds(node.label().orElse(blueprint.name()), ids);
             sheet.setBlueprint(false);
-            var byLayout = io.github.leadassimilator.reticulum.graph.Blueprints.byLayout(blueprint, copy.bindings());
             for (Node inner : blueprint.nodes()) {
                 Node made = sheet.node(ids.get(inner.id()));
-                NodeSettings bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(inner, copy.bindings(), byLayout);
+                NodeSettings bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(inner, copy.bindings());
                 if (bound == null && inner.settings() instanceof NodeSettings.DeviceSettings device) {
                     bound = device.withBlock(java.util.Optional.empty());
+                } else if (bound == null && inner.settings() instanceof NodeSettings.LevelSettings level) {
+                    // Reading a slot the blueprint no longer has: it reads where that slot was laid out.
+                    bound = level.readingDevice(level.device(), level.faces());
                 }
                 sheet.replace(made.with(bound));
                 // What it remembered in the copy, now under its own id.

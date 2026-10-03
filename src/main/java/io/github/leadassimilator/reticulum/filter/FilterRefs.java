@@ -78,7 +78,7 @@ public final class FilterRefs {
     public static NodeSettings rename(NodeSettings settings, UnaryOperator<String> f) {
         return switch (settings) {
             case NodeSettings.FilterSettings s -> new NodeSettings.FilterSettings(f.apply(s.expression()));
-            case NodeSettings.LevelSettings s -> new NodeSettings.LevelSettings(s.resource(), s.device(), s.faces(), f.apply(s.filter()), s.output(), s.low(), s.high());
+            case NodeSettings.LevelSettings s -> s.filtered(f.apply(s.filter()));
             case NodeSettings.KitSettings s -> new NodeSettings.KitSettings(
                     s.lines().stream().map(l -> new NodeSettings.KitLine(f.apply(l.filter()), l.count())).toList(), s.maxKits());
             case NodeSettings.DeviceSettings s -> new NodeSettings.DeviceSettings(

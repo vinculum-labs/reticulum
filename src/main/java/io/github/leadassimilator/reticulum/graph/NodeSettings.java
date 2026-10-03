@@ -447,12 +447,17 @@ public sealed interface NodeSettings {
     /** How much of a resource a device holds (items, mB or FE), counting only what matches {@code filter}. */
     /**
      * {@code output}: what it gives: the amount itself, the amount mapped onto 0 to 15 between {@code low} (0) and
-     * {@code high} (15), or 0 to 15 by how full the device is, like a comparator.
+     * {@code high} (15), or 0 to 15 by how full the device is, like a comparator. {@code slot}: on a blueprint, the slot
+     * whose block it reads (by the slot node's id; each copy reads the block filling it), else {@code device} itself.
      */
-    record LevelSettings(ResourceKind resource, GlobalPos device, List<FaceKey> faces, String filter, LevelOutput output, long low, long high)
-            implements NodeSettings {
+    record LevelSettings(ResourceKind resource, GlobalPos device, List<FaceKey> faces, String filter, LevelOutput output, long low, long high,
+            Optional<UUID> slot) implements NodeSettings {
         public LevelSettings(ResourceKind resource, GlobalPos device, List<FaceKey> faces, String filter) {
-            this(resource, device, faces, filter, LevelOutput.AMOUNT, 0, 0);
+            this(resource, device, faces, filter, LevelOutput.AMOUNT, 0, 0, Optional.empty());
+        }
+
+        public LevelSettings(ResourceKind resource, GlobalPos device, List<FaceKey> faces, String filter, LevelOutput output, long low, long high) {
+            this(resource, device, faces, filter, output, low, high, Optional.empty());
         }
 
         public static final MapCodec<LevelSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
@@ -462,12 +467,28 @@ public sealed interface NodeSettings {
                 Codec.STRING.optionalFieldOf("filter", "").forGetter(LevelSettings::filter),
                 LevelOutput.CODEC.optionalFieldOf("output", LevelOutput.AMOUNT).forGetter(LevelSettings::output),
                 Codec.LONG.optionalFieldOf("low", 0L).forGetter(LevelSettings::low),
-                Codec.LONG.optionalFieldOf("high", 0L).forGetter(LevelSettings::high)
+                Codec.LONG.optionalFieldOf("high", 0L).forGetter(LevelSettings::high),
+                Ids.UUID_CODEC.optionalFieldOf("slot").forGetter(LevelSettings::slot)
         ).apply(i, LevelSettings::new));
 
-        /** The same sensor reading another device (its faces as given): a block replaced, or filling a blueprint slot. */
+        /** The same sensor reading another device (its faces as given): a block replaced. */
         public LevelSettings reading(GlobalPos device, List<FaceKey> faces) {
-            return new LevelSettings(resource, device, faces, filter, output, low, high);
+            return new LevelSettings(resource, device, faces, filter, output, low, high, slot);
+        }
+
+        /** The same sensor reading a device itself, not a slot (in a copy: the block filling its slot). */
+        public LevelSettings readingDevice(GlobalPos device, List<FaceKey> faces) {
+            return new LevelSettings(resource, device, faces, filter, output, low, high, Optional.empty());
+        }
+
+        /** The same sensor reading a blueprint's slot (under its id), from where the slot was laid out. */
+        public LevelSettings readingSlot(UUID slot, GlobalPos layout) {
+            return new LevelSettings(resource, layout, faces, filter, output, low, high, Optional.of(slot));
+        }
+
+        /** The same sensor with another filter (a template renamed). */
+        public LevelSettings filtered(String filter) {
+            return new LevelSettings(resource, device, faces, filter, output, low, high, slot);
         }
 
         /**

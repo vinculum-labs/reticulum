@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.protocol.web.WebApi;
@@ -241,6 +242,47 @@ public final class WebApiTests {
             helper.fail("The same wire was drawn twice");
         } catch (WebApi.RequestException expected) {
             // expected
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A blueprint made from a sheet: a Level sensor reading one of its devices reads that device's slot, by id, so in
+     * each copy it reads the block filling the slot (whatever kind or layout position the slot is given later).
+     */
+    @GameTest(template = "empty")
+    public static void aSensorOnABlueprintReadsItsSlot(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        helper.setBlock(new BlockPos(3, 1, 2), Blocks.BARREL);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.members().put(player.getUUID(), new Member(player.getUUID(), "test", Role.EDITOR));
+        String id = network.id().toString();
+        String sheet = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"t\"}]}")
+                .getAsJsonArray("results").get(0).getAsString();
+        String barrel = pos(helper, new BlockPos(3, 1, 2));
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":["
+                + "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + UUID.randomUUID() + "\",\"settings\":{\"kind\":\"device\",\"device\":" + barrel + "}}},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + UUID.randomUUID() + "\",\"settings\":{\"kind\":\"level\",\"resource\":\"item\",\"device\":" + barrel + "}}}"
+                + "]}");
+        String made = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"makeBlueprint\",\"sheet\":\"" + sheet + "\"}]}")
+                .getAsJsonArray("results").get(0).getAsString();
+        var blueprint = network.sheet(UUID.fromString(made));
+        var slot = blueprint.nodes().stream().filter(n -> n.settings() instanceof NodeSettings.DeviceSettings).findFirst().orElseThrow();
+        var sensor = blueprint.nodes().stream().filter(n -> n.settings() instanceof NodeSettings.LevelSettings).findFirst().orElseThrow();
+        if (!(sensor.settings() instanceof NodeSettings.LevelSettings level) || !level.slot().equals(java.util.Optional.of(slot.id()))) {
+            helper.fail("The sensor doesn't read the slot made from its device: " + sensor.settings());
+            return;
+        }
+        // In a copy filled with another block, it reads that block.
+        net.minecraft.core.GlobalPos other = net.minecraft.core.GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(5, 1, 5)));
+        var bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(sensor, java.util.Map.of(slot.id(), new NodeSettings.Binding(other, 0)));
+        if (!(bound instanceof NodeSettings.LevelSettings reading) || !reading.device().equals(other) || reading.slot().isPresent()) {
+            helper.fail("In a copy the sensor doesn't read the block filling its slot: " + bound);
         }
         helper.succeed();
     }

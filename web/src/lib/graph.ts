@@ -5,6 +5,7 @@ import type { Binding, Device, GlobalPos, GraphNode, MeUsage, Resource, Sheet, W
 export type { MeUsage };
 import { GATE, pinName, pinSlot, posKey, sheetPins } from "./types";
 import { RESOURCE_VAR, formatRate, isSignal } from "./kinds";
+import { slotName } from "./blueprints";
 
 export interface NodeData extends Record<string, unknown> {
   node: GraphNode;
@@ -33,6 +34,8 @@ export interface NodeData extends Record<string, unknown> {
    * is then that block) and how far it is turned.
    */
   slot?: { block?: string; filled?: boolean; turns?: number };
+  /** A Level sensor on a blueprint reading a slot: that slot (with a copy open, {@code device} is the block filling it). */
+  reads?: { name: string; block?: string };
 }
 
 /** A card's header height and pin row height, as GraphNode draws them. */
@@ -432,6 +435,13 @@ export function toFlow(
 function markSlots(nodes: Node<NodeData>[], bindings: Record<string, Binding> | undefined, byKey: Map<string, Device>) {
   for (const n of nodes) {
     const s = n.data.node.settings;
+    if (s.kind === "level" && s.slot) {
+      const slot = nodes.find((m) => m.id === s.slot)?.data.node;
+      const binding = bindings?.[s.slot];
+      n.data.reads = slot ? { name: slotName(slot), block: slot.settings.kind === "device" ? slot.settings.block : undefined } : { name: "a removed slot" };
+      n.data.device = binding ? byKey.get(posKey(binding.device)) : undefined;
+      continue;
+    }
     if (s.kind !== "device") continue;
     const binding = bindings?.[n.id];
     n.data.slot = { block: s.block, filled: bindings ? !!binding : undefined, turns: binding?.turns };

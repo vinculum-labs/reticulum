@@ -193,7 +193,14 @@
       : '0 1px 3px rgb(0 0 0 / 0.25)'}; opacity: {disabled ? 0.5 : 1}"
 >
   <div data-card-header class="group flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
-    {#if data.device && sensor}
+    {#if sensor && !data.device && data.reads?.block}
+      <!-- A sensor reading a slot: the kind of block the slot takes, faded as the slot's own is. -->
+      {@const SensorIcon = KIND_ICON.level}
+      <span class="relative shrink-0">
+        <span style="opacity: 0.5"><DeviceIcon item={data.reads.block} size={16} /></span>
+        <span class="sensor-badge" style="color: {color}"><SensorIcon size={9} /></span>
+      </span>
+    {:else if data.device && sensor}
       <!-- The device it reads, badged as a sensor so the card isn't taken for the device's own. -->
       {@const SensorIcon = KIND_ICON.level}
       <span class="relative shrink-0">
@@ -225,7 +232,7 @@ ${idleTitle}` : idleTitle}
           {data.slot.filled === undefined ? "slot" : data.slot.filled ? `fills a slot${data.slot.turns ? `, turned ${(data.slot.turns % 4) * 90}°` : ""}` : "empty slot"}
         {:else if signal}
           <span class="tabular-nums" style="color: {(data.signal ?? 0) > 0 ? color : 'var(--muted)'}">{data.signal ?? 0}</span>
-          · {sensor && data.device ? `${deviceName(data.device)} · ` : ""}{summary(data.node, app.rateUnit)}
+          · {sensor && data.device ? `${deviceName(data.device)} · ` : sensor && data.reads ? `${data.reads.name} · ` : ""}{summary(data.node, app.rateUnit)}
         {:else if data.rate > 0}
           <span class="tabular-nums" style="color: {color}">{formatRate(data.rate, data.resource, app.rateUnit)}</span>
         {:else if data.status}

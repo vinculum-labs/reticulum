@@ -255,9 +255,26 @@
   {/if}
 
   {#if s.kind === "level"}
-    <Field label="Device">
-      <DevicePicker {devices} value={s.device} disabled={!canEdit} onchange={(d) => settings({ device: d.pos })} />
-    </Field>
+    {#if sheet.blueprint}
+      <!-- On a blueprint it reads a slot, by the slot's id: in each copy, the block filling it. Or one fixed device. -->
+      {@const slots = slotsOf(sheet)}
+      <Field label="Reads" hint="A slot: each copy's sensor reads the block filling that slot. A fixed device: the same block for every copy.">
+        <Select
+          value={s.slot ?? ""}
+          disabled={!canEdit}
+          options={[...slots.map((slot) => ({ value: slot.id, label: slotName(slot) })), { value: "", label: "A fixed device" }]}
+          onchange={(slot) => {
+            const picked = slots.find((x) => x.id === slot);
+            settings(picked ? { slot: picked.id, device: picked.settings.device } : { slot: undefined });
+          }}
+        />
+      </Field>
+    {/if}
+    {#if !sheet.blueprint || !s.slot}
+      <Field label="Device">
+        <DevicePicker {devices} value={s.device} disabled={!canEdit} onchange={(d) => settings({ device: d.pos })} />
+      </Field>
+    {/if}
   {/if}
   {#if s.kind === "level"}
     <Field label="Resource">
