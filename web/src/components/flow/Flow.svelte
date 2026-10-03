@@ -180,7 +180,10 @@
     // The open sheet's frame offers its + input / + output buttons only where the sheet can be edited.
     for (const n of built.nodes) if (n.type === "sheetFrame") (n.data as unknown as { canAdd: boolean }).canAdd = editable;
     untrack(() => {
-      if (app.selectedNodes.some((id) => !built.owner.has(id))) app.selectedNodes = app.selectedNodes.filter((id) => built.owner.has(id));
+      // Gone from the canvas: no longer selected. Not one just added to be named, which the server's update may not
+      // have brought yet.
+      const kept = (id: string) => built.owner.has(id) || id === app.nameNode;
+      if (app.selectedNodes.some((id) => !kept(id))) app.selectedNodes = app.selectedNodes.filter(kept);
       if (app.selectedEdges.some((id) => !built.owner.has(id))) app.selectedEdges = app.selectedEdges.filter((id) => built.owner.has(id));
     });
     rebuilding = true;
@@ -267,6 +270,9 @@
     const nodeIds = n.map((x) => x.id);
     const edgeIds = e.map((x) => x.id);
     if (rebuilding && nodeIds.length === 0 && edgeIds.length === 0) return;
+    // Nor can it let go of a node just added to be named: the network's update rebuilds the canvas from the selection
+    // before it, and the empty one it then reports would drop the new node. Leaving its name box ends that.
+    if (nodeIds.length === 0 && edgeIds.length === 0 && app.nameNode && app.selectedNodes.includes(app.nameNode)) return;
     const changed = !sameIds(nodeIds, app.selectedNodes) || !sameIds(edgeIds, app.selectedEdges);
     if (!sameIds(nodeIds, app.selectedNodes)) app.selectedNodes = nodeIds;
     if (!sameIds(edgeIds, app.selectedEdges)) app.selectedEdges = edgeIds;

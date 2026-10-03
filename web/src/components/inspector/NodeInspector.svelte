@@ -163,7 +163,7 @@
 
   <!--
     One name each, as the tree and the other panels show it: a sheet node's is its sheet's and a device node's its
-    device's (renaming either renames that), a pin's is its Pin name below; any other node's is its own, optional.
+    device's (renaming either renames that), a pin's is its name below; any other node's is its own, optional.
   -->
   {#if s.kind === "sheet"}
     {@const named = app.snapshot?.sheets.find((x) => x.id === s.sheet)}
@@ -392,12 +392,14 @@
     {/if}
   {:else if s.kind === "sheet_input" || s.kind === "sheet_output"}
     <Field
-      label="Pin name"
+      label="Name"
       hint={`Shown by its dot on the sheet's ${s.kind === "sheet_input" ? "left" : "right"} edge, and on the sheet's node. Drag the pin up or down to reorder.`}
     >
       <!-- A name once set as the node's label shows here too, and moves into the pin's name when edited. -->
-      <TextField value={s.name || node.label} disabled={!canEdit} placeholder="e.g. ores"
-        oncommit={(v) => save({ ...node, label: undefined, settings: { ...s, name: v } }, "rename pin")} />
+      <!-- A pin just added takes the keyboard, to be named straight away. -->
+      <TextField value={s.name || node.label} disabled={!canEdit} placeholder="e.g. ores" autofocus={app.nameNode === node.id}
+        oncommit={(v) => save({ ...node, label: undefined, settings: { ...s, name: v } }, "rename pin")}
+        onfinish={() => app.nameNode === node.id && (app.nameNode = null)} />
     </Field>
     <Field label="Carries" hint="Wires of other kinds won't connect to it. Anything: whatever is wired to it.">
       <Select

@@ -164,6 +164,8 @@ export const app = $state({
   focusNode: null as string | null,
   /** A node that pulses briefly to draw the eye (one picked from the sheet's errors). */
   flashNode: null as string | null,
+  /** A node just added to be named: its panel's name field takes the keyboard, its default name selected. */
+  nameNode: null as string | null,
   /** A panel shown in place of the inspector ("network" = network settings). */
   panel: null as "network" | "identified" | "dashboard" | null,
   /** How long the network's ticks take, in ms (last 200 ticks). */
@@ -641,6 +643,7 @@ export async function addSheetPin(sheet: Sheet, input: boolean) {
   if (ok) {
     app.selectedNodes = [node.id];
     app.selectedEdges = [];
+    app.nameNode = node.id;
   }
 }
 
