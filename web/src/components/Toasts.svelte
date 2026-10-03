@@ -14,6 +14,10 @@
       role={t.kind === "error" ? "alert" : "status"}
     >
       <span class="flex-1">{t.text}</span>
+      {#if t.action}
+        {@const action = t.action}
+        <button class="btn shrink-0 text-xs" onclick={() => (action.run(), dismiss(t.id))}>{action.label}</button>
+      {/if}
       <RemoveButton label="Dismiss" onclick={() => dismiss(t.id)} />
     </div>
   {/each}

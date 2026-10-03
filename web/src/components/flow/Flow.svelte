@@ -31,6 +31,7 @@
     openCopyNode,
     openSheet,
     resync,
+    showNode,
     setBindings,
     toast,
     uuid,
@@ -506,8 +507,10 @@
       return true;
     }
     const ok = await edit(change.edits, change.undo, nodesMoved.length === 1 ? `move to ${target.sheet.name}` : `move ${nodesMoved.length} to ${target.sheet.name}`);
-    if (ok && intoParent) toast(`Moved to “${target.sheet.name}”, beside this sheet's node (undo puts it back).`, "info");
-    if (ok && intoClosed) toast(`Moved into “${target.sheet.name}” (undo puts it back).`, "info");
+    // Off the canvas now: a button there takes you to it.
+    const goTo = { label: "Show", run: () => showNode(target.sheet.id, nodesMoved[0].id) };
+    if (ok && intoParent) toast(`Moved to “${target.sheet.name}”, beside this sheet's node (undo puts it back).`, "info", goTo);
+    if (ok && intoClosed) toast(`Moved into “${target.sheet.name}” (undo puts it back).`, "info", goTo);
     return true;
   }
 

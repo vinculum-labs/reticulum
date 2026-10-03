@@ -450,6 +450,9 @@ public final class WebApi {
                     if (sheet.node(wire.from()) == null || sheet.node(wire.to()) == null) {
                         throw new RequestException("Wire ends must be nodes on the same sheet");
                     }
+                    if (wire.from().equals(wire.to())) {
+                        throw new RequestException("A wire can't go from a node back into itself");
+                    }
                     if (sheet.wires().size() >= Limits.WIRES_PER_SHEET) {
                         throw new RequestException("A sheet can have at most " + Limits.WIRES_PER_SHEET + " wires");
                     }

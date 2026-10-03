@@ -2,7 +2,8 @@
 // and join the other, and each wire that now crosses an edge is rebuilt through pins, as one change.
 
 import type { Edit, GraphNode, Sheet, Snapshot, Wire } from "./types";
-import { crossWire } from "./crossing";
+import { GATE, pinSlot, sheetPins } from "./types";
+import { crossWire, type End } from "./crossing";
 
 /**
  * The edits (and undo) moving {@code moving} (cards on {@code from}) onto {@code to}, each at its spot there. Wires
@@ -40,22 +41,58 @@ export function moveAcross(
     ...moved.map((node) => ({ type: "addNode", sheet: to.id, node }) as Edit),
     ...inside.map((wire) => ({ type: "connect", sheet: to.id, wire }) as Edit),
   ];
+  /** Whether {@code inner} is {@code outer} or a sheet inside it. */
+  const within = (inner: Sheet, outer: Sheet) => {
+    for (let at: Sheet | undefined = inner, depth = 0; at && depth < 64; at = at.parent ? virtual.get(at.parent) : undefined, depth++) {
+      if (at.id === outer.id) return true;
+    }
+    return false;
+  };
+  const held = (end: End) => {
+    const s = end.sheet.nodes?.find((n) => n.id === end.node)?.settings;
+    return s?.kind === "sheet" ? virtual.get(s.sheet) : undefined;
+  };
+  /**
+   * A wire's source as seen from {@code toward}: a sheet node's output, when {@code toward} is that sheet (or inside
+   * it), is what feeds the output pin inside, followed down; so a card moved into a sheet is wired to the real source
+   * there, not back out and in again through the sheet's own pins.
+   */
+  const sources = (end: End, toward: Sheet, depth = 0): End[] => {
+    const inner = held(end);
+    if (!inner || depth > 16 || !within(toward, inner)) return [end];
+    const pin = sheetPins(inner, false).find((p, i) => pinSlot(p, i) === end.index);
+    if (!pin) return [];
+    return (inner.wires ?? []).filter((w) => w.to === pin.id).flatMap((w) => sources({ sheet: inner, node: w.from, index: w.output ?? 0 }, toward, depth + 1));
+  };
+  /** The same for a target: a sheet node's input, seen from inside that sheet, is what its input pin feeds. */
+  const targets = (end: End, from: Sheet, depth = 0): End[] => {
+    const inner = held(end);
+    if (!inner || end.index === GATE || depth > 16 || !within(from, inner)) return [end];
+    const pin = sheetPins(inner, true).find((p, i) => pinSlot(p, i) === end.index);
+    if (!pin) return [];
+    return (inner.wires ?? []).filter((w) => w.from === pin.id).flatMap((w) => targets({ sheet: inner, node: w.to, index: w.input ?? 0 }, from, depth + 1));
+  };
+
   const undoCrossings: Edit[][] = [];
   for (const w of outside) {
     const out = ids.has(w.from);
-    const source = { sheet: out ? vTo : vFrom, node: w.from, index: w.output ?? 0 };
-    const target = { sheet: out ? vFrom : vTo, node: w.to, index: w.input ?? 0 };
-    const sourceNode = source.sheet.nodes!.find((n) => n.id === w.from);
-    const crossing = crossWire(view, source, target, sourceNode ? title(sourceNode) : "pin", uuid);
-    if (!crossing) return null;
-    edits.push(...crossing.edits);
-    undoCrossings.push(crossing.undo);
-    // Later wires see the pins and wires this one made.
-    for (const e of crossing.edits) {
-      const sheet = virtual.get(e.sheet as string);
-      if (!sheet) continue;
-      if (e.type === "addNode") sheet.nodes!.push(e.node as GraphNode);
-      if (e.type === "connect") sheet.wires!.push(e.wire as Wire);
+    const source: End = { sheet: out ? vTo : vFrom, node: w.from, index: w.output ?? 0 };
+    const target: End = { sheet: out ? vFrom : vTo, node: w.to, index: w.input ?? 0 };
+    for (const s of sources(source, target.sheet)) {
+      for (const t of targets(target, s.sheet)) {
+        const sourceNode = s.sheet.nodes!.find((n) => n.id === s.node);
+        const crossing = crossWire(view, s, t, sourceNode ? title(sourceNode) : "pin", uuid);
+        if (!crossing) return null;
+        edits.push(...crossing.edits);
+        undoCrossings.push(crossing.undo);
+        // Later wires see the pins and wires this one made.
+        for (const e of crossing.edits) {
+          const sheet = virtual.get(e.sheet as string);
+          if (!sheet) continue;
+          if (e.type === "addNode") sheet.nodes!.push(e.node as GraphNode);
+          if (e.type === "connect") sheet.wires!.push(e.wire as Wire);
+        }
+      }
     }
   }
   // Undone in reverse: the rebuilt wires and their pins, then the cards back where they were, with their wires.

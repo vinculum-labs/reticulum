@@ -13,6 +13,8 @@ export interface Toast {
   id: number;
   text: string;
   kind: "error" | "info";
+  /** A button on it, e.g. to go to what it is about. */
+  action?: { label: string; run: () => void };
 }
 
 interface Change {
@@ -173,12 +175,13 @@ export const app = $state({
 
 let toastSeq = 0;
 
-export function toast(text: string, kind: Toast["kind"] = "error"): void {
+export function toast(text: string, kind: Toast["kind"] = "error", action?: Toast["action"]): void {
   const id = ++toastSeq;
-  app.toasts.push({ id, text, kind });
+  app.toasts.push({ id, text, kind, action });
+  // One with a button stays long enough to use it.
   setTimeout(() => {
     app.toasts = app.toasts.filter((t) => t.id !== id);
-  }, kind === "error" ? 7000 : 3000);
+  }, kind === "error" || action ? 7000 : 3000);
 }
 
 const connection = new Connection(onMessage, (open) => {
