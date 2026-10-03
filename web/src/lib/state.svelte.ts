@@ -385,35 +385,55 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
 
 /**
  * A node edit made from {@code node} (as the snapshot shows it) turned into {@code next}, rebased onto the version
- * last sent for that node if its answer hasn't come back yet. Only the fields this edit changed are taken from
- * {@code next}, so typing a label and then clicking a checkbox keeps both. Returns the node to send, and the one
- * to restore on undo.
+ * last sent for that node if its answer hasn't come back yet. Only what this edit changed is taken from {@code next},
+ * however deep (a cap's amount inside an input), so typing an amount and then ticking a face keeps both. Returns the
+ * node to send, and the one to restore on undo.
  */
 export function rebase(node: GraphNode, next: GraphNode): { after: GraphNode; before: GraphNode } {
   const before = sentNodes.get(node.id) ?? node;
   if (before === node) return { after: next, before };
-  const after: any = { ...before };
-  for (const key of Object.keys(next) as (keyof GraphNode)[]) {
-    if (key === "settings") continue;
-    if (!same(next[key], node[key])) after[key] = next[key];
+  return { after: merged(node, next, before) as GraphNode, before };
+}
+
+/**
+ * {@code mine} and {@code theirs}, both made from {@code base}: what only one changed is taken from it; where both
+ * changed the same thing, mine wins. Objects merge key by key, lists of the same length item by item.
+ */
+function merged(base: unknown, mine: unknown, theirs: unknown): unknown {
+  if (same(mine, base)) return theirs;
+  if (same(theirs, base)) return mine;
+  if (Array.isArray(base) && Array.isArray(mine) && Array.isArray(theirs) && base.length === mine.length && base.length === theirs.length) {
+    return mine.map((item, i) => merged(base[i], item, theirs[i]));
   }
-  if (!same(next.settings, node.settings)) {
-    const settings: any = { ...before.settings };
-    for (const key of Object.keys(next.settings)) {
-      if (!same((next.settings as any)[key], (node.settings as any)[key])) settings[key] = (next.settings as any)[key];
+  if (isRecord(base) && isRecord(mine) && isRecord(theirs)) {
+    const out: Record<string, unknown> = {};
+    for (const key of new Set([...Object.keys(base), ...Object.keys(mine), ...Object.keys(theirs)])) {
+      const value = merged(base[key], mine[key], theirs[key]);
+      if (value !== undefined) out[key] = value;
     }
-    after.settings = settings;
+    return out;
   }
-  return { after, before };
+  return mine;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function same(a: unknown, b: unknown): boolean {
   return a === b || JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** Undo and redo put a change back on its stack when the server refuses it, so it isn't lost. */
-export function undo(): Promise<void> {
+/**
+ * Undo and redo put a change back on its stack when the server refuses it, so it isn't lost. {@code only}: undo that
+ * change only if it is still the last one when its turn comes (edits sent before it may land first).
+ */
+export function undo(only?: (typeof app.undo)[number]): Promise<void> {
   return serially(async () => {
+    if (only && app.undo[app.undo.length - 1] !== only) {
+      toast("Something else has changed since — use Undo in the top bar.", "info");
+      return;
+    }
     const change = app.undo.pop();
     if (!change) return;
     if (change.network !== app.current) {
@@ -752,7 +772,7 @@ export function uuid(): string {
   return crypto.randomUUID();
 }
 
-/** Deletes a sheet, after asking: its nodes and the sheets inside it go with it (undo brings them back). */
+/** Deletes a sheet, after asking: its nodes and the sheets inside it go with it. It can't be undone, as on the canvas. */
 export async function deleteSheet(sheet: Sheet) {
   const nodes = sheet.nodes?.length ?? 0;
   const inside = descendants(app.snapshot!, sheet).length;
@@ -767,10 +787,11 @@ export async function deleteSheet(sheet: Sheet) {
     parts.length ? `${parts.join(" and ")[0].toUpperCase()}${parts.join(" and ").slice(1)} go with it.` : "",
     copies === 1 ? "Its copy stops working and shows an error until deleted." : "",
     copies > 1 ? `Its ${copies} copies stop working and show an error until deleted.` : "",
+    "This can't be undone.",
   ].filter(Boolean).join(" ");
   const ok = await confirmDialog({
     title: `Delete the ${what} “${sheet.name}”?`,
-    message: message || undefined,
+    message,
     confirm: `Delete ${what}`,
     danger: true,
   });
@@ -829,8 +850,7 @@ export function pinChanged(pin: GraphNode, patch: Record<string, unknown>): Grap
 export function undoThis(): () => void {
   const change = app.undo[app.undo.length - 1];
   return () => {
-    if (change && app.undo[app.undo.length - 1] === change) undo();
-    else toast("Something else has changed since: use Undo in the top bar.", "info");
+    if (change) undo(change);
   };
 }
 

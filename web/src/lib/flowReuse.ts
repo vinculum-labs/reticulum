@@ -18,7 +18,7 @@ function sameData(a: object | undefined, b: object | undefined): boolean {
 
 export function sameNode(a: Node<NodeData>, b: Node<NodeData>): boolean {
   if (a.type !== b.type || a.parentId !== b.parentId || !!a.selected !== !!b.selected || a.position.x !== b.position.x || a.position.y !== b.position.y) return false;
-  if (a.width !== b.width || a.height !== b.height) return false;
+  if (a.width !== b.width || a.height !== b.height || a.expandParent !== b.expandParent) return false;
   return sameData(a.data, b.data);
 }
 

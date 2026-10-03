@@ -32,11 +32,13 @@
     onchange({ ...side, faces: [...SIDES, "unsided" as Face].filter((f) => faces.has(f)) });
   }
 
-  /** Either end left empty: from the first slot, or to the last. Both empty: all slots. */
+  /** Either end left empty: from the first slot, or to the last. Both empty: all slots. Typed backwards, the ends swap. */
   function setSlots(first: number | undefined, last: number | undefined) {
     const next = { ...side };
+    const from = first ?? 0;
+    const to = last ?? 9999;
     if (first === undefined && last === undefined) delete next.slots;
-    else next.slots = { first: first ?? 0, last: last ?? 9999 };
+    else next.slots = { first: Math.min(from, to), last: Math.max(from, to) };
     onchange(next);
   }
 </script>

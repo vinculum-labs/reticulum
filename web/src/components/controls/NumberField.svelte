@@ -41,6 +41,7 @@
   const WIDTH = { xs: "w-14", sm: "w-20", md: "w-24", lg: "w-32" };
   const fieldId = takeFieldId();
   let element: HTMLInputElement | undefined = $state();
+  /** The box's text as typed (not bound: Svelte turns a number box's value into a number, or null when blank). */
   let draft = $state("");
   let focused = false;
 
@@ -85,7 +86,8 @@
 
 <input
   bind:this={element}
-  bind:value={draft}
+  value={draft}
+  oninput={(e) => (draft = e.currentTarget.value)}
   type="number"
   id={id ?? fieldId}
   class="{WIDTH[width]} shrink-0"

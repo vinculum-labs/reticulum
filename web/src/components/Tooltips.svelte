@@ -93,7 +93,18 @@
       }
     });
     titles.observe(document.body, { attributes: true, attributeFilter: ["title"], subtree: true });
+    // A title taken away (Svelte removes title={undefined}) after it moved into data-tip: the attribute is already
+    // gone, so nothing is observed. Its tip goes with it here instead.
+    const removeAttribute = Element.prototype.removeAttribute;
+    Element.prototype.removeAttribute = function (name: string) {
+      if (name === "title" && this instanceof HTMLElement && !this.hasAttribute("title") && this.dataset.tip !== undefined) {
+        delete this.dataset.tip;
+        if (this === shownFor) hide();
+      }
+      return removeAttribute.call(this, name);
+    };
     return () => {
+      Element.prototype.removeAttribute = removeAttribute;
       titles.disconnect();
       document.removeEventListener("pointerover", over, opts);
       document.removeEventListener("pointerout", out, opts);

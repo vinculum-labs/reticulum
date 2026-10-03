@@ -373,7 +373,9 @@
    */
   async function remove({ nodes: gone, edges: cut }: { nodes: Node[]; edges: Edge[] }) {
     if (!sheet) return;
-    const held = gone.map((n) => heldSheet(app.snapshot, nodeOf(n.id))).filter((x): x is NonNullable<typeof x> => !!x);
+    // The sheets deleted outright: an open frame's cards come along with it, and a sheet inside it isn't one more.
+    const all = gone.map((n) => heldSheet(app.snapshot, nodeOf(n.id))).filter((x): x is NonNullable<typeof x> => !!x);
+    const held = all.filter((h) => !all.some((other) => other !== h && descendants(app.snapshot!, other).includes(h)));
     if (held.length) {
       const inside = held.reduce((count, h) => count + descendants(app.snapshot!, h).length, 0);
       const ok = await confirmDialog({
@@ -627,7 +629,8 @@
    */
   function keepPinsOnEdges() {
     const frameOf = new Map(nodes.filter((n) => n.data?.frame).map((n) => [n.id, n]));
-    let backdrop = nodes.find((n) => n.type === "sheetFrame");
+    const frame = nodes.find((n) => n.type === "sheetFrame");
+    let backdrop = frame;
     // With Alt held, the open sheet's frame doesn't grow either: cards dropped outside it leave the sheet.
     if (backdrop && view.sheetFrame && !altDown) {
       // The open sheet's frame: as big as it was built, or more to take in the cards dragged past it.
@@ -652,7 +655,9 @@
     } else {
       backdrop = undefined;
     }
-    const box = backdrop ? { x: backdrop.position.x, width: (backdrop.data as unknown as { width: number }).width } : null;
+    // The open sheet's frame as it now stands (grown or not): its pins stay on its edges, a dragged pin too.
+    const edge = backdrop ?? frame;
+    const box = edge ? { x: edge.position.x, width: (edge.data as unknown as { width: number }).width } : null;
     let changed = !!backdrop;
     const next = nodes.map((n) => {
       if (backdrop && n.type === "sheetFrame") return backdrop;
@@ -680,8 +685,8 @@
   async function addNode(kind: NodeKind, at: { x: number; y: number }, device: Device | null = null, into: Sheet | null = sheet, blueprintId?: string) {
     if (!into) return;
     if (kind === "sheet") {
-      // A new sheet inside this one, its node where asked; it stays closed until double-clicked.
-      const id = await createSheet(sheet, `Sheet ${app.snapshot?.sheets.length ?? 1}`, at, false);
+      // A new sheet inside the one asked for (an open frame's, or this one), its node where asked; it stays closed.
+      const id = await createSheet(into, `Sheet ${app.snapshot?.sheets.length ?? 1}`, at, false);
       if (id) {
         const placed = app.snapshot?.sheets.find((s) => s.id === id)?.node;
         if (placed) app.selectedNodes = [placed];

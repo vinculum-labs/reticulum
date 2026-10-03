@@ -21,7 +21,7 @@
     summary,
   } from "../../lib/kinds";
   import { app, deviceName, toggleFrame } from "../../lib/state.svelte";
-  import { blockName } from "../../lib/blueprints";
+  import { blockName, liveKey } from "../../lib/blueprints";
   import DeviceIcon from "../DeviceIcon.svelte";
   import { KIND_ICON } from "../../lib/icons";
   import IdentifyBadge from "../IdentifyBadge.svelte";
@@ -126,10 +126,11 @@
    * can show: tied to it always, every card would redraw once a second on an idle network.
    */
   let hovered = $state(false);
+  const moved = $derived(hovered ? app.ticksSinceMoved[liveKey(id, app.copy?.node)] : undefined);
   const idleTitle = $derived(
     [
       data.fiveMinutes > 0 ? `Average over 5 min: ${formatAverage(data.fiveMinutes, data.resource, app.rateUnit)}` : "Nothing moved in the last 5 min",
-      !hovered ? "" : app.ticksSinceMoved[id] !== undefined ? `Last moved ${formatAgo(app.ticksSinceMoved[id])}` : "Never moved",
+      !hovered ? "" : moved !== undefined ? `Last moved ${formatAgo(moved)}` : "Never moved",
       data.status ? `Last attempt: ${STATUS_LABEL[data.status] ?? data.status}` : "",
     ]
       .filter(Boolean)
@@ -138,8 +139,8 @@
 
   /** A pin's label, with its live value for redstone ("redstone 15") and ME ("ME 1 ch · 4/8") pins. */
   function pinLabel(side: { resource: import("../../lib/types").Resource; faces?: string[] }, key: string): string {
-    if (side.resource === "redstone") return `${shortLabel(side)} ${app.signals[key] ?? 0}`;
-    if (side.resource === "me") return `${shortLabel(side)} ${meUsageLabel(app.me[key])}`;
+    if (side.resource === "redstone") return `${shortLabel(side)} ${app.signals[liveKey(key, app.copy?.node)] ?? 0}`;
+    if (side.resource === "me") return `${shortLabel(side)} ${meUsageLabel(app.me[liveKey(key, app.copy?.node)])}`;
     return shortLabel(side);
   }
 

@@ -16,6 +16,8 @@
   let plot: uPlot | null = null;
   let failed = $state(false);
   let timer: ReturnType<typeof setInterval> | undefined;
+  /** Bumped for another item, window or unit and when the chart goes: a history arriving for an older one is dropped. */
+  let generation = 0;
 
   function css(name: string): string {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -23,12 +25,14 @@
 
   async function load() {
     if (!host) return;
+    const asked = generation;
     let values: number[];
     try {
       values = (await request("history", { item: itemId, window: window_ })).values;
+      if (asked !== generation) return;
       failed = false;
     } catch {
-      failed = true;
+      if (asked === generation) failed = true;
       return;
     }
     const step = window_ === "second" ? 1 : 60;
@@ -63,6 +67,7 @@
     void itemId;
     void window_;
     void app.rateUnit;
+    generation++;
     plot?.destroy();
     plot = null;
     untrack(load);
@@ -71,6 +76,7 @@
   });
 
   onDestroy(() => {
+    generation++;
     clearInterval(timer);
     plot?.destroy();
   });

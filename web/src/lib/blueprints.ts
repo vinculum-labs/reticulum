@@ -141,16 +141,28 @@ export function inCopy(copyNode: string, id: string): string {
  */
 export function copyActivity(activity: Activity, copyNode: string, blueprint: Sheet): Activity {
   const ids = [...(blueprint.nodes ?? []).map((n) => n.id), ...(blueprint.wires ?? []).map((w) => w.id)];
-  const named = (id: string) => inCopy(copyNode, id);
+  // The copy's name for each blueprint id. A pin's value is under "<id>/out/<n>" or "<id>/in/<n>": moved with it.
+  const own = new Map(ids.map((id) => [inCopy(copyNode, id), id]));
   function remap<T>(from: Record<string, T>): Record<string, T> {
     const out: Record<string, T> = {};
-    for (const id of ids) {
-      const value = from[named(id)];
-      if (value !== undefined) out[id] = value;
+    for (const [key, value] of Object.entries(from)) {
+      const slash = key.indexOf("/");
+      const id = own.get(slash < 0 ? key : key.slice(0, slash));
+      if (id !== undefined) out[slash < 0 ? id : id + key.slice(slash)] = value;
     }
     return out;
   }
   return { ...activity, rates: remap(activity.rates), fiveMinutes: remap(activity.fiveMinutes), signals: remap(activity.signals), me: remap(activity.me) };
+}
+
+/**
+ * Where the server keeps activity for this id (a node's, or a pin's "<node>/out/<n>") as the canvas shows it: in an
+ * open copy, under the copy's name for it.
+ */
+export function liveKey(key: string, copyNode: string | undefined): string {
+  if (!copyNode) return key;
+  const slash = key.indexOf("/");
+  return slash < 0 ? inCopy(copyNode, key) : inCopy(copyNode, key.slice(0, slash)) + key.slice(slash);
 }
 
 /** A copy node's bindings (none yet: empty). */
