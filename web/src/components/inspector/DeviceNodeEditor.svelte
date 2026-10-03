@@ -12,6 +12,8 @@
   import AmountEditor from "./AmountEditor.svelte";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import DevicePicker from "./DevicePicker.svelte";
+  import BlockPicker from "./BlockPicker.svelte";
+  import { nowhere, placeless } from "../../lib/blueprints";
   import { unwiredSides, withoutSides } from "../../lib/prune";
   import WhileOffField from "./WhileOffField.svelte";
 
@@ -80,12 +82,16 @@
   const unwiredCount = $derived(unwired.in.length + unwired.out.length);
 
   /**
-   * Points the node at another device (a slot: another kind of block) and re-pins it for that device: inputs and outputs
-   * with wires stay (a mismatch shows as their warning), the rest go, and the new device's usual ones are added where
-   * no kept one already covers them. One undoable change.
+   * Points the node at another device (a slot: another kind of block, from a device or the catalog) and re-pins it:
+   * inputs and outputs with wires stay (a mismatch shows as their warning), the rest go, and the new block's usual ones
+   * are added where no kept one already covers them (from the catalog, nothing is known of it: items in and out). One
+   * undoable change.
    */
-  function repick(picked: Device) {
-    const fresh = defaultSettings("device", picked, offeredResources(picked.resources)[0] ?? "item") as DeviceNodeSettings;
+  function repick(picked: Device | { block: string }) {
+    const device = "pos" in picked ? picked : null;
+    const fresh = (device
+      ? defaultSettings("device", device, offeredResources(device.resources)[0] ?? "item")
+      : { kind: "device", device: nowhere(), inputs: [{ resource: "item" }], outputs: [{ resource: "item", per_operation: 0 }] }) as DeviceNodeSettings;
     const kept = withoutSides(settings, unwired);
     const faces = (f: string[] | undefined) => (f ? [...f].sort().join() : "all");
     const covers = (a: DeviceInput | DeviceOutput, b: DeviceInput | DeviceOutput) => a.resource === b.resource && faces(a.faces) === faces(b.faces);
@@ -94,7 +100,7 @@
     onchange(
       {
         ...settings,
-        device: picked.pos,
+        device: fresh.device,
         ...(slot ? { block: picked.block } : {}),
         inputs: [...keptIn, ...(fresh.inputs ?? []).filter((f) => !keptIn.some((k) => covers(k, f)))],
         outputs: [...keptOut, ...(fresh.outputs ?? []).filter((f) => !keptOut.some((k) => covers(k, f)))],
@@ -111,8 +117,14 @@
 </script>
 
 {#if slot}
-  <Field label="Kind of block" hint="Taken from a device: copies fill this slot with that kind of block. Fill the rest by layout measures from where this one sits.">
-    <DevicePicker {devices} value={settings.device} {disabled} onchange={repick} />
+  {@const from = placeless(settings.device) ? undefined : devices.find((d) => posKey(d.pos) === key)}
+  <Field
+    label="Kind of block"
+    hint={from || !placeless(settings.device)
+      ? "Copies fill this slot with this kind of block. Fill the rest by layout measures from where the device it came from sits."
+      : "Copies fill this slot with this kind of block. Picked from the catalog, it has no place in a layout: fill it on each copy."}
+  >
+    <BlockPicker {devices} block={settings.block} {from} {disabled} onchange={(pick) => repick(pick.device ?? { block: pick.block })} />
   </Field>
 {:else}
   <Field label="Device">

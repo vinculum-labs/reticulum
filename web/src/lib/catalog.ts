@@ -13,7 +13,8 @@ export interface CatalogEntry {
   tags: string[];
 }
 
-export type Catalog = Record<CatalogKind, CatalogEntry[]>;
+/** The lists by kind, and every block that has an item (by block id): the kinds of block a blueprint's slot takes. */
+export type Catalog = Record<CatalogKind, CatalogEntry[]> & { block?: CatalogEntry[] };
 
 export const CATALOG_KIND_LABEL: Record<CatalogKind, string> = { item: "Items", fluid: "Fluids", chemical: "Chemicals" };
 

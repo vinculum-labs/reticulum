@@ -1,7 +1,7 @@
 // Blueprints: reusable sheets whose device nodes are slots, placeholders for a kind of block. A copy node places one
 // and says which block fills each slot (and how far the set is turned).
 
-import type { Binding, CopySettings, Device, DeviceNodeSettings, GraphNode, Sheet, Snapshot } from "./types";
+import type { Binding, CopySettings, Device, DeviceNodeSettings, GlobalPos, GraphNode, Sheet, Snapshot } from "./types";
 import { posKey } from "./types";
 
 /** Every copy of a blueprint in the network: the sheet it is on and its node. */
@@ -26,6 +26,22 @@ export function blockName(block: string | undefined): string {
   const path = block.includes(":") ? block.slice(block.indexOf(":") + 1) : block;
   const words = path.replace(/_/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** How far below any world a slot picked from the catalog "sits": it names a kind of block, made from no block. */
+const NOWHERE_Y = -100_000;
+
+/**
+ * A place for a slot picked from the catalog: below any world, so no block is ever there (a slot keeps a place, for
+ * filling copies by layout; this one has none to measure from). Spread out so two such slots never share one.
+ */
+export function nowhere(): GlobalPos {
+  return { dimension: "minecraft:overworld", pos: [Math.floor(Math.random() * 1_000_000), NOWHERE_Y, Math.floor(Math.random() * 1_000_000)] };
+}
+
+/** Whether a slot was picked from the catalog (it has no block it was made from, so no place in a layout). */
+export function placeless(pos: GlobalPos): boolean {
+  return pos.pos[1] <= NOWHERE_Y;
 }
 
 /** How a slot is named: its label, else its kind of block. */
@@ -57,13 +73,14 @@ export function fillByLayout(
   const slots = slotsOf(blueprint);
   const from = slots.find((s) => s.id === anchor);
   const binding = bindings[anchor];
-  if (!from || !binding) return { bindings, filled: 0 };
+  // A slot picked from the catalog has no place to measure a layout from, nor to be found at.
+  if (!from || !binding || placeless(from.settings.device)) return { bindings, filled: 0 };
   const turns = binding.turns ?? 0;
   const next = { ...bindings };
   const taken = new Set(Object.values(next).map((b) => posKey(b.device)));
   let filled = 0;
   for (const slot of slots) {
-    if (next[slot.id] || !slot.settings.block) continue;
+    if (next[slot.id] || !slot.settings.block || placeless(slot.settings.device)) continue;
     const [dx, dz] = turn(slot.settings.device.pos[0] - from.settings.device.pos[0], slot.settings.device.pos[2] - from.settings.device.pos[2], turns);
     const dy = slot.settings.device.pos[1] - from.settings.device.pos[1];
     const at = binding.device.pos;

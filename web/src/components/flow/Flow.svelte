@@ -45,7 +45,8 @@
     WIRE_STYLE_LABEL,
     type WireStyle,
   } from "../../lib/state.svelte";
-  import { copiesOf, fillOne, ownBlocks, slotName } from "../../lib/blueprints";
+  import { copiesOf, fillOne, nowhere, ownBlocks, slotName } from "../../lib/blueprints";
+  import BlockPicker from "../inspector/BlockPicker.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
@@ -763,6 +764,23 @@
     return pick ?? null;
   }
 
+  const DeviceKindIcon = KIND_ICON.device;
+
+  /** A slot on the open blueprint, at the middle of the view: made from a device here, or a kind from the catalog. */
+  async function addSlot(pick: { block: string; device?: Device }) {
+    if (!sheet) return;
+    if (pick.device) return addNode("device", viewCenter(), pick.device);
+    const at = viewCenter();
+    const node: GraphNode = {
+      id: uuid(),
+      settings: { kind: "device", device: nowhere(), block: pick.block, inputs: [{ resource: "item" }], outputs: [{ resource: "item", per_operation: 0 }] } as GraphNode["settings"],
+      x: Math.round(at.x),
+      y: Math.round(at.y),
+    };
+    const ok = await edit([{ type: "addNode", sheet: sheet.id, node }], [{ type: "removeNode", sheet: sheet.id, node: node.id }], "add slot");
+    if (ok) select([node.id], []);
+  }
+
   function viewCenter() {
     const rect = container?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
@@ -1070,7 +1088,20 @@
               <Icon size={14} />{KIND_LABEL[kind]}
             </button>
           {/snippet}
-          {#each movers as kind (kind)}{@render addButton(kind)}{/each}
+          {#each movers as kind (kind)}
+            {#if kind === "device" && sheet?.blueprint}
+              <!-- On a blueprint a device is a slot: the kind of block it takes, from a device here or the catalog. -->
+              <BlockPicker devices={app.snapshot?.devices ?? []} onchange={addSlot}>
+                {#snippet button({ open })}
+                  <button class="btn flex items-center gap-1 text-sm" title="A slot: a kind of block each copy fills with one" onclick={open}>
+                    <DeviceKindIcon size={14} />Slot
+                  </button>
+                {/snippet}
+              </BlockPicker>
+            {:else}
+              {@render addButton(kind)}
+            {/if}
+          {/each}
           <MenuButton
             label="Redstone"
             icon={ZapIcon}

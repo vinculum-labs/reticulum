@@ -13,14 +13,18 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 /**
  * Everything a filter can name, for the editor's picker: every item, fluid (sources only) and, with Mekanism, chemical,
- * each with its id, display name (in the player's language) and tags. Built on the client, where the names are.
+ * each with its id, display name (in the player's language) and tags. Also every block that has an item, by its block
+ * id with its item's name and the block's tags: the kinds of block a blueprint's slot can take. Built on the client,
+ * where the names are.
  */
 final class Catalog {
     private Catalog() {
@@ -36,6 +40,14 @@ final class Catalog {
                 }
             });
             out.add("item", items);
+            JsonArray blocks = new JsonArray();
+            BuiltInRegistries.ITEM.forEach(item -> {
+                if (item instanceof BlockItem blockItem) {
+                    Holder.Reference<Block> block = blockItem.getBlock().builtInRegistryHolder();
+                    blocks.add(entry(block, new ItemStack(item).getHoverName().getString()));
+                }
+            });
+            out.add("block", blocks);
             JsonArray fluids = new JsonArray();
             BuiltInRegistries.FLUID.holders().forEach(holder -> {
                 Fluid fluid = holder.value();
