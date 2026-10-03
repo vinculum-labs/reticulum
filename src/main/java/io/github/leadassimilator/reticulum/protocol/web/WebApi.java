@@ -633,6 +633,8 @@ public final class WebApi {
          * is gone, and reattach to a later pin given its slot.
          */
         private static void dropHolderWires(Network network, Sheet sheet, Node node) {
+            // XXX: only a placed sheet's node. A pin removed from a blueprint leaves its wires on every copy node (the
+            // compiler skips them, but they hang invisible); dropping them needs an undo across every sheet with a copy.
             Network.Placement placed = network.placement(sheet.id());
             if (placed == null || !(node.settings() instanceof NodeSettings.SheetPinSettings pin) || pin.slot() < 0) {
                 return;

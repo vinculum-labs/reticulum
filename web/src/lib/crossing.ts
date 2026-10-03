@@ -61,6 +61,8 @@ export function crossWire(
   const edits: Edit[] = [];
   const undo: Edit[] = [];
   const connect = (sheet: Sheet, wire: Omit<Wire, "id" | "order">) => {
+    // XXX: a splitter branch rebuilt here gets a new wire id, so a weighted splitter's weight for it (kept by wire id)
+    // is lost and counts 1 again.
     const id = uuid();
     edits.push({ type: "connect", sheet: sheet.id, wire: { ...wire, id, order: nextOrder(sheet, wire.from, wire.output ?? 0) } });
     undo.unshift({ type: "disconnect", sheet: sheet.id, wire: id });
