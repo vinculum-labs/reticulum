@@ -854,12 +854,9 @@
 
   /** Blueprints that can be placed here (as copies): not this sheet. */
   const blueprints = $derived((app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== sheet?.id));
-  const palette = $derived<NodeKind[]>([
-    "device",
-    "filter",
-    "rate_limit",
-    "splitter",
-    "kit",
+  /** The toolbar's groups: nodes that move things, then (after Redstone) the ones that hold other nodes. */
+  const movers: NodeKind[] = ["device", "filter", "rate_limit", "splitter", "kit"];
+  const holders = $derived<NodeKind[]>([
     // Sheets go inside sheets in the tree, never inside a blueprint.
     ...(sheet?.blueprint ? [] : (["sheet"] as NodeKind[])),
     ...(blueprints.length ? (["copy"] as NodeKind[]) : []),
@@ -991,13 +988,16 @@
     <MiniMap pannable zoomable maskStrokeWidth={1} nodeClass={(n) => (n.data?.problem ? "problem" : "")} />
     {#if editable}
       <Panel position="top-left">
+        <!-- Grouped by thin dividers, not colors (a color means what flows): moving things | redstone | holders | the canvas. -->
         <div class="flex flex-wrap gap-1 rounded-lg border border-line bg-panel p-1">
-          {#each palette as kind}
+          {#snippet addButton(kind: NodeKind)}
             {@const Icon = KIND_ICON[kind]}
             <button class="btn flex items-center gap-1 text-sm" title={KIND_HINT[kind]} onclick={() => addNode(kind, viewCenter())}>
               <Icon size={14} />{KIND_LABEL[kind]}
             </button>
-          {/each}
+          {/snippet}
+          {#each movers as kind (kind)}{@render addButton(kind)}{/each}
+          <span class="toolbar-divider" aria-hidden="true"></span>
           <MenuButton
             label="Redstone"
             icon={ZapIcon}
@@ -1005,6 +1005,11 @@
             items={SIGNAL_KINDS.map((kind) => ({ key: kind, label: KIND_LABEL[kind], hint: KIND_HINT[kind], icon: KIND_ICON[kind] }))}
             onpick={(kind) => addNode(kind as NodeKind, viewCenter())}
           />
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          {#if holders.length}
+            {#each holders as kind (kind)}{@render addButton(kind)}{/each}
+            <span class="toolbar-divider" aria-hidden="true"></span>
+          {/if}
           <!-- Wire style: a canvas setting, remembered in this browser. -->
           <MenuButton
             label={WIRE_STYLE_LABEL[app.wireStyle]}
@@ -1082,5 +1087,11 @@
     border-radius: 4px;
     background: var(--panel);
     white-space: nowrap;
+  }
+  .toolbar-divider {
+    align-self: stretch;
+    width: 1px;
+    margin: 2px 2px;
+    background: var(--line);
   }
 </style>

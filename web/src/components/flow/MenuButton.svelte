@@ -73,14 +73,14 @@
 <button
   bind:this={trigger}
   class="btn flex items-center gap-1 text-sm"
-  style={color ? `color: ${color}` : ""}
   {title}
   aria-haspopup="menu"
   aria-expanded={open}
   onclick={toggle}
   {onkeydown}
 >
-  {#if Icon}<Icon size={14} />{/if}{label}<ChevronDown size={12} />
+  <!-- Only the icon takes the color (what it handles, as on cards); the label reads like the other buttons'. -->
+  {#if Icon}<span class="flex" style={color ? `color: ${color}` : ""}><Icon size={14} /></span>{/if}{label}<ChevronDown size={12} />
 </button>
 
 <Popover bind:this={popover} bind:open anchor={trigger} {width} role="menu" label={label}>
