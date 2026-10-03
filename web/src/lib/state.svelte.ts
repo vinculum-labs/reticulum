@@ -550,14 +550,15 @@ export function deviceName(device: Device | undefined): string {
   return device ? device.name || device.defaultName : "Unknown device";
 }
 
+/** Whether a node is on a blueprint (a device node there is a slot). */
+export function inBlueprint(nodeId: string): boolean {
+  return !!app.snapshot?.sheets.some((s) => s.blueprint && s.nodes?.some((n) => n.id === nodeId));
+}
+
 /**
  * What a node is called everywhere (its card, the inspector, the dashboard, wires): its label, else its device's
  * name, else the blueprint it uses or its pin name, else its kind.
  */
-function inBlueprint(nodeId: string): boolean {
-  return !!app.snapshot?.sheets.some((s) => s.blueprint && s.nodes?.some((n) => n.id === nodeId));
-}
-
 export function nodeTitle(node: GraphNode | undefined): string {
   if (!node) return "?";
   // A sheet node goes by its sheet's name and a device node by its device's (a slot, in a blueprint, by its own).

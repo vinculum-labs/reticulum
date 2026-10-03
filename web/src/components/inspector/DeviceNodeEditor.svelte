@@ -158,7 +158,7 @@
     <button
       type="button"
       class="side-rate trim-text shrink-0 rounded px-1 text-xs tabular-nums muted"
-      title={`Show its graph below`}
+      title="Show its graph below"
       onclick={(e) => (e.preventDefault(), onshowside?.(direction, index))}>{formatRate(value, resource, app.rateUnit)}</button
     >
   {/if}

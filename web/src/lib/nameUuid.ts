@@ -1,8 +1,17 @@
 /**
  * Java's UUID.nameUUIDFromBytes (a version 3, MD5-based UUID) for UTF-8 text: how the server names the nodes and wires
  * of a blueprint pasted in as a copy ("<copy node id>/<blueprint node id>"), so the editor can find their activity.
+ * Remembered: the same few names are asked for on every redraw.
  */
 export function nameUuid(text: string): string {
+  let id = known.get(text);
+  if (!id) known.set(text, (id = compute(text)));
+  return id;
+}
+
+const known = new Map<string, string>();
+
+function compute(text: string): string {
   const hash = md5(new TextEncoder().encode(text));
   hash[6] = (hash[6] & 0x0f) | 0x30;
   hash[8] = (hash[8] & 0x3f) | 0x80;
@@ -10,14 +19,9 @@ export function nameUuid(text: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-const sides = new Map<string, string>();
-
 /** The server's id for one input or output of a device node ("<node>:in:<n>"), which has its own activity. */
 export function sideId(node: string, direction: "in" | "out", index: number): string {
-  const key = `${node}:${direction}:${index}`;
-  let id = sides.get(key);
-  if (!id) sides.set(key, (id = nameUuid(key)));
-  return id;
+  return nameUuid(`${node}:${direction}:${index}`);
 }
 
 const SHIFT = [7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21];

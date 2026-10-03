@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, deviceAt, nodeTitle } from "../lib/state.svelte";
+  import { app, deviceAt, inBlueprint, nodeTitle } from "../lib/state.svelte";
   import { blockName, slotName } from "../lib/blueprints";
   import { KIND_ICON } from "../lib/icons";
   import { KIND_LABEL } from "../lib/kinds";
@@ -13,9 +13,8 @@
   let { node }: { node: GraphNode } = $props();
 
   const s = $derived(node.settings);
-  const inBlueprint = $derived(!!app.snapshot?.sheets.some((x) => x.blueprint && x.nodes?.some((n) => n.id === node.id)));
   const device = $derived(s.kind === "device" ? deviceAt(posKey(s.device)) : undefined);
-  const slot = $derived(s.kind === "device" && inBlueprint);
+  const slot = $derived(s.kind === "device" && inBlueprint(node.id));
   const name = $derived(slot ? slotName(node) : nodeTitle(node));
   const type = $derived(
     slot

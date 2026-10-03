@@ -129,14 +129,9 @@ export function ownBlocks(blueprint: Sheet, devices: Device[], placed: (device: 
   return bindings;
 }
 
-const derived = new Map<string, string>();
-
 /** The server's id for a blueprint's node or wire as it runs in a copy (its activity is kept under it). */
 export function inCopy(copyNode: string, id: string): string {
-  const key = `${copyNode}/${id}`;
-  let name = derived.get(key);
-  if (!name) derived.set(key, (name = nameUuid(key)));
-  return name;
+  return nameUuid(`${copyNode}/${id}`);
 }
 
 /**

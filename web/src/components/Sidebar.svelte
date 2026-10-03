@@ -98,7 +98,6 @@
     }
   }
 
-  /** Pastes a sheet copied with "Copy as JSON" (from this or another world) as a new sheet. */
   /**
    * Pastes a sheet or blueprint copied with "Copy as JSON" (from this or another world). A blueprint lands among the
    * blueprints wherever it is pasted; the Blueprints import takes only blueprints (a sheet's devices aren't slots).
@@ -493,7 +492,7 @@
               <span class="trim-text truncate">{sheet.name}</span>
             </button>
           {/if}
-          <!-- At the row's end, so the tree's switches line up in a column whatever the depth. Deleting is in the sheet's panel. -->
+          <!-- At the row's end, so the tree's switches line up in a column whatever the depth. -->
           <Switch
             hideLabel
             small
