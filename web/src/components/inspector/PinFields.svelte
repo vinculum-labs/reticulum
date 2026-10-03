@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, edit, rebase } from "../../lib/state.svelte";
+  import { app, pinChanged, updateNodeEdit } from "../../lib/state.svelte";
   import { PIN_CARRIES } from "../../lib/kinds";
   import { pinName, sheetPins, type GraphNode, type Resource, type Sheet } from "../../lib/types";
   import Select from "../controls/Select.svelte";
@@ -21,9 +21,8 @@
   /** What it is called until named ("in 2"), shown as the Name box's placeholder. */
   const fallback = $derived(pinName({ ...pin, label: undefined, settings: { ...s, name: "" } as GraphNode["settings"] }, sheetPins(sheet, input).findIndex((p) => p.id === pin.id)));
 
-  function save(settings: Partial<GraphNode["settings"]>, label: string) {
-    const { after, before } = rebase(pin, { ...pin, label: undefined, settings: { ...pin.settings, ...settings } as GraphNode["settings"] });
-    edit([{ type: "updateNode", sheet: sheet.id, node: after }], [{ type: "updateNode", sheet: sheet.id, node: before }], label);
+  function save(settings: Record<string, unknown>, label: string) {
+    updateNodeEdit(sheet.id, pin, pinChanged(pin, settings), label);
   }
 </script>
 

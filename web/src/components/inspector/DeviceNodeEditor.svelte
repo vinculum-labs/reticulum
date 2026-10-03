@@ -74,11 +74,16 @@
 
   /** Removes input or output i; the caller drops its wires and renumbers the wires on later ones. */
   function removeSide(direction: "in" | "out", i: number) {
-    if (direction === "in") openIn = without(openIn, i);
-    else openOut = without(openOut, i);
     const next =
       direction === "in" ? { ...settings, inputs: inputs.filter((_, j) => j !== i) } : { ...settings, outputs: outputs.filter((_, j) => j !== i) };
-    onchange(next, direction === "in" ? { in: [i] } : { out: [i] }, `remove ${direction === "in" ? "input" : "output"}`);
+    change(next, direction === "in" ? { in: [i] } : { out: [i] }, `remove ${direction === "in" ? "input" : "output"}`);
+  }
+
+  /** A change that removes inputs or outputs: the groups' open states move up with the ones left. */
+  function change(next: DeviceNodeSettings, removed: { in?: number[]; out?: number[] }, label: string) {
+    for (const i of [...(removed.in ?? [])].sort((a, b) => b - a)) openIn = without(openIn, i);
+    for (const i of [...(removed.out ?? [])].sort((a, b) => b - a)) openOut = without(openOut, i);
+    onchange(next, removed, label);
   }
 
   /** Inputs and outputs with no wire on them. */
@@ -101,7 +106,7 @@
     const covers = (a: DeviceInput | DeviceOutput, b: DeviceInput | DeviceOutput) => a.resource === b.resource && faces(a.faces) === faces(b.faces);
     const keptIn = kept.inputs ?? [];
     const keptOut = kept.outputs ?? [];
-    onchange(
+    change(
       {
         ...settings,
         device: fresh.device,
@@ -116,7 +121,7 @@
 
   /** Removes every input and output nothing is wired to, as one undoable change. */
   function prune() {
-    onchange(withoutSides(settings, unwired), unwired, "prune");
+    change(withoutSides(settings, unwired), unwired, "prune");
   }
 </script>
 

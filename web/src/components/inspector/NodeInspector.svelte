@@ -1,6 +1,6 @@
 <script lang="ts">
   import Trash from "@lucide/svelte/icons/trash";
-  import { app, deviceAt, deviceName, edit, nodeTitle, openCopy, openDevice, openSheet, rebase } from "../../lib/state.svelte";
+  import { app, deviceAt, edit, nodeTitle, openCopy, openDevice, openSheet, rebase, updateNodeEdit } from "../../lib/state.svelte";
   import { slotName, slotsOf } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
@@ -134,8 +134,7 @@
   }
 
   function save(next: GraphNode, label = "edit node") {
-    const { after, before } = rebase(node, next);
-    edit([{ type: "updateNode", sheet: sheet.id, node: after }], [{ type: "updateNode", sheet: sheet.id, node: before }], label);
+    updateNodeEdit(sheet.id, node, next, label);
   }
 
   function settings(patch: Partial<NodeSettings>) {

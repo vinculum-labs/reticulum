@@ -3,6 +3,7 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import { onMount, tick } from "svelte";
   import { closeMenu, menu, shown, type MenuEntry, type MenuItem } from "../lib/menu.svelte";
+  import { ListNav } from "../lib/listnav.svelte";
   import Self from "./ContextMenu.svelte";
 
   /**
@@ -26,7 +27,6 @@
   const open = $derived(root ? !!menu.open : true);
 
   let element: HTMLDivElement | undefined = $state();
-  let active = $state(-1);
   let sub = $state<{ index: number; at: DOMRect } | null>(null);
 
   function selectable(i: number): boolean {
@@ -34,15 +34,8 @@
     return !!item && item !== "-" && !item.disabled;
   }
 
-  function move(step: number) {
-    for (let k = 1; k <= items.length; k++) {
-      const i = (active + step * k + items.length * k) % items.length;
-      if (selectable(i)) {
-        active = i;
-        return;
-      }
-    }
-  }
+  // Separators and disabled items are skipped; nothing is active until a key or the pointer picks a row.
+  const nav = new ListNav(() => items.length, () => element, { selectable });
 
   function openSub(i: number) {
     const row = element?.querySelector(`[data-index="${i}"]`);
@@ -58,16 +51,20 @@
 
   function onkeydown(e: KeyboardEvent) {
     if (sub) return;
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") move(e.key === "ArrowDown" ? 1 : -1);
-    else if (e.key === "Home" || e.key === "End") (active = e.key === "Home" ? -1 : 0), move(e.key === "Home" ? 1 : -1);
-    else if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") {
-      const item = items[active];
-      if (item && item !== "-" && (e.key !== "ArrowRight" || item.items)) pick(item, active);
+    const item = items[nav.active];
+    if (e.key === " " || (e.key === "ArrowRight" && item && item !== "-" && item.items)) {
+      if (item && item !== "-") pick(item, nav.active);
     } else if (e.key === "Escape") (root ? closeMenu() : onback?.());
     else if (e.key === "ArrowLeft" && !root) onback?.();
-    else return;
+    else if (!nav.key(e, (i) => pick(items[i] as MenuItem, i))) return;
     e.preventDefault();
     e.stopPropagation();
+  }
+
+  /** Focus leaving every menu (Tab, or a click into the page) closes them. */
+  function onfocusout(e: FocusEvent) {
+    const to = e.relatedTarget;
+    if (root && !(to instanceof Node && [...document.querySelectorAll(".context-menu")].some((m) => m.contains(to)))) closeMenu(false);
   }
 
   // Shown in the top layer once drawn, then placed by its real size: at the pointer, or to the side of its parent
@@ -90,7 +87,7 @@
     }
     el.style.left = `${Math.max(4, Math.min(x, window.innerWidth - w - 4))}px`;
     el.style.top = `${Math.max(4, Math.min(y, window.innerHeight - h - 4))}px`;
-    active = -1;
+    nav.active = -1;
     sub = null;
     tick().then(() => el.focus());
   });
@@ -99,9 +96,9 @@
     if (!root) return;
     const away = (e: Event) => {
       if (!(e.target instanceof Node) || !document.querySelector(".context-menu")?.parentElement) return;
-      if (![...document.querySelectorAll(".context-menu")].some((m) => m.contains(e.target as Node))) closeMenu();
+      if (![...document.querySelectorAll(".context-menu")].some((m) => m.contains(e.target as Node))) closeMenu(false);
     };
-    const close = () => closeMenu();
+    const close = () => closeMenu(false);
     document.addEventListener("pointerdown", away, true);
     document.addEventListener("wheel", away, true);
     window.addEventListener("blur", close);
@@ -117,7 +114,7 @@
 
 {#if open && items.length}
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-  <div bind:this={element} popover="manual" class="context-menu flex flex-col py-1 text-sm" role="menu" tabindex="-1" {onkeydown}>
+  <div bind:this={element} popover="manual" class="context-menu flex flex-col py-1 text-sm" role="menu" tabindex="-1" {onkeydown} {onfocusout}>
     {#each items as item, i (i)}
       {#if item === "-"}
         <div class="my-1 h-px bg-line" role="separator"></div>
@@ -126,7 +123,7 @@
         <button
           type="button"
           class="list-row flex items-center gap-2 px-3 py-1 text-left"
-          class:active={i === active || sub?.index === i}
+          class:active={i === nav.active || sub?.index === i}
           class:danger={item.danger}
           role={item.checked !== undefined ? "menuitemcheckbox" : "menuitem"}
           aria-checked={item.checked !== undefined ? item.checked : undefined}
@@ -136,14 +133,14 @@
           data-index={i}
           tabindex="-1"
           onpointerenter={() => {
-            active = i;
+            nav.active = i;
             if (item.items) openSub(i);
             else sub = null;
           }}
           onclick={() => pick(item, i)}
         >
           <span class="flex w-4 shrink-0 justify-center">
-            {#if item.checked}<Check size={14} class="text-accent" />{:else if ItemIcon}<ItemIcon size={15} />{/if}
+            {#if item.checked}<Check size={14} />{:else if ItemIcon}<ItemIcon size={15} />{/if}
           </span>
           <span class="flex min-w-0 flex-1 flex-col">
             <span class="trim-text truncate">{item.label}</span>
@@ -161,7 +158,7 @@
       <Self items={parent.items} at={sub.at} onback={() => {
         const i = sub!.index;
         sub = null;
-        active = i;
+        nav.active = i;
         element?.focus();
       }} />
     {/if}

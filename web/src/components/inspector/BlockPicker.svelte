@@ -73,7 +73,8 @@
     }
     return out;
   });
-  const nav = new ListNav(() => rows.length, () => list);
+  // Headings aren't rows to pick; the list builds only the rows in view, so they are kept in view by their height.
+  const nav = new ListNav(() => rows.length, () => list, { selectable: (i) => rows[i]?.kind !== "header", rowHeight: ROW });
 
   const first = $derived(Math.max(0, Math.floor(scrollTop / ROW) - 4));
   const last = $derived(Math.min(rows.length, Math.ceil((scrollTop + viewHeight) / ROW) + 4));

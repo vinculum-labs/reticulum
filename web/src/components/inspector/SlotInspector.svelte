@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, deviceAt, deviceName, deviceUses, setBindings, toast, undo } from "../../lib/state.svelte";
+  import { app, deviceAt, deviceName, deviceUses, setBindings, toast, undoThis } from "../../lib/state.svelte";
   import { blockName, fillByLayout, fillOne, inCopy, slotName, slotsOf } from "../../lib/blueprints";
   import { RESOURCE_UNIT } from "../../lib/kinds";
   import { posKey, type CopySettings, type Device, type GraphNode, type Sheet } from "../../lib/types";
@@ -38,7 +38,7 @@
       },
       `fill ${slotName(slot)}`,
     );
-    if (ok && more) toast(`Filled ${more} more slot${more === 1 ? "" : "s"} by layout from this one.`, "info", { label: "Undo", run: undo });
+    if (ok && more) toast(`Filled ${more} more slot${more === 1 ? "" : "s"} by layout from this one.`, "info", { label: "Undo", run: undoThis() });
   }
 
   function turn(turns: number) {

@@ -191,7 +191,7 @@
       ? '0 0 0 1px var(--bad)'
       : '0 1px 3px rgb(0 0 0 / 0.25)'}; opacity: {disabled ? 0.5 : 1}"
 >
-  <div class="group flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
+  <div data-card-header class="group flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
     {#if data.device && sensor}
       <!-- The device it reads, badged as a sensor so the card isn't taken for the device's own. -->
       {@const SensorIcon = KIND_ICON.level}

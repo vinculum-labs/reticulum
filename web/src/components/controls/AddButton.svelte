@@ -17,7 +17,7 @@
   }: { label: string; onclick: () => void; disabled?: boolean; inset?: boolean; icon?: Component<{ size?: number | string }> } = $props();
 </script>
 
-<button type="button" class="add-button flex shrink-0 items-center justify-center rounded muted" class:inset title={label} aria-label={label} {disabled} {onclick}>
+<button type="button" class="add-button flex shrink-0 items-center justify-center rounded muted" class:inset title={label} aria-label={label} {disabled} onclick={() => onclick()}>
   <Icon size={16} />
 </button>
 

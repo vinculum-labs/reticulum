@@ -805,3 +805,30 @@ export async function duplicateBlueprint(sheet: Sheet) {
   const results = await edit([{ type: "duplicateBlueprint", sheet: sheet.id }]);
   if (results?.[0]) openSheet(results[0] as string);
 }
+
+/**
+ * Saves a node changed to {@code next}, as one undoable change: rebased on what was last sent for it (an earlier edit
+ * may not be back from the server yet), its undo the exact reverse.
+ */
+export function updateNodeEdit(sheetId: string, node: GraphNode, next: GraphNode, label: string) {
+  const { after, before } = rebase(node, next);
+  return edit([{ type: "updateNode", sheet: sheetId, node: after }], [{ type: "updateNode", sheet: sheetId, node: before }], label);
+}
+
+/** A sheet pin with these settings changed; a name it still keeps in an old label moves into its name. */
+export function pinChanged(pin: GraphNode, patch: Record<string, unknown>): GraphNode {
+  const s = pin.settings as GraphNode["settings"] & { name?: string };
+  return { ...pin, label: undefined, settings: { ...s, name: s.name || pin.label || "", ...patch } as GraphNode["settings"] };
+}
+
+/**
+ * An Undo for a toast about the change just made: it undoes that change only while it is still the last one (another
+ * edit since, it says so rather than undo that one).
+ */
+export function undoThis(): () => void {
+  const change = app.undo[app.undo.length - 1];
+  return () => {
+    if (change && app.undo[app.undo.length - 1] === change) undo();
+    else toast("Something else has changed since: use Undo in the top bar.", "info");
+  };
+}

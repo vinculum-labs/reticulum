@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, deleteCopy, edit, nodeTitle, openSheet, rebase, showNode } from "../../lib/state.svelte";
+  import { app, deleteCopy, edit, nodeTitle, openSheet, showNode, updateNodeEdit } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { copiesOf, slotsOf } from "../../lib/blueprints";
   import { sheetPath } from "../../lib/tree";
@@ -20,8 +20,7 @@
 
   /** This copy's own name (its node's label); blank goes back to the blueprint's. */
   function rename(name: string) {
-    const { after, before } = rebase(copy, { ...copy, label: name || undefined });
-    edit([{ type: "updateNode", sheet: sheet.id, node: after }], [{ type: "updateNode", sheet: sheet.id, node: before }], "rename copy");
+    updateNodeEdit(sheet.id, copy, { ...copy, label: name || undefined }, "rename copy");
   }
 
   async function convert() {

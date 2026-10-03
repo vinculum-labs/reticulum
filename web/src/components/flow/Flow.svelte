@@ -40,9 +40,9 @@
     holdMetrics,
     deviceUses,
     deviceName,
-    undo as undoLast,
-    isIdentified,
-    toggleIdentify,
+    undoThis,
+    updateNodeEdit,
+    pinChanged,
     openDevice,
     rebase,
     setSheetEnabled,
@@ -52,13 +52,14 @@
   } from "../../lib/state.svelte";
   import { copiesOf, copyActivity, fillOne, nowhere, ownBlocks, slotName } from "../../lib/blueprints";
   import BlockPicker from "../inspector/BlockPicker.svelte";
-  import { openMenu, type MenuItem } from "../../lib/menu.svelte";
+  import { identifyItem, openMenu, type MenuItem } from "../../lib/menu.svelte";
   import Maximize from "@lucide/svelte/icons/maximize";
   import Plus from "@lucide/svelte/icons/plus";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Trash from "@lucide/svelte/icons/trash";
   import Unplug from "@lucide/svelte/icons/unplug";
-  import Lightbulb from "@lucide/svelte/icons/lightbulb";
+  import Power from "@lucide/svelte/icons/power";
+  import PowerOff from "@lucide/svelte/icons/power-off";
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
@@ -285,7 +286,7 @@
 
   /** A click that adds to the selection (or takes one out) rather than replacing it: Shift, Ctrl or ⌘ held. */
   function adding(event: Event): boolean {
-    return event instanceof MouseEvent && (event.shiftKey || event.ctrlKey || event.metaKey);
+    return (event instanceof MouseEvent || event instanceof KeyboardEvent) && (event.shiftKey || event.ctrlKey || event.metaKey);
   }
 
   function toggled(ids: string[], id: string): string[] {
@@ -297,6 +298,19 @@
     if (!sameIds(nodeIds, app.selectedNodes)) app.selectedNodes = nodeIds;
     if (!sameIds(edgeIds, app.selectedEdges)) app.selectedEdges = edgeIds;
     if (nodeIds.length || edgeIds.length) app.selectedDevice = null;
+  }
+
+  /** The keyboard's selection: Enter or Space on a focused card or wire picks it (Shift adds it), Escape lets go. */
+  function selectByKey(e: KeyboardEvent) {
+    if (!(e.target instanceof Element) || e.target.closest("input, textarea")) return;
+    if (e.key === "Escape") return select([], []);
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const card = e.target.closest(".svelte-flow__node");
+    const line = e.target.closest(".svelte-flow__edge");
+    const id = (card ?? line)?.getAttribute("data-id");
+    if (!id || (card && flow.getNode(id)?.selectable === false)) return;
+    if (card) select(adding(e) ? toggled(app.selectedNodes, id) : [id], adding(e) ? app.selectedEdges : []);
+    else select(adding(e) ? app.selectedNodes : [], adding(e) ? toggled(app.selectedEdges, id) : [id]);
   }
 
   function edgeClick({ edge, event }: { edge: Edge; event: MouseEvent }) {
@@ -901,6 +915,8 @@
   /** On a card or a pin tag: what can be done to it from here. */
   function nodeMenu(node: Node<NodeData>, event: MouseEvent) {
     if (node.type === "sheetFrame") return paneMenu(event);
+    // An open frame's body is that sheet's canvas; its header is the sheet node's.
+    if (node.data.frame && !(event.target instanceof Element && event.target.closest("[data-card-header]"))) return paneMenu(event);
     const graphNode = nodeOf(node.id);
     const on = sheetOf(node.id);
     if (!graphNode || !on) return;
@@ -931,8 +947,8 @@
         run: () => (s.kind === "copy" && !on.blueprint ? openCopy(on.id, node.id) : openSheet(held.id)),
       },
       editable && { label: "Rename", icon: Pencil, run: () => nameNode(node.id) },
-      editable && { label: "On", checked: enabled, run: () => switchNode(on, graphNode, held, !enabled) },
-      device && { label: "Identify", icon: Lightbulb, hint: "Light it up in the world", checked: isIdentified({ kind: "device", device: device.pos }), run: () => toggleIdentify({ kind: "device", device: device.pos }) },
+      editable && { label: enabled ? "Turn off" : "Turn on", icon: enabled ? PowerOff : Power, run: () => switchNode(on, graphNode, held, !enabled) },
+      device && identifyItem(device.pos),
       device && { label: "Device panel…", icon: KIND_ICON.device, run: () => openDevice(device) },
       editable && wired.length > 0 && { label: wired.length === 1 ? "Disconnect its wire" : `Disconnect all ${wired.length} wires`, icon: Unplug, run: () => disconnectAll(on, node.id) },
       "-",
@@ -978,13 +994,11 @@
   /** A node's switch (a sheet node's is its sheet's). */
   function switchNode(on: Sheet, node: GraphNode, held: Sheet | undefined, enabled: boolean) {
     if (node.settings.kind === "sheet" && held) return setSheetEnabled(held, enabled);
-    const { after, before } = rebase(node, { ...node, enabled });
-    edit([{ type: "updateNode", sheet: on.id, node: after }], [{ type: "updateNode", sheet: on.id, node: before }], enabled ? "switch on" : "switch off");
+    updateNodeEdit(on.id, node, { ...node, enabled }, enabled ? "switch on" : "switch off");
   }
 
   function savePin(on: Sheet, pin: GraphNode, resource: Resource | undefined) {
-    const { after, before } = rebase(pin, { ...pin, settings: { ...pin.settings, resource } as GraphNode["settings"] });
-    edit([{ type: "updateNode", sheet: on.id, node: after }], [{ type: "updateNode", sheet: on.id, node: before }], "pin type");
+    updateNodeEdit(on.id, pin, pinChanged(pin, { resource }), "pin type");
   }
 
   /** Removes every wire on a node, as one undoable change. */
@@ -1003,7 +1017,7 @@
    */
   async function insertOnWire(on: Sheet, wire: Wire, kind: NodeKind, at: { x: number; y: number }) {
     const node: GraphNode = { id: uuid(), settings: defaultSettings(kind, null, "item"), x: Math.round(at.x), y: Math.round(at.y) };
-    const into: Wire = { id: uuid(), from: wire.from, ...(wire.output ? { output: wire.output } : {}), to: node.id };
+    const into: Wire = { id: uuid(), from: wire.from, ...(wire.output ? { output: wire.output } : {}), to: node.id, ...(wire.order !== undefined ? { order: wire.order } : {}) };
     const out: Wire = { id: uuid(), from: node.id, to: wire.to, ...(wire.input ? { input: wire.input } : {}) };
     const ok = await edit(
       [
@@ -1044,7 +1058,7 @@
       `fill ${slotName(slot)}`,
     );
     app.selectedNodes = [slot.id];
-    if (ok && more) toast(`Filled ${more} more slot${more === 1 ? "" : "s"} by layout from this one.`, "info", { label: "Undo", run: undoLast });
+    if (ok && more) toast(`Filled ${more} more slot${more === 1 ? "" : "s"} by layout from this one.`, "info", { label: "Undo", run: undoThis() });
   }
 
   /** Whether a device already has its home: a device node on a sheet of the tree, or a slot of a copy it fills. */
@@ -1230,7 +1244,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- "wiring" while a new wire is being dragged, so pins that hide when unused (gates) show as drop targets. -->
-<div class="h-full w-full" class:wiring bind:this={container} {ondragover} {ondrop}>
+<div class="h-full w-full" class:wiring bind:this={container} {ondragover} {ondrop} onkeydown={selectByKey}>
   <SvelteFlow
     bind:nodes
     bind:edges
@@ -1298,7 +1312,7 @@
               <!-- On a blueprint a device is a slot: the kind of block it takes, from a device here or the catalog. -->
               <BlockPicker bind:this={slotPicker} devices={app.snapshot?.devices ?? []} onchange={addSlot}>
                 {#snippet button({ open })}
-                  <button class="btn flex items-center gap-1 text-sm" title="A slot: a kind of block each copy fills with one" onclick={open}>
+                  <button class="btn flex items-center gap-1 text-sm" title="A slot: a kind of block each copy fills with one" onclick={() => ((slotAt = null), open())}>
                     <DeviceKindIcon size={14} />Slot
                   </button>
                 {/snippet}

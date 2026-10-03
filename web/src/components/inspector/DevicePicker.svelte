@@ -39,7 +39,8 @@
 
   const current = $derived(value ? devices.find((d) => posKey(d.pos) === posKey(value)) : undefined);
   const matches = $derived(devices.filter((d) => matchesDevice(d, query)).sort((a, b) => deviceName(a).localeCompare(deviceName(b))));
-  const nav = new ListNav(() => matches.length, () => list);
+  // The list builds only the rows in view: rows are kept in view by their height.
+  const nav = new ListNav(() => matches.length, () => list, { rowHeight: ROW });
 
   const first = $derived(Math.max(0, Math.floor(scrollTop / ROW) - 4));
   const last = $derived(Math.min(matches.length, Math.ceil((scrollTop + viewHeight) / ROW) + 4));

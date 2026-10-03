@@ -10,11 +10,12 @@
   import Copy from "@lucide/svelte/icons/copy";
   import CopyPlus from "@lucide/svelte/icons/copy-plus";
   import Trash from "@lucide/svelte/icons/trash";
-  import Lightbulb from "@lucide/svelte/icons/lightbulb";
-  import { openMenu } from "../lib/menu.svelte";
+  import Power from "@lucide/svelte/icons/power";
+  import PowerOff from "@lucide/svelte/icons/power-off";
+  import { identifyItem, openMenu } from "../lib/menu.svelte";
   import Share from "@lucide/svelte/icons/share";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-  import { app, copySheetJson, createSheet, deleteCopy, deleteSheet, deviceUses, duplicateBlueprint, edit, isIdentified, toggleIdentify, deviceName, matchesDevice, moveSheet, openCopy, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
+  import { app, updateNodeEdit, copySheetJson, createSheet, deleteCopy, deleteSheet, deviceUses, duplicateBlueprint, edit, deviceName, matchesDevice, moveSheet, openCopy, openDevice, openSheet, setSheetEnabled, toast } from "../lib/state.svelte";
   import { childSheets, descendants, offReason, rootSheet } from "../lib/tree";
   import Segmented from "./controls/Segmented.svelte";
   import { confirmDialog, promptDialog } from "../lib/dialog.svelte";
@@ -291,7 +292,7 @@
       { label: "Open", icon: ExternalLink, run: () => openSheet(sheet.id) },
       canEdit && { label: "Rename", icon: Pencil, hint: sheet.root ? "Renames the network too" : undefined, run: () => (renaming = sheet.id) },
       canEdit && { label: "New sheet inside", icon: Plus, run: () => addSheet(sheet) },
-      canEdit && { label: "On", checked: sheet.enabled !== false, hint: sheet.root ? "The network's switch" : undefined, run: () => setSheetEnabled(sheet, sheet.enabled === false) },
+      canEdit && { label: sheet.enabled !== false ? "Turn off" : "Turn on", icon: sheet.enabled !== false ? PowerOff : Power, hint: sheet.root ? "The network's switch" : undefined, run: () => setSheetEnabled(sheet, sheet.enabled === false) },
       "-",
       { label: "Copy as JSON", icon: Copy, run: () => copySheetJson(sheet) },
       canEdit && !sheet.root && "-",
@@ -303,7 +304,7 @@
     openMenu(e, [
       { label: "Open", icon: ExternalLink, hint: "The blueprint with this copy's blocks", run: () => openCopy(holder.id, node.id) },
       canEdit && { label: "Rename", icon: Pencil, run: () => (renaming = node.id) },
-      canEdit && { label: "On", checked: node.enabled !== false, run: () => setCopyEnabled(holder, node, node.enabled === false) },
+      canEdit && { label: node.enabled !== false ? "Turn off" : "Turn on", icon: node.enabled !== false ? PowerOff : Power, run: () => setCopyEnabled(holder, node, node.enabled === false) },
       canEdit && "-",
       canEdit && { label: "Delete", icon: Trash, danger: true, shortcut: "Del", run: () => deleteCopy(holder, node) },
     ]);
@@ -326,7 +327,7 @@
     const homed = (deviceUses(snapshot).get(posKey(d.pos)) ?? []).some((u) => u.home);
     const canPlace = canEdit && d.state === "active" && !!open && !app.copy && (open.blueprint || !homed);
     openMenu(e, [
-      { label: "Identify", icon: Lightbulb, hint: "Light it up in the world", checked: isIdentified({ kind: "device", device: d.pos }), run: () => toggleIdentify({ kind: "device", device: d.pos }) },
+      identifyItem(d.pos),
       { label: "Names…", icon: Pencil, hint: "Its name and its faces'", run: () => openDevice(d) },
       canEdit && {
         label: open?.blueprint ? "Add a slot to the open blueprint" : "Add to the open sheet",
@@ -340,12 +341,12 @@
 
   /** A copy's own name (its node's label); blank goes back to its blueprint's. */
   function renameCopy(holder: Sheet, node: GraphNode, name: string) {
-    edit([{ type: "updateNode", sheet: holder.id, node: { ...node, label: name || undefined } }], [{ type: "updateNode", sheet: holder.id, node }], "rename copy");
+    updateNodeEdit(holder.id, node, { ...node, label: name || undefined }, "rename copy");
   }
 
   /** A copy's own switch (its node's), as one undoable change. */
   function setCopyEnabled(holder: Sheet, node: GraphNode, on: boolean) {
-    edit([{ type: "updateNode", sheet: holder.id, node: { ...node, enabled: on } }], [{ type: "updateNode", sheet: holder.id, node }], "copy on/off");
+    updateNodeEdit(holder.id, node, { ...node, enabled: on }, "copy on/off");
   }
 
   function toggleCollapsed(id: string) {
@@ -384,7 +385,7 @@
       {#if canEdit}
         <div class="flex items-center gap-1">
           <AddButton icon={Import} label="Import sheet: paste one copied with “Copy as JSON”" onclick={() => importSheet("sheet")} />
-          <AddButton label={`New sheet in ${newSheetParent?.name ?? "the network"}`} onclick={addSheet} />
+          <AddButton label={`New sheet in ${newSheetParent?.name ?? "the network"}`} onclick={() => addSheet()} />
         </div>
       {/if}
     </div>
