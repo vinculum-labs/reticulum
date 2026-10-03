@@ -91,6 +91,10 @@ body {
     font: inherit;
     color: var(--ink);
   }
+  /* A fieldset is at least as wide as its content by default (min-content), so a long field pushed it out of the panel. */
+  fieldset {
+    min-width: 0;
+  }
 }
 
 input:not([type="checkbox"]),
