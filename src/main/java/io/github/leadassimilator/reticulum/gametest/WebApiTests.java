@@ -125,6 +125,56 @@ public final class WebApiTests {
         });
     }
 
+    /** Renaming a filter template renames it where it is used: other templates and the filters nodes hold. */
+    @GameTest(template = "empty")
+    public static void renamingATemplateRenamesItsUses(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        helper.setBlock(new BlockPos(3, 1, 2), Blocks.BARREL);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.members().put(player.getUUID(), new Member(player.getUUID(), "test", Role.EDITOR));
+        String id = network.id().toString();
+        String sheet = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"t\"}]}")
+                .getAsJsonArray("results").get(0).getAsString();
+        String filterNode = UUID.randomUUID().toString();
+        String deviceNode = UUID.randomUUID().toString();
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":["
+                + "{\"type\":\"setFilter\",\"name\":\"ores\",\"expression\":\"minecraft:iron_ingot\"},"
+                + "{\"type\":\"setFilter\",\"name\":\"metals\",\"expression\":\"@ores | minecraft:gold_ingot\"},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + filterNode + "\",\"settings\":{\"kind\":\"filter\",\"expression\":\"@ores\"}}},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + deviceNode + "\",\"settings\":{\"kind\":\"device\",\"device\":"
+                + pos(helper, new BlockPos(3, 1, 2)) + ",\"outputs\":[{\"resource\":\"item\",\"keep\":[{\"scope\":\"per_type\",\"amount\":5,\"filter\":\"@ores\"}]}]}}}"
+                + "]}");
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"renameFilter\",\"from\":\"ores\",\"to\":\"iron\"}]}");
+        expectTemplates(helper, network, sheet, filterNode, deviceNode, "iron");
+        // The reverse rename (undo) puts everything back.
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"renameFilter\",\"from\":\"iron\",\"to\":\"ores\"}]}");
+        expectTemplates(helper, network, sheet, filterNode, deviceNode, "ores");
+        helper.succeed();
+    }
+
+    private static void expectTemplates(GameTestHelper helper, Network network, String sheetId, String filterNode, String deviceNode, String name) {
+        if (!network.filters().containsKey(name) || network.filters().size() != 2) {
+            helper.fail("Templates after the rename: " + network.filters().keySet());
+        }
+        if (!("@" + name + " | minecraft:gold_ingot").equals(network.filters().get("metals"))) {
+            helper.fail("The template using it wasn't renamed: " + network.filters().get("metals"));
+        }
+        var sheet = network.sheet(UUID.fromString(sheetId));
+        if (!(sheet.node(UUID.fromString(filterNode)).settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.FilterSettings f)
+                || !f.expression().equals("@" + name)) {
+            helper.fail("The filter node wasn't renamed: " + sheet.node(UUID.fromString(filterNode)).settings());
+        }
+        if (!(sheet.node(UUID.fromString(deviceNode)).settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings d)
+                || !d.outputs().get(0).keep().get(0).filter().equals("@" + name)) {
+            helper.fail("The keep rule wasn't renamed: " + sheet.node(UUID.fromString(deviceNode)).settings());
+        }
+    }
+
     /** The web server needs Netty's HTTP module, which Minecraft doesn't ship; it must load from mod code. */
     @GameTest(template = "empty")
     public static void nettyHttpIsAvailable(GameTestHelper helper) {

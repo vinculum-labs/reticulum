@@ -218,7 +218,7 @@
     if (ok) toast(`Imported ${ordered.length} template${ordered.length === 1 ? "" : "s"}.`, "info");
   }
 
-  /** Renames a template: saved under the new name, the old one gone (filters using @old aren't changed). */
+  /** Renames a template, and everywhere it is used: other templates and every filter on every sheet. One undo. */
   function renameTemplate(from: string, to: string) {
     to = to.trim().replace(/^@/, "");
     if (!to || to === from) return;
@@ -226,12 +226,7 @@
       toast(`There's already a template @${to}.`);
       return;
     }
-    const expression = snapshot.filters[from] ?? "";
-    edit(
-      [{ type: "setFilter", name: to, expression }, { type: "setFilter", name: from, expression: null }],
-      [{ type: "setFilter", name: from, expression }, { type: "setFilter", name: to, expression: null }],
-      "rename filter template",
-    );
+    edit([{ type: "renameFilter", from, to }], [{ type: "renameFilter", from: to, to: from }], "rename filter template");
     if (openTemplate === from) openTemplate = to;
   }
 

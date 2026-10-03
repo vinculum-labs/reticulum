@@ -515,6 +515,36 @@ public final class WebApi {
                     }
                     network.sheets().forEach(Sheet::touch);
                 }
+                case "renameFilter" -> {
+                    // A template renamed where it is used too: other templates and every filter on every sheet and
+                    // blueprint that names it. The reverse rename undoes it.
+                    String from = string(edit, "from");
+                    String to = Limits.name(string(edit, "to"));
+                    if (to == null) {
+                        throw new RequestException("A filter template needs a name");
+                    }
+                    if (!network.filters().containsKey(from)) {
+                        throw new RequestException("There's no filter template @" + from);
+                    }
+                    if (!from.equals(to) && network.filters().containsKey(to)) {
+                        throw new RequestException("There's already a filter template @" + to);
+                    }
+                    java.util.function.UnaryOperator<String> renamed = e -> e == null ? null
+                            : io.github.leadassimilator.reticulum.filter.FilterRefs.rename(e, from, to);
+                    Map<String, String> templates = new java.util.LinkedHashMap<>();
+                    network.filters().forEach((name, expression) -> templates.put(name.equals(from) ? to : name, renamed.apply(expression)));
+                    network.filters().clear();
+                    network.filters().putAll(templates);
+                    for (Sheet sheet : network.sheets()) {
+                        for (Node node : List.copyOf(sheet.nodes())) {
+                            NodeSettings next = io.github.leadassimilator.reticulum.filter.FilterRefs.rename(node.settings(), renamed);
+                            if (!next.equals(node.settings())) {
+                                sheet.replace(node.with(next));
+                            }
+                        }
+                        sheet.touch();
+                    }
+                }
                 case "setNetworkEnabled" -> network.setEnabled(edit.get("enabled").getAsBoolean());
                 case "identify" -> {
                     io.github.leadassimilator.reticulum.network.Identify target = decode(server,
