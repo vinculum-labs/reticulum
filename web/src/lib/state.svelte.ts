@@ -633,18 +633,24 @@ export async function createSheet(parent: Sheet | null, name: string, at?: { x: 
   return id;
 }
 
-/** Adds a pin to a sheet's edge (an input on the left, an output on the right), below the pins already there. */
-export async function addSheetPin(sheet: Sheet, input: boolean) {
+/**
+ * Adds a pin to a sheet's edge (an input on the left, an output on the right), below the pins already there, to be
+ * named next. Added on the canvas it is selected (its own panel); added from the sheet's panel ({@code select}
+ * false) it is named there, in its group. Returns its id.
+ */
+export async function addSheetPin(sheet: Sheet, input: boolean, select = true): Promise<string | null> {
   const kind = input ? "sheet_input" : "sheet_output";
   const same = (sheet.nodes ?? []).filter((n) => n.settings.kind === kind);
   const y = same.length ? Math.max(...same.map((n) => n.y ?? 0)) + 40 : Math.min(0, ...(sheet.nodes ?? []).map((n) => n.y ?? 0)) + 30;
   const node: GraphNode = { id: uuid(), settings: { kind, name: "" }, x: 0, y: Math.round(y) };
   const ok = await edit([{ type: "addNode", sheet: sheet.id, node }], [{ type: "removeNode", sheet: sheet.id, node: node.id }], input ? "add input pin" : "add output pin");
-  if (ok) {
+  if (!ok) return null;
+  app.nameNode = node.id;
+  if (select) {
     app.selectedNodes = [node.id];
     app.selectedEdges = [];
-    app.nameNode = node.id;
   }
+  return node.id;
 }
 
 /**

@@ -4,7 +4,7 @@
   import { slotName, slotsOf } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
-  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, PIN_CARRIES, gated, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR, isSignal } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, gated, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR, isSignal } from "../../lib/kinds";
   import {
     SIDES,
     posKey,
@@ -43,10 +43,10 @@
   import Switch from "../controls/Switch.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
   import Select from "../controls/Select.svelte";
-  import WhileOffField from "./WhileOffField.svelte";
   import DeviceIcon from "../DeviceIcon.svelte";
   import { KIND_ICON } from "../../lib/icons";
   import SheetPins from "./SheetPins.svelte";
+  import PinFields from "./PinFields.svelte";
   import AddButton from "../controls/AddButton.svelte";
   import TextField from "../controls/TextField.svelte";
 
@@ -391,27 +391,8 @@
       </div>
     {/if}
   {:else if s.kind === "sheet_input" || s.kind === "sheet_output"}
-    <Field
-      label="Name"
-      hint={`Shown by its dot on the sheet's ${s.kind === "sheet_input" ? "left" : "right"} edge, and on the sheet's node. Drag the pin up or down to reorder.`}
-    >
-      <!-- A name once set as the node's label shows here too, and moves into the pin's name when edited. -->
-      <!-- A pin just added takes the keyboard, to be named straight away. -->
-      <TextField value={s.name || node.label} disabled={!canEdit} placeholder="e.g. ores" autofocus={app.nameNode === node.id}
-        oncommit={(v) => save({ ...node, label: undefined, settings: { ...s, name: v } }, "rename pin")}
-        onfinish={() => app.nameNode === node.id && (app.nameNode = null)} />
-    </Field>
-    <Field label="Carries" hint="Wires of other kinds won't connect to it. Anything: whatever is wired to it.">
-      <Select
-        value={s.resource ?? ""}
-        disabled={!canEdit}
-        options={PIN_CARRIES}
-        onchange={(v) => settings({ resource: (v || undefined) as Resource | undefined })}
-      />
-    </Field>
-    {#if s.kind === "sheet_output" && (!s.resource || s.resource === "redstone")}
-      <WhileOffField value={s.while_off} disabled={!canEdit} onchange={(while_off) => settings({ while_off })} />
-    {/if}
+    <!-- The same fields as its group in the sheet's panel. -->
+    <PinFields {sheet} pin={node} />
   {/if}
 
   {#if s.kind === "filter"}
