@@ -43,6 +43,7 @@
   import RemoveButton from "../controls/RemoveButton.svelte";
   import Select from "../controls/Select.svelte";
   import WhileOffField from "./WhileOffField.svelte";
+  import SheetPins from "./SheetPins.svelte";
   import TextField from "../controls/TextField.svelte";
 
   let { node, sheet }: { node: GraphNode; sheet: Sheet } = $props();
@@ -293,13 +294,12 @@
       </Field>
       <div class="text-sm">
         <div><span class="muted">Holds:</span> {held.nodes?.length ?? 0} node{(held.nodes?.length ?? 0) === 1 ? "" : "s"}{inside ? `, ${inside} sheet${inside === 1 ? "" : "s"}` : ""}</div>
-        <div><span class="muted">Inputs:</span> {sheetPins(held, true).map(pinName).join(", ") || "none"}</div>
-        <div><span class="muted">Outputs:</span> {sheetPins(held, false).map(pinName).join(", ") || "none"}</div>
       </div>
       <p class="text-xs muted">
-        Its switch above switches everything in it, sheets inside included; so does a signal into its gate. Its pins sit on its
-        edges: add them with + input / + output inside it, or drag a wire past its edge.
+        Its switch above switches everything in it, sheets inside included; so does a signal into its gate. Its pins are the
+        sheet's: added here, or inside it, or by dragging a wire past its edge.
       </p>
+      <SheetPins sheet={held} />
       {@const unwired = unwiredPins(held).length}
       <div class="flex flex-wrap gap-2">
         <button class="btn text-sm" onclick={() => openSheet(held.id)}>Open “{held.name}”</button>
