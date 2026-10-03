@@ -3,6 +3,8 @@
 
 import type { Binding, CopySettings, Device, DeviceNodeSettings, GlobalPos, GraphNode, Sheet, Snapshot } from "./types";
 import { posKey } from "./types";
+import type { Activity } from "./graph";
+import { nameUuid } from "./nameUuid";
 
 /** Every copy of a blueprint in the network: the sheet it is on and its node. */
 export function copiesOf(snapshot: Snapshot, blueprintId: string): { sheet: Sheet; node: GraphNode }[] {
@@ -125,6 +127,32 @@ export function ownBlocks(blueprint: Sheet, devices: Device[], placed: (device: 
     if (found && found.block === block && !placed(found)) bindings[slot.id] = { device: found.pos };
   }
   return bindings;
+}
+
+const derived = new Map<string, string>();
+
+/**
+ * Activity as an open copy's nodes and wires show it. The canvas shows the blueprint's own nodes, but the server names
+ * them in this copy "<copy node>/<blueprint node>" (as a name UUID), and keeps their activity under those names.
+ * Statuses aren't moved: the server puts those on the copy node.
+ */
+export function copyActivity(activity: Activity, copyNode: string, blueprint: Sheet): Activity {
+  const ids = [...(blueprint.nodes ?? []).map((n) => n.id), ...(blueprint.wires ?? []).map((w) => w.id)];
+  const named = (id: string) => {
+    const key = `${copyNode}/${id}`;
+    let name = derived.get(key);
+    if (!name) derived.set(key, (name = nameUuid(key)));
+    return name;
+  };
+  function remap<T>(from: Record<string, T>): Record<string, T> {
+    const out: Record<string, T> = {};
+    for (const id of ids) {
+      const value = from[named(id)];
+      if (value !== undefined) out[id] = value;
+    }
+    return out;
+  }
+  return { ...activity, rates: remap(activity.rates), fiveMinutes: remap(activity.fiveMinutes), signals: remap(activity.signals), me: remap(activity.me) };
 }
 
 /** A copy node's bindings (none yet: empty). */

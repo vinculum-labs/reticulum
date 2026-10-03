@@ -45,7 +45,7 @@
     WIRE_STYLE_LABEL,
     type WireStyle,
   } from "../../lib/state.svelte";
-  import { copiesOf, fillOne, nowhere, ownBlocks, slotName } from "../../lib/blueprints";
+  import { copiesOf, copyActivity, fillOne, nowhere, ownBlocks, slotName } from "../../lib/blueprints";
   import BlockPicker from "../inspector/BlockPicker.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
@@ -154,13 +154,15 @@
     void resync.count;
     const s = sheet;
     const devices = app.snapshot?.devices ?? [];
-    const activity = {
+    const live = {
       rates: app.rates,
       fiveMinutes: app.fiveMinutes,
       status: app.status,
       signals: app.signals,
       me: app.me,
     };
+    // An open copy shows its blueprint's nodes: their activity is kept under this copy's names for them.
+    const activity = copy && s ? copyActivity(live, copy.node.id, s) : live;
     // The selection is carried into the rebuilt nodes but isn't a reason to rebuild: the canvas already shows it.
     const selected = untrack(() => new Set([...app.selectedNodes, ...app.selectedEdges]));
     const unit = app.rateUnit;
