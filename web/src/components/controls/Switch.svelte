@@ -9,6 +9,7 @@
     label,
     hideLabel = false,
     disabled = false,
+    small = false,
     title,
   }: {
     checked: boolean;
@@ -17,6 +18,8 @@
     /** The label is only spoken (and the tooltip), not shown: for compact rows. */
     hideLabel?: boolean;
     disabled?: boolean;
+    /** A smaller switch, for lists where many sit in a column (the sheet tree). */
+    small?: boolean;
     title?: string;
   } = $props();
 </script>
@@ -31,7 +34,7 @@
   {disabled}
   onclick={() => onchange(!checked)}
 >
-  <span class="track" class:on={checked}><span class="thumb"></span></span>
+  <span class="track" class:on={checked} class:small><span class="thumb"></span></span>
   {#if !hideLabel}{label}{/if}
 </button>
 
@@ -63,6 +66,17 @@
   }
   .track.on .thumb {
     left: 14px;
+  }
+  .track.small {
+    width: 22px;
+    height: 12px;
+  }
+  .track.small .thumb {
+    width: 8px;
+    height: 8px;
+  }
+  .track.small.on .thumb {
+    left: 12px;
   }
   .switch:focus-visible .track {
     outline: 2px solid var(--accent);

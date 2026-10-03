@@ -223,13 +223,6 @@
           {:else}
             <span class="w-4 shrink-0"></span>
           {/if}
-          <Switch
-            hideLabel
-            label={sheet.root ? "The network on/off" : `Sheet ${sheet.name} on/off: everything in it`}
-            checked={sheet.enabled !== false}
-            disabled={!canEdit}
-            onchange={(on) => setSheetEnabled(sheet, on)}
-          />
           {#if renaming === sheet.id}
             <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
           {:else}
@@ -246,8 +239,19 @@
               {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
             </button>
           {/if}
+          <!-- At the row's end, so the tree's switches line up in a column whatever the depth. -->
+          <Switch
+            hideLabel
+            small
+            label={sheet.root ? "The network on/off" : `Sheet ${sheet.name} on/off: everything in it`}
+            checked={sheet.enabled !== false}
+            disabled={!canEdit}
+            onchange={(on) => setSheetEnabled(sheet, on)}
+          />
           {#if canEdit && !sheet.root}
             <RemoveButton reveal label={`Delete sheet ${sheet.name}`} onclick={() => deleteSheet(sheet)} />
+          {:else if canEdit}
+            <span class="w-5 shrink-0"></span>
           {/if}
         </li>
       {/each}
