@@ -3,7 +3,8 @@
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { copiesOf, slotsOf } from "../../lib/blueprints";
   import { sheetPath } from "../../lib/tree";
-  import type { CopySettings, GraphNode, Sheet } from "../../lib/types";
+  import type { CopySettings, Edit, GraphNode, Sheet } from "../../lib/types";
+  import Trash from "@lucide/svelte/icons/trash";
   import InspectorPanel from "./InspectorPanel.svelte";
   import { KIND_ICON } from "../../lib/icons";
   import Field from "./Field.svelte";
@@ -23,6 +24,17 @@
     edit([{ type: "updateNode", sheet: sheet.id, node: after }], [{ type: "updateNode", sheet: sheet.id, node: before }], "rename copy");
   }
 
+  /** Deletes the copy (its node and wires, one undoable change) and goes back to the sheet that held it. */
+  async function remove() {
+    const wires = (sheet.wires ?? []).filter((w) => w.from === copy.id || w.to === copy.id);
+    const ok = await edit(
+      [{ type: "removeNode", sheet: sheet.id, node: copy.id }],
+      [{ type: "addNode", sheet: sheet.id, node: copy } as Edit, ...wires.map((wire) => ({ type: "connect", sheet: sheet.id, wire }) as Edit)],
+      "delete copy",
+    );
+    if (ok) openSheet(sheet.id);
+  }
+
   async function convert() {
     const network = app.current;
     const ok = await confirmDialog({
@@ -40,6 +52,9 @@
   {#snippet icon()}
     {@const CopyIcon = KIND_ICON.copy}
     <span class="shrink-0 muted"><CopyIcon size={24} /></span>
+  {/snippet}
+  {#snippet actions()}
+    {#if canEdit}<button class="btn btn-danger px-2" onclick={remove} title="Delete this copy" aria-label="Delete copy"><Trash size={16} /></button>{/if}
   {/snippet}
   <Field label="Name" hint="Optional; the blueprint's name is shown otherwise.">
     <TextField value={copy.label} disabled={!canEdit} placeholder={blueprint.name} oncommit={rename} />
