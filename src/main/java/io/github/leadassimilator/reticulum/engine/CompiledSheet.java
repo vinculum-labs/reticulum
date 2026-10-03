@@ -86,6 +86,8 @@ public final class CompiledSheet {
     private final Map<UUID, UUID> nodeSheet = new LinkedHashMap<>();
     /** Each sheet's operation interval and priority, by sheet id, for what is compiled from it. */
     private final Map<UUID, int[]> sheetTiming = new LinkedHashMap<>();
+    /** Each copy node's blueprint's interval and priority, for what runs in it. */
+    private final Map<UUID, int[]> copyTiming = new LinkedHashMap<>();
     /** The sheet node of every sheet in the tree, by sheet id (the root has none). */
     private final Map<UUID, UUID> sheetNodes = new LinkedHashMap<>();
     private final List<Source> sources = new ArrayList<>();
@@ -165,16 +167,30 @@ public final class CompiledSheet {
         return sheet.id();
     }
 
-    /** Ticks between item operations for what is compiled from this node's sheet. */
+    /** Ticks between item operations for what is compiled from this node's sheet (in a copy, its blueprint's). */
     public int intervalOf(UUID node) {
-        int[] timing = sheetTiming.get(sheetOf(node));
+        int[] timing = timing(node);
         return timing == null ? sheet.interval() : timing[0];
     }
 
-    /** The priority of this node's sheet: sheets with a higher one move first. */
+    /** The priority of this node's sheet (in a copy, its blueprint's): sheets with a higher one move first. */
     public int priorityOf(UUID node) {
-        int[] timing = sheetTiming.get(sheetOf(node));
+        int[] timing = timing(node);
         return timing == null ? sheet.priority() : timing[1];
+    }
+
+    /** The interval and priority a node runs with: the innermost copy's blueprint's, else its sheet's. */
+    @Nullable
+    private int[] timing(UUID node) {
+        UUID current = node;
+        for (int hops = 0; current != null && hops < 32; hops++) {
+            int[] copy = copyTiming.get(current);
+            if (copy != null) {
+                return copy;
+            }
+            current = owners.get(current);
+        }
+        return sheetTiming.get(sheetOf(node));
     }
 
     /** The sheet node of each sheet in the tree, by sheet id. */
@@ -778,6 +794,8 @@ public final class CompiledSheet {
             if (child) {
                 sheetNodes.put(used.id(), node.id());
                 sheetTiming.put(used.id(), new int[] {used.interval(), used.priority()});
+            } else {
+                copyTiming.put(node.id(), new int[] {used.interval(), used.priority()});
             }
             for (Wire inner : used.wires()) {
                 wires.add(child ? inner : new Wire(copy.apply(inner.id()), copy.apply(inner.from()), inner.output(), copy.apply(inner.to()),

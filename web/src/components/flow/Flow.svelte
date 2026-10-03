@@ -384,7 +384,8 @@
         confirm: held.length === 1 ? "Delete sheet" : "Delete sheets",
         danger: true,
       });
-      if (!ok) {
+      // Answered after switching networks: the snapshot it asked about is gone.
+      if (!ok || !app.snapshot) {
         resync.count++;
         return;
       }
@@ -534,6 +535,9 @@
       const f = target.frame;
       return { node, x: f ? abs.x - f.ax + f.dx : abs.x, y: f ? abs.y - f.ay + f.dy : abs.y };
     });
+    // XXX: a frame draws its sheet from its contents' top-left corner, and moves() shifts the frame when that corner
+    // moves; this doesn't, so taking a card out of an open frame (or dropping one in its left or top margin) makes the
+    // frame's other cards jump on screen.
     const change = moveAcross(app.snapshot, from, target.sheet, items, nodeTitle, uuid);
     if (!change) {
       toast("Can't move it there: one of its wires couldn't be kept.");

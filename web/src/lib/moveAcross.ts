@@ -8,8 +8,8 @@ import { crossWire, type End } from "./crossing";
 /**
  * The edits (and undo) moving {@code moving} (cards on {@code from}) onto {@code to}, each at its spot there. Wires
  * between the moved cards stay as they are; every other wire on them is rebuilt across the edges between the two
- * sheets, making pins (or reusing them). Null when a wire can't be rebuilt (the sheets aren't in one tree): then
- * nothing moves, rather than a wire being dropped.
+ * sheets, making pins (or reusing them). Null when a wire can't be rebuilt (the sheets aren't in one tree, or it went
+ * through a pin nothing is wired to on the far side): then nothing moves, rather than a wire being dropped.
  */
 export function moveAcross(
   snapshot: Snapshot,
@@ -61,18 +61,23 @@ export function moveAcross(
     const inner = held(end);
     if (!inner || depth > 16 || !within(toward, inner)) return [end];
     const pin = sheetPins(inner, false).find((p, i) => pinSlot(p, i) === end.index);
-    if (!pin) return [];
-    return (inner.wires ?? []).filter((w) => w.to === pin.id).flatMap((w) => sources({ sheet: inner, node: w.from, index: w.output ?? 0 }, toward, depth + 1));
+    const feeding = pin ? (inner.wires ?? []).filter((w) => w.to === pin.id) : [];
+    // Nothing inside feeds that pin: the wire would have no source left there, so it can't be kept.
+    if (!feeding.length) lost = true;
+    return feeding.flatMap((w) => sources({ sheet: inner, node: w.from, index: w.output ?? 0 }, toward, depth + 1));
   };
   /** The same for a target: a sheet node's input, seen from inside that sheet, is what its input pin feeds. */
   const targets = (end: End, from: Sheet, depth = 0): End[] => {
     const inner = held(end);
     if (!inner || end.index === GATE || depth > 16 || !within(from, inner)) return [end];
     const pin = sheetPins(inner, true).find((p, i) => pinSlot(p, i) === end.index);
-    if (!pin) return [];
-    return (inner.wires ?? []).filter((w) => w.from === pin.id).flatMap((w) => targets({ sheet: inner, node: w.to, index: w.input ?? 0 }, from, depth + 1));
+    const fed = pin ? (inner.wires ?? []).filter((w) => w.from === pin.id) : [];
+    if (!fed.length) lost = true;
+    return fed.flatMap((w) => targets({ sheet: inner, node: w.to, index: w.input ?? 0 }, from, depth + 1));
   };
 
+  /** A wire that would have nothing left on one end (a pin nothing is wired to inside): then nothing moves. */
+  let lost = false;
   const undoCrossings: Edit[][] = [];
   for (const w of outside) {
     const out = ids.has(w.from);
@@ -95,6 +100,7 @@ export function moveAcross(
       }
     }
   }
+  if (lost) return null;
   // Undone in reverse: the rebuilt wires and their pins, then the cards back where they were, with their wires.
   const undo: Edit[] = [
     ...undoCrossings.reverse().flat(),

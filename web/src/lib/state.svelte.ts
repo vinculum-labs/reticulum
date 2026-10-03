@@ -201,7 +201,8 @@ async function onMessage(m: any): Promise<void> {
     case "hello":
       app.inWorld = m.connected;
       // A reconnect keeps the network this page shows; a new page opens on the one the game focused.
-      if (m.connected) await loadNetworks(app.current ?? m.focus ?? hashNetwork());
+      // Subscribed again either way: the game's relay let go of this page's networks when its socket closed.
+      if (m.connected) await loadNetworks(app.current ?? m.focus ?? hashNetwork(), true);
       break;
     case "connected":
       app.inWorld = true;
@@ -301,6 +302,23 @@ export async function loadNetworks(focus: string | null, resubscribe = false): P
 /** Each network's undo and redo while another is shown: switching back brings them back. */
 const histories = new Map<string, { undo: Change[]; redo: Change[] }>();
 
+/** A network's undo and redo: the shown one's, or the history kept for another (a change finishing after a switch). */
+function stacksOf(network: string): { undo: Change[]; redo: Change[] } {
+  return network === app.current ? app : historyOf(network);
+}
+
+/**
+ * The last change on this stack that belongs to the network shown; any on top from another network (left there when
+ * the shown one went away, say) are filed with their own network's history instead of being sent.
+ */
+function takeOwn(stack: Change[]): Change | undefined {
+  for (let change = stack.pop(); change; change = stack.pop()) {
+    if (change.network === app.current) return change;
+    historyOf(change.network)[stack === app.undo ? "undo" : "redo"].push(change);
+  }
+  return undefined;
+}
+
 function historyOf(network: string): { undo: Change[]; redo: Change[] } {
   let stacks = histories.get(network);
   if (!stacks) histories.set(network, (stacks = { undo: [], redo: [] }));
@@ -324,13 +342,9 @@ export async function selectNetwork(id: string, fallback = true): Promise<void> 
   }
   app.current = id;
   history.replaceState(null, "", `#network=${id}`);
-  app.rates = {};
-  app.fiveMinutes = {};
-  app.ticksSinceMoved = {};
-  app.status = {};
-  app.signals = {};
-  app.sheetsOff = [];
-  app.me = {};
+  clearMetrics();
+  app.power = null;
+  app.tick = null;
   app.selectedNodes = [];
   app.selectedEdges = [];
   app.selectedDevice = null;
@@ -343,6 +357,17 @@ export async function selectNetwork(id: string, fallback = true): Promise<void> 
   }
 }
 
+/** No live activity shown (another network, or this one stopped). */
+function clearMetrics(): void {
+  if (Object.keys(app.rates).length) app.rates = {};
+  if (Object.keys(app.fiveMinutes).length) app.fiveMinutes = {};
+  if (Object.keys(app.ticksSinceMoved).length) app.ticksSinceMoved = {};
+  if (Object.keys(app.status).length) app.status = {};
+  if (Object.keys(app.signals).length) app.signals = {};
+  if (app.sheetsOff.length) app.sheetsOff = [];
+  if (Object.keys(app.me).length) app.me = {};
+}
+
 function setSnapshot(snapshot: Snapshot): void {
   if (snapshot.id !== app.current) return;
   // Unchanged parts keep their objects, so after an edit only what it changed re-renders.
@@ -350,9 +375,19 @@ function setSnapshot(snapshot: Snapshot): void {
   if (merged !== app.snapshot) app.snapshot = merged;
   const summary = app.networks.find((n) => n.id === snapshot.id);
   if (summary) Object.assign(summary, { name: snapshot.name, running: snapshot.running, enabled: snapshot.enabled });
-  if (!snapshot.sheets.some((s) => s.id === app.sheetId)) openSheet(rootSheet(snapshot)?.id ?? snapshot.sheets[0]?.id ?? "");
-  // A copy open on the canvas that is gone (deleted, turned into a sheet): back to its sheet.
-  else if (app.copy && !openCopyNode()) openSheet(snapshot.sheets.some((s) => s.id === app.copy!.sheet) ? app.copy.sheet : (rootSheet(snapshot)?.id ?? ""));
+  if (app.copy) {
+    // An open copy that is gone (deleted, turned into a sheet, its blueprint deleted): back to the sheet holding it.
+    // One now using another blueprint: that one opens.
+    const open = openCopyNode();
+    if (!open) openSheet(snapshot.sheets.some((s) => s.id === app.copy!.sheet) ? app.copy.sheet : (rootSheet(snapshot)?.id ?? ""));
+    else if (open.blueprint.id !== app.sheetId) openCopy(open.sheet.id, open.node.id);
+  } else if (!snapshot.sheets.some((s) => s.id === app.sheetId)) openSheet(rootSheet(snapshot)?.id ?? snapshot.sheets[0]?.id ?? "");
+  // A network that stopped gets no more metrics: what it last moved isn't shown as moving.
+  if (!snapshot.running) {
+    clearMetrics();
+    app.power = null;
+    app.tick = null;
+  }
 }
 
 // ---------------------------------------------------------------- edits
@@ -392,7 +427,7 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
       const r = await connection.send({ op: "edit", network, edits });
       if (undo) {
         // Made on another network than the one now shown (a confirm answered after switching): its own history.
-        const stacks = network === app.current ? app : historyOf(network);
+        const stacks = stacksOf(network);
         stacks.undo.push({ network, label, redo: edits, undo });
         if (stacks.undo.length > 100) stacks.undo.shift();
         stacks.redo = [];
@@ -460,15 +495,15 @@ export function undo(only?: (typeof app.undo)[number]): Promise<void> {
       toast("Something else has changed since — use Undo in the top bar.", "info");
       return;
     }
-    const change = app.undo.pop();
+    const change = takeOwn(app.undo);
     if (!change) return;
     app.busy++;
     try {
       await connection.send({ op: "edit", network: change.network, edits: change.undo });
-      app.redo.push(change);
+      stacksOf(change.network).redo.push(change);
     } catch (e) {
-      app.undo.push(change);
-      toast(`Undo failed: ${(e as Error).message}`);
+      // Nothing of it was done (a batch is all or nothing); left on top it would block every step below it.
+      toast(`Couldn't undo “${change.label}”: ${(e as Error).message}. Skipped — Undo goes on from the step before.`);
       resync.count++;
     } finally {
       app.busy--;
@@ -478,15 +513,14 @@ export function undo(only?: (typeof app.undo)[number]): Promise<void> {
 
 export function redo(): Promise<void> {
   return serially(async () => {
-    const change = app.redo.pop();
+    const change = takeOwn(app.redo);
     if (!change) return;
     app.busy++;
     try {
       await connection.send({ op: "edit", network: change.network, edits: change.redo });
-      app.undo.push(change);
+      stacksOf(change.network).undo.push(change);
     } catch (e) {
-      app.redo.push(change);
-      toast(`Redo failed: ${(e as Error).message}`);
+      toast(`Couldn't redo “${change.label}”: ${(e as Error).message}. Skipped.`);
       resync.count++;
     } finally {
       app.busy--;

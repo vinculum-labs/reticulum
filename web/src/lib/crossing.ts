@@ -26,9 +26,10 @@ function nodeIn(sheet: Sheet, id: string): GraphNode | undefined {
 /** From a card's top to its first pin row: where a wire meets it, so a new pin goes level with that. */
 const LEVEL = 43;
 
-/** Where a new wire from this output goes in its order: after the others. */
+/** Where a new wire from this output goes in its order: after the others (past the highest, as removing one leaves a gap). */
 export function nextOrder(sheet: Sheet, node: string, output: number): number {
-  return (sheet.wires ?? []).filter((w) => w.from === node && (w.output ?? 0) === output).length;
+  const orders = (sheet.wires ?? []).filter((w) => w.from === node && (w.output ?? 0) === output).map((w) => w.order ?? 0);
+  return orders.length ? Math.max(...orders) + 1 : 0;
 }
 
 /**
@@ -91,6 +92,8 @@ export function crossWire(
     const sheet = up[i];
     const parent = up[i - 1];
     if (!sheet.node) return null;
+    // XXX: reuse matches node and output only, so a new branch from a splitter's output joins the branch already
+    // leaving through that pin (splitting it one level up) instead of becoming a branch of its own.
     const reused = (sheet.wires ?? [])
       .filter((w) => w.from === at.node && (w.output ?? 0) === at.output)
       .map((w) => nodeIn(sheet, w.to))
@@ -111,6 +114,7 @@ export function crossWire(
     const sheet = down[i];
     if (!sheet.node) return null;
     const existing = (parent.wires ?? []).find((w) => w.from === at.node && (w.output ?? 0) === at.output && w.to === sheet.node && (w.input ?? 0) !== GATE);
+    // XXX: as above, reuse is by the input alone: a new branch into it shares the existing one.
     const reused = existing && sheetPins(sheet, true).find((pin, k) => pinSlot(pin, k) === (existing.input ?? 0));
     let pinId: string;
     if (reused) {

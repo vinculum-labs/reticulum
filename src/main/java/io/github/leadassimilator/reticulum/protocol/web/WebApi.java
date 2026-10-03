@@ -282,6 +282,13 @@ public final class WebApi {
         return value.getAsString();
     }
 
+    /** A text field that may be left out or null (both: none). */
+    @Nullable
+    static String optionalString(JsonObject json, String key) {
+        JsonElement value = json.get(key);
+        return value == null || value.isJsonNull() ? null : value.getAsString();
+    }
+
     static UUID uuid(JsonObject json, String key) throws RequestException {
         try {
             return UUID.fromString(string(json, key));
@@ -424,7 +431,7 @@ public final class WebApi {
                         throw new RequestException("Only a blueprint can be duplicated");
                     }
                     roomForSheet(network);
-                    Sheet copy = blueprint.copyWithNewIds(blueprint.name() + " (copy)");
+                    Sheet copy = blueprint.copyWithNewIds(Limits.name(blueprint.name() + " (copy)"));
                     network.sheets().add(copy);
                     return new com.google.gson.JsonPrimitive(copy.id().toString());
                 }
@@ -484,6 +491,10 @@ public final class WebApi {
                     if (wire.from().equals(wire.to())) {
                         throw new RequestException("A wire can't go from a node back into itself");
                     }
+                    if (sheet.wires().stream().anyMatch(w -> w.from().equals(wire.from()) && w.output() == wire.output() && w.to().equals(wire.to())
+                            && w.input() == wire.input())) {
+                        throw new RequestException("Those two are already wired together");
+                    }
                     if (sheet.wires().size() >= Limits.WIRES_PER_SHEET) {
                         throw new RequestException("A sheet can have at most " + Limits.WIRES_PER_SHEET + " wires");
                     }
@@ -503,10 +514,10 @@ public final class WebApi {
                     }
                     sheet(network, edit).orderWires(ids);
                 }
-                case "renameDevice" -> device(server, network, edit).setName(edit.has("name") ? edit.get("name").getAsString() : null);
+                case "renameDevice" -> device(server, network, edit).setName(optionalString(edit, "name"));
                 case "renameFace" -> {
                     FaceKey face = decode(server, FaceKey.CODEC, edit.get("face"), "face");
-                    device(server, network, edit).setFaceName(face, edit.has("name") ? edit.get("name").getAsString() : null);
+                    device(server, network, edit).setFaceName(face, optionalString(edit, "name"));
                 }
                 case "relinkDevice" -> {
                     GlobalPos from = decode(server, GlobalPos.CODEC, edit.get("from"), "from");
@@ -690,6 +701,20 @@ public final class WebApi {
             return out;
         }
 
+        /** What a latch or counter remembered under {@code from} (and its "from/..." parts), moved to {@code to}. */
+        private static void moveMemory(Network network, String from, String to) {
+            Map<String, Long> memory = network.signalMemory();
+            for (String key : List.copyOf(memory.keySet())) {
+                if (key.equals(from) || key.startsWith(from + "/")) {
+                    memory.put(to + key.substring(from.length()), memory.remove(key));
+                }
+            }
+        }
+
+        private static String inCopy(String copy, String node) {
+            return inCopy(copy, UUID.fromString(node));
+        }
+
         /** The id a blueprint's node runs under in a copy (as the engine pastes it). */
         private static String inCopy(String copy, UUID node) {
             return UUID.nameUUIDFromBytes((copy + "/" + node).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
@@ -725,6 +750,12 @@ public final class WebApi {
                 ServerPlayer byId = server.getPlayerList().getPlayer(id);
                 if (byId != null) {
                     return byId.getGameProfile();
+                }
+                // Offline (a member's role changed, or a removed member put back): known by id.
+                var cache = server.getProfileCache();
+                var known = cache == null ? java.util.Optional.<GameProfile>empty() : cache.get(id);
+                if (known.isPresent()) {
+                    return known.get();
                 }
             } catch (IllegalArgumentException notAnId) {
                 // a name, looked up below
@@ -861,7 +892,7 @@ public final class WebApi {
             }
             roomForSheet(network);
             Map<UUID, UUID> ids = new HashMap<>();
-            Sheet blueprint = sheet.copyWithNewIds(keep ? sheet.name() + " blueprint" : sheet.name(), ids);
+            Sheet blueprint = sheet.copyWithNewIds(keep ? Limits.name(sheet.name() + " blueprint") : sheet.name(), ids);
             blueprint.setBlueprint(true);
             Map<UUID, NodeSettings.Binding> bindings = new HashMap<>();
             for (Node original : sheet.nodes()) {
@@ -875,6 +906,10 @@ public final class WebApi {
             network.sheets().add(blueprint);
             Network.Placement placement = network.placement(sheet.id());
             if (!keep && placement != null) {
+                // Its latches and counters keep what they remember, under the ids they now run under in the copy.
+                for (Node original : sheet.nodes()) {
+                    moveMemory(network, original.id().toString(), inCopy(placement.node().id().toString(), ids.get(original.id())));
+                }
                 forget(server, network, sheet);
                 // Same node, same wires: the blueprint's pins keep their slots.
                 placement.parent().replace(placement.node().with(new NodeSettings.CopySettings(blueprint.id(), bindings)));
@@ -898,6 +933,11 @@ public final class WebApi {
                 throw new RequestException("Its blueprint no longer exists");
             }
             roomForSheet(network);
+            deepEnough(network, parent, 0);
+            Map<UUID, NodeSettings.Binding> live = io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(blueprint, copy);
+            if (blueprint.nodes().stream().anyMatch(slot -> slot.settings() instanceof NodeSettings.DeviceSettings && !live.containsKey(slot.id()))) {
+                throw new RequestException("Fill its empty slots first: an empty slot has no block of its own to become a device node");
+            }
             Map<UUID, UUID> ids = new HashMap<>();
             Sheet sheet = blueprint.copyWithNewIds(node.label().orElse(blueprint.name()), ids);
             sheet.setBlueprint(false);
@@ -909,9 +949,14 @@ public final class WebApi {
                     bound = device.withBlock(java.util.Optional.empty());
                 }
                 sheet.replace(made.with(bound));
+                // What it remembered in the copy, now under its own id.
+                moveMemory(network, inCopy(node.id().toString(), inner.id()), ids.get(inner.id()).toString());
             }
             network.sheets().add(sheet);
             parent.replace(node.with(new NodeSettings.SheetSettings(sheet.id())));
+            for (Node made : sheet.nodes()) {
+                checkHome(network, sheet, made, null);
+            }
             return sheet;
         }
 

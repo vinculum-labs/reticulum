@@ -217,6 +217,34 @@ public final class WebApiTests {
         helper.succeed();
     }
 
+    /** A second wire between the same two pins is refused: it would be a hidden extra branch. */
+    @GameTest(template = "empty")
+    public static void aWireIsNotDrawnTwice(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.setOwner(player.getUUID(), "web-test");
+        String id = network.id().toString();
+        String sheet = network.root().id().toString();
+        String a = UUID.randomUUID().toString();
+        String b = UUID.randomUUID().toString();
+        String wire = "{\"type\":\"connect\",\"sheet\":\"" + sheet + "\",\"wire\":{\"id\":\"%s\",\"from\":\"" + a + "\",\"to\":\"" + b + "\"}}";
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":["
+                + "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + a + "\",\"settings\":{\"kind\":\"splitter\"}}},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + b + "\",\"settings\":{\"kind\":\"filter\",\"expression\":\"\"}}},"
+                + String.format(wire, UUID.randomUUID()) + "]}");
+        try {
+            WebApi.handle(player, JsonParser.parseString("{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[" + String.format(wire, UUID.randomUUID())
+                    + "]}").getAsJsonObject(), "t");
+            helper.fail("The same wire was drawn twice");
+        } catch (WebApi.RequestException expected) {
+            // expected
+        }
+        helper.succeed();
+    }
+
     /** Renaming a filter template renames it where it is used: other templates and the filters nodes hold. */
     @GameTest(template = "empty")
     public static void renamingATemplateRenamesItsUses(GameTestHelper helper) {
