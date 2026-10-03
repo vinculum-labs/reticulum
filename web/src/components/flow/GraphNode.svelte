@@ -183,7 +183,7 @@
     ? 'var(--accent)'
     : data.problem
       ? 'var(--bad)'
-      : 'var(--line)'}; border-style: {kind === 'copy' ? 'double' : data.slot ? 'dashed' : 'solid'}; border-width: {kind === 'copy' ? 3 : kind === 'sheet' ? 2 : 1}px; box-shadow: {selected
+      : 'var(--line)'}; border-style: {kind === 'copy' ? 'double' : 'solid'}; border-width: {kind === 'copy' ? 3 : kind === 'sheet' ? 2 : 1}px; box-shadow: {selected
     ? '0 0 0 1px var(--accent)'
     : data.problem
       ? '0 0 0 1px var(--bad)'
