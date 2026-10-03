@@ -152,6 +152,11 @@
     return node.label || blueprintOf(node)?.name || "Copy";
   }
 
+  /** A copy's own name (its node's label); blank goes back to its blueprint's. */
+  function renameCopy(holder: Sheet, node: GraphNode, name: string) {
+    edit([{ type: "updateNode", sheet: holder.id, node: { ...node, label: name || undefined } }], [{ type: "updateNode", sheet: holder.id, node }], "rename copy");
+  }
+
   /** A copy's own switch (its node's), as one undoable change. */
   function setCopyEnabled(holder: Sheet, node: GraphNode, on: boolean) {
     edit([{ type: "updateNode", sheet: holder.id, node: { ...node, enabled: on } }], [{ type: "updateNode", sheet: holder.id, node }], "copy on/off");
@@ -204,14 +209,19 @@
                 <span class="badge {badge.corner}" style="color: {badge.color}"><badge.icon size={8} /></span>
               {/each}
             </span>
-            <button
-              class="flex min-w-0 flex-1 items-center gap-1 text-left"
-              class:muted={status.color === "var(--muted)"}
-              onclick={() => openCopy(row.holder.id, row.node.id)}
-              title={`A copy of the blueprint “${blueprintOf(row.node)?.name ?? "?"}”: open it to fill its slots`}
-            >
-              <span class="trim-text truncate">{name}</span>
-            </button>
+            {#if renaming === row.node.id}
+              <TextField class="min-w-0 flex-1" value={row.node.label} placeholder={blueprintOf(row.node)?.name} autofocus oncommit={(v) => renameCopy(row.holder, row.node, v)} onfinish={() => (renaming = null)} />
+            {:else}
+              <button
+                class="flex min-w-0 flex-1 items-center gap-1 text-left"
+                class:muted={status.color === "var(--muted)"}
+                onclick={() => openCopy(row.holder.id, row.node.id)}
+                ondblclick={() => canEdit && (renaming = row.node.id)}
+                title={`A copy of the blueprint “${blueprintOf(row.node)?.name ?? "?"}”: open it to fill its slots. Double-click to rename.`}
+              >
+                <span class="trim-text truncate">{name}</span>
+              </button>
+            {/if}
             <Switch
               hideLabel
               small

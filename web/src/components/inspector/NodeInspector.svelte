@@ -161,16 +161,16 @@
   {#if namedDevice && !slot}
     <div class="flex min-w-0 gap-2">
       <!-- A long device name is cut short here rather than pushing the ID button out of the panel. -->
-      <button class="btn min-w-0 flex-1 truncate text-left text-sm" onclick={() => openDevice(namedDevice)} title={`Rename “${deviceName(namedDevice)}” and its faces`}>
-        Names of “{deviceName(namedDevice)}”…
+      <button class="btn min-w-0 flex-1 truncate text-left text-sm" onclick={() => openDevice(namedDevice)} title={`Name the faces of “${deviceName(namedDevice)}” (its device panel)`}>
+        Face names…
       </button>
       <IdentifyToggle target={{ kind: "device", device: namedDevice.pos }} title="Light the device up in the world until turned off" />
     </div>
   {/if}
 
   <!--
-    One name each, as the tree and the other panels show it: a sheet node's is its sheet's (renaming it renames the
-    sheet), a copy's is its own (its blueprint's until set), a pin's is its Pin name below. Other nodes get a label.
+    One name each, as the tree and the other panels show it: a sheet node's is its sheet's and a device node's its
+    device's (renaming either renames that), a pin's is its Pin name below; any other node's is its own, optional.
   -->
   {#if s.kind === "sheet"}
     {@const named = app.snapshot?.sheets.find((x) => x.id === s.sheet)}
@@ -184,12 +184,21 @@
         />
       </Field>
     {/if}
+  {:else if s.kind === "device" && !slot && namedDevice}
+    <Field label="Name" hint="The device's own name: the list and every panel show it.">
+      <TextField
+        value={namedDevice.name}
+        placeholder={namedDevice.defaultName}
+        disabled={!canEdit}
+        oncommit={(v) => edit([{ type: "renameDevice", device: namedDevice.pos, name: v || null }], [{ type: "renameDevice", device: namedDevice.pos, name: namedDevice.name ?? null }], "rename device")}
+      />
+    </Field>
   {:else if s.kind === "copy"}
     <Field label="Name" hint="Optional; the blueprint's name is shown otherwise.">
       <TextField value={node.label} disabled={!canEdit} placeholder={app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Optional"} oncommit={(v) => save({ ...node, label: v || undefined }, "rename copy")} />
     </Field>
   {:else if s.kind !== "sheet_input" && s.kind !== "sheet_output"}
-    <Field label="Label" hint={slot ? "Optional; the kind of block is shown otherwise." : s.kind === "device" ? "Optional; the device's name is shown otherwise." : undefined}>
+    <Field label="Name" hint={slot ? "Optional; the kind of block is shown otherwise." : `Optional; “${KIND_LABEL[s.kind]}” is shown otherwise.`}>
       <TextField value={node.label} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
     </Field>
   {/if}

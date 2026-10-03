@@ -551,10 +551,15 @@ export function deviceName(device: Device | undefined): string {
  * What a node is called everywhere (its card, the inspector, the dashboard, wires): its label, else its device's
  * name, else the blueprint it uses or its pin name, else its kind.
  */
+function inBlueprint(nodeId: string): boolean {
+  return !!app.snapshot?.sheets.some((s) => s.blueprint && s.nodes?.some((n) => n.id === nodeId));
+}
+
 export function nodeTitle(node: GraphNode | undefined): string {
   if (!node) return "?";
-  // A sheet node goes by its sheet's name only (renamed with the sheet).
-  if (node.label && node.settings.kind !== "sheet") return node.label;
+  // A sheet node goes by its sheet's name and a device node by its device's (a slot, in a blueprint, by its own).
+  const own = node.settings.kind !== "sheet" && !(node.settings.kind === "device" && !inBlueprint(node.id));
+  if (node.label && own) return node.label;
   const s = node.settings;
   if (s.kind === "device") return deviceName(deviceAt(posKey(s.device)));
   if (s.kind === "copy") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing blueprint";
