@@ -106,7 +106,7 @@
   {onkeydown}
 >
   {#if current?.swatch}<span class="swatch" class:ring={current.swatch === "none"} style="--c: {current.swatch}"></span>{/if}
-  <span class="min-w-0 flex-1 truncate" class:muted={!current}>{current?.label ?? placeholder}</span>
+  <span class="trim-text min-w-0 flex-1 truncate" class:muted={!current}>{current?.label ?? placeholder}</span>
   <ChevronDown size={14} class="shrink-0 muted" />
 </button>
 
@@ -129,7 +129,7 @@
       >
         <span class="w-4 shrink-0 text-accent">{#if option.value === value}<Check size={14} />{/if}</span>
         {#if option.swatch}<span class="swatch" class:ring={option.swatch === "none"} style="--c: {option.swatch}"></span>{/if}
-        <span class="min-w-0 flex-1 truncate">{option.label}</span>
+        <span class="trim-text min-w-0 flex-1 truncate">{option.label}</span>
       </button>
     {/each}
   </div>

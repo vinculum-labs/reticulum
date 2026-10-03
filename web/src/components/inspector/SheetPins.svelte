@@ -39,7 +39,7 @@
   {@const pins = sheetPins(sheet, input)}
   <section class="flex flex-col gap-2">
     <div class="flex items-center justify-between">
-      <h3 class="panel-title flex items-center gap-1.5"><PinMark solid={input} />{input ? "Input pins (left)" : "Output pins (right)"}</h3>
+      <h3 class="panel-title flex items-center gap-1.5"><PinMark solid={input} /><span class="trim-text">{input ? "Input pins (left)" : "Output pins (right)"}</span></h3>
       {#if canEdit}
         <AddButton label={input ? "Add an input pin" : "Add an output pin"} onclick={() => addSheetPin(sheet, input)} />
       {/if}
@@ -52,7 +52,7 @@
         <summary class="flex cursor-pointer items-center gap-2 text-sm">
           <ChevronRight size={14} class="disclosure shrink-0 muted" />
           <PinMark solid={input} color={resource ? RESOURCE_VAR[resource] : "var(--muted)"} />
-          <span class="min-w-0 flex-1 truncate">{pinName(pin, i)}</span>
+          <span class="trim-text min-w-0 flex-1 truncate">{pinName(pin, i)}</span>
           {#if canEdit}
             <RemoveButton label={`Remove pin ${pinName(pin, i)}`} onclick={(e) => (e.preventDefault(), remove(pin))} />
           {/if}

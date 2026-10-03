@@ -78,7 +78,7 @@
 
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
-    <h3 class="panel-title flex items-center gap-1.5"><PinMark />Inputs (left)</h3>
+    <h3 class="panel-title flex items-center gap-1.5"><PinMark /><span class="trim-text">Inputs (left)</span></h3>
     <AddButton label="Add an input" {disabled} onclick={() => onchange({ ...settings, inputs: [...inputs, { resource: primary }] })} />
   </div>
   {#each inputs as input, i}
@@ -87,7 +87,7 @@
       <summary class="flex cursor-pointer items-center gap-2 text-sm">
         <ChevronRight size={14} class="disclosure shrink-0 muted" />
         <PinMark color={RESOURCE_VAR[input.resource]} />
-        <span class="min-w-0 flex-1 truncate">Input {i + 1}: {sideLabel(input)}</span>
+        <span class="trim-text min-w-0 flex-1 truncate">Input {i + 1}: {sideLabel(input)}</span>
         <RemoveButton label="Remove input {i + 1}" {disabled} onclick={(e) => (e.preventDefault(), removeSide("in", i))} />
       </summary>
       <div class="mt-2 flex flex-col gap-3">
@@ -109,7 +109,7 @@
 
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
-    <h3 class="panel-title flex items-center gap-1.5"><PinMark solid />Outputs (right)</h3>
+    <h3 class="panel-title flex items-center gap-1.5"><PinMark solid /><span class="trim-text">Outputs (right)</span></h3>
     <AddButton label="Add an output" {disabled} onclick={() => onchange({ ...settings, outputs: [...outputs, { resource: primary, per_operation: 0 }] })} />
   </div>
   {#each outputs as output, i}
@@ -118,7 +118,7 @@
       <summary class="flex cursor-pointer items-center gap-2 text-sm">
         <ChevronRight size={14} class="disclosure shrink-0 muted" />
         <PinMark solid color={RESOURCE_VAR[output.resource]} />
-        <span class="min-w-0 flex-1 truncate">Output {i + 1}: {sideLabel(output)}</span>
+        <span class="trim-text min-w-0 flex-1 truncate">Output {i + 1}: {sideLabel(output)}</span>
         <RemoveButton label="Remove output {i + 1}" {disabled} onclick={(e) => (e.preventDefault(), removeSide("out", i))} />
       </summary>
       <div class="mt-2 flex flex-col gap-3">
