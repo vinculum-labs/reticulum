@@ -132,12 +132,16 @@ public final class NetworkManager {
     }
 
     /**
-     * Whether any sheet uses the device (a node on it, or a node reading it): such a record is kept when
-     * the block goes, so its flows can be moved onto the block that replaces it.
+     * Whether any sheet uses the device (a node on it, a node reading it, or a blueprint copy's slot it fills): such a
+     * record is kept when the block goes, so its flows can be moved onto the block that replaces it.
      */
     static boolean usedBySheets(Network network, GlobalPos pos) {
         for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
+                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.CopySettings copy
+                        && copy.bindings().values().stream().anyMatch(b -> pos.equals(b.device()))) {
+                    return true;
+                }
                 GlobalPos used = switch (node.settings()) {
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings s -> s.device();
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings s -> s.device();
@@ -201,10 +205,21 @@ public final class NetworkManager {
         for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
             for (io.github.leadassimilator.reticulum.graph.Node node : List.copyOf(sheet.nodes())) {
                 io.github.leadassimilator.reticulum.graph.NodeSettings moved = switch (node.settings()) {
+                    // A blueprint slot keeps its kind of block (its device is only where its layout measures from).
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings d when d.device().equals(from) ->
-                            new io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings(to, d.inputs(), d.outputs());
+                            new io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings(to, d.inputs(), d.outputs(), d.block());
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings l when l.device().equals(from) ->
                             l.reading(to, l.faces());
+                    case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneInSettings r when r.device().equals(from) ->
+                            new io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneInSettings(to, r.faces(), r.comparator());
+                    case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneOutSettings r when r.device().equals(from) ->
+                            new io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneOutSettings(to, r.faces(), r.whileOff());
+                    // A copy whose slot the device filled: the new block fills it, turned the same.
+                    case io.github.leadassimilator.reticulum.graph.NodeSettings.CopySettings c when c.bindings().values().stream().anyMatch(b -> from.equals(b.device())) -> {
+                        java.util.Map<UUID, io.github.leadassimilator.reticulum.graph.NodeSettings.Binding> bindings = new java.util.LinkedHashMap<>();
+                        c.bindings().forEach((slot, b) -> bindings.put(slot, from.equals(b.device()) ? new io.github.leadassimilator.reticulum.graph.NodeSettings.Binding(to, b.turns()) : b));
+                        yield new io.github.leadassimilator.reticulum.graph.NodeSettings.CopySettings(c.sheet(), bindings);
+                    }
                     default -> null;
                 };
                 if (moved != null) {
@@ -255,6 +270,11 @@ public final class NetworkManager {
         fromRoot.setRoot(false);
         into.sheets().addAll(from.sheets());
         into.ensureTree();
+        // Switched off, it stays off: as a sheet now, by its sheet node's switch.
+        Network.Placement placed = into.placement(fromRoot.id());
+        if (!from.enabled() && placed != null) {
+            placed.parent().replace(placed.node().withEnabled(false));
+        }
         from.filters().forEach(into.filters()::putIfAbsent);
         List<Member> joining = new ArrayList<>(from.members().values());
         if (from.owner() != null) {

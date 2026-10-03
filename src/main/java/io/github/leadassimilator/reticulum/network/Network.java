@@ -486,4 +486,53 @@ public final class Network {
     public void bump() {
         revision++;
     }
+
+    /** What a batch of edits can change, as it is now: {@link Checkpoint#restore} puts it back. */
+    public Checkpoint checkpoint() {
+        Map<Sheet, Sheet> saved = new LinkedHashMap<>();
+        for (Sheet sheet : sheets) {
+            saved.put(sheet, sheet.saved());
+        }
+        return new Checkpoint(name, saved, new LinkedHashMap<>(filters), new LinkedHashMap<>(signalMemory), switches.enabled(), switches.redstone());
+    }
+
+    /**
+     * A network's sheets, filter templates, latch and counter memory, name and switches at one moment. An edit batch is
+     * all or nothing: when one of its edits is refused, the ones before it are undone with this.
+     */
+    public final class Checkpoint {
+        private final String name;
+        private final Map<Sheet, Sheet> sheets;
+        private final Map<String, String> filters;
+        private final Map<String, Long> signalMemory;
+        private final boolean enabled;
+        private final Switches.Redstone redstone;
+
+        private Checkpoint(String name, Map<Sheet, Sheet> sheets, Map<String, String> filters, Map<String, Long> signalMemory, boolean enabled,
+                Switches.Redstone redstone) {
+            this.name = name;
+            this.sheets = sheets;
+            this.filters = filters;
+            this.signalMemory = signalMemory;
+            this.enabled = enabled;
+            this.redstone = redstone;
+        }
+
+        /** Puts the network back as it was (the same sheet objects, in their order; sheets made since are dropped). */
+        public void restore() {
+            Network.this.name = name;
+            Network.this.sheets.clear();
+            for (Map.Entry<Sheet, Sheet> e : sheets.entrySet()) {
+                e.getKey().restore(e.getValue());
+                Network.this.sheets.add(e.getKey());
+            }
+            Network.this.filters.clear();
+            Network.this.filters.putAll(filters);
+            Network.this.signalMemory.clear();
+            Network.this.signalMemory.putAll(signalMemory);
+            switches.setEnabled(enabled);
+            switches.setRedstone(redstone);
+            bump();
+        }
+    }
 }

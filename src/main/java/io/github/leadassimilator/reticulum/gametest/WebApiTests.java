@@ -125,6 +125,37 @@ public final class WebApiTests {
         });
     }
 
+    /** A batch of edits is all or nothing: one refused undoes the ones before it (a new sheet, a template, a node). */
+    @GameTest(template = "empty")
+    public static void aRefusedEditUndoesItsBatch(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.setOwner(player.getUUID(), "web-test");
+        String id = network.id().toString();
+        String sheet = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"t\"}]}")
+                .getAsJsonArray("results").get(0).getAsString();
+        int sheets = network.sheets().size();
+        int nodes = network.sheet(UUID.fromString(sheet)).nodes().size();
+        try {
+            WebApi.handle(player, JsonParser.parseString("{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":["
+                    + "{\"type\":\"createSheet\",\"name\":\"more\"},"
+                    + "{\"type\":\"setFilter\",\"name\":\"ores\",\"expression\":\"minecraft:iron_ingot\"},"
+                    + "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + UUID.randomUUID() + "\",\"settings\":{\"kind\":\"filter\",\"expression\":\"@ores\"}}},"
+                    + "{\"type\":\"noSuchEdit\"}"
+                    + "]}").getAsJsonObject(), "t");
+            helper.fail("A batch with a refused edit was accepted");
+        } catch (WebApi.RequestException expected) {
+            // expected
+        }
+        if (network.sheets().size() != sheets || network.filters().containsKey("ores") || network.sheet(UUID.fromString(sheet)).nodes().size() != nodes) {
+            helper.fail("The edits before the refused one were kept: " + network.sheets().size() + " sheets, templates " + network.filters().keySet());
+        }
+        helper.succeed();
+    }
+
     /** Renaming a filter template renames it where it is used: other templates and the filters nodes hold. */
     @GameTest(template = "empty")
     public static void renamingATemplateRenamesItsUses(GameTestHelper helper) {

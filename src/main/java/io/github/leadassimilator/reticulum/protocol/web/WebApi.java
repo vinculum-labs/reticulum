@@ -155,6 +155,8 @@ public final class WebApi {
                 }
                 JsonObject out = ok(id);
                 JsonArray created = new JsonArray();
+                // All or nothing: the editor counts a refused batch (an undo, an import) as not made at all.
+                Network.Checkpoint before = network.checkpoint();
                 try {
                     for (int i = 0; i < edits.size(); i++) {
                         try {
@@ -166,8 +168,11 @@ public final class WebApi {
                             throw new RequestException("Edit " + (i + 1) + ": " + e.getMessage());
                         }
                     }
+                } catch (RequestException | RuntimeException e) {
+                    before.restore();
+                    throw e;
                 } finally {
-                    // Whatever went wrong part way, the edits before it are saved and shown, with the tree put right.
+                    // Saved and shown either way, with the tree put right.
                     network.ensureTree();
                     NetworkManager.changed(server, network);
                     // Push right away rather than on the next tick: a paused singleplayer server doesn't tick.
@@ -300,6 +305,10 @@ public final class WebApi {
                     Sheet sheet = pasted.copyWithNewIds(name == null ? "Imported sheet" : name);
                     sheet.setRoot(false);
                     network.sheets().add(sheet);
+                    // A device of this network keeps its one node: pasting a sheet of this world again is refused.
+                    for (Node node : sheet.nodes()) {
+                        checkHome(network, sheet, node);
+                    }
                     if (!sheet.blueprint()) {
                         place(network, sheet, parentOf(network, edit), edit);
                     }
@@ -408,7 +417,7 @@ public final class WebApi {
                 case "addNode", "updateNode" -> {
                     Sheet sheet = sheet(network, edit);
                     Node node = decode(server, Node.CODEC, edit.get("node"), "node");
-                    checkPorts(network, node);
+                    checkPorts(network, sheet, node);
                     checkSheetNode(network, sheet, node, type.equals("addNode"));
                     checkHome(network, sheet, node);
                     check(Limits.check(node));
@@ -436,8 +445,10 @@ public final class WebApi {
                         // A sheet node goes with its sheet and everything in it.
                         deleteSheet(server, network, network.sheet(child.sheet()));
                     }
+                    if (node != null) {
+                        forgetNode(network, sheet, node);
+                    }
                     sheet.remove(id);
-                    forgetSignalMemory(network, id);
                 }
                 case "moveNodes" -> {
                     Sheet sheet = sheet(network, edit);
@@ -593,10 +604,60 @@ public final class WebApi {
             }
         }
 
-        /** What a removed latch or counter remembered goes with it (undo starts it from 0, as a new node). */
-        private static void forgetSignalMemory(Network network, UUID node) {
-            String key = node.toString();
-            network.signalMemory().keySet().removeIf(k -> k.equals(key) || k.startsWith(key + "/"));
+        /**
+         * What a removed latch or counter remembered goes with it (undo starts it from 0, as a new node), wherever it
+         * runs: on its sheet, or under each copy's id for it when its sheet is a blueprint. A removed copy node takes
+         * what everything inside it remembered.
+         */
+        private static void forgetNode(Network network, Sheet sheet, Node node) {
+            List<String> running = sheet.blueprint()
+                    ? instances(network, sheet.id(), 0).stream().map(instance -> inCopy(instance, node.id())).toList()
+                    : List.of(node.id().toString());
+            for (String id : running) {
+                forgetRunning(network, id, node, 0);
+            }
+        }
+
+        private static void forgetRunning(Network network, String id, Node node, int depth) {
+            network.signalMemory().keySet().removeIf(k -> k.equals(id) || k.startsWith(id + "/"));
+            if (depth < NESTING && node.settings() instanceof NodeSettings.CopySettings copy && network.sheet(copy.sheet()) instanceof Sheet blueprint) {
+                for (Node inner : blueprint.nodes()) {
+                    forgetRunning(network, inCopy(id, inner.id()), inner, depth + 1);
+                }
+            }
+        }
+
+        /** How deep copies inside blueprints are followed (the engine refuses deeper ones). */
+        private static final int NESTING = 8;
+
+        /**
+         * The ids a blueprint's contents run under: a copy's node id for each copy on a sheet, and for a copy inside
+         * another blueprint, one per copy of that blueprint.
+         */
+        private static List<String> instances(Network network, UUID blueprint, int depth) {
+            List<String> out = new ArrayList<>();
+            if (depth >= NESTING) {
+                return out;
+            }
+            for (Sheet sheet : network.sheets()) {
+                for (Node node : sheet.nodes()) {
+                    if (node.settings() instanceof NodeSettings.CopySettings copy && copy.sheet().equals(blueprint)) {
+                        if (!sheet.blueprint()) {
+                            out.add(node.id().toString());
+                        } else {
+                            for (String outer : instances(network, sheet.id(), depth + 1)) {
+                                out.add(inCopy(outer, node.id()));
+                            }
+                        }
+                    }
+                }
+            }
+            return out;
+        }
+
+        /** The id a blueprint's node runs under in a copy (as the engine pastes it). */
+        private static String inCopy(String copy, UUID node) {
+            return UUID.nameUUIDFromBytes((copy + "/" + node).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
         }
 
         private static void roomForSheet(Network network) throws RequestException {
@@ -793,10 +854,10 @@ public final class WebApi {
 
         /** Takes a sheet out of the network, and what its latches and counters remembered. */
         private static void forget(MinecraftServer server, Network network, Sheet sheet) {
-            network.sheets().remove(sheet);
             for (Node node : sheet.nodes()) {
-                forgetSignalMemory(network, node.id());
+                forgetNode(network, sheet, node);
             }
+            network.sheets().remove(sheet);
         }
 
         /** Deletes a sheet with every sheet inside it, and its sheet node. The root stays. */
@@ -833,7 +894,11 @@ public final class WebApi {
         }
 
         /** Sources and sinks may only point at devices of this network. */
-        private static void checkPorts(Network network, Node node) throws RequestException {
+        /** A node naming a device must name one of this network's; not on a blueprint, where it is only a layout position. */
+        private static void checkPorts(Network network, Sheet sheet, Node node) throws RequestException {
+            if (sheet.blueprint()) {
+                return;
+            }
             GlobalPos device = switch (node.settings()) {
                 case NodeSettings.DeviceSettings s -> s.device();
                 case NodeSettings.LevelSettings s -> s.device();

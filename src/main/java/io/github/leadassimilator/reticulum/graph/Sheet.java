@@ -254,4 +254,23 @@ public final class Sheet {
     public void touch() {
         revision++;
     }
+
+    /** This sheet's contents as they are now (nodes and wires are immutable), to put back with {@link #restore}. */
+    public Sheet saved() {
+        return new Sheet(id, name, interval, priority, blueprint, root, nodes, wires);
+    }
+
+    /** Puts back what {@link #saved} kept, as a change (the engine recompiles it). */
+    public void restore(Sheet saved) {
+        name = saved.name;
+        interval = saved.interval;
+        priority = saved.priority;
+        blueprint = saved.blueprint;
+        root = saved.root;
+        nodes.clear();
+        nodes.addAll(saved.nodes);
+        wires.clear();
+        wires.addAll(saved.wires);
+        touch();
+    }
 }
