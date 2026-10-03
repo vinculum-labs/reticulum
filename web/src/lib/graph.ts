@@ -562,6 +562,7 @@ function sheetFlow(
       type: wireStyle,
       selected: selected.has(w.id),
       animated: rate > 0,
+      data: { signal },
       label: [branchNumber.get(w.id), rate > 0 ? formatRate(rate, resource, unit) : undefined].filter((x) => x !== undefined).join(" · ") || undefined,
       style: signal
         ? `stroke: ${color}; stroke-width: ${on ? 2.5 : 1.5}px; stroke-dasharray: ${on ? "none" : "4 3"}; opacity: ${on ? 1 : 0.7}`

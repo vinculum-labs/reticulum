@@ -195,7 +195,7 @@
     {@const named = app.snapshot?.sheets.find((x) => x.id === s.sheet)}
     {#if named}
       <Field label="Name">
-        <TextField
+        <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)}
           value={named.name}
           required
           disabled={!canEdit}
@@ -207,7 +207,7 @@
     <!-- The device's name, then its face names and its ID beside it, as each face is in the device panel. -->
     <Field label="Name" hint="The device's own name: the list and every panel show it.">
       <div class="flex min-w-0 items-center gap-2">
-        <TextField
+        <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)}
           class="min-w-0 flex-1"
           value={namedDevice.name}
           placeholder={namedDevice.defaultName}
@@ -221,11 +221,11 @@
     </Field>
   {:else if s.kind === "copy"}
     <Field label="Name" hint="Optional — the blueprint's name is shown otherwise.">
-      <TextField value={node.label} disabled={!canEdit} placeholder={app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Optional"} oncommit={(v) => save({ ...node, label: v || undefined }, "rename copy")} />
+      <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)} value={node.label} disabled={!canEdit} placeholder={app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Optional"} oncommit={(v) => save({ ...node, label: v || undefined }, "rename copy")} />
     </Field>
   {:else if s.kind !== "sheet_input" && s.kind !== "sheet_output"}
     <Field label="Name" hint={slot ? "Optional — the kind of block is shown otherwise." : `Optional — “${KIND_LABEL[s.kind]}” is shown otherwise.`}>
-      <TextField value={node.label} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
+      <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)} value={node.label} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
     </Field>
   {/if}
 

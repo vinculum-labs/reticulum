@@ -41,19 +41,32 @@
     deviceUses,
     deviceName,
     undo as undoLast,
+    isIdentified,
+    toggleIdentify,
+    openDevice,
+    rebase,
+    setSheetEnabled,
     setWireStyle,
     WIRE_STYLE_LABEL,
     type WireStyle,
   } from "../../lib/state.svelte";
   import { copiesOf, copyActivity, fillOne, nowhere, ownBlocks, slotName } from "../../lib/blueprints";
   import BlockPicker from "../inspector/BlockPicker.svelte";
+  import { openMenu, type MenuItem } from "../../lib/menu.svelte";
+  import Maximize from "@lucide/svelte/icons/maximize";
+  import Plus from "@lucide/svelte/icons/plus";
+  import Pencil from "@lucide/svelte/icons/pencil";
+  import Trash from "@lucide/svelte/icons/trash";
+  import Unplug from "@lucide/svelte/icons/unplug";
+  import Lightbulb from "@lucide/svelte/icons/lightbulb";
+  import ExternalLink from "@lucide/svelte/icons/external-link";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
   import { contentCorner, handleIndex, isPin, openFrameSize, pinResource, resources, PIN_DOT, PIN_W, toFlow, type FlowView, type NodeData } from "../../lib/graph";
   import { crossWire, nextOrder } from "../../lib/crossing";
   import { moveAcross } from "../../lib/moveAcross";
-  import { KIND_HINT, KIND_LABEL, RESOURCE_VAR, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, PIN_CARRIES, RESOURCE_VAR, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { CopySettings, Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
   import { GATE, posKey } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
@@ -698,7 +711,7 @@
     return offeredResources(device.resources)[0] ?? "item";
   }
 
-  async function addNode(kind: NodeKind, at: { x: number; y: number }, device: Device | null = null, into: Sheet | null = sheet) {
+  async function addNode(kind: NodeKind, at: { x: number; y: number }, device: Device | null = null, into: Sheet | null = sheet, blueprintId?: string) {
     if (!into) return;
     if (kind === "sheet") {
       // A new sheet inside this one, its node where asked; it stays closed until double-clicked.
@@ -721,7 +734,7 @@
       if (ok) app.selectedNodes = [node.id];
       return;
     }
-    const blueprint = kind === "copy" ? blueprints[0]?.id : undefined;
+    const blueprint = kind === "copy" ? (blueprintId ?? blueprints[0]?.id) : undefined;
     if (kind === "copy" && !blueprint) {
       toast("Make a blueprint first: from a sheet (in its settings), or New blueprint in the list.");
       return;
@@ -771,8 +784,9 @@
   /** A slot on the open blueprint, at the middle of the view: made from a device here, or a kind from the catalog. */
   async function addSlot(pick: { block: string; device?: Device }) {
     if (!sheet) return;
-    if (pick.device) return addNode("device", viewCenter(), pick.device);
-    const at = viewCenter();
+    const at = slotAt ?? viewCenter();
+    slotAt = null;
+    if (pick.device) return addNode("device", at, pick.device);
     const node: GraphNode = {
       id: uuid(),
       settings: { kind: "device", device: nowhere(), block: pick.block, inputs: [{ resource: "item" }], outputs: [{ resource: "item", per_operation: 0 }] } as GraphNode["settings"],
@@ -806,8 +820,16 @@
       fillSlot(e, device);
       return;
     }
-    const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    // Dropped in a frame: onto the sheet open there (the innermost frame under the pointer).
+    const into = sheetAt(e.clientX, e.clientY);
+    if (into) addNode("device", { x: into.x - 70, y: into.y - 17 }, device, into.sheet);
+  }
+
+  /**
+   * The sheet under a point on the screen and the point in its own coordinates: the innermost sheet opened in place
+   * there (a frame), else the open sheet.
+   */
+  function sheetAt(clientX: number, clientY: number): { sheet: Sheet; x: number; y: number } | null {
+    const p = flow.screenToFlowPosition({ x: clientX, y: clientY });
     let into: { sheet: Sheet; x: number; y: number; area: number } | null = null;
     for (const [frameId, frame] of view.frames) {
       const internal = flow.getInternalNode(frameId);
@@ -818,8 +840,175 @@
       if (!box || !held || p.x < box.x || p.y < box.y || p.x > box.x + width || p.y > box.y + height) continue;
       if (!into || width * height < into.area) into = { sheet: held, x: p.x - box.x + frame.dx, y: p.y - box.y + frame.dy, area: width * height };
     }
-    if (into) addNode("device", { x: into.x - 70, y: into.y - 17 }, device, into.sheet);
-    else addNode("device", { x: p.x - 70, y: p.y - 17 }, device);
+    return into ?? (sheet ? { sheet, x: p.x, y: p.y } : null);
+  }
+
+  // ---------------------------------------------------------------- right-click menus
+
+  /** Where a right-click on the canvas asked a Slot… to go (the block picker it opens places it there). */
+  let slotAt: { x: number; y: number } | null = null;
+  let slotPicker: BlockPicker | undefined = $state();
+
+  /** On empty canvas: add a node at that spot (in the sheet open there), lay out, fit. */
+  function paneMenu(event: MouseEvent) {
+    const place = sheetAt(event.clientX, event.clientY);
+    if (!place || copy) return openMenu(event, [{ label: "Fit to view", icon: Maximize, run: () => flow.fitView({ padding: 0.1, duration: 200 }) }]);
+    const at = { x: place.x - 70, y: place.y - 17 };
+    const add = (kind: NodeKind, blueprintId?: string): MenuItem => ({
+      label: KIND_LABEL[kind],
+      icon: KIND_ICON[kind],
+      run: () => addNode(kind, at, null, place.sheet, blueprintId),
+    });
+    const others = (app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== place.sheet.id);
+    openMenu(event, [
+      editable && {
+        label: "Add here",
+        icon: Plus,
+        items: [
+          place.sheet.blueprint
+            ? { label: "Slot…", icon: KIND_ICON.device, hint: "A kind of block each copy fills", run: () => ((slotAt = at), slotPicker?.openList()) }
+            : add("device"),
+          add("filter"),
+          add("rate_limit"),
+          add("splitter"),
+          add("kit"),
+          { label: "Redstone", icon: ZapIcon, items: SIGNAL_KINDS.map((k) => add(k)) },
+          "-",
+          !place.sheet.blueprint && add("sheet"),
+          others.length > 0 && {
+            label: "Blueprint",
+            icon: KIND_ICON.copy,
+            items: others.map((b) => ({ label: b.name, icon: KIND_ICON.copy, run: () => addNode("copy", at, null, place.sheet, b.id) })),
+          },
+        ],
+      },
+      "-",
+      editable && { label: "Tidy up", icon: SparklesIcon, disabled: tidying || !sheet?.nodes?.length, run: tidy },
+      { label: "Fit to view", icon: Maximize, run: () => flow.fitView({ padding: 0.1, duration: 200 }) },
+    ]);
+  }
+
+  /** On a card or a pin tag: what can be done to it from here. */
+  function nodeMenu(node: Node<NodeData>, event: MouseEvent) {
+    if (node.type === "sheetFrame") return paneMenu(event);
+    const graphNode = nodeOf(node.id);
+    const on = sheetOf(node.id);
+    if (!graphNode || !on) return;
+    if (!app.selectedNodes.includes(node.id)) select([node.id], []);
+    const s = graphNode.settings;
+    const wired = (on.wires ?? []).filter((w) => w.from === node.id || w.to === node.id);
+    const remove: MenuItem = { label: "Delete", icon: Trash, danger: true, shortcut: "Del", disabled: !editable, run: () => flow.deleteElements({ nodes: [{ id: node.id }] }) };
+    if (isPin(graphNode)) {
+      const resource = s.kind === "sheet_input" || s.kind === "sheet_output" ? s.resource : undefined;
+      return openMenu(event, [
+        editable && { label: "Rename", icon: Pencil, run: () => nameNode(node.id) },
+        editable && {
+          label: "Carries",
+          items: PIN_CARRIES.map((c) => ({ label: c.label, checked: (resource ?? "") === c.value, run: () => savePin(on, graphNode, (c.value || undefined) as Resource | undefined) })),
+        },
+        "-",
+        remove,
+      ]);
+    }
+    const device = s.kind === "device" && !on.blueprint ? deviceAt(posKey(s.device)) : undefined;
+    const held = s.kind === "sheet" || s.kind === "copy" ? app.snapshot?.sheets.find((x) => x.id === s.sheet) : undefined;
+    const enabled = s.kind === "sheet" ? held?.enabled !== false : graphNode.enabled !== false;
+    openMenu(event, [
+      held && {
+        label: "Open",
+        icon: ExternalLink,
+        hint: s.kind === "copy" ? "The blueprint with this copy's blocks" : undefined,
+        run: () => (s.kind === "copy" && !on.blueprint ? openCopy(on.id, node.id) : openSheet(held.id)),
+      },
+      editable && { label: "Rename", icon: Pencil, run: () => nameNode(node.id) },
+      editable && { label: "On", checked: enabled, run: () => switchNode(on, graphNode, held, !enabled) },
+      device && { label: "Identify", icon: Lightbulb, hint: "Light it up in the world", checked: isIdentified({ kind: "device", device: device.pos }), run: () => toggleIdentify({ kind: "device", device: device.pos }) },
+      device && { label: "Device panel…", icon: KIND_ICON.device, run: () => openDevice(device) },
+      editable && wired.length > 0 && { label: wired.length === 1 ? "Disconnect its wire" : `Disconnect all ${wired.length} wires`, icon: Unplug, run: () => disconnectAll(on, node.id) },
+      "-",
+      remove,
+    ]);
+  }
+
+  /** On a wire: put a node in it, or remove it. */
+  function edgeMenu(edge: Edge, event: MouseEvent) {
+    const on = sheetOf(edge.id);
+    const wire = on?.wires?.find((w) => w.id === edge.id);
+    if (!on || !wire) return;
+    if (!app.selectedEdges.includes(edge.id)) select([], [edge.id]);
+    const place = sheetAt(event.clientX, event.clientY);
+    const at = place && place.sheet.id === on.id ? { x: place.x - 70, y: place.y - 17 } : { x: 0, y: 0 };
+    const insert = (kind: NodeKind): MenuItem => ({ label: KIND_LABEL[kind], icon: KIND_ICON[kind], run: () => insertOnWire(on, wire, kind, at) });
+    openMenu(event, [
+      editable && !(edge.data as { signal?: boolean } | undefined)?.signal && {
+        label: "Insert",
+        icon: Plus,
+        hint: "Splits the wire and puts the node in between",
+        items: [insert("filter"), insert("rate_limit"), insert("splitter")],
+      },
+      "-",
+      { label: "Delete", icon: Trash, danger: true, shortcut: "Del", disabled: !editable, run: () => flow.deleteElements({ edges: [{ id: edge.id }] }) },
+    ]);
+  }
+
+  /** On a box of several selected cards. */
+  function selectionMenu(nodes: Node[], event: MouseEvent) {
+    openMenu(event, [
+      { label: `Delete ${nodes.length} nodes`, icon: Trash, danger: true, shortcut: "Del", disabled: !editable, run: () => flow.deleteElements({ nodes: nodes.map((n) => ({ id: n.id })) }) },
+    ]);
+  }
+
+  /** Selects a node and puts the keyboard in its Name box in the side panel. */
+  function nameNode(id: string) {
+    select([id], []);
+    app.panel = null;
+    app.nameNode = id;
+  }
+
+  /** A node's switch (a sheet node's is its sheet's). */
+  function switchNode(on: Sheet, node: GraphNode, held: Sheet | undefined, enabled: boolean) {
+    if (node.settings.kind === "sheet" && held) return setSheetEnabled(held, enabled);
+    const { after, before } = rebase(node, { ...node, enabled });
+    edit([{ type: "updateNode", sheet: on.id, node: after }], [{ type: "updateNode", sheet: on.id, node: before }], enabled ? "switch on" : "switch off");
+  }
+
+  function savePin(on: Sheet, pin: GraphNode, resource: Resource | undefined) {
+    const { after, before } = rebase(pin, { ...pin, settings: { ...pin.settings, resource } as GraphNode["settings"] });
+    edit([{ type: "updateNode", sheet: on.id, node: after }], [{ type: "updateNode", sheet: on.id, node: before }], "pin type");
+  }
+
+  /** Removes every wire on a node, as one undoable change. */
+  function disconnectAll(on: Sheet, id: string) {
+    const wires = (on.wires ?? []).filter((w) => w.from === id || w.to === id);
+    edit(
+      wires.map((w) => ({ type: "disconnect", sheet: on.id, wire: w.id })),
+      wires.map((wire) => ({ type: "connect", sheet: on.id, wire })),
+      "disconnect",
+    );
+  }
+
+  /**
+   * Puts a new node in a wire: the wire goes, and two take its place, from where it came into the node and from the
+   * node to where it went (a filter passes on its matches). One undoable change; the node is selected.
+   */
+  async function insertOnWire(on: Sheet, wire: Wire, kind: NodeKind, at: { x: number; y: number }) {
+    const node: GraphNode = { id: uuid(), settings: defaultSettings(kind, null, "item"), x: Math.round(at.x), y: Math.round(at.y) };
+    const into: Wire = { id: uuid(), from: wire.from, ...(wire.output ? { output: wire.output } : {}), to: node.id };
+    const out: Wire = { id: uuid(), from: node.id, to: wire.to, ...(wire.input ? { input: wire.input } : {}) };
+    const ok = await edit(
+      [
+        { type: "disconnect", sheet: on.id, wire: wire.id },
+        { type: "addNode", sheet: on.id, node },
+        { type: "connect", sheet: on.id, wire: into },
+        { type: "connect", sheet: on.id, wire: out },
+      ],
+      [
+        { type: "removeNode", sheet: on.id, node: node.id },
+        { type: "connect", sheet: on.id, wire },
+      ],
+      `insert ${KIND_LABEL[kind].toLowerCase()}`,
+    );
+    if (ok) select([node.id], []);
   }
 
   /** A device dropped on a slot of the open copy fills it (turned like the copy's other slots). */
@@ -1061,6 +1250,10 @@
     onnodeclick={nodeClick}
     onedgeclick={edgeClick}
     onpaneclick={() => select([], [])}
+    onpanecontextmenu={({ event }) => paneMenu(event)}
+    onnodecontextmenu={({ node, event }) => nodeMenu(node, event)}
+    onedgecontextmenu={({ edge, event }) => edgeMenu(edge, event)}
+    onselectioncontextmenu={({ nodes, event }) => selectionMenu(nodes, event)}
     onselectionend={boxSelected}
     proOptions={{ hideAttribution: true }}
   >
@@ -1093,7 +1286,7 @@
           {#each movers as kind (kind)}
             {#if kind === "device" && sheet?.blueprint}
               <!-- On a blueprint a device is a slot: the kind of block it takes, from a device here or the catalog. -->
-              <BlockPicker devices={app.snapshot?.devices ?? []} onchange={addSlot}>
+              <BlockPicker bind:this={slotPicker} devices={app.snapshot?.devices ?? []} onchange={addSlot}>
                 {#snippet button({ open })}
                   <button class="btn flex items-center gap-1 text-sm" title="A slot: a kind of block each copy fills with one" onclick={open}>
                     <DeviceKindIcon size={14} />Slot

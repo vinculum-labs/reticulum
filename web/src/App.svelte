@@ -8,11 +8,24 @@
   import Inspector from "./components/Inspector.svelte";
   import Toasts from "./components/Toasts.svelte";
   import Tooltips from "./components/Tooltips.svelte";
+  import ContextMenu from "./components/ContextMenu.svelte";
   import Dialog from "./components/Dialog.svelte";
   import EmptyState from "./components/EmptyState.svelte";
   import { modals } from "./lib/dialog.svelte";
 
   onMount(start);
+
+  // No browser menu on a right-click: the editor's own menus open where they make sense (the canvas, its cards,
+  // wires and pins, the sidebar's rows), and elsewhere nothing does. Text boxes keep theirs, for cut, copy and paste.
+  onMount(() => {
+    const native = (e: MouseEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.target instanceof Element && e.target.closest("input, textarea, [contenteditable]")) return;
+      e.preventDefault();
+    };
+    document.addEventListener("contextmenu", native);
+    return () => document.removeEventListener("contextmenu", native);
+  });
 
   function typing(target: EventTarget | null): boolean {
     return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
@@ -58,4 +71,5 @@
   <Toasts />
   <Dialog />
   <Tooltips />
+  <ContextMenu />
 </div>

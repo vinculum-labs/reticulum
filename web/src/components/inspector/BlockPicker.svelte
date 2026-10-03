@@ -86,6 +86,11 @@
     nav.set(Math.max(0, rows.findIndex((r) => r.kind !== "header")));
   }
 
+  /** Opens the list from outside (a right-click menu's Slot…). */
+  export function openList() {
+    show();
+  }
+
   function pick(row: Row | undefined) {
     if (!row || row.kind === "header") return;
     popover?.close(true);
