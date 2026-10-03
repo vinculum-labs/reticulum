@@ -14,12 +14,12 @@
   import RemoveButton from "./controls/RemoveButton.svelte";
   import TextField from "./controls/TextField.svelte";
   import Switch from "./controls/Switch.svelte";
-  import { networkStatus, sheetStatus } from "../lib/status";
+  import { treeStatus } from "../lib/status";
 
   const snapshot = $derived(app.snapshot!);
   const canEdit = $derived(snapshot.canEdit);
   const power = $derived(app.power ?? snapshot.power);
-  const network = $derived(networkStatus(snapshot.running, snapshot.enabled, !!power?.enabled && !power.powered));
+  const unpowered = $derived(!!power?.enabled && !power.powered);
 
   let newSheet = $state("");
   let deviceSearch = $state("");
@@ -171,7 +171,7 @@
       {#each rows as row (row.sheet.id)}
         {@const sheet = row.sheet}
         {@const off = offReason(snapshot, sheet, app.sheetsOff)}
-        {@const status = sheet.root ? network : sheetStatus(sheet, off, network)}
+        {@const status = treeStatus(sheet, off, snapshot.running, snapshot.enabled, unpowered)}
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <li
           class="group flex items-center gap-1.5 rounded-md py-1 pr-2"
@@ -209,7 +209,12 @@
             <span class="w-4 shrink-0"></span>
           {/if}
           <!-- How it is doing, left of its name: the network's state on the top row; a sheet's problems, why it is off, or running. -->
-          <span class="flex shrink-0" style="color: {status.color}" title={status.title} role="img" aria-label={status.title}><status.icon size={14} /></span>
+          <span class="status relative flex shrink-0" style="color: {status.color}" title={status.title} role="img" aria-label={status.title}>
+            <status.icon size={14} />
+            {#each status.badges as badge (badge.corner)}
+              <span class="badge {badge.corner}" style="color: {badge.color}"><badge.icon size={8} /></span>
+            {/each}
+          </span>
           {#if renaming === sheet.id}
             <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
           {:else}
@@ -347,6 +352,21 @@
 </aside>
 
 <style>
+  /* A status mark on a corner of a tree row's icon, on the sidebar's color so it reads over the icon's lines. */
+  .status .badge {
+    position: absolute;
+    right: -4px;
+    display: flex;
+    padding: 1px;
+    border-radius: 50%;
+    background: var(--panel);
+  }
+  .status .badge.top {
+    top: -4px;
+  }
+  .status .badge.bottom {
+    bottom: -4px;
+  }
   .drop-target {
     outline: 1px dashed var(--accent);
     outline-offset: -1px;

@@ -1,4 +1,5 @@
 /** How the network, and each sheet in it, is doing: an icon, its color and what it means (top bar and sheet tree). */
+import NetworkIcon from "@lucide/svelte/icons/network";
 import Play from "@lucide/svelte/icons/circle-play";
 import Stop from "@lucide/svelte/icons/circle-stop";
 import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
@@ -6,6 +7,7 @@ import Unplug from "@lucide/svelte/icons/unplug";
 import Zap from "@lucide/svelte/icons/zap";
 import ZapOff from "@lucide/svelte/icons/zap-off";
 import type { Component } from "svelte";
+import { KIND_ICON } from "./icons";
 import type { OffReason } from "./tree";
 import type { Sheet } from "./types";
 
@@ -24,12 +26,49 @@ export function networkStatus(running: boolean, enabled: boolean, unpowered: boo
   return { icon: Stop, color: "var(--muted)", title: "Off: switched off with the On checkbox" };
 }
 
-/** A sheet below the top: its problems first, then why it is off, else running (when the network runs). */
-export function sheetStatus(sheet: Sheet, off: OffReason | null, network: Status): Status {
-  if (sheet.errors?.length) return { icon: TriangleAlert, color: "var(--bad)", title: sheet.errors.map((e) => e.message).join("\n") };
-  if (off?.kind === "gate") return { icon: Zap, color: "var(--c-signal)", title: "Off: a signal into its node's gate holds it off" };
-  if (off?.kind === "self") return { icon: Stop, color: "var(--muted)", title: "Off: switched off" };
-  if (off?.kind === "parent") return { icon: Stop, color: "var(--muted)", title: `Off: ${off.sheet.name}, a sheet above it, is off` };
-  if (off?.kind === "network") return { icon: Stop, color: "var(--muted)", title: "Off: the network is off" };
-  return network.icon === Play ? network : { ...network, title: `Not running: ${network.title}` };
+/** A row of the sheet tree: what it is (its icon), colored by whether it runs, badged with what else to know. */
+export interface TreeStatus {
+  icon: Component<{ size?: number | string; class?: string }>;
+  color: string;
+  /** Small marks on the icon's corners: held off by its gate (bottom), problems (top). */
+  badges: { icon: Component<{ size?: number | string; class?: string }>; color: string; corner: "top" | "bottom" }[];
+  title: string;
+}
+
+/**
+ * The network (top row) or a sheet: plain when running, gray when off, amber when the network can't run (no power, or
+ * its controller isn't loaded). The gate holding a sheet off and problems are badges, so they show whatever its state.
+ */
+export function treeStatus(sheet: Sheet, off: OffReason | null, running: boolean, enabled: boolean, unpowered: boolean): TreeStatus {
+  const badges: TreeStatus["badges"] = [];
+  const lines: string[] = [];
+  let color = "var(--ink)";
+  if (!enabled || (off && off.kind !== "gate")) {
+    color = "var(--muted)";
+    lines.push(
+      !enabled || off?.kind === "network" ? "Off: the network is off"
+        : off?.kind === "self" ? "Off: switched off"
+        : off?.kind === "parent" ? `Off: ${off.sheet.name}, a sheet above it, is off`
+        : "Off",
+    );
+  } else if (!running || unpowered) {
+    color = "var(--warn)";
+    badges.push({ icon: unpowered ? ZapOff : Unplug, color: unpowered ? "var(--bad)" : "var(--warn)", corner: "bottom" });
+    lines.push(
+      unpowered
+        ? "No power: the controller has too little FE for this network, so only energy flows run"
+        : "Not running: the controller's chunk isn't loaded",
+    );
+  } else if (off?.kind === "gate") {
+    color = "var(--muted)";
+    badges.push({ icon: Zap, color: "var(--c-signal)", corner: "bottom" });
+    lines.push("Off: a signal into its node's gate holds it off");
+  } else {
+    lines.push("Running");
+  }
+  if (sheet.errors?.length) {
+    badges.push({ icon: TriangleAlert, color: "var(--bad)", corner: "top" });
+    lines.push(...sheet.errors.map((e) => e.message));
+  }
+  return { icon: sheet.root ? NetworkIcon : KIND_ICON.sheet, color, badges, title: lines.join("\n") };
 }
