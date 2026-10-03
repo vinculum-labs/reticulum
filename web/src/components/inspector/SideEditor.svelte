@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Help from "./Help.svelte";
   import { RESOURCE_LABEL, RESOURCE_VAR, offeredResources } from "../../lib/kinds";
   import { SIDES, type Device, type Face, type Resource, type Side } from "../../lib/types";
   import NumberField from "../controls/NumberField.svelte";
@@ -62,7 +63,7 @@
         </label>
       {/each}
     </div>
-    <span class="text-xs muted">{chosen.size === 0 ? "None ticked: every face the device offers (its own side settings decide)." : "Only the ticked faces."}</span>
+    {#if chosen.size === 0}<Help>None ticked: every face the device offers (its own side settings decide).</Help>{/if}
   {/if}
 </fieldset>
 

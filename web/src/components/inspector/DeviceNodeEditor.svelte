@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Help from "./Help.svelte";
   import Scissors from "@lucide/svelte/icons/scissors";
   import { app } from "../../lib/state.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
@@ -181,10 +182,10 @@
       <div class="mt-2 flex flex-col gap-3">
         <SideEditor side={input} {device} {disabled} onchange={(side) => setInput(i, { ...input, ...side })} />
         {#if input.resource === "redstone"}
-          <p class="text-xs muted">The connectors touching the ticked faces (all of them when none are ticked) power the device with what is wired in, 0 to 15.</p>
+          <Help>The connectors touching the ticked faces (all of them when none are ticked) power the device with what is wired in, 0 to 15.</Help>
           <WhileOffField value={input.while_off} {disabled} onchange={(while_off) => setInput(i, { ...input, while_off })} />
         {:else if input.resource === "me"}
-          <p class="text-xs muted">Wire an ME output of another device here to join the two AE2 networks through the connectors touching these faces.</p>
+          <Help>Wire an ME output of another device here to join the two AE2 networks through the connectors touching these faces.</Help>
         {:else}
           <LimitsEditor limits={input.caps ?? []} keep={false} resource={input.resource} device={settings.device} {disabled} onchange={(caps) => setInput(i, { ...input, caps })} />
         {/if}
@@ -217,12 +218,12 @@
             <input type="checkbox" checked={output.comparator === true} {disabled} onchange={(e) => setOutput(i, { ...output, comparator: e.currentTarget.checked })} />
             Comparator value instead (how full it is, and the like)
           </label>
-          <p class="text-xs muted">The redstone the device gives out of the ticked faces (the strongest face when none are ticked), 0 to 15.</p>
+          <Help>The redstone the device gives out of the ticked faces (the strongest face when none are ticked), 0 to 15.</Help>
         {:else if output.resource === "me"}
-          <p class="text-xs muted">
+          <Help>
             Wire it to an ME input of another device to join the two AE2 networks: 32 channels at most, 8 through a normal cable. The pin shows the
             channels through it and the fullest cable on the way to the ME controller.
-          </p>
+          </Help>
         {:else}
           <AmountEditor settings={output} sheetInterval={sheet.interval ?? 10} {disabled} onchange={(patch) => setOutput(i, { ...output, ...patch })} />
           <LimitsEditor limits={output.keep ?? []} keep={true} resource={output.resource} device={settings.device} {disabled} onchange={(keep) => setOutput(i, { ...output, keep })} />

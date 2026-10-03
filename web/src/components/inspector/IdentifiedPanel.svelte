@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Help from "./Help.svelte";
   import { app, identifyHex, setIdentifies, setIdentify } from "../../lib/state.svelte";
   import type { Identify } from "../../lib/types";
   import InspectorPanel from "./InspectorPanel.svelte";
@@ -12,10 +13,10 @@
 </script>
 
 <InspectorPanel title="Identified" onclose={() => (app.panel = null)}>
-  <p class="text-xs muted">
+  <Help>
     Lit up in the world for everyone who can see this network: an outline through walls, the name above it, and a beam from far away. They
     stay on until turned off. Click a color to change it.
-  </p>
+  </Help>
   {#each identified as item (item.kind + (item.connector ?? "") + JSON.stringify(item.device ?? "") + (item.face ?? ""))}
     <div class="flex items-center gap-2 text-sm">
       <input

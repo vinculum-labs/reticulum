@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Help from "./Help.svelte";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import { addSheetPin, app, edit, showNode } from "../../lib/state.svelte";
   import { RESOURCE_VAR } from "../../lib/kinds";
@@ -66,7 +67,8 @@
         </div>
       </details>
     {:else}
-      <p class="text-xs muted">None. {input ? "Things come into this sheet" : "Things leave this sheet"} through pins on its {input ? "left" : "right"} edge.</p>
+      <p class="text-xs muted">None.</p>
+      <Help>{input ? "Things come into this sheet" : "Things leave this sheet"} through pins on its {input ? "left" : "right"} edge.</Help>
     {/each}
   </section>
 {/each}

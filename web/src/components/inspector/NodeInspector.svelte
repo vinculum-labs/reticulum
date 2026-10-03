@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Help from "./Help.svelte";
   import Trash from "@lucide/svelte/icons/trash";
   import { app, deviceAt, edit, nodeTitle, openCopy, openDevice, openSheet, rebase, updateNodeEdit } from "../../lib/state.svelte";
   import { slotName, slotsOf } from "../../lib/blueprints";
@@ -357,7 +358,7 @@
       <NumberField value={s.ticks ?? 1} min={1} max={1200} width="md" disabled={!canEdit} oncommit={(v) => settings({ ticks: v })} />
     </Field>
   {:else if s.kind === "latch" || s.kind === "counter"}
-    <p class="text-xs muted">It remembers its value across restarts. Its output follows one tick after its inputs.</p>
+    <Help>It remembers its value across restarts. Its output follows one tick after its inputs.</Help>
   {/if}
 
   {#if s.kind === "device"}
@@ -379,10 +380,10 @@
       <div class="text-sm">
         <div><span class="muted">Holds:</span> {held.nodes?.length ?? 0} node{(held.nodes?.length ?? 0) === 1 ? "" : "s"}{inside ? `, ${inside} sheet${inside === 1 ? "" : "s"}` : ""}</div>
       </div>
-      <p class="text-xs muted">
-        Its switch above switches everything in it, sheets inside included; so does a signal into its gate. Its pins are the
+      <Help>
+        Its switch above switches everything in it, sheets inside included. A signal into its gate does too. Its pins are the
         sheet's: added here, or inside it, or by dragging a wire past its edge.
-      </p>
+      </Help>
       <SheetPins sheet={held} />
       {@const unwired = unwiredPins(held).length}
       <div class="flex flex-wrap gap-2">
@@ -442,7 +443,7 @@
       />
     </Field>
   {:else if s.kind === "rate_limit"}
-    <Field label={app.rateUnit === "t" ? "Per tick" : "Per second"} hint={`${unit}; the top bar switches between per tick and per second.`}>
+    <Field label={app.rateUnit === "t" ? "Per tick" : "Per second"} hint={`${unit} — the top bar switches between per tick and per second.`}>
       <NumberField
         value={s.per_second}
         scale={app.rateUnit === "t" ? 1 / 20 : 1}
@@ -498,7 +499,7 @@
           <button class="btn shrink-0 px-1 py-1" disabled={!canEdit || i === outs.length - 1} title="Later" aria-label="Move down" onclick={() => moveOutput(i, 1)}><ArrowDown size={12} /></button>
         </div>
       {:else}
-        <p class="text-xs muted">Wire the splitter's output to two or more nodes; each wire is one branch.</p>
+        <p class="text-xs muted">Wire the splitter's output to two or more nodes — each wire is one branch.</p>
       {/each}
     </fieldset>
   {:else if s.kind === "kit"}

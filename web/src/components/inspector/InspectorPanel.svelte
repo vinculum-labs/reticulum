@@ -1,11 +1,14 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
+  import CircleHelp from "@lucide/svelte/icons/circle-help";
+  import { help, toggleHelp } from "../../lib/help.svelte";
   import { onEscape } from "../../lib/escape";
 
   /**
    * The frame of everything the side panel shows: a title (with an optional icon, subtitle and actions), then the
-   * content. {@code onclose} adds a Close button and lets Esc close it; {@code onback} adds a Back button above.
+   * content. {@code onclose} adds a Close button and lets Esc close it, {@code onback} a Back button above. The ? shows
+   * or hides every panel's explanations.
    */
   let {
     title,
@@ -41,6 +44,14 @@
     <div class="flex items-center gap-2">
       {#if icon}{@render icon()}{/if}
       <h2 class="min-w-0 flex-1 text-base font-semibold break-words">{title}</h2>
+      <button
+        type="button"
+        class="btn shrink-0 px-2"
+        aria-pressed={help.shown}
+        title={help.shown ? "Hide explanations" : "Show explanations"}
+        aria-label="Explanations"
+        onclick={toggleHelp}><CircleHelp size={16} /></button
+      >
       {#if actions}{@render actions()}{/if}
       {#if onclose}<button class="btn shrink-0 text-sm" onclick={onclose}>Close</button>{/if}
     </div>

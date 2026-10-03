@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { help } from "../lib/help.svelte";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Layers from "@lucide/svelte/icons/layers";
@@ -556,7 +557,7 @@
       />
     </div>
     <input class="mb-2 w-full" placeholder="Search devices" aria-label="Search devices" bind:value={deviceSearch} />
-    <p class="mb-2 text-xs muted">Drag a device onto the canvas to add it; give it inputs and outputs in the inspector.</p>
+    {#if help.shown}<p class="mb-2 text-xs muted">Drag a device onto the canvas to add it — give it inputs and outputs in its panel.</p>{/if}
     <ul class="flex flex-col gap-0.5">
       {#each devices as d (posKey(d.pos))}
         {@const key = posKey(d.pos)}

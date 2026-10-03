@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Help from "./Help.svelte";
   import { app, nodeTitle, openSheet } from "../../lib/state.svelte";
   import { offReason, sheetPath } from "../../lib/tree";
   import InspectorPanel from "./InspectorPanel.svelte";
@@ -53,7 +54,7 @@
       <div class="tabular-nums" class:text-warn={app.tick.average > 1}>
         {app.tick.average.toFixed(3)} ms average, {app.tick.longest.toFixed(3)} ms longest
       </div>
-      <p class="text-xs muted">Over the last 200 ticks. A tick has 50 ms for everything on the server.</p>
+      <Help>Over the last 200 ticks. A tick has 50 ms for everything on the server.</Help>
     {:else}
       <p class="muted">Not running.</p>
     {/if}

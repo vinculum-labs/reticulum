@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Help from "./Help.svelte";
   import { app, deleteCopy, edit, nodeTitle, openSheet, showNode, updateNodeEdit } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { copiesOf, slotsOf } from "../../lib/blueprints";
@@ -55,9 +56,7 @@
       Its blueprint has no slots: it works on nothing but what is wired to its pins.
     {/if}
   </p>
-  <p class="text-xs muted">
-    Only its slots can be changed here. Everything else is the blueprint's{copies > 1 ? `, shared by its ${copies} copies` : ""}.
-  </p>
+  <Help>Only its slots can be changed here. Everything else is the blueprint's{copies > 1 ? `, shared by its ${copies} copies` : ""}.</Help>
   <div class="flex flex-wrap gap-2">
     <button class="btn text-sm" onclick={() => openSheet(blueprint.id)}>Edit the blueprint</button>
     <button class="btn text-sm" onclick={() => showNode(sheet.id, copy.id)}>Show its node</button>

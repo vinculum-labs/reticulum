@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Help from "./Help.svelte";
   import Trash from "@lucide/svelte/icons/trash";
   import { app, copySheetJson, deleteSheet, duplicateBlueprint, edit, moveSheet, nodeTitle, openCopy, openSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
@@ -158,9 +159,11 @@
         <button class="btn text-sm" disabled={hasSheets} onclick={() => makeBlueprint(true)}
           title="A new blueprint like this sheet — the sheet stays as it is">Copy as blueprint</button>
       </div>
-      <span class="text-xs muted">
-        {hasSheets ? "Not for a sheet with sheets inside it (yet): move them out first." : "To build the same set again elsewhere: a blueprint is placed as copies, each filled with its own blocks."}
-      </span>
+      {#if hasSheets}
+        <span class="text-xs muted">Not for a sheet with sheets inside it (yet) — move them out first.</span>
+      {:else}
+        <Help>To build the same set again elsewhere: a blueprint is placed as copies, each filled with its own blocks.</Help>
+      {/if}
     </div>
   {/if}
   {#if canEdit}

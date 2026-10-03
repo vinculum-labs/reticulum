@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Help from "./Help.svelte";
   import Plus from "@lucide/svelte/icons/plus";
   import { app, edit } from "../../lib/state.svelte";
   import type { Member } from "../../lib/types";
@@ -80,7 +81,7 @@
         <span>{power.upkeep} FE/t upkeep</span>
       </div>
       {#if !power.powered}<p class="text-xs text-bad" role="status">Not enough FE: only energy flows run until the controller is charged.</p>{/if}
-      <p class="text-xs muted">The controller takes FE from anything that pushes into it and pulls from FE sources next to it. Item operations cost extra.</p>
+      <Help>The controller takes FE from anything that pushes into it and pulls from FE sources next to it. Item operations cost extra.</Help>
     </section>
   {/if}
 

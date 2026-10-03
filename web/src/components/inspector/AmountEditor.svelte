@@ -42,7 +42,7 @@
       {/if}
     </div>
   </Field>
-  <Field label="Every" hint={`Ticks between operations; 0 uses the sheet's interval (${sheetInterval}).`}>
+  <Field label="Every" hint={`Ticks between operations — 0 uses the sheet's interval (${sheetInterval}).`}>
     <NumberField value={settings.interval ?? 0} min={0} max={72_000} width="md" {disabled} oncommit={(v) => onchange({ interval: v })} />
   </Field>
 {/if}
