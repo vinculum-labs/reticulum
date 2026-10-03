@@ -89,8 +89,10 @@
     background: var(--pin-color);
     border-radius: 4px;
   }
+  /* Trimmed to the capitals, as trim-text does, so the name sits centered in the tag rather than low. */
   .tag .text {
-    padding: 1px 4px;
+    text-box: trim-both cap alphabetic;
+    padding: 4px;
     background: var(--panel);
     border-radius: 3px;
   }
