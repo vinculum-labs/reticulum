@@ -41,7 +41,7 @@
     <div class="flex items-center justify-between">
       <h3 class="panel-title flex items-center gap-1.5"><PinMark solid={input} /><span class="trim-text">{input ? "Input pins (left)" : "Output pins (right)"}</span></h3>
       {#if canEdit}
-        <AddButton label={input ? "Add an input pin" : "Add an output pin"} onclick={() => addSheetPin(sheet, input)} />
+        <AddButton inset label={input ? "Add an input pin" : "Add an output pin"} onclick={() => addSheetPin(sheet, input)} />
       {/if}
     </div>
     {#each pins as pin, i (pin.id)}

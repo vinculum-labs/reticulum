@@ -486,7 +486,7 @@
     <fieldset class="flex flex-col gap-2">
       <div class="flex items-center justify-between">
         <legend class="field-label">Items in one kit (all move together, or none)</legend>
-        <AddButton flush label="Add an item" disabled={!canEdit || s.lines.length >= 64} onclick={() => settings({ lines: [...s.lines, { filter: "", count: 1 }] })} />
+        <AddButton label="Add an item" disabled={!canEdit || s.lines.length >= 64} onclick={() => settings({ lines: [...s.lines, { filter: "", count: 1 }] })} />
       </div>
       {#each s.lines as line, i}
         <div class="flex items-start gap-1">

@@ -113,7 +113,7 @@
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
     <h3 class="panel-title flex items-center gap-1.5"><PinMark /><span class="trim-text">Inputs (left)</span></h3>
-    <AddButton label="Add an input" {disabled} onclick={() => onchange({ ...settings, inputs: [...inputs, { resource: primary }] })} />
+    <AddButton inset label="Add an input" {disabled} onclick={() => onchange({ ...settings, inputs: [...inputs, { resource: primary }] })} />
   </div>
   {#each inputs as input, i}
     <details class="box" open={inputs.length === 1}>
@@ -144,7 +144,7 @@
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
     <h3 class="panel-title flex items-center gap-1.5"><PinMark solid /><span class="trim-text">Outputs (right)</span></h3>
-    <AddButton label="Add an output" {disabled} onclick={() => onchange({ ...settings, outputs: [...outputs, { resource: primary, per_operation: 0 }] })} />
+    <AddButton inset label="Add an output" {disabled} onclick={() => onchange({ ...settings, outputs: [...outputs, { resource: primary, per_operation: 0 }] })} />
   </div>
   {#each outputs as output, i}
     <details class="box" open={outputs.length === 1}>

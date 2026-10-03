@@ -32,7 +32,7 @@
   <!-- The + on the heading's line, as a device's Inputs and Outputs have theirs. -->
   <div class="flex items-center justify-between">
     <legend class="field-label">{keep ? "Keep rules (leave at least)" : "Caps (stop inserting at)"}</legend>
-    <AddButton label={keep ? "Add a keep rule" : "Add a cap"} {disabled} onclick={() => onchange([...limits, { scope: "per_type", amount: keep ? 16 : 64, filter: "" }])} />
+    <AddButton inset label={keep ? "Add a keep rule" : "Add a cap"} {disabled} onclick={() => onchange([...limits, { scope: "per_type", amount: keep ? 16 : 64, filter: "" }])} />
   </div>
   {#each limits as limit, i}
     <div class="box flex flex-col gap-1">
