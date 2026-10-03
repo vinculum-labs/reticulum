@@ -2,12 +2,13 @@
   import { useSvelteFlow } from "@xyflow/svelte";
   import { addSheetPin, app } from "../../lib/state.svelte";
   import PinMark from "../controls/PinMark.svelte";
+  import { KIND_ICON } from "../../lib/icons";
 
   /**
    * The open sheet as a frame around its nodes: its pins sit on its edges (inputs left, outputs right). Only a
    * backdrop: it can't be selected or moved.
    */
-  let { data }: { data: { sheetId: string; name: string; width: number; height: number; canAdd: boolean } } = $props();
+  let { data }: { data: { sheetId: string; name: string; blueprint: boolean; width: number; height: number; canAdd: boolean } } = $props();
 
   /** The sheet is what the side panel shows when nothing else is selected (no node, wire, device or other panel). */
   const shown = $derived(!app.selectedNodes.length && !app.selectedEdges.length && !app.selectedDevice && !app.panel);
@@ -27,6 +28,8 @@
     app.panel = null;
   }
 
+  const KindIcon = $derived(KIND_ICON[data.blueprint ? "copy" : "sheet"]);
+
   function add(input: boolean) {
     const sheet = app.snapshot?.sheets.find((s) => s.id === data.sheetId);
     if (sheet) addSheetPin(sheet, input);
@@ -45,7 +48,9 @@
     title="Show this sheet's settings"
     onclick={select}
   >
-    <span class="min-w-0 flex-1 truncate font-medium">{data.name}</span>
+    <!-- A sheet's or a blueprint's icon (an open copy shows its blueprint), as on their cards and in the toolbar. -->
+    <span class="shrink-0"><KindIcon size={14} /></span>
+    <span class="trim-text min-w-0 flex-1 truncate font-medium">{data.name}</span>
     {#if data.canAdd}
       <!-- Each shows the pin it adds: an input's dot is solid (it feeds what is inside), an output's a ring. -->
       <button class="nodrag btn flex items-center gap-1 px-1.5 py-0 text-xs" title="Add a pin on the left edge: where things come into this sheet"

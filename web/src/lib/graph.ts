@@ -408,7 +408,7 @@ export function toFlow(
       deletable: false,
       focusable: false,
       zIndex: -1,
-      data: { sheetId: sheet.id, name: sheet.name, width: layout.width, height: layout.height } as unknown as NodeData,
+      data: { sheetId: sheet.id, name: sheet.name, blueprint: !!sheet.blueprint, width: layout.width, height: layout.height } as unknown as NodeData,
     });
   }
   build(sheet, undefined, { dx: 0, dy: 0 }, 0, new Set([sheet.id]), layout);
