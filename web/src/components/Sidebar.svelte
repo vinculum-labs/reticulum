@@ -199,7 +199,8 @@
 
 <aside class="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-line bg-panel">
   <section class="p-3">
-    <div class="mb-2 flex items-center justify-between">
+    <!-- Padded right like the rows below, so the + ends where their switches do. -->
+    <div class="mb-2 flex items-center justify-between pr-2">
       <h2 class="panel-title">Sheets</h2>
       {#if canEdit}<AddButton label={`New sheet in ${newSheetParent?.name ?? "the network"}`} onclick={addSheet} />{/if}
     </div>
@@ -321,7 +322,7 @@
       <button class="btn mt-2 text-sm" onclick={importSheet} title="Paste a sheet copied with “Copy as JSON”">Import sheet…</button>
     {/if}
 
-    <div class="mt-4 mb-2 flex items-center justify-between">
+    <div class="mt-4 mb-2 flex items-center justify-between pr-2">
       <h2 class="panel-title">Blueprints</h2>
       {#if canEdit}<AddButton label="New blueprint" onclick={addBlueprint} />{/if}
     </div>
