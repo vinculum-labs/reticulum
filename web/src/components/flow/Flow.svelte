@@ -12,6 +12,8 @@
     MiniMap,
     Panel,
     useSvelteFlow,
+    useConnection,
+    ViewportPortal,
     type Edge,
     type ConnectionLineType,
     type Node,
@@ -47,7 +49,7 @@
   import { contentCorner, handleIndex, isPin, openFrameSize, pinResource, resources, PIN_DOT, PIN_W, toFlow, type FlowView, type NodeData } from "../../lib/graph";
   import { crossWire, nextOrder } from "../../lib/crossing";
   import { moveAcross } from "../../lib/moveAcross";
-  import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, RESOURCE_VAR, SIGNAL_KINDS, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
   import { GATE } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
@@ -767,14 +769,16 @@
    * A wire dragged from a node past the edge of the frame it sits in (and dropped on nothing) makes a pin there: an
    * output pin past the right edge, an input pin past the left, named and typed after the node, as one change.
    */
-  async function connectEnd(event: MouseEvent | TouchEvent, state: Parameters<OnConnectEnd>[1]) {
-    wiring = false;
-    if (!editable || !app.snapshot || !state.fromNode || !state.fromHandle || state.toNode) return;
-    const on = sheetOf(state.fromNode.id);
-    const fromNode = nodeOf(state.fromNode.id);
-    if (!on || on.root || !fromNode || isPin(fromNode)) return;
-    const point = "changedTouches" in event ? event.changedTouches[0] : event;
-    const p = flow.screenToFlowPosition({ x: point.clientX, y: point.clientY });
+  /**
+   * Where a wire dragged from a node would make a pin if dropped at {@code p} (canvas coordinates): past the right
+   * edge of the frame the node sits in for an output, past the left for an input. Null anywhere else. The preview
+   * while dragging and the drop use this alike.
+   */
+  function edgePinAt(fromId: string, handle: { id?: string | null; type: string }, p: { x: number; y: number }) {
+    if (!editable || !app.snapshot) return null;
+    const on = sheetOf(fromId);
+    const fromNode = nodeOf(fromId);
+    if (!on || on.root || !fromNode || isPin(fromNode)) return null;
     // The frame the node sits in: the open sheet's, or an open sheet node's.
     let box: { x: number; y: number; width: number; height: number } | undefined;
     let dy = 0;
@@ -788,18 +792,47 @@
         dy = entry[1].dy;
       }
     }
-    if (!box) return;
-    const output = state.fromHandle.type === "source";
-    if (output ? p.x < box.x + box.width : p.x > box.x) return;
-    const index = handleIndex(state.fromHandle.id);
+    if (!box) return null;
+    const output = handle.type === "source";
+    if (output ? p.x < box.x + box.width : p.x > box.x) return null;
+    const index = handleIndex(handle.id);
     const carried =
       pinResource(fromNode, output ? "out" : "in", index, app.snapshot.sheets) ??
-      (isSignal(fromNode.settings.kind) || state.fromHandle.id === "gate" ? "redstone" : undefined);
+      (isSignal(fromNode.settings.kind) || handle.id === "gate" ? "redstone" : undefined);
+    return {
+      on,
+      fromNode,
+      output,
+      index,
+      carried,
+      // On the canvas: where the pin's dot would sit on the edge.
+      edge: { x: output ? box.x + box.width : box.x, y: p.y },
+      // In the sheet: the pin's y.
+      y: Math.round(on.id === sheet?.id ? p.y : p.y - box.y + dy),
+    };
+  }
+
+  /** The pin a wire being dragged would make if dropped where the pointer is now (none over a pin or inside). */
+  const connection = useConnection();
+  const pinPreview = $derived.by(() => {
+    const c = connection.current;
+    if (!c.inProgress || c.toHandle || !c.fromNode || !c.fromHandle) return null;
+    const drop = edgePinAt(c.fromNode.id, c.fromHandle, c.to);
+    return drop && { ...drop, color: drop.carried ? RESOURCE_VAR[drop.carried] : "var(--muted)" };
+  });
+
+  async function connectEnd(event: MouseEvent | TouchEvent, state: Parameters<OnConnectEnd>[1]) {
+    wiring = false;
+    if (!state.fromNode || !state.fromHandle || state.toNode) return;
+    const point = "changedTouches" in event ? event.changedTouches[0] : event;
+    const drop = edgePinAt(state.fromNode.id, state.fromHandle, flow.screenToFlowPosition({ x: point.clientX, y: point.clientY }));
+    if (!drop) return;
+    const { on, fromNode, output, index, carried } = drop;
     const pin: GraphNode = {
       id: uuid(),
       settings: { kind: output ? "sheet_output" : "sheet_input", name: nodeTitle(fromNode), ...(carried ? { resource: carried } : {}) },
       x: 0,
-      y: Math.round(on.id === sheet?.id ? p.y : p.y - box.y + dy),
+      y: drop.y,
     };
     const wire: Wire = output
       ? { id: uuid(), from: fromNode.id, output: index, to: pin.id, input: 0, order: nextOrder(on, fromNode.id, index) }
@@ -932,6 +965,19 @@
     proOptions={{ hideAttribution: true }}
   >
     <Background gap={24} />
+    {#if pinPreview}
+      <!-- Where letting go makes a pin: a ghost of it on the frame's edge. -->
+      <ViewportPortal target="front">
+        <div
+          class="pin-preview"
+          class:output={pinPreview.output}
+          style="left: {pinPreview.edge.x}px; top: {pinPreview.edge.y}px; --c: {pinPreview.color}"
+        >
+          <span class="dot"></span>
+          <span class="tag">New {pinPreview.output ? "output" : "input"} pin</span>
+        </div>
+      </ViewportPortal>
+    {/if}
     <Controls showLock={false} />
     <MiniMap pannable zoomable maskStrokeWidth={1} nodeClass={(n) => (n.data?.problem ? "problem" : "")} />
     {#if editable}
@@ -996,3 +1042,36 @@
     {/if}
   </SvelteFlow>
 </div>
+
+<style>
+  /* The ghost of the pin a dropped wire would make: a dashed dot on the frame's edge, its tag outside it. */
+  .pin-preview {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transform: translate(-100%, -50%);
+    flex-direction: row-reverse;
+    pointer-events: none;
+    font-size: 11px;
+  }
+  .pin-preview.output {
+    transform: translate(0, -50%);
+    flex-direction: row;
+  }
+  .pin-preview .dot {
+    width: 12px;
+    height: 12px;
+    margin: 0 -6px;
+    border-radius: 50%;
+    border: 2px dashed var(--c);
+    background: var(--panel);
+  }
+  .pin-preview .tag {
+    padding: 1px 6px;
+    border: 1px dashed var(--c);
+    border-radius: 4px;
+    background: var(--panel);
+    white-space: nowrap;
+  }
+</style>
