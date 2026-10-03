@@ -61,6 +61,7 @@
   const devices = $derived(app.snapshot?.devices ?? []);
   /** A device node on a blueprint is a slot: a kind of block each copy fills, not a block of its own. */
   const slot = $derived(sheet.blueprint && s.kind === "device");
+  const DeviceKindIcon = KIND_ICON.device;
   const gateWired = $derived((sheet.wires ?? []).some((w) => w.to === node.id && (w.input ?? 0) === GATE));
   const unit = $derived(s.kind === "device" && s.outputs?.[0] ? RESOURCE_UNIT[s.outputs[0].resource] : "units");
 
@@ -158,15 +159,6 @@
 
   {#if !slot}<ThroughputSummary id={node.id} {signal} />{/if}
 
-  {#if namedDevice && !slot}
-    <div class="flex min-w-0 gap-2">
-      <!-- A long device name is cut short here rather than pushing the ID button out of the panel. -->
-      <button class="btn min-w-0 flex-1 truncate text-left text-sm" onclick={() => openDevice(namedDevice)} title={`Name the faces of “${deviceName(namedDevice)}” (its device panel)`}>
-        Face names…
-      </button>
-      <IdentifyToggle target={{ kind: "device", device: namedDevice.pos }} title="Light the device up in the world until turned off" />
-    </div>
-  {/if}
 
   <!--
     One name each, as the tree and the other panels show it: a sheet node's is its sheet's and a device node's its
@@ -185,13 +177,20 @@
       </Field>
     {/if}
   {:else if s.kind === "device" && !slot && namedDevice}
+    <!-- The device's name, then its face names and its ID beside it, as each face is in the device panel. -->
     <Field label="Name" hint="The device's own name: the list and every panel show it.">
-      <TextField
-        value={namedDevice.name}
-        placeholder={namedDevice.defaultName}
-        disabled={!canEdit}
-        oncommit={(v) => edit([{ type: "renameDevice", device: namedDevice.pos, name: v || null }], [{ type: "renameDevice", device: namedDevice.pos, name: namedDevice.name ?? null }], "rename device")}
-      />
+      <div class="flex min-w-0 items-center gap-2">
+        <TextField
+          class="min-w-0 flex-1"
+          value={namedDevice.name}
+          placeholder={namedDevice.defaultName}
+          disabled={!canEdit}
+          oncommit={(v) => edit([{ type: "renameDevice", device: namedDevice.pos, name: v || null }], [{ type: "renameDevice", device: namedDevice.pos, name: namedDevice.name ?? null }], "rename device")}
+        />
+        <!-- Its faces' names live in its device panel: a cube for the block, as the toolbar's Device. -->
+        <button class="btn px-2" onclick={() => openDevice(namedDevice)} title="Face names: its device panel" aria-label="Face names"><DeviceKindIcon size={16} /></button>
+        <IdentifyToggle target={{ kind: "device", device: namedDevice.pos }} title="Light the device up in the world until turned off" />
+      </div>
     </Field>
   {:else if s.kind === "copy"}
     <Field label="Name" hint="Optional — the blueprint's name is shown otherwise.">

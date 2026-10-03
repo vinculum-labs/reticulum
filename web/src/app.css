@@ -80,11 +80,17 @@ body {
   font: 14px/20px system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-input,
-textarea,
-button {
-  font: inherit;
-  color: var(--ink);
+/*
+ * In the base layer, under Tailwind's utilities: unlayered, this beat every text-xs or text-accent put on a button
+ * (unlayered styles win over layered ones whatever their specificity).
+ */
+@layer base {
+  input,
+  textarea,
+  button {
+    font: inherit;
+    color: var(--ink);
+  }
 }
 
 input:not([type="checkbox"]),
