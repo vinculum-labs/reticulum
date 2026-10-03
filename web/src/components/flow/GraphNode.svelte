@@ -49,8 +49,9 @@
   const holds = $derived(kind === "sheet" || kind === "copy");
   /** A Level sensor reads a device: titled as a sensor, the device it reads named below. */
   const sensor = $derived(kind === "level");
+  // A sheet node goes by its sheet's name only (renamed with the sheet); other nodes by their label when set.
   const title = $derived(
-    data.node.label ||
+    (kind !== "sheet" && data.node.label) ||
       (sensor
         ? KIND_LABEL.level
         : data.slot && !data.device

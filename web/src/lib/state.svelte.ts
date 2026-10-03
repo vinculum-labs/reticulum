@@ -553,7 +553,8 @@ export function deviceName(device: Device | undefined): string {
  */
 export function nodeTitle(node: GraphNode | undefined): string {
   if (!node) return "?";
-  if (node.label) return node.label;
+  // A sheet node goes by its sheet's name only (renamed with the sheet).
+  if (node.label && node.settings.kind !== "sheet") return node.label;
   const s = node.settings;
   if (s.kind === "device") return deviceName(deviceAt(posKey(s.device)));
   if (s.kind === "copy") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing blueprint";

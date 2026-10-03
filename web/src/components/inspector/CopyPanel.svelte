@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { app, edit, nodeTitle, openSheet, showNode } from "../../lib/state.svelte";
+  import { app, edit, nodeTitle, openSheet, rebase, showNode } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { copiesOf, slotsOf } from "../../lib/blueprints";
   import { sheetPath } from "../../lib/tree";
   import type { CopySettings, GraphNode, Sheet } from "../../lib/types";
   import InspectorPanel from "./InspectorPanel.svelte";
+  import Field from "./Field.svelte";
+  import TextField from "../controls/TextField.svelte";
 
   /** An open copy: its slots filled so far, and the ways to change more than that. */
   let { sheet, copy, blueprint }: { sheet: Sheet; copy: GraphNode & { settings: CopySettings }; blueprint: Sheet } = $props();
@@ -13,6 +15,12 @@
   const slots = $derived(slotsOf(blueprint));
   const filled = $derived(slots.filter((s) => copy.settings.bindings?.[s.id]).length);
   const copies = $derived(app.snapshot ? copiesOf(app.snapshot, blueprint.id).length : 0);
+
+  /** This copy's own name (its node's label); blank goes back to the blueprint's. */
+  function rename(name: string) {
+    const { after, before } = rebase(copy, { ...copy, label: name || undefined });
+    edit([{ type: "updateNode", sheet: sheet.id, node: after }], [{ type: "updateNode", sheet: sheet.id, node: before }], "rename copy");
+  }
 
   async function convert() {
     const network = app.current;
@@ -28,6 +36,9 @@
 </script>
 
 <InspectorPanel title={nodeTitle(copy)} subtitle={`A copy of the blueprint “${blueprint.name}”, in ${sheetPath(app.snapshot!, sheet)}`}>
+  <Field label="Name" hint="Optional; the blueprint's name is shown otherwise.">
+    <TextField value={copy.label} disabled={!canEdit} placeholder={blueprint.name} oncommit={rename} />
+  </Field>
   <p class="text-sm">
     {#if slots.length}
       {filled} of {slots.length} slot{slots.length === 1 ? "" : "s"} filled.

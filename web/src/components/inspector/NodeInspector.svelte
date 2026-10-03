@@ -168,11 +168,30 @@
     </div>
   {/if}
 
-  <!-- A pin's name is its Pin name, below: one name, not two. -->
-  {#if s.kind !== "sheet_input" && s.kind !== "sheet_output"}
-  <Field label="Label" hint={slot ? "Optional; the kind of block is shown otherwise." : s.kind === "device" ? "Optional; the device's name is shown otherwise." : undefined}>
-    <TextField value={node.label} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
-  </Field>
+  <!--
+    One name each, as the tree and the other panels show it: a sheet node's is its sheet's (renaming it renames the
+    sheet), a copy's is its own (its blueprint's until set), a pin's is its Pin name below. Other nodes get a label.
+  -->
+  {#if s.kind === "sheet"}
+    {@const named = app.snapshot?.sheets.find((x) => x.id === s.sheet)}
+    {#if named}
+      <Field label="Name">
+        <TextField
+          value={named.name}
+          required
+          disabled={!canEdit}
+          oncommit={(v) => edit([{ type: "updateSheet", sheet: named.id, name: v }], [{ type: "updateSheet", sheet: named.id, name: named.name }], "rename sheet")}
+        />
+      </Field>
+    {/if}
+  {:else if s.kind === "copy"}
+    <Field label="Name" hint="Optional; the blueprint's name is shown otherwise.">
+      <TextField value={node.label} disabled={!canEdit} placeholder={app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Optional"} oncommit={(v) => save({ ...node, label: v || undefined }, "rename copy")} />
+    </Field>
+  {:else if s.kind !== "sheet_input" && s.kind !== "sheet_output"}
+    <Field label="Label" hint={slot ? "Optional; the kind of block is shown otherwise." : s.kind === "device" ? "Optional; the device's name is shown otherwise." : undefined}>
+      <TextField value={node.label} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
+    </Field>
   {/if}
 
   <Switch label="On" checked={node.enabled !== false} disabled={!canEdit} onchange={(on) => save({ ...node, enabled: on }, "node on/off")} />
