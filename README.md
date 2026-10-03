@@ -52,10 +52,12 @@ in your browser.
 ### Sheets
 
 A network's flows live on **sheets**, each a flow chart, and sheets sit inside sheets: the network has one top sheet,
-and a sheet inside another shows there as a node. A sheet is drawn as a frame with its **pins** on its edges, inputs
-left and outputs right, the same pins its node shows; each carries one kind of thing (or anything), so flows and
-signals run between sheets through wires. Add pins with **+ input** / **+ output**, or drag a wire past the edge. The sidebar shows
-the tree; drag a sheet onto another to move it.
+named after the network, and a sheet inside another shows there as a node. A sheet is drawn as a frame with its
+**pins** on its edges, inputs left and outputs right, the same pins its node shows; each carries one kind of thing (or
+anything), so flows and signals run between sheets through wires. Add pins with **● input** / **○ output** on the
+frame, the **+** in the sheet's panel, or by dragging a wire past the edge. The sidebar shows the tree, with each
+sheet's status and switch, and the blueprint copies on each sheet; **+** on its heading adds a sheet, and dragging a
+sheet onto another moves it.
 
 Open a sheet node in place with the arrow on its header: it becomes a frame with the sheet inside, to edit right there.
 A wire drawn across a frame's edge gets a pin at that edge by itself. Drag a card into a frame to move it into that
@@ -72,13 +74,23 @@ says where it lives.
 ### Blueprints
 
 A **blueprint** is a set to build again and again: a sheet whose device nodes are **slots** for a kind of block. Make
-one from a sheet (the sheet stays as its first copy and keeps running), place **copies** of it on any sheet, and open a
-copy to fill its slots by dropping devices on them. **Fill the rest by layout** finds the other blocks of a set built
-the same way (turned, if need be). A change to the blueprint reaches every copy; a copy can be turned back into a
-normal sheet.
+one from a sheet (the sheet stays as its first copy and keeps running), or start one with **+** and add slots by
+dropping devices on it or picking any block from the game's list (**Slot** in its toolbar). Place **copies** of it on
+any sheet; they show in the tree under that sheet. A new copy takes the blocks its blueprint was made from where they
+are still free; otherwise open it and drop a device on one slot, and the rest fill by layout from it (blocks of the same
+kind at the same places, turned if need be). A change to the blueprint reaches every copy; a copy can be turned back
+into a normal sheet.
 
-Copy a sheet as JSON and import it into this world or another. Devices are matched by position; ones that don't
-exist show as offline until you pick local ones for them.
+**Copy as JSON** in a sheet's or blueprint's panel, and the import icon on the Sheets or Blueprints heading, move them
+between worlds. Devices are matched by position; ones that don't exist show as offline until you pick local ones for
+them.
+
+### Working in the editor
+
+Right-click almost anything for what can be done to it: empty canvas to add a node right there, a card to open,
+rename, switch, identify or disconnect it, a wire to put a filter, rate limit or splitter into it, a pin, a row in the
+sidebar. **Delete** removes the selected cards or wires, or the focused row in the sidebar. A device node's panel shows
+what each of its inputs and outputs is moving, and its graph can show the whole device or one side.
 
 ### Nodes
 
@@ -95,9 +107,12 @@ exist show as offline until you pick local ones for them.
 
 ### Filters
 
-Every filter box has a **Pick…** button that opens a browser of every item, fluid and chemical in the game, or of
+Every filter box has a funnel button that opens a browser of every item, fluid and chemical in the game, or of
 what a device holds right now. Double-click something to include it, or include one of its tags or its mod
 instead; alt-click or right-click excludes. The text stays editable.
+
+**Filter templates** are named filters, kept in the sidebar and used in any filter as `@name`. Renaming one renames it
+everywhere it is used; the icons on their heading copy them all as JSON and import them into another world.
 
 Filters are short text expressions:
 
@@ -133,7 +148,7 @@ Every device a connector touches can be read as a redstone source and driven as 
 connector can switch a lamp on another: put both on a sheet and wire the lever's redstone output to the lamp's
 redstone input. A device's comparator output can be read the same way.
 
-Every node that moves things, and every sheet, blueprint and network node, has a **gate**: the diamond pin on its
+Every node that moves things, and every sheet and blueprint copy, has a **gate**: the diamond pin on its
 left. Wire a signal into it to switch the node (a sheet node switches its whole sheet). A gate runs its node **while on**, or does **one operation per pulse**, so a
 button moves exactly one stack.
 
