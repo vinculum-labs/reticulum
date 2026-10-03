@@ -226,8 +226,9 @@ public final class CompiledSheet {
             if (!node.enabled()) {
                 continue;
             }
-            // One node per device (a slot a copy fills counts): a second one is flagged, though it still runs.
-            if (node.settings() instanceof NodeSettings.DeviceSettings device) {
+            // One node per device (a slot a copy fills counts): a second one is flagged, though it still runs. An empty
+            // slot of a blueprint only names a kind of block: two slots made from the same block are fine.
+            if (node.settings() instanceof NodeSettings.DeviceSettings device && device.block().isEmpty()) {
                 Node first = homes.putIfAbsent(device.device(), node);
                 if (first != null) {
                     Sheet home = network.sheet(sheetOf(first.id()));

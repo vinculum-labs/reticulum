@@ -21,8 +21,11 @@
     nodeId,
     disabled,
     onchange,
+    slot = false,
   }: {
     settings: DeviceNodeSettings;
+    /** A slot of a blueprint: the device picked only gives the kind of block (and where layouts measure from). */
+    slot?: boolean;
     sheet: Sheet;
     nodeId: string;
     disabled: boolean;
@@ -63,9 +66,15 @@
   }
 </script>
 
-<Field label="Device">
-  <DevicePicker {devices} value={settings.device} {disabled} onchange={(d) => onchange({ ...settings, device: d.pos })} />
-</Field>
+{#if slot}
+  <Field label="Kind of block" hint="Taken from a device: copies fill this slot with that kind of block. Fill the rest by layout measures from where this one sits.">
+    <DevicePicker {devices} value={settings.device} {disabled} onchange={(d) => onchange({ ...settings, device: d.pos, block: d.block }, undefined, "slot block")} />
+  </Field>
+{:else}
+  <Field label="Device">
+    <DevicePicker {devices} value={settings.device} {disabled} onchange={(d) => onchange({ ...settings, device: d.pos })} />
+  </Field>
+{/if}
 
 <button
   class="btn flex items-center gap-1 self-start text-sm"

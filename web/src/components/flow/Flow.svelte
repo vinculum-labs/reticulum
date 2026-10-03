@@ -675,19 +675,19 @@
       return;
     }
     const needsDevice = kind === "device" || kind === "level";
-    if (into.blueprint && kind === "device" && device) {
-      // A device dropped on a blueprint makes a slot for its kind of block (it isn't tied to that block).
-      const node: GraphNode = { id: uuid(), settings: { ...defaultSettings(kind, device, offered(device)), block: device.block } as GraphNode["settings"], x: Math.round(at.x), y: Math.round(at.y) };
-      const ok = await edit([{ type: "addNode", sheet: into.id, node }], [{ type: "removeNode", sheet: into.id, node: node.id }], "add slot");
-      if (ok) app.selectedNodes = [node.id];
-      return;
-    }
     if (needsDevice && !device) {
       device = (app.selectedDevice && deviceAt(app.selectedDevice)) || app.snapshot?.devices.find((d) => d.state === "active") || null;
       if (!device) {
         toast("There are no devices on this network yet.");
         return;
       }
+    }
+    if (into.blueprint && kind === "device" && device) {
+      // A device on a blueprint (dropped, or the toolbar's: the selected one) makes a slot for its kind of block (it isn't tied to that block).
+      const node: GraphNode = { id: uuid(), settings: { ...defaultSettings(kind, device, offered(device)), block: device.block } as GraphNode["settings"], x: Math.round(at.x), y: Math.round(at.y) };
+      const ok = await edit([{ type: "addNode", sheet: into.id, node }], [{ type: "removeNode", sheet: into.id, node: node.id }], "add slot");
+      if (ok) app.selectedNodes = [node.id];
+      return;
     }
     const blueprint = kind === "copy" ? blueprints[0]?.id : undefined;
     if (kind === "copy" && !blueprint) {

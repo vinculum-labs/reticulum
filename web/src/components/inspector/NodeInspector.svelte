@@ -1,7 +1,7 @@
 <script lang="ts">
   import Trash from "@lucide/svelte/icons/trash";
   import { app, deviceAt, deviceName, edit, nodeTitle, openCopy, openDevice, openSheet, rebase } from "../../lib/state.svelte";
-  import { slotsOf } from "../../lib/blueprints";
+  import { slotName, slotsOf } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
   import { KIND_HINT, KIND_LABEL, OP_SYMBOL, PIN_CARRIES, gated, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR, isSignal } from "../../lib/kinds";
@@ -59,6 +59,8 @@
     "device" in s ? deviceAt(posKey(s.device)) : undefined,
   );
   const devices = $derived(app.snapshot?.devices ?? []);
+  /** A device node on a blueprint is a slot: a kind of block each copy fills, not a block of its own. */
+  const slot = $derived(sheet.blueprint && s.kind === "device");
   const gateWired = $derived((sheet.wires ?? []).some((w) => w.to === node.id && (w.input ?? 0) === GATE));
   const unit = $derived(s.kind === "device" && s.outputs?.[0] ? RESOURCE_UNIT[s.outputs[0].resource] : "units");
 
@@ -134,9 +136,16 @@
 
 </script>
 
-<InspectorPanel title={KIND_LABEL[s.kind]} subtitle={KIND_HINT[s.kind]}>
+<InspectorPanel
+  title={slot ? slotName({ ...node, label: undefined }) : KIND_LABEL[s.kind]}
+  subtitle={slot ? "A slot of this blueprint: each copy fills it with a block of this kind. Its inputs and outputs here are every copy's." : KIND_HINT[s.kind]}
+>
   {#snippet icon()}
-    {#if s.kind === "device" && namedDevice}
+    {#if slot}
+      <!-- Faded, as on its card: the kind of block it takes, not a block. -->
+      {#if s.kind === "device" && s.block}<span class="shrink-0" style="opacity: 0.5"><DeviceIcon item={s.block} size={28} /></span>
+      {:else}{@const KindIcon = KIND_ICON[s.kind]}<span class="shrink-0 muted"><KindIcon size={24} /></span>{/if}
+    {:else if s.kind === "device" && namedDevice}
       <DeviceIcon item={namedDevice.icon} size={28} />
     {:else}
       {@const KindIcon = KIND_ICON[s.kind]}
@@ -147,9 +156,9 @@
     {#if canEdit}<button class="btn btn-danger px-2" onclick={remove} title="Delete this node" aria-label="Delete node"><Trash size={16} /></button>{/if}
   {/snippet}
 
-  <ThroughputSummary id={node.id} {signal} />
+  {#if !slot}<ThroughputSummary id={node.id} {signal} />{/if}
 
-  {#if namedDevice}
+  {#if namedDevice && !slot}
     <div class="flex min-w-0 gap-2">
       <!-- A long device name is cut short here rather than pushing the ID button out of the panel. -->
       <button class="btn min-w-0 flex-1 truncate text-left text-sm" onclick={() => openDevice(namedDevice)} title={`Rename “${deviceName(namedDevice)}” and its faces`}>
@@ -161,7 +170,7 @@
 
   <!-- A pin's name is its Pin name, below: one name, not two. -->
   {#if s.kind !== "sheet_input" && s.kind !== "sheet_output"}
-  <Field label="Label" hint={s.kind === "device" ? "Optional; the device's name is shown otherwise." : undefined}>
+  <Field label="Label" hint={slot ? "Optional; the kind of block is shown otherwise." : s.kind === "device" ? "Optional; the device's name is shown otherwise." : undefined}>
     <TextField value={node.label} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
   </Field>
   {/if}
@@ -288,7 +297,7 @@
   {/if}
 
   {#if s.kind === "device"}
-    <DeviceNodeEditor settings={s} {sheet} nodeId={node.id} disabled={!canEdit} onchange={saveDevice} />
+    <DeviceNodeEditor settings={s} {slot} {sheet} nodeId={node.id} disabled={!canEdit} onchange={saveDevice} />
   {/if}
 
   {#if s.kind === "sheet"}
