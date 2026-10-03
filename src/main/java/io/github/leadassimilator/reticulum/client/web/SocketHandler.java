@@ -20,6 +20,12 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * to the server unchanged on the game thread.
  */
 final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
+    /**
+     * The networks each open page shows. The server keeps one subscription per player, not per page: a page letting
+     * go of a network another page still shows mustn't unsubscribe it for both, so that is only sent for the last.
+     */
+    private static final java.util.Map<io.netty.channel.Channel, java.util.Set<String>> PAGES = new java.util.HashMap<>();
+
     private final WebSocketServerHandshaker handshaker;
 
     SocketHandler(WebSocketServerHandshaker handshaker) {
@@ -85,6 +91,22 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             reply(ctx, id, "Request too large");
             return;
         }
+        String network = request.has("network") && request.get("network").isJsonPrimitive() ? request.get("network").getAsString() : null;
+        if (op.equals("subscribe") && network != null) {
+            synchronized (PAGES) {
+                PAGES.computeIfAbsent(ctx.channel(), k -> new java.util.HashSet<>()).add(network);
+            }
+        } else if (op.equals("unsubscribe") && network != null && !letGo(ctx.channel(), network)) {
+            // Still shown on another page: only this page lets go.
+            JsonObject done = new JsonObject();
+            done.addProperty("type", "response");
+            if (id != null) {
+                done.addProperty("id", id);
+            }
+            done.addProperty("ok", true);
+            ctx.writeAndFlush(new TextWebSocketFrame(done.toString()));
+            return;
+        }
         Minecraft.getInstance().execute(() -> {
             if (Minecraft.getInstance().getConnection() == null) {
                 reply(ctx, id, "Not in a world");
@@ -92,6 +114,42 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             }
             PacketDistributor.sendToServer(new WebPayloads.Request(json));
         });
+    }
+
+    /** A page closed: the networks no other page shows are unsubscribed. */
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        java.util.Set<String> shown;
+        synchronized (PAGES) {
+            shown = PAGES.containsKey(ctx.channel()) ? java.util.Set.copyOf(PAGES.get(ctx.channel())) : java.util.Set.of();
+        }
+        for (String network : shown) {
+            if (letGo(ctx.channel(), network)) {
+                JsonObject request = new JsonObject();
+                request.addProperty("op", "unsubscribe");
+                request.addProperty("network", network);
+                Minecraft.getInstance().execute(() -> {
+                    if (Minecraft.getInstance().getConnection() != null) {
+                        PacketDistributor.sendToServer(new WebPayloads.Request(request.toString()));
+                    }
+                });
+            }
+        }
+        synchronized (PAGES) {
+            PAGES.remove(ctx.channel());
+        }
+        super.channelInactive(ctx);
+    }
+
+    /** This page stops showing a network; true when no other page shows it (so the server can stop sending it). */
+    private static boolean letGo(io.netty.channel.Channel page, String network) {
+        synchronized (PAGES) {
+            java.util.Set<String> mine = PAGES.get(page);
+            if (mine != null) {
+                mine.remove(network);
+            }
+            return PAGES.entrySet().stream().noneMatch(e -> e.getKey() != page && e.getValue().contains(network));
+        }
     }
 
     private static void reply(ChannelHandlerContext ctx, String id, String error) {

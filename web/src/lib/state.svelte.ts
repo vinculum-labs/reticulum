@@ -200,7 +200,8 @@ async function onMessage(m: any): Promise<void> {
   switch (m.type) {
     case "hello":
       app.inWorld = m.connected;
-      if (m.connected) await loadNetworks(m.focus ?? hashNetwork());
+      // A reconnect keeps the network this page shows; a new page opens on the one the game focused.
+      if (m.connected) await loadNetworks(app.current ?? m.focus ?? hashNetwork());
       break;
     case "connected":
       app.inWorld = true;
@@ -297,8 +298,30 @@ export async function loadNetworks(focus: string | null, resubscribe = false): P
   }
 }
 
-export async function selectNetwork(id: string): Promise<void> {
-  if (app.current && app.current !== id) connection.send({ op: "unsubscribe", network: app.current }).catch(() => {});
+/** Each network's undo and redo while another is shown: switching back brings them back. */
+const histories = new Map<string, { undo: Change[]; redo: Change[] }>();
+
+function historyOf(network: string): { undo: Change[]; redo: Change[] } {
+  let stacks = histories.get(network);
+  if (!stacks) histories.set(network, (stacks = { undo: [], redo: [] }));
+  return stacks;
+}
+
+/**
+ * Shows another network: its snapshot once subscribed (nothing of the last one meanwhile, so no edit goes to the new
+ * network with the old one's ids), and its own undo history. One that can't be opened goes back to the last.
+ */
+export async function selectNetwork(id: string, fallback = true): Promise<void> {
+  const previous = app.current;
+  if (previous && previous !== id) {
+    connection.send({ op: "unsubscribe", network: previous }).catch(() => {});
+    histories.set(previous, { undo: app.undo, redo: app.redo });
+    const stacks = historyOf(id);
+    app.undo = stacks.undo;
+    app.redo = stacks.redo;
+    histories.delete(id);
+    app.snapshot = null;
+  }
   app.current = id;
   history.replaceState(null, "", `#network=${id}`);
   app.rates = {};
@@ -316,6 +339,7 @@ export async function selectNetwork(id: string): Promise<void> {
     if (app.current === id) setSnapshot(r.network);
   } catch (e) {
     toast((e as Error).message);
+    if (fallback && previous && previous !== id && app.current === id) await selectNetwork(previous, false);
   }
 }
 
@@ -367,9 +391,11 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
     try {
       const r = await connection.send({ op: "edit", network, edits });
       if (undo) {
-        app.undo.push({ network, label, redo: edits, undo });
-        if (app.undo.length > 100) app.undo.shift();
-        app.redo = [];
+        // Made on another network than the one now shown (a confirm answered after switching): its own history.
+        const stacks = network === app.current ? app : historyOf(network);
+        stacks.undo.push({ network, label, redo: edits, undo });
+        if (stacks.undo.length > 100) stacks.undo.shift();
+        stacks.redo = [];
       }
       return r.results as unknown[];
     } catch (e) {
@@ -436,10 +462,6 @@ export function undo(only?: (typeof app.undo)[number]): Promise<void> {
     }
     const change = app.undo.pop();
     if (!change) return;
-    if (change.network !== app.current) {
-      app.undo = [];
-      return;
-    }
     app.busy++;
     try {
       await connection.send({ op: "edit", network: change.network, edits: change.undo });
@@ -457,7 +479,7 @@ export function undo(only?: (typeof app.undo)[number]): Promise<void> {
 export function redo(): Promise<void> {
   return serially(async () => {
     const change = app.redo.pop();
-    if (!change || change.network !== app.current) return;
+    if (!change) return;
     app.busy++;
     try {
       await connection.send({ op: "edit", network: change.network, edits: change.redo });

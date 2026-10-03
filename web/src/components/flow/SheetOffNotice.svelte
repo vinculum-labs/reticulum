@@ -20,9 +20,9 @@
     }
   }
 
-  /** The node whose gate holds this sheet off: its own node, in the sheet above. */
+  /** The node whose gate holds this sheet off: its own, or the node of the sheet above it that is gated. */
   function showGate() {
-    if (sheet.parent && sheet.node) showNode(sheet.parent, sheet.node);
+    if (why?.kind === "gate" && why.sheet.parent && why.sheet.node) showNode(why.sheet.parent, why.sheet.node);
   }
 </script>
 
@@ -33,10 +33,11 @@
       {#if why.kind === "network"}The network is switched off, so nothing on this sheet runs.
       {:else if why.kind === "self"}This sheet is switched off.
       {:else if why.kind === "parent"}This sheet is off: the sheet “{why.sheet.name}” above it is switched off.
-      {:else}A signal into this sheet's node's gate holds it off.{/if}
+      {:else if why.sheet.id === sheet.id}A signal into this sheet's node's gate holds it off.
+      {:else}This sheet is off: a signal into the gate of “{why.sheet.name}” above it holds that sheet off.{/if}
     </span>
     {#if why.kind === "gate"}
-      {#if sheet.parent}<button class="btn shrink-0 text-xs" onclick={showGate}>Show its node</button>{/if}
+      {#if why.sheet.parent}<button class="btn shrink-0 text-xs" onclick={showGate}>Show its node</button>{/if}
     {:else if canEdit}
       <button class="btn shrink-0 text-xs" onclick={switchOn}>Switch on</button>
     {/if}

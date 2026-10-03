@@ -62,7 +62,7 @@ export function treeStatus(sheet: Sheet, off: OffReason | null, running: boolean
   } else if (off?.kind === "gate") {
     color = "var(--muted)";
     badges.push({ icon: Zap, color: "var(--c-signal)", corner: "bottom" });
-    lines.push("Off: a signal into its node's gate holds it off");
+    lines.push(off.sheet.id === sheet.id ? "Off: a signal into its node's gate holds it off" : `Off: a signal into the gate of “${off.sheet.name}” above it holds it off`);
   } else {
     lines.push("Running");
   }

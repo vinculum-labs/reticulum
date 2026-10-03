@@ -63,7 +63,8 @@ export type OffReason =
   | { kind: "network" }
   | { kind: "self" }
   | { kind: "parent"; sheet: Sheet }
-  | { kind: "gate" };
+  /** Held off by a signal into the gate of {@code sheet}'s node: this sheet's, or one above it. */
+  | { kind: "gate"; sheet: Sheet };
 
 export function offReason(snapshot: Snapshot, sheet: Sheet, sheetsOff: string[]): OffReason | null {
   if (sheet.blueprint) return null;
@@ -71,6 +72,10 @@ export function offReason(snapshot: Snapshot, sheet: Sheet, sheetsOff: string[])
   if (!sheet.root && sheet.enabled === false) return { kind: "self" };
   const above = ancestors(snapshot, sheet).find((s) => !s.root && s.enabled === false);
   if (above) return { kind: "parent", sheet: above };
-  if (sheetsOff.includes(sheet.id)) return { kind: "gate" };
+  if (sheetsOff.includes(sheet.id)) {
+    // The sheets inside a gated one are listed off too: the gate is on the highest one listed.
+    const gated = [...ancestors(snapshot, sheet), sheet].find((s) => sheetsOff.includes(s.id)) ?? sheet;
+    return { kind: "gate", sheet: gated };
+  }
   return null;
 }
