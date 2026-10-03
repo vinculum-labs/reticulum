@@ -19,9 +19,11 @@
     height: 20px;
     margin-right: 9px;
   }
-  .add-button:hover:not(:disabled) {
-    color: var(--ink);
-    background: var(--panel-2);
+  /* Lights up in the accent on hover, as the ✕ does in red: adding, not removing. */
+  .add-button:hover:not(:disabled),
+  .add-button:focus-visible {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
   }
   .add-button:disabled {
     opacity: 0.4;
