@@ -47,6 +47,7 @@
   import DeviceIcon from "../DeviceIcon.svelte";
   import { KIND_ICON } from "../../lib/icons";
   import SheetPins from "./SheetPins.svelte";
+  import AddButton from "../controls/AddButton.svelte";
   import TextField from "../controls/TextField.svelte";
 
   let { node, sheet }: { node: GraphNode; sheet: Sheet } = $props();
@@ -483,7 +484,10 @@
     </fieldset>
   {:else if s.kind === "kit"}
     <fieldset class="flex flex-col gap-2">
-      <legend class="field-label mb-1">Items in one kit (all move together, or none)</legend>
+      <div class="flex items-center justify-between">
+        <legend class="field-label">Items in one kit (all move together, or none)</legend>
+        <AddButton flush label="Add an item" disabled={!canEdit || s.lines.length >= 64} onclick={() => settings({ lines: [...s.lines, { filter: "", count: 1 }] })} />
+      </div>
       {#each s.lines as line, i}
         <div class="flex items-start gap-1">
           <NumberField
@@ -502,7 +506,6 @@
           <RemoveButton class="mt-1" label="Remove item" disabled={!canEdit || s.lines.length === 1} onclick={() => settings({ lines: s.lines.filter((_, j) => j !== i) })} />
         </div>
       {/each}
-      <button class="btn self-start text-sm" disabled={!canEdit || s.lines.length >= 64} onclick={() => settings({ lines: [...s.lines, { filter: "", count: 1 }] })}>+ Item</button>
       <Field label="Kits per operation">
         <NumberField value={s.max_kits ?? 1} min={1} max={64} disabled={!canEdit} oncommit={(v) => settings({ max_kits: v })} />
       </Field>

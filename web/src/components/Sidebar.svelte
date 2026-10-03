@@ -14,6 +14,7 @@
   import RemoveButton from "./controls/RemoveButton.svelte";
   import TextField from "./controls/TextField.svelte";
   import Switch from "./controls/Switch.svelte";
+  import AddButton from "./controls/AddButton.svelte";
   import { copyStatus, treeStatus } from "../lib/status";
 
   const snapshot = $derived(app.snapshot!);
@@ -21,7 +22,6 @@
   const power = $derived(app.power ?? snapshot.power);
   const unpowered = $derived(!!power?.enabled && !power.powered);
 
-  let newSheet = $state("");
   let deviceSearch = $state("");
   /** Show every device, or only those no sheet uses yet (remembered per browser). */
   let deviceFilter = $state<"all" | "unused">(storedDeviceFilter());
@@ -62,20 +62,27 @@
     return open && !open.blueprint ? open : rootSheet(snapshot) ?? null;
   });
 
-  /** A new sheet inside the open one, its node placed right of what is there. */
+  /**
+   * A new sheet inside the open one, its node placed right of what is there. Its row shows (its parent opened in the
+   * tree) with its name box focused, to type the name straight away.
+   */
   async function addSheet() {
-    const name = newSheet.trim() || `Sheet ${snapshot.sheets.length}`;
-    newSheet = "";
     const parent = newSheetParent;
     const nodes = parent?.nodes ?? [];
     const right = nodes.length ? Math.max(...nodes.map((n) => n.x ?? 0)) + 260 : 40;
     const top = nodes.length ? Math.min(...nodes.map((n) => n.y ?? 0)) : 40;
-    await createSheet(parent, name, { x: right, y: top });
+    if (parent && collapsed.has(parent.id)) toggleCollapsed(parent.id);
+    const id = await createSheet(parent, `Sheet ${snapshot.sheets.length}`, { x: right, y: top });
+    if (id) renaming = id;
   }
 
+  /** A new blueprint, opened, its row's name box focused. */
   async function addBlueprint() {
     const results = await edit([{ type: "createSheet", name: `Blueprint ${snapshot.sheets.filter((s) => s.blueprint).length + 1}`, blueprint: true }]);
-    if (results?.[0]) openSheet(results[0] as string);
+    if (results?.[0]) {
+      openSheet(results[0] as string);
+      renaming = results[0] as string;
+    }
   }
 
   /** Pastes a sheet copied with "Copy as JSON" (from this or another world) as a new sheet. */
@@ -192,7 +199,10 @@
 
 <aside class="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-line bg-panel">
   <section class="p-3">
-    <h2 class="panel-title mb-2">Sheets</h2>
+    <div class="mb-2 flex items-center justify-between">
+      <h2 class="panel-title">Sheets</h2>
+      {#if canEdit}<AddButton label={`New sheet in ${newSheetParent?.name ?? "the network"}`} onclick={addSheet} />{/if}
+    </div>
     <ul class="flex flex-col gap-0.5">
       {#each rows as row (row.kind === "sheet" ? row.sheet.id : row.node.id)}
         {#if row.kind === "copy"}
@@ -308,14 +318,13 @@
       {/each}
     </ul>
     {#if canEdit}
-      <form class="mt-2 flex gap-2" onsubmit={(e) => (e.preventDefault(), addSheet())}>
-        <input class="min-w-0 flex-1" placeholder={`New sheet in ${newSheetParent?.name ?? "the network"}`} bind:value={newSheet} />
-        <button class="btn" type="submit">Add</button>
-      </form>
       <button class="btn mt-2 text-sm" onclick={importSheet} title="Paste a sheet copied with “Copy as JSON”">Import sheet…</button>
     {/if}
 
-    <h2 class="panel-title mt-4 mb-2">Blueprints</h2>
+    <div class="mt-4 mb-2 flex items-center justify-between">
+      <h2 class="panel-title">Blueprints</h2>
+      {#if canEdit}<AddButton label="New blueprint" onclick={addBlueprint} />{/if}
+    </div>
     <ul class="flex flex-col gap-0.5">
       {#each blueprints as sheet (sheet.id)}
         <!-- Lit while the blueprint itself is open, not while one of its copies is (that one's row in the tree lights). -->
@@ -339,9 +348,6 @@
         <li class="text-xs muted">None yet. A blueprint is a set to build again and again: make one from a sheet (in its settings), then place copies of it and fill their slots with blocks.</li>
       {/each}
     </ul>
-    {#if canEdit}
-      <button class="btn mt-2 text-sm" onclick={addBlueprint}>New blueprint</button>
-    {/if}
   </section>
 
   <section class="border-t border-line p-3">

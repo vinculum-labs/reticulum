@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { fieldId as takeFieldId } from "./field";
   import Popover from "./Popover.svelte";
 
@@ -89,9 +90,14 @@
   });
 
   $effect(() => {
-    if (autofocus && element) {
-      element.focus();
-      element.select();
+    const box = element;
+    if (autofocus && box) {
+      // After the saved text is in the box (filling it moves the caret to the end), so all of it is selected: typing
+      // replaces it.
+      tick().then(() => {
+        box.focus();
+        box.select();
+      });
     }
   });
 

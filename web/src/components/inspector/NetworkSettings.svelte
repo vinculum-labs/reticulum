@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Plus from "@lucide/svelte/icons/plus";
   import { app, edit } from "../../lib/state.svelte";
   import type { Member } from "../../lib/types";
   import RemoveButton from "../controls/RemoveButton.svelte";
@@ -138,7 +139,7 @@
       <form class="flex gap-2" onsubmit={(e) => (e.preventDefault(), addMember())}>
         <input class="min-w-0 flex-1" placeholder="Player name" bind:value={newMember} />
         <Select bind:value={newRole} options={ROLES} title="Role" />
-        <button class="btn" type="submit" disabled={!newMember.trim()}>Add</button>
+        <button class="btn flex shrink-0 items-center px-2" type="submit" disabled={!newMember.trim()} title="Add this player" aria-label="Add member"><Plus size={16} /></button>
       </form>
       <ul class="text-xs muted">
         {#each ROLES as r}<li><b>{r.label}</b>: {r.hint}</li>{/each}
