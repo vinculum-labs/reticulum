@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Trash from "@lucide/svelte/icons/trash";
   import { useSvelteFlow } from "@xyflow/svelte";
   import { app, nodeTitle } from "../../lib/state.svelte";
   import { type Sheet, type Wire } from "../../lib/types";
@@ -23,7 +24,7 @@
 
 <InspectorPanel title="Wire" subtitle={`${nodeTitle(from)}${rejects ? " (rejects)" : ""} → ${nodeTitle(to)}`}>
   {#snippet actions()}
-    {#if app.snapshot?.canEdit}<button class="btn btn-danger text-sm" onclick={remove}>Delete</button>{/if}
+    {#if app.snapshot?.canEdit}<button class="btn btn-danger px-2" onclick={remove} title="Delete this wire" aria-label="Delete wire"><Trash size={16} /></button>{/if}
   {/snippet}
   <ThroughputSummary id={wire.id} />
   <Chart item={wire.id} unit="" />

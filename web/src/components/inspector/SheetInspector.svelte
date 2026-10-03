@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { app, edit, moveSheet, nodeTitle, openCopy, openSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
+  import Trash from "@lucide/svelte/icons/trash";
+  import { app, deleteSheet, edit, moveSheet, nodeTitle, openCopy, openSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { copiesOf } from "../../lib/blueprints";
   import { pruneDevices, pruneSheet } from "../../lib/prune";
@@ -100,6 +101,10 @@
 </script>
 
 <InspectorPanel title={sheet.root ? "Top sheet" : sheet.blueprint ? "Blueprint" : "Sheet"}>
+  {#snippet actions()}
+    {#if canEdit && !sheet.root}<button class="btn btn-danger px-2" onclick={() => deleteSheet(sheet)} title={sheet.blueprint ? "Delete this blueprint" : "Delete this sheet"} aria-label={sheet.blueprint ? "Delete blueprint" : "Delete sheet"}><Trash size={16} /></button>{/if}
+  {/snippet}
+
   <Field label="Name">
     <TextField value={sheet.name} required disabled={!canEdit} oncommit={(v) => update({ name: v }, { name: sheet.name }, "rename sheet")} />
   </Field>

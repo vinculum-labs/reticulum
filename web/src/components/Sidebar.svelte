@@ -103,24 +103,6 @@
     edit([{ type: "updateSheet", sheet: sheet.id, name }], [{ type: "updateSheet", sheet: sheet.id, name: sheet.name }], "rename sheet");
   }
 
-  async function deleteSheet(sheet: Sheet) {
-    const nodes = sheet.nodes?.length ?? 0;
-    const inside = descendants(snapshot, sheet).length;
-    const parts = [
-      nodes ? `its ${nodes} node${nodes === 1 ? "" : "s"} and their wires` : "",
-      inside ? `the ${inside} sheet${inside === 1 ? "" : "s"} inside it` : "",
-    ].filter(Boolean);
-    const ok = await confirmDialog({
-      title: `Delete the sheet “${sheet.name}”?`,
-      message: parts.length ? `${parts.join(" and ")[0].toUpperCase()}${parts.join(" and ").slice(1)} go with it.` : undefined,
-      confirm: "Delete sheet",
-      danger: true,
-    });
-    if (ok) {
-      edit([{ type: "deleteSheet", sheet: sheet.id }]);
-    }
-  }
-
   function saveFilter(name: string, expression: string | null) {
     name = name.trim();
     if (!name) return;
@@ -239,7 +221,7 @@
               {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
             </button>
           {/if}
-          <!-- At the row's end, so the tree's switches line up in a column whatever the depth. -->
+          <!-- At the row's end, so the tree's switches line up in a column whatever the depth. Deleting is in the sheet's panel. -->
           <Switch
             hideLabel
             small
@@ -248,11 +230,6 @@
             disabled={!canEdit}
             onchange={(on) => setSheetEnabled(sheet, on)}
           />
-          {#if canEdit && !sheet.root}
-            <RemoveButton reveal label={`Delete sheet ${sheet.name}`} onclick={() => deleteSheet(sheet)} />
-          {:else if canEdit}
-            <span class="w-5 shrink-0"></span>
-          {/if}
         </li>
       {/each}
     </ul>
@@ -280,9 +257,6 @@
               <Layers size={14} class="shrink-0 muted" /><span class="trim-text truncate">{sheet.name}</span>
               {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
             </button>
-          {/if}
-          {#if canEdit}
-            <RemoveButton reveal label={`Delete blueprint ${sheet.name}`} onclick={() => deleteSheet(sheet)} />
           {/if}
         </li>
       {:else}

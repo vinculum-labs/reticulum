@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Trash from "@lucide/svelte/icons/trash";
   import { app, deviceAt, deviceName, edit, nodeTitle, openCopy, openDevice, openSheet, rebase } from "../../lib/state.svelte";
   import { slotsOf } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
@@ -143,7 +144,7 @@
     {/if}
   {/snippet}
   {#snippet actions()}
-    {#if canEdit}<button class="btn btn-danger text-sm" onclick={remove}>Delete</button>{/if}
+    {#if canEdit}<button class="btn btn-danger px-2" onclick={remove} title="Delete this node" aria-label="Delete node"><Trash size={16} /></button>{/if}
   {/snippet}
 
   <ThroughputSummary id={node.id} {signal} />

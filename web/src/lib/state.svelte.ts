@@ -6,7 +6,7 @@ import type { Binding, CopySettings, Device, Edit, GlobalPos, GraphNode, Network
 import { posKey } from "./types";
 import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
-import { rootSheet, sheetPath } from "./tree";
+import { descendants, rootSheet, sheetPath } from "./tree";
 import { confirmDialog } from "./dialog.svelte";
 
 export interface Toast {
@@ -727,4 +727,23 @@ export function nodeById(sheet: Sheet | null, id: string): GraphNode | undefined
 
 export function uuid(): string {
   return crypto.randomUUID();
+}
+
+/** Deletes a sheet, after asking: its nodes and the sheets inside it go with it (undo brings them back). */
+export async function deleteSheet(sheet: Sheet) {
+  const nodes = sheet.nodes?.length ?? 0;
+  const inside = descendants(app.snapshot!, sheet).length;
+  const parts = [
+    nodes ? `its ${nodes} node${nodes === 1 ? "" : "s"} and their wires` : "",
+    inside ? `the ${inside} sheet${inside === 1 ? "" : "s"} inside it` : "",
+  ].filter(Boolean);
+  const ok = await confirmDialog({
+    title: `Delete the sheet “${sheet.name}”?`,
+    message: parts.length ? `${parts.join(" and ")[0].toUpperCase()}${parts.join(" and ").slice(1)} go with it.` : undefined,
+    confirm: "Delete sheet",
+    danger: true,
+  });
+  if (ok) {
+    edit([{ type: "deleteSheet", sheet: sheet.id }]);
+  }
 }
