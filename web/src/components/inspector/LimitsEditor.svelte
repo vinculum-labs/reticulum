@@ -36,11 +36,12 @@
   </div>
   {#each limits as limit, i}
     <div class="box flex flex-col gap-1">
-      <div class="flex items-center gap-1 text-sm">
-        <NumberField value={limit.amount} min={0} max={Number.MAX_SAFE_INTEGER} {disabled} oncommit={(v) => set(i, { amount: v ?? 0 })} />
+      <div class="flex items-center gap-1.5 text-sm">
+        <!-- A short amount box, so "of each type" fits beside it in full. -->
+        <NumberField value={limit.amount} min={0} max={Number.MAX_SAFE_INTEGER} width="xs" {disabled} oncommit={(v) => set(i, { amount: v ?? 0 })} />
         <span class="muted">{unit}</span>
         {#if resource !== "energy"}
-          <Select value={limit.scope} {disabled} options={scopes} onchange={(scope) => set(i, { scope })} />
+          <div class="min-w-0 flex-1"><Select value={limit.scope} {disabled} options={scopes} onchange={(scope) => set(i, { scope })} /></div>
         {/if}
         <RemoveButton class="ml-auto" label={keep ? "Remove keep rule" : "Remove cap"} {disabled} onclick={() => onchange(limits.filter((_, j) => j !== i))} />
       </div>
@@ -48,7 +49,7 @@
         <FilterField
           value={limit.filter ?? ""}
           {disabled}
-          placeholder="applies to everything"
+          placeholder="everything"
           kind={resource === "fluid" || resource === "chemical" ? resource : "item"}
           devices={device ? [device] : []}
           onchange={(v) => set(i, { filter: v })} />
