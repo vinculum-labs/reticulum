@@ -2,7 +2,8 @@
   import Scissors from "@lucide/svelte/icons/scissors";
   import { app } from "../../lib/state.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
-  import { RESOURCE_VAR, defaultSettings, offeredResources, sideLabel } from "../../lib/kinds";
+  import { RESOURCE_VAR, defaultSettings, formatRate, offeredResources, sideLabel } from "../../lib/kinds";
+  import { sideId } from "../../lib/nameUuid";
   import PinMark from "../controls/PinMark.svelte";
   import AddButton from "../controls/AddButton.svelte";
   import { posKey, type Device, type DeviceInput, type DeviceNodeSettings, type DeviceOutput, type Resource, type Sheet } from "../../lib/types";
@@ -24,10 +25,13 @@
     disabled,
     onchange,
     slot = false,
+    onshowside,
   }: {
     settings: DeviceNodeSettings;
     /** A slot of a blueprint: the device picked only gives the kind of block (and where layouts measure from). */
     slot?: boolean;
+    /** Shows one input's or output's graph (a click on the rate in its header). */
+    onshowside?: (direction: "in" | "out", index: number) => void;
     sheet: Sheet;
     nodeId: string;
     disabled: boolean;
@@ -141,6 +145,19 @@
   onclick={prune}><Scissors size={14} />Prune pins{unwiredCount ? ` (${unwiredCount})` : ""}</button
 >
 
+<!-- What a side is moving now, in its header (open or closed); a click shows its graph. Nothing while it is idle. -->
+{#snippet rate(direction: "in" | "out", index: number, resource: Resource)}
+  {@const value = slot ? 0 : (app.rates[sideId(nodeId, direction, index)] ?? 0)}
+  {#if value > 0}
+    <button
+      type="button"
+      class="side-rate trim-text shrink-0 rounded px-1 text-xs tabular-nums muted"
+      title={`Show its graph below`}
+      onclick={(e) => (e.preventDefault(), onshowside?.(direction, index))}>{formatRate(value, resource, app.rateUnit)}</button
+    >
+  {/if}
+{/snippet}
+
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
     <h3 class="panel-title flex items-center gap-1.5"><PinMark /><span class="trim-text">Inputs (left)</span></h3>
@@ -153,6 +170,7 @@
         <ChevronRight size={14} class="disclosure shrink-0 muted" />
         <PinMark color={RESOURCE_VAR[input.resource]} />
         <span class="trim-text min-w-0 flex-1 truncate">Input {i + 1}: {sideLabel(input)}</span>
+        {@render rate("in", i, input.resource)}
         <RemoveButton label="Remove input {i + 1}" {disabled} onclick={(e) => (e.preventDefault(), removeSide("in", i))} />
       </summary>
       <div class="mt-2 flex flex-col gap-3">
@@ -184,6 +202,7 @@
         <ChevronRight size={14} class="disclosure shrink-0 muted" />
         <PinMark solid color={RESOURCE_VAR[output.resource]} />
         <span class="trim-text min-w-0 flex-1 truncate">Output {i + 1}: {sideLabel(output)}</span>
+        {@render rate("out", i, output.resource)}
         <RemoveButton label="Remove output {i + 1}" {disabled} onclick={(e) => (e.preventDefault(), removeSide("out", i))} />
       </summary>
       <div class="mt-2 flex flex-col gap-3">
@@ -211,6 +230,10 @@
 </section>
 
 <style>
+  .side-rate:hover {
+    background: var(--panel-2);
+    color: var(--ink);
+  }
   /* A header laid out as a row loses the browser's ▸: this one turns when the group is open. */
   summary {
     list-style: none;

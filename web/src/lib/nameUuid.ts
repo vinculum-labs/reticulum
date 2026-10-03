@@ -10,6 +10,16 @@ export function nameUuid(text: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+const sides = new Map<string, string>();
+
+/** The server's id for one input or output of a device node ("<node>:in:<n>"), which has its own activity. */
+export function sideId(node: string, direction: "in" | "out", index: number): string {
+  const key = `${node}:${direction}:${index}`;
+  let id = sides.get(key);
+  if (!id) sides.set(key, (id = nameUuid(key)));
+  return id;
+}
+
 const SHIFT = [7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21];
 const K = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 2 ** 32) >>> 0);
 

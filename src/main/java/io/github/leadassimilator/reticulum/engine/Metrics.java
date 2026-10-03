@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Throughput per node and per wire: what moved in the last second, a 5-minute window at one value per second and
+ * Throughput per node, per wire and per device input and output: what moved in the last second, a 5-minute window at one value per second and
  * a 24-hour window at one value per minute. Kept in memory only; a series exists once something has moved through it.
  */
 public final class Metrics {
@@ -53,6 +53,15 @@ public final class Metrics {
             Series s = series.computeIfAbsent(wire, k -> new Series());
             s.current += amount;
             s.lastMovedTick = tick;
+        }
+        // The device input and output it ran between (a side of a device node has an id of its own), for the
+        // per-side rates; not when that is a node already counted on the path.
+        for (UUID side : new UUID[] {route.source().id(), route.sink().id()}) {
+            if (!route.path().contains(side)) {
+                Series s = series.computeIfAbsent(side, k -> new Series());
+                s.current += amount;
+                s.lastMovedTick = tick;
+            }
         }
     }
 

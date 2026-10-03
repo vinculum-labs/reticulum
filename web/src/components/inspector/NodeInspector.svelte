@@ -4,7 +4,7 @@
   import { slotName, slotsOf } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
-  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, gated, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR, isSignal } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, gated, sideLabel, meUsageLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR, isSignal } from "../../lib/kinds";
   import {
     SIDES,
     posKey,
@@ -47,6 +47,7 @@
   import { KIND_ICON } from "../../lib/icons";
   import SheetPins from "./SheetPins.svelte";
   import PinFields from "./PinFields.svelte";
+  import { sideId } from "../../lib/nameUuid";
   import AddButton from "../controls/AddButton.svelte";
   import TextField from "../controls/TextField.svelte";
 
@@ -60,6 +61,31 @@
     "device" in s ? deviceAt(posKey(s.device)) : undefined,
   );
   const devices = $derived(app.snapshot?.devices ?? []);
+  /** Which side the graph shows ("in:0", "out:1"), or the whole node (""). */
+  let graphSide = $state("");
+  const graphChoices = $derived(
+    s.kind === "device"
+      ? [
+          { value: "", label: "The whole device" },
+          ...(s.inputs ?? []).map((x, i) => ({ value: `in:${i}`, label: `Input ${i + 1}: ${sideLabel(x)}` })),
+          ...(s.outputs ?? []).map((x, i) => ({ value: `out:${i}`, label: `Output ${i + 1}: ${sideLabel(x)}` })),
+        ]
+      : [],
+  );
+  /** The side shown, while it still exists (one removed goes back to the whole device). */
+  const graphKey = $derived(graphChoices.some((c) => c.value === graphSide) ? graphSide : "");
+  const graphItem = $derived.by(() => {
+    if (!graphKey) return node.id;
+    const [direction, index] = graphKey.split(":");
+    return sideId(node.id, direction as "in" | "out", Number(index));
+  });
+  const graphUnit = $derived.by(() => {
+    if (!graphKey || s.kind !== "device") return unit;
+    const [direction, index] = graphKey.split(":");
+    const side = direction === "in" ? s.inputs?.[Number(index)] : s.outputs?.[Number(index)];
+    return side ? RESOURCE_UNIT[side.resource] : unit;
+  });
+
   /** A device node on a blueprint is a slot: a kind of block each copy fills, not a block of its own. */
   const slot = $derived(sheet.blueprint && s.kind === "device");
   const DeviceKindIcon = KIND_ICON.device;
@@ -325,7 +351,7 @@
   {/if}
 
   {#if s.kind === "device"}
-    <DeviceNodeEditor settings={s} {slot} {sheet} nodeId={node.id} disabled={!canEdit} onchange={saveDevice} />
+    <DeviceNodeEditor settings={s} {slot} {sheet} onshowside={(direction, index) => (graphSide = `${direction}:${index}`)} nodeId={node.id} disabled={!canEdit} onchange={saveDevice} />
   {/if}
 
   {#if s.kind === "sheet"}
@@ -495,5 +521,13 @@
     </fieldset>
   {/if}
 
-  {#if !signal}<Chart item={node.id} {unit} />{/if}
+  {#if !signal}
+    {#if s.kind === "device" && !slot && graphChoices.length > 2}
+      <!-- One graph: the whole device's, or one input's or output's (picked here, or by the rate in its header). -->
+      <Field label="Graph of">
+        <Select value={graphKey} options={graphChoices} onchange={(v) => (graphSide = v)} />
+      </Field>
+    {/if}
+    <Chart item={graphItem} unit={graphUnit} />
+  {/if}
 </InspectorPanel>
