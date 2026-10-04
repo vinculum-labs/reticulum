@@ -197,6 +197,7 @@
   "screen.reticulum.beacon_own_first": "Shows something at signal 0 (no signal)",
   "screen.reticulum.beacon_own_level": "Own look (else as signal %s)",
   "screen.reticulum.beacon_pitch": "Pitch",
+  "screen.reticulum.beacon_pitch2": "2nd pitch",
   "screen.reticulum.beacon_preview": "▶",
   "screen.reticulum.beacon_quiet": "Nothing is going off",
   "screen.reticulum.beacon_range": "Range (blocks)",

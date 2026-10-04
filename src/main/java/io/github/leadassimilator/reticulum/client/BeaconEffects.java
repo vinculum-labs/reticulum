@@ -177,7 +177,7 @@ public final class BeaconEffects {
             if (sound == null) {
                 continue;
             }
-            float pitch = look.has(BeaconLook.TWO_TONE) && (time / interval) % 2 == 1 ? look.pitch() * 0.75f : look.pitch();
+            float pitch = look.has(BeaconLook.TWO_TONE) && (time / interval) % 2 == 1 ? look.pitch2() : look.pitch();
             // A sound carries 16 blocks times its volume (when above 1).
             mc.level.playLocalSound(beacon.getBlockPos(), sound, SoundSource.BLOCKS, Math.max(0.2f, look.range() / 16f), pitch, false);
         }

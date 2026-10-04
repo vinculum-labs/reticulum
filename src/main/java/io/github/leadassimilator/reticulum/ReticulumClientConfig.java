@@ -112,6 +112,9 @@ public final class ReticulumClientConfig {
     public static final ModConfigSpec.DoubleValue TOOL_SOUND_PITCH_WARNING = BUILDER
             .comment("Its pitch (0.5 to 2).")
             .defineInRange("toolSoundPitchWarning", 1.2, 0.5, 2.0);
+    public static final ModConfigSpec.DoubleValue TOOL_SOUND_PITCH2_WARNING = BUILDER
+            .comment("The second tone's pitch, when two-tone (0.5 to 2).")
+            .defineInRange("toolSoundPitch2Warning", 0.9, 0.5, 2.0);
     public static final ModConfigSpec.BooleanValue TOOL_SOUND_TWO_TONE_WARNING = BUILDER
             .comment("Play it as a short two-tone siren (four notes) instead of once.")
             .define("toolSoundTwoToneWarning", false);
@@ -121,6 +124,9 @@ public final class ReticulumClientConfig {
     public static final ModConfigSpec.DoubleValue TOOL_SOUND_PITCH_CRITICAL = BUILDER
             .comment("Its pitch (0.5 to 2).")
             .defineInRange("toolSoundPitchCritical", 1.6, 0.5, 2.0);
+    public static final ModConfigSpec.DoubleValue TOOL_SOUND_PITCH2_CRITICAL = BUILDER
+            .comment("The second tone's pitch, when two-tone (0.5 to 2).")
+            .defineInRange("toolSoundPitch2Critical", 1.2, 0.5, 2.0);
     public static final ModConfigSpec.BooleanValue TOOL_SOUND_TWO_TONE_CRITICAL = BUILDER
             .comment("Play it as a short two-tone siren (four notes) instead of once.")
             .define("toolSoundTwoToneCritical", true);

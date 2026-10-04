@@ -50,6 +50,10 @@ public class AlarmSettingsScreen extends QuickScreen {
         return critical ? ReticulumClientConfig.TOOL_SOUND_PITCH_CRITICAL : ReticulumClientConfig.TOOL_SOUND_PITCH_WARNING;
     }
 
+    private static ModConfigSpec.DoubleValue pitch2(boolean critical) {
+        return critical ? ReticulumClientConfig.TOOL_SOUND_PITCH2_CRITICAL : ReticulumClientConfig.TOOL_SOUND_PITCH2_WARNING;
+    }
+
     private static ModConfigSpec.BooleanValue twoTone(boolean critical) {
         return critical ? ReticulumClientConfig.TOOL_SOUND_TWO_TONE_CRITICAL : ReticulumClientConfig.TOOL_SOUND_TWO_TONE_WARNING;
     }
@@ -112,20 +116,7 @@ public class AlarmSettingsScreen extends QuickScreen {
             }
         }
         y += 20;
-        EditBox pitchBox = kept("pitch_" + index, new SeeThroughTextBox(font, left + 40, y, 40, 16, Component.translatable("screen.reticulum.beacon_pitch")));
-        pitchBox.setMaxLength(5);
-        pitchBox.setValue(String.format(Locale.ROOT, "%.2f", pitch(critical).get()));
-        pitchBox.setResponder(text -> {
-            try {
-                double value = Double.parseDouble(text.trim());
-                if (value >= 0.5 && value <= 2.0) {
-                    pitch(critical).set(value);
-                    pitch(critical).save();
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        });
-        addRenderableWidget(pitchBox);
+        pitchBox("pitch_" + index, left + 40, y, pitch(critical));
         addRenderableWidget(Checkbox.builder(Component.translatable("screen.reticulum.beacon_two_tone"), font)
                 .pos(left + 100, y - 2).selected(twoTone(critical).getAsBoolean())
                 .onValueChange((checkbox, on) -> {
@@ -133,7 +124,26 @@ public class AlarmSettingsScreen extends QuickScreen {
                     twoTone(critical).save();
                 })
                 .build());
+        pitchBox("pitch2_" + index, left + WIDTH - 40, y, pitch2(critical));
         return y + 26;
+    }
+
+    private void pitchBox(String key, int x, int y, ModConfigSpec.DoubleValue value) {
+        EditBox box = kept(key, new SeeThroughTextBox(font, x, y, 40, 16, Component.translatable(key.startsWith("pitch2")
+                ? "screen.reticulum.beacon_pitch2" : "screen.reticulum.beacon_pitch")));
+        box.setMaxLength(5);
+        box.setValue(String.format(Locale.ROOT, "%.2f", value.get()));
+        box.setResponder(text -> {
+            try {
+                double parsed = Double.parseDouble(text.trim());
+                if (parsed >= 0.5 && parsed <= 2.0) {
+                    value.set(parsed);
+                    value.save();
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        });
+        addRenderableWidget(box);
     }
 
     private void every(int x, int y, ModConfigSpec.IntValue value, String key) {
@@ -176,6 +186,9 @@ public class AlarmSettingsScreen extends QuickScreen {
         for (var child : children()) {
             if (child instanceof EditBox box && box.getMessage().equals(Component.translatable("screen.reticulum.beacon_pitch"))) {
                 graphics.drawString(font, Component.translatable("screen.reticulum.beacon_pitch"), left, box.getY() + 4, 0xE0E0E0);
+            } else if (child instanceof EditBox box && box.getMessage().equals(Component.translatable("screen.reticulum.beacon_pitch2"))) {
+                Component name = Component.translatable("screen.reticulum.beacon_pitch2");
+                graphics.drawString(font, name, box.getX() - font.width(name) - 4, box.getY() + 4, 0xE0E0E0);
             }
         }
     }

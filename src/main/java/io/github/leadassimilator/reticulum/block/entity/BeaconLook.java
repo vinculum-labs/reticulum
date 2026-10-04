@@ -7,10 +7,11 @@ import net.minecraft.resources.ResourceLocation;
 
 /**
  * How a Status Beacon looks and sounds in one state: its color (lens, beam and glow), which effects it shows, its
- * sound — which, how high, how often (every {@code interval} ticks) and how far it carries ({@code range} blocks) — and
- * the text it shows above itself ({@code label}; blank in Network mode: the alarms' messages).
+ * sound — which, how high (and the second tone's, {@code pitch2}, when two-tone), how often (every {@code interval}
+ * ticks) and how far it carries ({@code range} blocks) — and the text it shows above itself ({@code label}; blank in
+ * Network mode: the alarms' messages).
  */
-public record BeaconLook(int color, int flags, ResourceLocation sound, float pitch, int interval, int range, String label) {
+public record BeaconLook(int color, int flags, ResourceLocation sound, float pitch, float pitch2, int interval, int range, String label) {
     public static final int BEAM = 1;
     /** The beam goes on through solid blocks (otherwise it stops at the first). */
     public static final int BEAM_THROUGH = 2;
@@ -32,8 +33,13 @@ public record BeaconLook(int color, int flags, ResourceLocation sound, float pit
     public static final BeaconLook CRITICAL = new BeaconLook(0xFF3020, BEAM | BEAM_THROUGH | GLOW | GLOW_THROUGH | SOUND | TWO_TONE | TEXT,
             ResourceLocation.withDefaultNamespace("block.note_block.pling"), 1.6f, 10, 64);
 
+    /** With the second tone a quarter lower, and no text of its own. */
     public BeaconLook(int color, int flags, ResourceLocation sound, float pitch, int interval, int range) {
-        this(color, flags, sound, pitch, interval, range, "");
+        this(color, flags, sound, pitch, Math.max(0.5f, pitch * 0.75f), interval, range, "");
+    }
+
+    public BeaconLook withColor(int color) {
+        return new BeaconLook(color, flags, sound, pitch, pitch2, interval, range, label);
     }
 
     public boolean has(int flag) {
@@ -46,6 +52,7 @@ public record BeaconLook(int color, int flags, ResourceLocation sound, float pit
         tag.putInt("flags", flags);
         tag.putString("sound", sound.toString());
         tag.putFloat("pitch", pitch);
+        tag.putFloat("pitch2", pitch2);
         tag.putInt("interval", interval);
         tag.putInt("range", range);
         tag.putString("label", label);
@@ -63,6 +70,7 @@ public record BeaconLook(int color, int flags, ResourceLocation sound, float pit
                 tag.contains("flags") ? tag.getInt("flags") & ALL : fallback.flags(),
                 sound,
                 tag.contains("pitch") ? Math.max(0.5f, Math.min(2f, tag.getFloat("pitch"))) : fallback.pitch(),
+                tag.contains("pitch2") ? Math.max(0.5f, Math.min(2f, tag.getFloat("pitch2"))) : fallback.pitch2(),
                 Math.max(minInterval(), tag.contains("interval") ? Math.min(12_000, tag.getInt("interval")) : fallback.interval()),
                 Math.max(1, Math.min(maxRange(), tag.contains("range") ? tag.getInt("range") : fallback.range())),
                 tag.contains("label") ? clip(tag.getString("label")) : fallback.label());

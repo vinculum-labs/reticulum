@@ -60,6 +60,7 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.beacon_label_hint_redstone", "Its text, shown above the beacon");
         add("screen.reticulum.beacon_color", "Color");
         add("screen.reticulum.beacon_pitch", "Pitch");
+        add("screen.reticulum.beacon_pitch2", "2nd pitch");
         add("screen.reticulum.beacon_interval", "Every (ticks)");
         add("screen.reticulum.beacon_range", "Range (blocks)");
         add("screen.reticulum.beacon_search", "Search sounds…");

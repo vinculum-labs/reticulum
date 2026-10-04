@@ -118,10 +118,12 @@ public final class AlarmClient {
         }
         if (worst == 1 && ReticulumClientConfig.TOOL_SOUND_CRITICAL.getAsBoolean()) {
             playToolSound(mc, time, ReticulumClientConfig.TOOL_SOUND_ID_CRITICAL.get(), ReticulumClientConfig.TOOL_SOUND_PITCH_CRITICAL.get(),
+                    ReticulumClientConfig.TOOL_SOUND_PITCH2_CRITICAL.get(),
                     ReticulumClientConfig.TOOL_SOUND_TWO_TONE_CRITICAL.getAsBoolean(), ReticulumClientConfig.TOOL_SOUND_EVERY_CRITICAL.getAsInt(),
                     SoundEvents.NOTE_BLOCK_PLING.value());
         } else if (worst >= 0 && ReticulumClientConfig.TOOL_SOUND_WARNING.getAsBoolean()) {
             playToolSound(mc, time, ReticulumClientConfig.TOOL_SOUND_ID_WARNING.get(), ReticulumClientConfig.TOOL_SOUND_PITCH_WARNING.get(),
+                    ReticulumClientConfig.TOOL_SOUND_PITCH2_WARNING.get(),
                     ReticulumClientConfig.TOOL_SOUND_TWO_TONE_WARNING.getAsBoolean(), ReticulumClientConfig.TOOL_SOUND_EVERY_WARNING.getAsInt(),
                     SoundEvents.NOTE_BLOCK_CHIME.value());
         }
@@ -137,9 +139,9 @@ public final class AlarmClient {
 
     /**
      * The tool's sound, every so many seconds: once, or as a short two-tone siren (four notes over two seconds, every
-     * other one lower). An unknown sound id plays {@code fallback}.
+     * other one at {@code pitch2}). An unknown sound id plays {@code fallback}.
      */
-    private static void playToolSound(Minecraft mc, long time, String id, double pitch, boolean twoTone, int everySeconds,
+    private static void playToolSound(Minecraft mc, long time, String id, double pitch, double pitch2, boolean twoTone, int everySeconds,
             net.minecraft.sounds.SoundEvent fallback) {
         long cycle = Math.max(twoTone ? 40 : 1, everySeconds * 20L);
         long phase = time % cycle;
@@ -148,7 +150,7 @@ public final class AlarmClient {
         }
         net.minecraft.resources.ResourceLocation location = net.minecraft.resources.ResourceLocation.tryParse(id);
         net.minecraft.sounds.SoundEvent sound = location == null ? null : net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.get(location);
-        float at = (float) pitch * (twoTone && (phase / 10) % 2 == 1 ? 0.75f : 1f);
+        float at = (float) (twoTone && (phase / 10) % 2 == 1 ? pitch2 : pitch);
         mc.getSoundManager().play(SimpleSoundInstance.forUI(sound != null ? sound : fallback, at, 0.6f));
     }
 

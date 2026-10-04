@@ -43,6 +43,7 @@ public class StatusBeaconScreen extends QuickScreen {
     private EditBox hex;
     private EditBox label;
     private EditBox pitch;
+    private EditBox pitch2;
     private EditBox interval;
     private EditBox range;
 
@@ -225,10 +226,11 @@ public class StatusBeaconScreen extends QuickScreen {
             }
         }
         y += 20;
-        int third = (WIDTH - 8) / 3;
-        pitch = number("pitch", left, y + 10, third, String.format(Locale.ROOT, "%.2f", current.pitch()));
-        interval = number("interval", left + third + 4, y + 10, third, Integer.toString(current.interval()));
-        range = number("range", left + 2 * (third + 4), y + 10, third, Integer.toString(current.range()));
+        int quarterBox = (WIDTH - 12) / 4;
+        pitch = number("pitch", left, y + 10, quarterBox, String.format(Locale.ROOT, "%.2f", current.pitch()));
+        pitch2 = number("pitch2", left + quarterBox + 4, y + 10, quarterBox, String.format(Locale.ROOT, "%.2f", current.pitch2()));
+        interval = number("interval", left + 2 * (quarterBox + 4), y + 10, quarterBox, Integer.toString(current.interval()));
+        range = number("range", left + 3 * (quarterBox + 4), y + 10, quarterBox, Integer.toString(current.range()));
     }
 
     /** One effect's switch: its name in green while on, gray while off. */
@@ -290,6 +292,12 @@ public class StatusBeaconScreen extends QuickScreen {
             float value = Float.parseFloat(pitch.getValue().trim());
             changed |= value != look.getFloat("pitch");
             look.putFloat("pitch", value);
+        } catch (NumberFormatException ignored) {
+        }
+        try {
+            float value = Float.parseFloat(pitch2.getValue().trim());
+            changed |= value != look.getFloat("pitch2");
+            look.putFloat("pitch2", value);
         } catch (NumberFormatException ignored) {
         }
         try {
@@ -414,6 +422,7 @@ public class StatusBeaconScreen extends QuickScreen {
         }
         if (pitch != null) {
             graphics.drawString(font, Component.translatable("screen.reticulum.beacon_pitch"), pitch.getX(), pitch.getY() - 10, 0xE0E0E0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_pitch2"), pitch2.getX(), pitch2.getY() - 10, 0xE0E0E0);
             graphics.drawString(font, Component.translatable("screen.reticulum.beacon_interval"), interval.getX(), interval.getY() - 10, 0xE0E0E0);
             graphics.drawString(font, Component.translatable("screen.reticulum.beacon_range"), range.getX(), range.getY() - 10, 0xE0E0E0);
         }

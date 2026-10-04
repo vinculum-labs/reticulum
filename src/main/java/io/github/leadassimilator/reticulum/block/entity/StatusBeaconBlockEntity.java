@@ -155,7 +155,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     }
 
     private static BeaconLook recolor(BeaconLook look, int color) {
-        return new BeaconLook(color, look.flags(), look.sound(), look.pitch(), look.interval(), look.range(), look.label());
+        return look.withColor(color);
     }
 
     /** New settings from the screen: saved, sent to clients, and shown at once. */
