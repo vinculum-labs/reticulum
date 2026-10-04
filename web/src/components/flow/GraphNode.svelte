@@ -18,6 +18,7 @@
     shortLabel,
     sideLabel,
     signalInputs,
+    onWhenUnwired,
     summary,
   } from "../../lib/kinds";
   import { app, instanceRun, deviceName, toggleFrame } from "../../lib/state.svelte";
@@ -87,7 +88,16 @@
       : holds
         ? (data.holder?.inputs ?? []).map((pin) => holderRow(pin, true))
         : signal
-          ? signalInputs(kind).map((name, i) => ({ label: name, title: name, color, handle: `in:${i}` }))
+          ? signalInputs(kind).map((name, i) => {
+              // An input that counts as on while unwired says so, until something is wired into it.
+              const always = onWhenUnwired(kind) === i && !data.wiredInputs?.includes(i);
+              return {
+                label: always ? `${name} · always` : name,
+                title: always ? `${name}: nothing wired in, so always on` : name,
+                color,
+                handle: `in:${i}`,
+              };
+            })
           : [],
   );
   const rightRows = $derived<Row[]>(

@@ -22,6 +22,8 @@ export interface NodeData extends Record<string, unknown> {
   signal?: number;
   /** A wire is plugged into its gate (the gate pin shows only then, or on hover). */
   gateWired?: boolean;
+  /** For a signal node: the inputs a wire is plugged into (an unwired "run" or "on" counts as always on). */
+  wiredInputs?: number[];
   /** What is wrong with it, one error per line, as the server compiled the sheet. */
   problem?: string;
   /**
@@ -542,6 +544,7 @@ function sheetFlow(
         holder,
         signal: isSignal(s.kind) ? (activity.signals[n.id] ?? 0) : undefined,
         gateWired: (sheet.wires ?? []).some((w) => w.to === n.id && (w.input ?? 0) === GATE) || undefined,
+        wiredInputs: isSignal(s.kind) ? (sheet.wires ?? []).filter((w) => w.to === n.id && (w.input ?? 0) !== GATE).map((w) => w.input ?? 0) : undefined,
         // A sheet node also shows what is wrong inside its sheet (open it to see).
         problem: problems.get(n.id) ?? (holder?.problems ? `${holder.problems} problem${holder.problems === 1 ? "" : "s"} inside this sheet` : undefined),
       },

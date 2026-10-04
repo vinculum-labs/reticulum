@@ -62,6 +62,11 @@ export function isSignal(kind: NodeKind | undefined): boolean {
 }
 
 /** Names of a signal node's inputs, top to bottom. */
+/** Signal inputs that count as on while nothing is wired into them (a Timer's run, a Constant's on): their index. */
+export function onWhenUnwired(kind: NodeKind): number | undefined {
+  return kind === "timer" || kind === "constant" ? 0 : undefined;
+}
+
 export function signalInputs(kind: NodeKind): string[] {
   switch (kind) {
     case "compare":
