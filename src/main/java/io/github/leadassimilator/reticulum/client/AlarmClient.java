@@ -144,12 +144,7 @@ public final class AlarmClient {
             markersLevel = mc.level;
         }
         // What the tools in the hotbar (or the off hand) sound.
-        List<ItemStack> hotbar = new java.util.ArrayList<>();
-        for (int slot = 0; slot < 9; slot++) {
-            hotbar.add(player.getInventory().getItem(slot));
-        }
-        hotbar.add(player.getOffhandItem());
-        int worst = sounding(hotbar);
+        int worst = sounding(hotbar(player));
         if (worst == 1) {
             playToolSound(mc, time, ReticulumClientConfig.TOOL_SOUND_ID_CRITICAL.get(), ReticulumClientConfig.TOOL_SOUND_PITCH_CRITICAL.get(),
                     ReticulumClientConfig.TOOL_SOUND_PITCH2_CRITICAL.get(),
@@ -206,12 +201,22 @@ public final class AlarmClient {
     }
 
     /**
-     * Whether a network tool in the player's hand is sounding an alarm now (its sound on for the worst it cares about):
-     * beacons showing alarms then keep quiet, the tool's sound taking priority.
+     * Whether a network tool is sounding an alarm now, from the hotbar or the off hand (its sound on for what it cares
+     * about going off): beacons showing alarms then keep quiet, the tool's sound taking priority.
      */
     public static boolean toolSounding() {
         Player player = Minecraft.getInstance().player;
-        return player != null && sounding(List.of(player.getMainHandItem(), player.getOffhandItem())) >= 0;
+        return player != null && sounding(hotbar(player)) >= 0;
+    }
+
+    /** Where a network tool sounds from: the hotbar and the off hand. */
+    private static List<ItemStack> hotbar(Player player) {
+        List<ItemStack> out = new java.util.ArrayList<>(10);
+        for (int slot = 0; slot < 9; slot++) {
+            out.add(player.getInventory().getItem(slot));
+        }
+        out.add(player.getOffhandItem());
+        return out;
     }
 
     private static boolean holdingStatusTool(Player player) {
