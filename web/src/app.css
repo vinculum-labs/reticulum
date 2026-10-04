@@ -128,7 +128,8 @@ body {
   }
 }
 
-input:not([type="checkbox"]),
+/* Text boxes and color pickers (not checkboxes or sliders, drawn their own way). */
+input:not([type="checkbox"], [type="range"]),
 textarea {
   background: var(--field);
   border: 1px solid var(--line);
@@ -149,16 +150,26 @@ textarea {
 button:focus-visible,
 summary:focus-visible,
 a:focus-visible,
-input[type="checkbox"]:focus-visible {
+input[type="checkbox"]:focus-visible,
+input[type="range"]:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
-input:not([type="checkbox"]):focus,
+input:not([type="checkbox"], [type="range"]):focus,
 textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+/* A slider: the browser's own, in the accent color, its thumb reaching both ends. */
+input[type="range"] {
+  accent-color: var(--accent);
+  min-width: 0;
+}
+input[type="range"]:focus {
+  outline: none;
 }
 
 /* A checkbox drawn to match: a rounded box, filled with the accent and a check when ticked. */
