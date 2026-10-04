@@ -125,8 +125,8 @@
     <button
       class="btn btn-danger px-2"
       onclick={deleteNetwork}
-      disabled={snapshot.role !== "owner"}
-      title={snapshot.role === "owner" ? "Delete this network" : "Only the owner can delete this network"}
+      disabled={!snapshot.canDelete}
+      title={snapshot.canDelete ? "Delete this network" : "Only the owner can delete this network"}
       aria-label="Delete network"><Trash size={16} /></button
     >
   {/if}

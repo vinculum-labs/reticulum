@@ -421,6 +421,8 @@ export interface Snapshot extends NetworkSummary {
   revision: number;
   canEdit: boolean;
   canAdmin: boolean;
+  /** Whether the player may delete the network: its owner, or an operator by the bypass. */
+  canDelete?: boolean;
   hasPassword: boolean;
   /** The root sheet's id. */
   root: string;

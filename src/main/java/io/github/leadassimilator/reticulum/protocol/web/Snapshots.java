@@ -86,6 +86,8 @@ final class Snapshots {
         out.addProperty("canEdit", io.github.leadassimilator.reticulum.security.Security.canEdit(network, player));
         boolean canAdmin = io.github.leadassimilator.reticulum.security.Security.canAdmin(network, player);
         out.addProperty("canAdmin", canAdmin);
+        // Deleting takes the owner (or an operator's bypass), as the server checks it.
+        out.addProperty("canDelete", io.github.leadassimilator.reticulum.security.Security.has(network, player, Role.OWNER));
         out.addProperty("hasPassword", network.passwordHash() != null);
         out.addProperty("root", network.root().id().toString());
         out.addProperty("redstone", network.switches().redstone().getSerializedName());
