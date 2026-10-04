@@ -95,7 +95,9 @@
         : ""}
     </dd>
     <dt class="muted">Owner</dt>
-    <dd>{snapshot.owner || "none (open to everyone)"}</dd>
+    <dd>
+      {#if snapshot.owner}{snapshot.owner}{:else}none yet<span class="muted">{" — "}a machine placed its controller. Open the controller in the game to make it yours.</span>{/if}
+    </dd>
     <dt class="muted">Your role</dt>
     <dd>{snapshot.role}</dd>
   </dl>
