@@ -86,11 +86,12 @@
   {:else if s.style === "message"}
     <!-- The last message whose start the value has reached; below the first, the number. -->
     {@const shown = [...(s.messages ?? [])].sort((a, b) => (a.from ?? 0) - (b.from ?? 0)).filter((m) => value >= (m.from ?? 0)).at(-1)}
-    <div class="flex items-center gap-2">
+    <!-- A short message beside the name; a long one (that would crowd the name) wraps to lines of its own below. -->
+    <div class="message-row flex flex-wrap items-center gap-x-2 gap-y-0.5">
       {@render name()}
       {#if shown}
         {@const text = (shown.text ?? "").replaceAll("{value}", format(value))}
-        <span class="truncate font-semibold" style={shown.color ? `color: ${shown.color}` : ""} title={`${text} (${value})`}>{text || "—"}</span>
+        <span class="message ml-auto font-semibold" style={shown.color ? `color: ${shown.color}` : ""} title={`${text} (${value})`}>{text || "—"}</span>
       {:else}
         <span class="text-base font-semibold tabular-nums">{format(value)}</span>
       {/if}
@@ -115,6 +116,15 @@
 {/if}
 
 <style>
+  /* The name keeps at least about half the row before a message beside it wraps below. */
+  .message-row > :global(:first-child) {
+    min-width: min(100%, 9rem);
+  }
+  .message {
+    max-width: 100%;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
   .light {
     width: 12px;
     height: 12px;
