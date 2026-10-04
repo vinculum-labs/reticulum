@@ -1,4 +1,4 @@
-import { isPin, openFrameSize, PIN_DOT, type FlowView } from "./graph";
+import { isPin, openFrameSize, PIN_DOT, PIN_H, type FlowView } from "./graph";
 import { layout, type PinPositions } from "./layout";
 import type { Edit, Sheet } from "./types";
 
@@ -33,6 +33,7 @@ export async function tidyMoves(
       const node = target.nodes?.find((n) => n.id === p.id);
       return node && isPin(node) ? { ...p, y: p.y + PIN_DOT } : p;
     });
+    spreadPins(target, positions);
     relaid.set(target.id, { ...target, nodes: (target.nodes ?? []).map((n) => ({ ...n, ...(positions.find((p) => p.id === n.id) ?? {}) })) });
     edits.push({ type: "moveNodes", sheet: target.id, positions });
     undo.push({ type: "moveNodes", sheet: target.id, positions: (target.nodes ?? []).map((n) => ({ id: n.id, x: n.x ?? 0, y: n.y ?? 0 })) });
@@ -46,4 +47,19 @@ export async function tidyMoves(
   }
   await tidySheet(sheet, framesOn(sheet.id));
   return { edits, undo };
+}
+
+/** Room between two pins' tags on one edge. */
+const PIN_SPACING = PIN_H + 8;
+
+/**
+ * A sheet's pins all sit on its edge, whatever column the layout put them in: two in different columns at one height
+ * would land on each other. Down each edge in order, a pin too close to the one above moves down.
+ */
+function spreadPins(sheet: Sheet, positions: { id: string; x: number; y: number }[]) {
+  for (const kind of ["sheet_input", "sheet_output"]) {
+    const ids = new Set((sheet.nodes ?? []).filter((n) => n.settings.kind === kind).map((n) => n.id));
+    const pins = positions.filter((p) => ids.has(p.id)).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < pins.length; i++) pins[i].y = Math.max(pins[i].y, pins[i - 1].y + PIN_SPACING);
+  }
 }
