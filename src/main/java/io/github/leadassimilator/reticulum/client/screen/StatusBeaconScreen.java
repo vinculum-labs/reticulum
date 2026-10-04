@@ -1,10 +1,7 @@
 package io.github.leadassimilator.reticulum.client.screen;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
-import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.StatusBeaconBlock;
 import io.github.leadassimilator.reticulum.block.entity.BeaconLook;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
@@ -13,13 +10,9 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.item.DyeColor;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -32,9 +25,6 @@ public class StatusBeaconScreen extends QuickScreen {
     private static final int WIDTH = 300;
     private static final int CELL = 16;
     private static final int SWATCH = 12;
-    private static final int RESULTS = 4;
-    /** Every sound in the game, by id, for the search. */
-    private static List<String> allSounds;
 
     private Payloads.OpenBeaconScreen view;
     private CompoundTag settings;
@@ -185,24 +175,9 @@ public class StatusBeaconScreen extends QuickScreen {
         y = flagRow(y, current, new int[] {BeaconLook.SOUND, BeaconLook.TWO_TONE}, new String[] {"sound", "two_tone"});
         addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.beacon_preview"), b -> preview())
                 .bounds(left + WIDTH - 20, y - 22, 20, 18).build());
-        // Shows the sound chosen; clicked into, all of it is selected, so typing replaces it and an arrow key keeps it
-        // to edit (a long shared prefix needn't be typed again).
         String chosen = current.sound().toString();
-        EditBox searchBox = kept("search", new SeeThroughTextBox(font, left, y, WIDTH, 16, Component.translatable("screen.reticulum.beacon_search")) {
-            @Override
-            public boolean mouseClicked(double mouseX, double mouseY, int button) {
-                boolean wasFocused = isFocused();
-                boolean used = super.mouseClicked(mouseX, mouseY, button);
-                if (used && !wasFocused) {
-                    moveCursorToEnd(false);
-                    setHighlightPos(0);
-                }
-                return used;
-            }
-        });
-        searchBox.setMaxLength(100);
+        EditBox searchBox = kept("search", SoundSearch.box(font, left, y, WIDTH));
         searchBox.setValue(search.isEmpty() ? chosen : search);
-        searchBox.setHint(Component.translatable("screen.reticulum.beacon_search"));
         searchBox.setEditable(view.canEdit());
         searchBox.setResponder(text -> {
             // The chosen sound itself isn't a search: no list under it.
@@ -215,7 +190,7 @@ public class StatusBeaconScreen extends QuickScreen {
         addRenderableWidget(searchBox);
         y += 18;
         if (!search.isBlank()) {
-            for (String id : matches(search)) {
+            for (String id : SoundSearch.matches(search)) {
                 addRenderableWidget(Button.builder(Component.literal(id), b -> {
                     change(t -> t.putString("sound", id));
                     search = "";
@@ -263,41 +238,11 @@ public class StatusBeaconScreen extends QuickScreen {
         return box;
     }
 
-    private static List<String> matches(String text) {
-        if (allSounds == null) {
-            allSounds = BuiltInRegistries.SOUND_EVENT.keySet().stream().map(ResourceLocation::toString).sorted().toList();
-        }
-        String needle = text.toLowerCase(Locale.ROOT).trim();
-        List<String> banned = bannedSounds();
-        List<String> out = new ArrayList<>();
-        for (String id : allSounds) {
-            if (id.contains(needle) && !banned.contains(id)) {
-                out.add(id);
-                if (out.size() == RESULTS) {
-                    break;
-                }
-            }
-        }
-        return out;
-    }
-
-    private static List<String> bannedSounds() {
-        try {
-            return List.copyOf(ReticulumConfig.BEACON_BANNED_SOUNDS.get());
-        } catch (IllegalStateException notLoaded) {
-            return List.of();
-        }
-    }
-
     private void preview() {
         CompoundTag look = own(selected);
-        if (look == null) {
-            return;
-        }
-        BeaconLook current = BeaconLook.load(look, BeaconLook.WARNING);
-        SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(current.sound());
-        if (sound != null) {
-            minecraft.getSoundManager().play(SimpleSoundInstance.forUI(sound, current.pitch(), 1f));
+        if (look != null) {
+            BeaconLook current = BeaconLook.load(look, BeaconLook.WARNING);
+            SoundSearch.preview(current.sound().toString(), current.pitch());
         }
     }
 

@@ -106,6 +106,24 @@ public final class ReticulumClientConfig {
     public static final ModConfigSpec.IntValue TOOL_SOUND_EVERY_CRITICAL = BUILDER
             .comment("Seconds between the network tool's sirens while a critical alarm is going off.")
             .defineInRange("toolSoundEveryCritical", 10, 1, 3600);
+    public static final ModConfigSpec.ConfigValue<String> TOOL_SOUND_ID_WARNING = BUILDER
+            .comment("The sound the network tool plays for a warning, by id.")
+            .define("toolSoundIdWarning", "minecraft:block.note_block.chime");
+    public static final ModConfigSpec.DoubleValue TOOL_SOUND_PITCH_WARNING = BUILDER
+            .comment("Its pitch (0.5 to 2).")
+            .defineInRange("toolSoundPitchWarning", 1.2, 0.5, 2.0);
+    public static final ModConfigSpec.BooleanValue TOOL_SOUND_TWO_TONE_WARNING = BUILDER
+            .comment("Play it as a short two-tone siren (four notes) instead of once.")
+            .define("toolSoundTwoToneWarning", false);
+    public static final ModConfigSpec.ConfigValue<String> TOOL_SOUND_ID_CRITICAL = BUILDER
+            .comment("The sound the network tool plays for a critical alarm, by id.")
+            .define("toolSoundIdCritical", "minecraft:block.note_block.pling");
+    public static final ModConfigSpec.DoubleValue TOOL_SOUND_PITCH_CRITICAL = BUILDER
+            .comment("Its pitch (0.5 to 2).")
+            .defineInRange("toolSoundPitchCritical", 1.6, 0.5, 2.0);
+    public static final ModConfigSpec.BooleanValue TOOL_SOUND_TWO_TONE_CRITICAL = BUILDER
+            .comment("Play it as a short two-tone siren (four notes) instead of once.")
+            .define("toolSoundTwoToneCritical", true);
     public static final ModConfigSpec.BooleanValue MUTE_REDSTONE_BEACONS = BUILDER
             .comment("Mute Status Beacons in Redstone mode (anyone can set those off). Beacons showing a network's alarms still sound.")
             .define("muteRedstoneBeacons", false);

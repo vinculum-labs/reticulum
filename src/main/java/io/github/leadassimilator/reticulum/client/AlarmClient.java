@@ -117,14 +117,13 @@ public final class AlarmClient {
             worst = Math.max(worst, severity(player.getOffhandItem()));
         }
         if (worst == 1 && ReticulumClientConfig.TOOL_SOUND_CRITICAL.getAsBoolean()) {
-            // A short two-tone siren (four notes over two seconds), every so many seconds.
-            long phase = time % Math.max(40, ReticulumClientConfig.TOOL_SOUND_EVERY_CRITICAL.getAsInt() * 20L);
-            if (phase < 40 && phase % 10 == 0) {
-                mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_PLING.value(), (phase / 10) % 2 == 0 ? 1.6f : 1.2f, 0.6f));
-            }
-        } else if (worst >= 0 && ReticulumClientConfig.TOOL_SOUND_WARNING.getAsBoolean()
-                && time % (ReticulumClientConfig.TOOL_SOUND_EVERY_WARNING.getAsInt() * 20L) == 0) {
-            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_CHIME.value(), 1.2f, 0.5f));
+            playToolSound(mc, time, ReticulumClientConfig.TOOL_SOUND_ID_CRITICAL.get(), ReticulumClientConfig.TOOL_SOUND_PITCH_CRITICAL.get(),
+                    ReticulumClientConfig.TOOL_SOUND_TWO_TONE_CRITICAL.getAsBoolean(), ReticulumClientConfig.TOOL_SOUND_EVERY_CRITICAL.getAsInt(),
+                    SoundEvents.NOTE_BLOCK_PLING.value());
+        } else if (worst >= 0 && ReticulumClientConfig.TOOL_SOUND_WARNING.getAsBoolean()) {
+            playToolSound(mc, time, ReticulumClientConfig.TOOL_SOUND_ID_WARNING.get(), ReticulumClientConfig.TOOL_SOUND_PITCH_WARNING.get(),
+                    ReticulumClientConfig.TOOL_SOUND_TWO_TONE_WARNING.getAsBoolean(), ReticulumClientConfig.TOOL_SOUND_EVERY_WARNING.getAsInt(),
+                    SoundEvents.NOTE_BLOCK_CHIME.value());
         }
         // Status mode: where things are wrong, asked for every two seconds while held.
         if (holdingStatusTool(player)) {
@@ -134,6 +133,23 @@ public final class AlarmClient {
         } else if (!markers.isEmpty()) {
             markers = List.of();
         }
+    }
+
+    /**
+     * The tool's sound, every so many seconds: once, or as a short two-tone siren (four notes over two seconds, every
+     * other one lower). An unknown sound id plays {@code fallback}.
+     */
+    private static void playToolSound(Minecraft mc, long time, String id, double pitch, boolean twoTone, int everySeconds,
+            net.minecraft.sounds.SoundEvent fallback) {
+        long cycle = Math.max(twoTone ? 40 : 1, everySeconds * 20L);
+        long phase = time % cycle;
+        if (twoTone ? phase >= 40 || phase % 10 != 0 : phase != 0) {
+            return;
+        }
+        net.minecraft.resources.ResourceLocation location = net.minecraft.resources.ResourceLocation.tryParse(id);
+        net.minecraft.sounds.SoundEvent sound = location == null ? null : net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.get(location);
+        float at = (float) pitch * (twoTone && (phase / 10) % 2 == 1 ? 0.75f : 1f);
+        mc.getSoundManager().play(SimpleSoundInstance.forUI(sound != null ? sound : fallback, at, 0.6f));
     }
 
     private static boolean holdingStatusTool(Player player) {

@@ -312,6 +312,8 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.alarm_tool_sound", "Sound from the hotbar");
         add("screen.reticulum.alarm_markers", "Markers in Status mode");
         add("screen.reticulum.alarm_sound_every", "Sound every (seconds)");
+        add("screen.reticulum.alarm_sound_warning", "Warning sound");
+        add("screen.reticulum.alarm_sound_critical", "Critical sound");
         add("screen.reticulum.alarm_now", "Going off on your networks: %s");
         add("screen.reticulum.alarm_none", "Nothing is going off on your networks");
         add("tooltip.reticulum.tool_identify", "Right-click a connector or device to light it up (or off) — sneak + right-click lights one face of a device");
