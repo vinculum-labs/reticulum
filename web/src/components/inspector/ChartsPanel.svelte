@@ -94,10 +94,13 @@
   /** One chart per resource, always (flat at 0 says nothing moved): its total and what of it is charted. */
   const groups = $derived(
     MOVED.map((resource) => {
-      const lines: PlotLine[] = [{ label: `All ${RESOURCE_LABEL[resource].toLowerCase()}`, values: rate(values[totals[resource] ?? ""]), color: RESOURCE_VAR[resource] }];
+      const lines: PlotLine[] = [{ label: `All ${RESOURCE_LABEL[resource].toLowerCase()}`, key: "total", values: rate(values[totals[resource] ?? ""]), color: RESOURCE_VAR[resource] }];
       charts
         .filter((c) => (c.kind === "item" || c.kind === "fluid" || c.kind === "chemical") && c.kind === resource)
-        .forEach((c, i) => lines.push({ label: chartLabel(c), values: rate(values[c.series]), color: RESOURCE_VAR[resource], shade: SHADES[i % SHADES.length] }));
+        // Past the shades, dashed: no two lines alike.
+        .forEach((c, i) =>
+          lines.push({ label: chartLabel(c), key: c.key, values: rate(values[c.series]), color: RESOURCE_VAR[resource], shade: SHADES[i % SHADES.length], dashed: i >= SHADES.length }),
+        );
       return { resource, lines };
     }),
   );
@@ -169,19 +172,8 @@
       </div>
     </div>
     <aside class="flex w-72 shrink-0 flex-col gap-2 overflow-y-auto border-l border-line bg-panel p-3 text-sm">
-      <h3 class="panel-title">Charted ({charts.length}/16)</h3>
-      {#each charts as c (c.key)}
-        <div class="flex items-center gap-2">
-          <span class="min-w-0 flex-1 truncate"
-            >{chartLabel(c)} <span class="muted">· {c.kind === "level" ? "held" : c.kind === "through" ? "in and out" : "moved"}</span></span
-          >
-          {#if snapshot.canEdit}<RemoveButton label={`Stop charting ${chartLabel(c)}`} onclick={() => removeChart(c)} />{/if}
-        </div>
-      {:else}
-        <p class="muted">Only the totals so far.</p>
-      {/each}
       {#if snapshot.canEdit && charts.length < 16}
-        <h3 class="panel-title mt-2">Chart what moves</h3>
+        <h3 class="panel-title">Chart what moves</h3>
         <Segmented
           label="What to chart"
           size="xs"
@@ -206,6 +198,18 @@
         <button class="btn self-start" disabled={!addId} onclick={add}>Chart it</button>
         <p class="text-xs muted">To chart a device — what it holds, or what moves into and out of it — right-click it in the devices list.</p>
       {/if}
+      <!-- Below the picker, so its list has room to drop over it (not cut off by the panel). -->
+      <h3 class="panel-title mt-2">Charted ({charts.length}/16)</h3>
+      {#each charts as c (c.key)}
+        <div class="flex items-center gap-2">
+          <span class="min-w-0 flex-1 truncate"
+            >{chartLabel(c)} <span class="muted">· {c.kind === "level" ? "held" : c.kind === "through" ? "in and out" : "moved"}</span></span
+          >
+          {#if snapshot.canEdit}<RemoveButton label={`Stop charting ${chartLabel(c)}`} onclick={() => removeChart(c)} />{/if}
+        </div>
+      {:else}
+        <p class="muted">Only the totals so far.</p>
+      {/each}
       <Help>Totals are always kept. Anything else is recorded only once charted. Charts start when charted and reset when the server restarts. Click a name in a chart's legend to hide or show its line.</Help>
     </aside>
   </div>

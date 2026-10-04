@@ -1,6 +1,8 @@
 <script lang="ts" module>
   export interface PlotLine {
     label: string;
+    /** What it is, kept while its label changes (an id becoming a name): a line hidden stays hidden by it. */
+    key?: string;
     values: number[];
     /** A CSS color or "var(--name)"; {@code shade} lightens (above 0) or darkens (below) it, -1 to 1. */
     color: string;
@@ -25,6 +27,8 @@
   let plot: uPlot | null = null;
   /** The lines the plot was built for: another set (or colors) builds it again; new values only update it. */
   let builtFor = "";
+  /** Lines hidden from the legend, by key: rebuilding the plot keeps them hidden. */
+  const hidden = new Set<string>();
 
   function css(value: string, shade = 0): string {
     const color = value.startsWith("var(") ? getComputedStyle(document.documentElement).getPropertyValue(value.slice(4, -1)).trim() : value;
@@ -53,7 +57,14 @@
       if (plot.cursor.idx == null) plot.setLegend({ idx: null as unknown as number });
       return;
     }
-    plot?.destroy();
+    if (plot) {
+      for (const s of plot.series.slice(1) as (uPlot.Series & { key?: string })[]) {
+        if (s.key === undefined) continue;
+        if (s.show === false) hidden.add(s.key);
+        else hidden.delete(s.key);
+      }
+      plot.destroy();
+    }
     builtFor = shape;
     const axis = { stroke: css("var(--muted)"), grid: { stroke: css("var(--grid)"), width: 1 }, ticks: { stroke: css("var(--grid)") } };
     plot = new uPlot(
@@ -70,6 +81,8 @@
           { value: (_u: uPlot, t: number | null, _s: number, idx: number | null) => (idx == null ? "Now" : t == null ? "–" : clock(t)) },
           ...lines.map((l) => ({
             label: l.label,
+            key: l.key ?? l.label,
+            show: !hidden.has(l.key ?? l.label),
             stroke: css(l.color, l.shade),
             width: 1.5,
             dash: l.dashed ? [5, 4] : undefined,
