@@ -655,21 +655,32 @@ public final class WebApi {
         }
 
         /**
-         * A sheet pin's wires on the sheet's node, one level up, go with it: left, they would hang off a handle that
-         * is gone, and reattach to a later pin given its slot.
+         * A sheet pin's wires one level up go with it: on the sheet's node, or for a blueprint's pin on every copy node
+         * of it. Left, they would hang off a handle that is gone, and reattach to a later pin given its slot.
          */
         private static void dropHolderWires(Network network, Sheet sheet, Node node) {
-            // XXX: only a placed sheet's node. A pin removed from a blueprint leaves its wires on every copy node (the
-            // compiler skips them, but they hang invisible); dropping them needs an undo across every sheet with a copy.
-            Network.Placement placed = network.placement(sheet.id());
-            if (placed == null || !(node.settings() instanceof NodeSettings.SheetPinSettings pin) || pin.slot() < 0) {
+            if (!(node.settings() instanceof NodeSettings.SheetPinSettings pin) || pin.slot() < 0) {
                 return;
             }
-            UUID holder = placed.node().id();
-            for (Wire wire : List.copyOf(placed.parent().wires())) {
-                boolean on = pin.input() ? wire.to().equals(holder) && wire.input() == pin.slot() : wire.from().equals(holder) && wire.output() == pin.slot();
-                if (on) {
-                    placed.parent().disconnect(wire.id());
+            List<Network.Placement> holders = new ArrayList<>();
+            if (sheet.blueprint()) {
+                for (Sheet on : network.sheets()) {
+                    for (Node copy : on.nodes()) {
+                        if (copy.settings() instanceof NodeSettings.CopySettings c && c.sheet().equals(sheet.id())) {
+                            holders.add(new Network.Placement(on, copy));
+                        }
+                    }
+                }
+            } else if (network.placement(sheet.id()) != null) {
+                holders.add(network.placement(sheet.id()));
+            }
+            for (Network.Placement placed : holders) {
+                UUID holder = placed.node().id();
+                for (Wire wire : List.copyOf(placed.parent().wires())) {
+                    boolean on = pin.input() ? wire.to().equals(holder) && wire.input() == pin.slot() : wire.from().equals(holder) && wire.output() == pin.slot();
+                    if (on) {
+                        placed.parent().disconnect(wire.id());
+                    }
                 }
             }
         }

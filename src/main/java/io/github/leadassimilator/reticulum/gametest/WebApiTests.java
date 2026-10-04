@@ -287,6 +287,59 @@ public final class WebApiTests {
         helper.succeed();
     }
 
+    /** Removing a blueprint's pin removes the wires on it on every copy of the blueprint. */
+    @GameTest(template = "empty")
+    public static void removingABlueprintPinRemovesItsWiresOnCopies(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.setOwner(player.getUUID(), "web-test");
+        String id = network.id().toString();
+        String root = network.root().id().toString();
+        String blueprint = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"bp\",\"blueprint\":true}]}")
+                .getAsJsonArray("results").get(0).getAsString();
+        String pin = UUID.randomUUID().toString();
+        String copy = UUID.randomUUID().toString();
+        String filter = UUID.randomUUID().toString();
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":["
+                + "{\"type\":\"addNode\",\"sheet\":\"" + blueprint + "\",\"node\":{\"id\":\"" + pin + "\",\"settings\":{\"kind\":\"sheet_output\",\"name\":\"out\",\"slot\":0}}},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + root + "\",\"node\":{\"id\":\"" + copy + "\",\"settings\":{\"kind\":\"copy\",\"sheet\":\"" + blueprint + "\"}}},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + root + "\",\"node\":{\"id\":\"" + filter + "\",\"settings\":{\"kind\":\"filter\",\"expression\":\"\"}}},"
+                + "{\"type\":\"connect\",\"sheet\":\"" + root + "\",\"wire\":{\"id\":\"" + UUID.randomUUID() + "\",\"from\":\"" + copy + "\",\"output\":0,\"to\":\"" + filter + "\"}}"
+                + "]}");
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"removeNode\",\"sheet\":\"" + blueprint + "\",\"node\":\"" + pin + "\"}]}");
+        if (network.root().wires().stream().anyMatch(w -> w.from().toString().equals(copy))) {
+            helper.fail("A wire is left on the copy for the removed pin");
+        }
+        helper.succeed();
+    }
+
+    /** A loop of sheets in a save (A in B, B in A) is broken by taking one out to the root, not both. */
+    @GameTest(template = "empty")
+    public static void aSheetLoopLosesOneLink(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        var a = new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "A");
+        var b = new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "B");
+        a.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetSettings(b.id())));
+        b.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetSettings(a.id())));
+        network.sheets().add(a);
+        network.sheets().add(b);
+        network.ensureTree();
+        var placedA = network.placement(a.id());
+        var placedB = network.placement(b.id());
+        boolean oneInOther = placedA != null && placedB != null
+                && (placedA.parent() == b && placedB.parent().root() || placedB.parent() == a && placedA.parent().root());
+        if (!oneInOther) {
+            helper.fail("Expected one sheet left inside the other and that one in the root: A in "
+                    + (placedA == null ? "nothing" : placedA.parent().name()) + ", B in " + (placedB == null ? "nothing" : placedB.parent().name()));
+        }
+        helper.succeed();
+    }
+
     /** Renaming a filter template renames it where it is used: other templates and the filters nodes hold. */
     @GameTest(template = "empty")
     public static void renamingATemplateRenamesItsUses(GameTestHelper helper) {
