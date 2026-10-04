@@ -68,11 +68,15 @@ public final class LookAt {
             lines.add(networkLine(network));
             lines.add(Component.translatable("lookat.reticulum.devices", record == null ? 0 : record.devices().size())
                     .withStyle(ChatFormatting.GRAY));
-            NetworkRuntime runtime = NetworkTicker.runtime(network.id());
-            NetworkRuntime.Reach reach = runtime == null ? null : runtime.reach(connector.connectorId());
-            if (reach != null) {
-                lines.add(Component.translatable("lookat.reticulum.reach." + reach.key())
-                        .withStyle(reach == NetworkRuntime.Reach.OUT_OF_RANGE ? ChatFormatting.RED : ChatFormatting.GRAY));
+            if (network.controller() == null) {
+                lines.add(Component.translatable("lookat.reticulum.no_controller").withStyle(ChatFormatting.RED));
+            } else {
+                NetworkRuntime runtime = NetworkTicker.runtime(network.id());
+                NetworkRuntime.Reach reach = runtime == null ? null : runtime.reach(connector.connectorId());
+                if (reach != null) {
+                    lines.add(Component.translatable("lookat.reticulum.reach." + reach.key())
+                            .withStyle(reach == NetworkRuntime.Reach.OUT_OF_RANGE ? ChatFormatting.RED : ChatFormatting.GRAY));
+                }
             }
             List<String> given = new ArrayList<>();
             for (Direction side : Direction.values()) {
@@ -107,6 +111,13 @@ public final class LookAt {
             }
         } else {
             lines.add(networkLine(network));
+            // A cable joins things by cable only: cut off from its controller, it says so.
+            if (network.controller() == null) {
+                lines.add(Component.translatable("lookat.reticulum.no_controller").withStyle(ChatFormatting.RED));
+            } else if (!Topology.component(level, be.getBlockPos(), null).controllers().contains(network.controller().pos())
+                    || !network.controller().dimension().equals(level.dimension())) {
+                lines.add(Component.translatable("lookat.reticulum.cable_cut_off").withStyle(ChatFormatting.RED));
+            }
         }
     }
 

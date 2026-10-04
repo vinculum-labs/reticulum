@@ -127,6 +127,22 @@ public final class Topology {
     public record Removed(@Nullable UUID networkId, boolean controller, @Nullable UUID connectorId) {
     }
 
+    /**
+     * Where cables and connectors were lifted from by a piston or a contraption (Create's), still to arrive somewhere.
+     * One arriving with its saved position among these moved there: it keeps its network and ids (it isn't a copy).
+     */
+    private static final Set<Long> MOVING = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** A cable or connector is being moved away from {@code from} (its data goes along). */
+    public static void noteMoving(BlockPos from) {
+        MOVING.add(from.asLong());
+    }
+
+    /** Whether a block saved at {@code from} arrives elsewhere because it was moved (then forgets the note). */
+    public static boolean arrivedFrom(long from) {
+        return MOVING.remove(from);
+    }
+
     public static Removed capture(NetworkBlockEntity be) {
         return new Removed(be.networkId(), be instanceof ControllerBlockEntity,
                 be instanceof ConnectorBlockEntity connector ? connector.connectorId() : null);

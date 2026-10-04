@@ -196,6 +196,34 @@ public final class TopologyTests {
         helper.succeed();
     }
 
+    /**
+     * A connector moved by a contraption (as Create does it: lifted with the piston flag, placed elsewhere with its data)
+     * is the same connector: it keeps its id and its network, even where it touches nothing. Not taken for a copy.
+     */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void aMovedConnectorKeepsItsNetworkAndId(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
+        UUID network = net(helper, new BlockPos(1, 1, 1));
+        var connector = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(3, 1, 1));
+        UUID id = connector.connectorId();
+        var registries = helper.getLevel().registryAccess();
+        var data = connector.saveWithFullMetadata(registries);
+        var level = helper.getLevel();
+        level.setBlock(helper.absolutePos(new BlockPos(3, 1, 1)), Blocks.AIR.defaultBlockState(),
+                net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
+        BlockPos to = helper.absolutePos(new BlockPos(3, 1, 6));
+        level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        level.getBlockEntity(to).loadWithComponents(data, registries);
+        helper.runAfterDelay(5, () -> {
+            var moved = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(3, 1, 6));
+            check(helper, id.equals(moved.connectorId()), "the moved connector got a new id (taken for a copy)");
+            check(helper, network.equals(net(helper, new BlockPos(3, 1, 6))), "the moved connector lost its network");
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = "empty")
     public static void differentNetworksDoNotJoin(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);

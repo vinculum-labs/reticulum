@@ -198,8 +198,13 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         // Registered where it was saved; data copied somewhere else (ctrl+pick-block, /clone, a structure) is a new
         // block there: it joins whatever it is placed against, rather than claiming the original's network and ids.
         boolean wasRegistered = tag.getBoolean("registered");
-        registered = wasRegistered && (!tag.contains("registered_at") || tag.getLong("registered_at") == worldPosition.asLong());
-        copied = wasRegistered && !registered;
+        boolean atOrigin = !tag.contains("registered_at") || tag.getLong("registered_at") == worldPosition.asLong();
+        // Moved here by a piston or contraption: the same block, so it keeps its network and ids, and connects up again
+        // where it is now (joining what it touches, or staying on its network when it touches nothing).
+        boolean moved = wasRegistered && !atOrigin && level != null && !level.isClientSide
+                && io.github.leadassimilator.reticulum.topology.Topology.arrivedFrom(tag.getLong("registered_at"));
+        registered = wasRegistered && atOrigin;
+        copied = wasRegistered && !atOrigin && !moved;
         if (copied) {
             networkId = null;
         }

@@ -118,8 +118,10 @@ public class ModLanguage extends LanguageProvider {
         add("lookat.reticulum.state.missing", "Missing");
         add("lookat.reticulum.reach.wired", "Cabled to the controller");
         add("lookat.reticulum.reach.wireless", "Wireless: in the antenna's reach");
-        add("lookat.reticulum.reach.out_of_range", "Wireless: out of the antenna's reach");
-        add("lookat.reticulum.device_out_of_range", "Offline: its connector is out of the antenna's reach");
+        add("lookat.reticulum.reach.out_of_range", "Can't reach its controller — no cable to it, and no antenna reaches it");
+        add("lookat.reticulum.device_out_of_range", "Offline: its connector can't reach its controller");
+        add("lookat.reticulum.cable_cut_off", "Can't reach its controller — no cable to it");
+        add("lookat.reticulum.no_controller", "Its network has no controller");
         add("lookat.reticulum.redstone_out", "Redstone out: %s");
         add("lookat.reticulum.me", "ME: %s");
         add("lookat.reticulum.redstone_in", "Redstone from the network: %s");
