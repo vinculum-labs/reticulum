@@ -4,7 +4,7 @@
   import { app, deviceName, request } from "../../lib/state.svelte";
   import { loadCatalog, type Catalog, type CatalogKind } from "../../lib/catalog";
   import { addChart, removeChart } from "../../lib/charts";
-  import CatalogCombobox from "../controls/CatalogCombobox.svelte";
+  import CatalogField from "../controls/CatalogField.svelte";
   import { RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR } from "../../lib/kinds";
   import { posKey, type ChartSeries, type Resource } from "../../lib/types";
   import Segmented from "../controls/Segmented.svelte";
@@ -108,14 +108,6 @@
 
   let catalog = $state<Catalog | null>(null);
   loadCatalog().then((c) => (catalog = c)).catch(() => {});
-  let addKind = $state<CatalogKind>("item");
-  let addId = $state("");
-
-  function add() {
-    if (!addId) return;
-    addChart({ kind: addKind, id: addId });
-    addId = "";
-  }
 </script>
 
 <!-- Over the canvas (which stays as it was underneath): room for the charts side by side. -->
@@ -172,28 +164,14 @@
     <aside class="flex w-72 shrink-0 flex-col gap-2 overflow-y-auto border-l border-line bg-panel p-3 text-sm">
       {#if snapshot.canEdit && charts.length < 16}
         <h3 class="panel-title">Chart what moves</h3>
-        <Segmented
-          label="What to chart"
-          size="xs"
-          value={addKind}
-          options={[
-            { value: "item", label: "Item" },
-            { value: "fluid", label: "Fluid" },
-            { value: "chemical", label: "Chemical" },
-          ]}
-          onchange={(v) => {
-            addKind = v as CatalogKind;
-            addId = "";
-          }}
+        <!-- Picking charts it at once. -->
+        <CatalogField
+          kinds={["item", "fluid", "chemical"]}
+          placeholder="Choose an item, fluid or chemical…"
+          title="Chart what moves"
+          omit={(kind, id) => charts.some((c) => c.kind === kind && c.id === id)}
+          onpick={(p) => addChart({ kind: p.kind, id: p.id })}
         />
-        <CatalogCombobox
-          kind={addKind}
-          entries={(catalog?.[addKind] ?? []).filter((e) => !charts.some((c) => c.kind === addKind && c.id === e.id))}
-          value={addId}
-          placeholder={`Choose ${addKind === "item" ? "an item" : addKind === "fluid" ? "a fluid" : "a chemical"}…`}
-          onchange={(id) => (addId = id)}
-        />
-        <button class="btn self-start" disabled={!addId} onclick={add}>Chart it</button>
         <p class="text-xs muted">To chart a device — what it holds, or what moves into and out of it — right-click it in the devices list.</p>
       {/if}
       <!-- Below the picker, so its list has room to drop over it (not cut off by the panel). -->
