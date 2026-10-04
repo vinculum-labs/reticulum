@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
+  import { onEscape } from "../../lib/escape";
   import X from "@lucide/svelte/icons/x";
   import { app, deviceName, request } from "../../lib/state.svelte";
   import { loadCatalog, type Catalog, type CatalogKind } from "../../lib/catalog";
@@ -26,6 +27,10 @@
   let failed = $state(false);
   let timer: ReturnType<typeof setInterval> | undefined;
   let generation = 0;
+  /** A load still waiting on the game: the next tick skips (a slow server isn't sent more while it catches up). */
+  let loading = false;
+  // Esc goes back to the sheet (inside the game, rather than closing the editor).
+  onDestroy(onEscape(() => (app.panel = null)));
 
   const MOVED: Resource[] = ["energy", "item", "fluid", "chemical"];
   /** Charted things in one chart: shades of its type's color, taking turns lighter and darker. */
@@ -48,8 +53,10 @@
     ...charts.flatMap((c) => (c.kind === "through" ? [c.seriesIn ?? "", c.seriesOut ?? ""] : [c.series])).filter(Boolean),
   ]);
 
-  async function load() {
+  async function load(force = false) {
+    if (loading && !force) return;
     const asked = ++generation;
+    loading = true;
     try {
       const loaded = await Promise.all(wanted.map((id) => request("history", { item: id, window: window_ }).then((r) => [id, r.values as number[]] as const)));
       if (asked !== generation) return;
@@ -57,13 +64,15 @@
       failed = false;
     } catch {
       if (asked === generation) failed = true;
+    } finally {
+      if (asked === generation) loading = false;
     }
   }
 
   $effect(() => {
     void wanted.join();
     void window_;
-    load();
+    load(true);
     clearInterval(timer);
     timer = setInterval(load, window_ === "second" ? 2000 : 30000);
   });
@@ -122,7 +131,11 @@
         { value: "second", label: "5 min" },
         { value: "minute", label: "24 h" },
       ]}
-      onchange={(v) => (window_ = v)}
+      onchange={(v) => {
+        // Not the other window's values meanwhile (per second read as per minute, or the other way round).
+        values = {};
+        window_ = v;
+      }}
     />
     <button class="btn px-2" title="Back to the sheet" aria-label="Close charts" onclick={() => (app.panel = null)}><X size={16} /></button>
   </div>
@@ -185,7 +198,7 @@
         />
         <CatalogCombobox
           kind={addKind}
-          entries={catalog?.[addKind] ?? []}
+          entries={(catalog?.[addKind] ?? []).filter((e) => !charts.some((c) => c.kind === addKind && c.id === e.id))}
           value={addId}
           placeholder={`Choose ${addKind === "item" ? "an item" : addKind === "fluid" ? "a fluid" : "a chemical"}…`}
           onchange={(id) => (addId = id)}

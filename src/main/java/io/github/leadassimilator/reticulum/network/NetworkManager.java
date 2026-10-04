@@ -132,10 +132,11 @@ public final class NetworkManager {
     }
 
     /**
-     * Whether any sheet uses the device (a node on it, a node reading it, or a blueprint instance's slot it fills): such a
-     * record is kept when the block goes, so its flows can be moved onto the block that replaces it.
+     * Whether any sheet uses the device (a node on it, a node reading it, or a blueprint instance's slot it fills), or a
+     * chart does: such a record is kept when the block goes, so its flows and charts can be moved onto the block that
+     * replaces it.
      */
-    static boolean usedBySheets(Network network, GlobalPos pos) {
+    static boolean inUse(Network network, GlobalPos pos) {
         for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
                 if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance
@@ -154,7 +155,7 @@ public final class NetworkManager {
                 }
             }
         }
-        return false;
+        return network.charts().stream().anyMatch(c -> c.device().filter(pos::equals).isPresent());
     }
 
     /**
@@ -162,7 +163,7 @@ public final class NetworkManager {
      * unless something still reaches it here or a sheet here uses it (then it shows as orphaned, so that is seen).
      */
     public static void forgetMovedDevice(MinecraftServer server, Network network, GlobalPos pos) {
-        if (!network.isReached(pos) && !usedBySheets(network, pos) && network.deviceMap().remove(pos) != null) {
+        if (!network.isReached(pos) && !inUse(network, pos) && network.deviceMap().remove(pos) != null) {
             changed(server, network);
         }
     }
@@ -175,7 +176,7 @@ public final class NetworkManager {
         if (record == null) {
             return;
         }
-        if (!record.hasUserData() && !usedBySheets(network, pos)) {
+        if (!record.hasUserData() && !inUse(network, pos)) {
             network.deviceMap().remove(pos);
             return;
         }
@@ -193,12 +194,13 @@ public final class NetworkManager {
             return false;
         }
         network.deviceMap().remove(pos);
+        network.charts().removeIf(c -> c.device().filter(pos::equals).isPresent());
         changed(server, network);
         return true;
     }
 
     /**
-     * Moves an orphaned or missing device's names, face names, identifies and every flow reference onto another
+     * Moves an orphaned or missing device's names, face names, identifies, charts and every flow reference onto another
      * device (a machine moved or replaced), then forgets the old record. Returns false when either isn't suitable.
      */
     public static boolean relinkDevice(MinecraftServer server, Network network, GlobalPos from, GlobalPos to) {
@@ -239,6 +241,10 @@ public final class NetworkManager {
         network.identified().replaceAll(identify -> identify.device().filter(from::equals).isPresent()
                 ? new Identify(identify.kind(), identify.connector(), java.util.Optional.of(to), identify.face(), identify.color(), identify.since())
                 : identify);
+        // Its charts too (one the new device has already is kept once); their history starts again.
+        java.util.Set<String> charted = new java.util.HashSet<>();
+        network.charts().replaceAll(c -> c.device().filter(from::equals).isPresent() ? new ChartSeries(c.kind(), c.id(), java.util.Optional.of(to), c.resource()) : c);
+        network.charts().removeIf(c -> !charted.add(c.key()));
         network.deviceMap().remove(from);
         changed(server, network);
         return true;
@@ -265,7 +271,7 @@ public final class NetworkManager {
 
     /**
      * Merges {@code from} into {@code into}: sheets, filters, members, connectors, overflow, switches, signal memory,
-     * identifies, and device and face names (where {@code into} has none). {@code from} is removed, and blocks still
+     * identifies, charts, and device and face names (where {@code into} has none). {@code from} is removed, and blocks still
      * carrying its id follow it.
      *
      * <p>{@code from}'s owner and members join {@code into} with their roles capped at {@code cap} (the role of the
@@ -303,6 +309,11 @@ public final class NetworkManager {
         for (io.github.leadassimilator.reticulum.network.Identify identify : from.identified()) {
             if (into.identified().size() < Limits.IDENTIFIES && into.identified().stream().noneMatch(identify::sameTarget)) {
                 into.identified().add(identify);
+            }
+        }
+        for (ChartSeries chart : from.charts()) {
+            if (into.charts().size() < Limits.CHARTS && into.charts().stream().noneMatch(c -> c.key().equals(chart.key()))) {
+                into.charts().add(chart);
             }
         }
         for (ConnectorRecord connector : from.connectors()) {

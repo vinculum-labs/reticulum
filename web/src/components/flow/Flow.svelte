@@ -1105,7 +1105,7 @@
     {nodeTypes}
     minZoom={0.2}
     maxZoom={2}
-    deleteKey={editable && modals.open === 0 ? ["Delete", "Backspace"] : null}
+    deleteKey={editable && modals.open === 0 && app.panel !== "charts" ? ["Delete", "Backspace"] : null}
     nodesDraggable={editable}
     nodesConnectable={editable}
     elementsSelectable={true}

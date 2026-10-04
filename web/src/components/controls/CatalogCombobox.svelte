@@ -23,6 +23,7 @@
     onchange: (id: string) => void;
   } = $props();
 
+  const listId = $props.id();
   let open = $state(false);
   let text = $state("");
   let active = $state(0);
@@ -47,7 +48,10 @@
     open = true;
     text = "";
     active = Math.max(0, matches.findIndex((e) => e.id === value));
-    queueMicrotask(() => input?.focus());
+    queueMicrotask(() => {
+      input?.focus();
+      list?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
+    });
   }
 
   function choose(entry: CatalogEntry) {
@@ -83,9 +87,10 @@
       aria-label={placeholder}
       role="combobox"
       aria-expanded="true"
-      aria-controls="catalog-combobox-list"
+      aria-controls={listId}
     />
-    <div bind:this={list} id="catalog-combobox-list" class="dropdown" role="listbox">
+    <!-- Pressing on it (its scrollbar too) keeps the field focused, so the list stays open. -->
+    <div bind:this={list} id={listId} class="dropdown" role="listbox" tabindex="-1" onpointerdown={(e) => e.preventDefault()}>
       {#each matches as entry, i (entry.id)}
         <button
           type="button"

@@ -19,13 +19,21 @@ export function deviceChart(device: Device, kind: DeviceChart, resource: Resourc
   );
 }
 
-/** Charts something. */
-export function addChart(chart: Partial<ChartSeries>, label = "chart") {
-  // Not undoable from here: its key (what removing it needs) is the server's to work out.
-  edit([{ type: "addChart", chart }], undefined, label);
+/** A chart's key, as the server makes it (ChartSeries.key): what removing it names. */
+export function chartKey(chart: Partial<ChartSeries>): string {
+  if (chart.kind === "level" || chart.kind === "through") {
+    const d = chart.device!;
+    return `${chart.kind}:${chart.resource}@${d.dimension}:${d.pos.join(",")}`;
+  }
+  return `${chart.kind}:${chart.id}`;
 }
 
-/** Stops charting something (undo charts it again). */
+/** Charts something (undo stops charting it). */
+export function addChart(chart: Partial<ChartSeries>, label = "chart") {
+  edit([{ type: "addChart", chart }], [{ type: "removeChart", key: chartKey(chart) }], label);
+}
+
+/** Stops charting something (undo charts it again, its history started afresh). */
 export function removeChart(c: ChartSeries) {
   const chart = { kind: c.kind, id: c.id, device: c.device, resource: c.resource };
   edit([{ type: "removeChart", key: c.key }], [{ type: "addChart", chart }], "stop charting");
