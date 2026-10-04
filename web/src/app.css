@@ -375,3 +375,12 @@ img.icon {
 .svelte-flow__minimap-node.problem {
   fill: var(--bad);
 }
+
+/* Wires on a hidden layer: gone, but shown faint while a new wire is drawn (to see what it would join). */
+.svelte-flow__edge.layer-hidden {
+  display: none;
+}
+.wiring .svelte-flow__edge.layer-hidden {
+  display: inline;
+  opacity: 0.18;
+}

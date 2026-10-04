@@ -10,7 +10,7 @@ import Funnel from "@lucide/svelte/icons/funnel";
 import Gauge from "@lucide/svelte/icons/gauge";
 import Hash from "@lucide/svelte/icons/hash";
 import Hourglass from "@lucide/svelte/icons/hourglass";
-import Layers from "@lucide/svelte/icons/layers";
+import Stamp from "@lucide/svelte/icons/stamp";
 import LogIn from "@lucide/svelte/icons/log-in";
 import LogOut from "@lucide/svelte/icons/log-out";
 import Package from "@lucide/svelte/icons/package";
@@ -33,7 +33,7 @@ export const KIND_ICON: Record<NodeKind, Component<{ size?: number | string; cla
   splitter: Split,
   kit: Package,
   sheet: AppWindow,
-  instance: Layers,
+  instance: Stamp,
   sheet_input: LogIn,
   sheet_output: LogOut,
   level: Gauge,

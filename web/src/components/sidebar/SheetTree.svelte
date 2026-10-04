@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { KIND_ICON } from "../../lib/icons";
+  const BlueprintIcon = KIND_ICON.instance;
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Copy from "@lucide/svelte/icons/copy";
   import CopyPlus from "@lucide/svelte/icons/copy-plus";
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import Import from "@lucide/svelte/icons/import";
-  import Layers from "@lucide/svelte/icons/layers";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Plus from "@lucide/svelte/icons/plus";
   import Power from "@lucide/svelte/icons/power";
@@ -329,7 +330,7 @@
             ondblclick={() => canEdit && (renaming = sheet.id)}
             title="Runs only where it's placed. Double-click to rename."
           >
-            <Layers size={14} class="shrink-0 muted" /><span class="trim-text truncate">{sheet.name}</span>
+            <BlueprintIcon size={14} class="shrink-0 muted" /><span class="trim-text truncate">{sheet.name}</span>
             {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
           </button>
         {/if}

@@ -22,7 +22,7 @@
     onWhenUnwired,
     summary,
   } from "../../lib/kinds";
-  import { app, instanceRun, deviceName, toggleFrame } from "../../lib/state.svelte";
+  import { app, instanceRun, deviceName, toggleFrame, type Layer } from "../../lib/state.svelte";
   import { unreachable } from "../../lib/status";
   import { blockName, liveKey } from "../../lib/blueprints";
   import DeviceIcon from "../DeviceIcon.svelte";
@@ -73,7 +73,8 @@
   const raised = $derived((app.networks.find((n) => n.id === app.current)?.alarms ?? []).filter((a) => a.node === data.node.id));
   const disabled = $derived(data.node.enabled === false);
 
-  type Row = { label: string; title: string; color: string; handle: string };
+  /** {@code layer}: the kind of wire it takes, for the canvas's layers (dimmed with its layer). */
+  type Row = { label: string; title: string; color: string; handle: string; layer?: Layer | null };
 
   /** A sheet or blueprint's pin as a row: its handle is its slot, so wires stay on it whatever the order. */
   function holderRow(pin: HolderPin, input: boolean): Row {
@@ -82,13 +83,14 @@
       title: `${pin.name}${pin.resource ? ` (${RESOURCE_LABEL[pin.resource]})` : ""}`,
       color: pin.resource ? RESOURCE_VAR[pin.resource] : "var(--muted)",
       handle: `${input ? "in" : "out"}:${pin.slot}`,
+      layer: pin.resource ?? null,
     };
   }
 
   /** Labeled pin rows: a device's inputs and outputs, or a sheet's (or blueprint's) pins. */
   const leftRows = $derived<Row[]>(
     s.kind === "device"
-      ? (s.inputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/in/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource], handle: `in:${i}` }))
+      ? (s.inputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/in/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource], handle: `in:${i}`, layer: x.resource }))
       : holds
         ? (data.holder?.inputs ?? []).map((pin) => holderRow(pin, true))
         : signal
@@ -100,22 +102,23 @@
                 title: always ? `${name}: nothing wired in, so always on` : name,
                 color,
                 handle: `in:${i}`,
+                layer: "redstone" as Layer,
               };
             })
           : [],
   );
   const rightRows = $derived<Row[]>(
     s.kind === "device"
-      ? (s.outputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/out/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource], handle: `out:${i}` }))
+      ? (s.outputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/out/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource], handle: `out:${i}`, layer: x.resource }))
       : holds
         ? (data.holder?.outputs ?? []).map((pin) => holderRow(pin, false))
         : s.kind === "sequencer"
           ? [
-              { label: "step", title: "The step playing (1 on; 0 once stopped)", color, handle: "out:0" },
-              ...(s.tracks ?? []).map((t, i) => ({ label: t.name || `track ${i + 1}`, title: `Track ${i + 1}${t.name ? `: ${t.name}` : ""}`, color, handle: `out:${i + 1}` })),
+              { label: "step", title: "The step playing (1 on; 0 once stopped)", color, handle: "out:0", layer: "redstone" as Layer },
+              ...(s.tracks ?? []).map((t, i) => ({ label: t.name || `track ${i + 1}`, title: `Track ${i + 1}${t.name ? `: ${t.name}` : ""}`, color, handle: `out:${i + 1}`, layer: "redstone" as Layer })),
             ]
           : signal
-            ? [{ label: "out", title: "Output", color, handle: "out:0" }]
+            ? [{ label: "out", title: "Output", color, handle: "out:0", layer: "redstone" as Layer }]
             : [],
   );
   const pinned = $derived(kind === "device" || holds || signal);
@@ -164,6 +167,16 @@
   }
 
   // Color says what a pin carries; shape says which way: inputs are hollow rings, outputs filled dots.
+  /**
+   * A pin on a dimmed or hidden layer is faint; one whose wire a layer hides gets a ring in its color, so the wire
+   * isn't forgotten.
+   */
+  function layerPin(layer: Layer | null | undefined, handle: string, c: string): string {
+    const mode = layer ? app.layers[layer] : "show";
+    const faint = mode === "dim" || mode === "hide" ? "; opacity: 0.4" : "";
+    const ring = data.hiddenHandles?.includes(handle) ? `; box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px ${c}; opacity: 0.75` : "";
+    return faint + ring;
+  }
   const inPin = (c: string) => `background: var(--panel); border: 2px solid ${c}`;
   const outPin = (c: string) => `background: ${c}; border: 2px solid ${c}`;
   /** An open frame's handle is the outer half of its pin's dot: just outside the border, the pin inside makes the rest. */
@@ -209,7 +222,7 @@
     ? '0 0 0 1px var(--accent)'
     : data.problem
       ? '0 0 0 1px var(--bad)'
-      : '0 1px 3px rgb(0 0 0 / 0.25)'}; opacity: {disabled ? 0.5 : 1}"
+      : '0 1px 3px rgb(0 0 0 / 0.25)'}; opacity: {disabled ? 0.5 : data.faded ? 0.4 : 1}"
 >
   <div data-card-header class="group flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
     {#if sensor && !data.device && data.reads?.block}
@@ -341,11 +354,11 @@ ${idleTitle}` : idleTitle}
   <!-- An open frame's handles sit on its edges, level with its pins inside; a card's beside their rows. -->
   {#each leftRows as row, i (row.handle)}
     <Handle type="target" position={Position.Left} id={row.handle} title={row.title}
-      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}{data.frame ? outerHalf(true) : ''}" />
+      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}{data.frame ? outerHalf(true) : ''}{layerPin(row.layer, row.handle, row.color)}" />
   {/each}
   {#each rightRows as row, i (row.handle)}
     <Handle type="source" position={Position.Right} id={row.handle} title={row.title}
-      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}{data.frame ? outerHalf(false) : ''}" />
+      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}{data.frame ? outerHalf(false) : ''}{layerPin(row.layer, row.handle, row.color)}" />
   {/each}
 {:else}
   {#if flowIn}

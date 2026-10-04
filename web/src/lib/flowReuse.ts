@@ -33,6 +33,7 @@ export function sameEdge(a: Edge, b: Edge): boolean {
     a.animated === b.animated &&
     a.label === b.label &&
     a.style === b.style &&
+    a.class === b.class &&
     sameData(a.data, b.data)
   );
 }

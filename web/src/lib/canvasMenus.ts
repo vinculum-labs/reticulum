@@ -4,6 +4,7 @@
  * putting a node in a wire.
  */
 import ExternalLink from "@lucide/svelte/icons/external-link";
+import Layers from "@lucide/svelte/icons/layers";
 import Maximize from "@lucide/svelte/icons/maximize";
 import Pencil from "@lucide/svelte/icons/pencil";
 import Plus from "@lucide/svelte/icons/plus";
@@ -14,9 +15,9 @@ import Unplug from "@lucide/svelte/icons/unplug";
 import type { Edge, Node } from "@xyflow/svelte";
 import { isPin, type NodeData } from "./graph";
 import { KIND_ICON, SparklesIcon, ZapIcon } from "./icons";
-import { KIND_LABEL, PIN_CARRIES, SIGNAL_KINDS, defaultSettings } from "./kinds";
+import { KIND_LABEL, PIN_CARRIES, RESOURCE_LABEL, SIGNAL_KINDS, defaultSettings } from "./kinds";
 import { identifyItem, openMenu, type MenuItem } from "./menu.svelte";
-import { app, deviceAt, edit, openInstanceFrom, openDevice, openSheet, pinChanged, setSheetEnabled, updateNodeEdit, uuid } from "./state.svelte";
+import { app, deviceAt, edit, focusLayer, LAYERS, openInstanceFrom, openDevice, openSheet, pinChanged, setSheetEnabled, updateNodeEdit, uuid, type Layer } from "./state.svelte";
 import { posKey, type Device, type GraphNode, type NodeKind, type Resource, type Sheet, type Wire } from "./types";
 
 /** What the menus need of the canvas showing them. */
@@ -51,8 +52,10 @@ function cardAt(place: { x: number; y: number }) {
 /** On empty canvas: add a node at that spot (in the sheet open there), lay out, fit. */
 export function paneMenu(canvas: Canvas, event: MouseEvent) {
   const fit: MenuItem = { label: "Fit to view", icon: Maximize, run: () => canvas.fit() };
+  // Wires hidden or dimmed by a layer: all back in one click.
+  const allWires: MenuItem | false = LAYERS.some((l) => app.layers[l] !== "show") && { label: "Show all wires", icon: Layers, run: () => focusLayer(null) };
   const place = canvas.sheetAt(event.clientX, event.clientY);
-  if (!place || canvas.inInstance) return openMenu(event, [fit]);
+  if (!place || canvas.inInstance) return openMenu(event, [fit, allWires]);
   const at = cardAt(place);
   const add = (kind: NodeKind, blueprintId?: string): MenuItem => ({
     label: KIND_LABEL[kind],
@@ -83,6 +86,7 @@ export function paneMenu(canvas: Canvas, event: MouseEvent) {
     "-",
     canvas.editable && { label: "Tidy up", icon: SparklesIcon, disabled: canvas.tidying || !canvas.sheet?.nodes?.length, run: () => canvas.tidy() },
     fit,
+    allWires,
   ]);
 }
 
@@ -140,7 +144,11 @@ export function edgeMenu(canvas: Canvas, edge: Edge, event: MouseEvent) {
   const place = canvas.sheetAt(event.clientX, event.clientY);
   const at = place && place.sheet.id === on.id ? cardAt(place) : { x: 0, y: 0 };
   const insert = (kind: NodeKind): MenuItem => ({ label: KIND_LABEL[kind], icon: KIND_ICON[kind], run: () => insertOnWire(canvas, on, wire, kind, at) });
+  const layer = (edge.data as { layer?: Layer | null } | undefined)?.layer;
   openMenu(event, [
+    layer && { label: `Show only ${RESOURCE_LABEL[layer].toLowerCase()} wires`, icon: Layers, run: () => focusLayer(layer) },
+    LAYERS.some((l) => app.layers[l] !== "show") && { label: "Show all wires", icon: Layers, run: () => focusLayer(null) },
+    "-",
     canvas.editable && !(edge.data as { signal?: boolean } | undefined)?.signal && {
       label: "Insert",
       icon: Plus,

@@ -4,8 +4,14 @@ import type { Edge, Node } from "@xyflow/svelte";
 import type { Binding, Device, GlobalPos, GraphNode, MeUsage, Resource, Sheet, Wire } from "./types";
 export type { MeUsage };
 import { GATE, pinName, pinSlot, posKey, sheetPins } from "./types";
+import type { Layer, LayerMode } from "./state.svelte";
 import { RESOURCE_VAR, formatRate, isSignal } from "./kinds";
 import { slotName } from "./blueprints";
+
+/** How the layers are set. */
+export interface LayerView {
+  modes: Partial<Record<Layer, LayerMode>>;
+}
 
 export interface NodeData extends Record<string, unknown> {
   node: GraphNode;
@@ -26,6 +32,10 @@ export interface NodeData extends Record<string, unknown> {
   wiredInputs?: number[];
   /** What is wrong with it, one error per line, as the server compiled the sheet. */
   problem?: string;
+  /** Its pins with a wire hidden by a layer (marked, so the wire isn't forgotten). */
+  hiddenHandles?: string[];
+  /** A filter, rate limit, splitter or kit on a dimmed or hidden layer: drawn faint. */
+  faded?: boolean;
   /**
    * A sheet node opened in place: drawn as a frame this big, its sheet's nodes inside it; its pins' handles sit on
    * its edges, level with the pins inside ({@code top}: from the frame's top edge).
@@ -341,6 +351,7 @@ export function toFlow(
   open: Set<string> = new Set(),
   sizes: Map<string, { width: number; height: number }> = new Map(),
   bindings?: Record<string, Binding>,
+  layers: LayerView = { modes: {} },
 ): FlowView {
   const view: FlowView = { nodes: [], edges: [], owner: new Map(), frames: new Map() };
   const byKey = new Map(devices.map((d) => [posKey(d.pos), d]));
@@ -360,7 +371,7 @@ export function toFlow(
 
   /** Adds a sheet's nodes and wires, inside frame {@code parent} when given, shifted by {@code shift}. */
   function build(at: Sheet, parent: string | undefined, shift: { dx: number; dy: number }, depth: number, seen: Set<string>, layout: SheetLayout | null) {
-    const { nodes, edges } = sheetFlow(at, sheets, byKey, activity, selected, unit, wireStyle);
+    const { nodes, edges } = sheetFlow(at, sheets, byKey, activity, selected, unit, wireStyle, layers);
     if (at.blueprint) markSlots(nodes, at === sheet ? bindings : undefined, byKey);
     if (layout) placePins(nodes, layout, !!parent);
     // Frames first, inside out: a frame's size is its contents'.
@@ -509,6 +520,7 @@ function sheetFlow(
   selected: Set<string>,
   unit: "t" | "s",
   wireStyle: string,
+  layers: LayerView,
 ): { nodes: Node<NodeData>[]; edges: Edge[] } {
   const rates = activity.rates;
   const kinds = resources(sheet, sheets);
@@ -557,6 +569,7 @@ function sheetFlow(
     if (n.settings.kind !== "splitter") continue;
     splitterBranches(sheet, n.id).forEach((w, i) => branchNumber.set(w.id, i + 1));
   }
+  const hiddenHandles = new Map<string, string[]>();
   const edges: Edge[] = (sheet.wires ?? []).map((w) => {
     const rate = rates[w.id] ?? 0;
     const resource = kinds.wires.get(w.id) ?? null;
@@ -566,7 +579,20 @@ function sheetFlow(
     const signal = isSignal(fromNode?.settings.kind) || pin === "redstone";
     const on = signal && (activity.signals[isSignal(fromNode?.settings.kind) ? w.from : `${w.from}/out/${w.output ?? 0}`] ?? 0) > 0;
     const color = signal ? "var(--c-signal)" : pin === "me" ? "var(--c-me)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
+    // Its layer: hidden, it still shows faint while a node it joins is selected, and (by its class) while a new wire
+    // is drawn.
+    const layer: Layer | null = signal ? "redstone" : pin === "me" ? "me" : resource;
+    let mode = (layer && layers.modes[layer]) || "show";
+    if (mode === "hide" && (selected.has(w.from) || selected.has(w.to) || selected.has(w.id))) mode = "dim";
+    if (mode === "hide") {
+      const from = sourceHandle(byId.get(w.from), w.output ?? 0);
+      const to = targetHandle(byId.get(w.to), w.input ?? 0);
+      hiddenHandles.set(w.from, [...(hiddenHandles.get(w.from) ?? []), from]);
+      hiddenHandles.set(w.to, [...(hiddenHandles.get(w.to) ?? []), to]);
+    }
+    const faint = mode === "dim" ? "; opacity: 0.18" : "";
     return {
+      class: mode === "hide" ? "layer-hidden" : undefined,
       id: w.id,
       source: w.from,
       target: w.to,
@@ -575,12 +601,22 @@ function sheetFlow(
       type: wireStyle,
       selected: selected.has(w.id),
       animated: rate > 0,
-      data: { signal },
+      data: { signal, layer },
       label: [branchNumber.get(w.id), rate > 0 ? formatRate(rate, resource, unit) : undefined].filter((x) => x !== undefined).join(" · ") || undefined,
-      style: signal
+      style: (signal
         ? `stroke: ${color}; stroke-width: ${on ? 2.5 : 1.5}px; stroke-dasharray: ${on ? "none" : "4 3"}; opacity: ${on ? 1 : 0.7}`
-        : `stroke: ${fromNode?.settings.kind === "filter" && w.output === 1 ? "var(--bad)" : color}; stroke-width: ${rate > 0 ? 2.5 : 1.5}px`,
+        : `stroke: ${fromNode?.settings.kind === "filter" && w.output === 1 ? "var(--bad)" : color}; stroke-width: ${rate > 0 ? 2.5 : 1.5}px`) + faint,
     };
   });
+  for (const n of nodes) {
+    n.data.hiddenHandles = hiddenHandles.get(n.id);
+    // A flow node carries one resource: on a dimmed or hidden layer, it fades with its wires.
+    const kind = n.data.node.settings.kind;
+    const carried = kinds.nodes.get(n.id);
+    if ((kind === "filter" || kind === "rate_limit" || kind === "splitter" || kind === "kit") && carried) {
+      const m = layers.modes[carried as Layer];
+      n.data.faded = m === "dim" || m === "hide";
+    }
+  }
   return { nodes, edges };
 }

@@ -35,6 +35,38 @@ function storedRateUnit(): RateUnit {
   }
 }
 
+/** The canvas's layers: one per kind of wire (signal wires are "redstone"). */
+export type Layer = "item" | "fluid" | "energy" | "chemical" | "redstone" | "me";
+export const LAYERS: Layer[] = ["item", "fluid", "energy", "chemical", "redstone", "me"];
+/** Shown; drawn faint (still clickable); or hidden (its pins dimmed, marked where a wire is hidden). */
+export type LayerMode = "show" | "dim" | "hide";
+
+function storedLayers(): Record<Layer, LayerMode> {
+  const all = Object.fromEntries(LAYERS.map((l) => [l, "show"])) as Record<Layer, LayerMode>;
+  try {
+    const stored = JSON.parse(localStorage.getItem("reticulum.layers") ?? "{}");
+    for (const l of LAYERS) if (stored[l] === "dim" || stored[l] === "hide") all[l] = stored[l];
+  } catch {
+    // Nothing remembered (or storage refused): all shown.
+  }
+  return all;
+}
+
+/** Remembered per browser: a view of the sheet, not part of the network. */
+export function setLayers(layers: Partial<Record<Layer, LayerMode>>): void {
+  app.layers = { ...app.layers, ...layers };
+  try {
+    localStorage.setItem("reticulum.layers", JSON.stringify(app.layers));
+  } catch {
+    // Not remembered.
+  }
+}
+
+/** Only one layer shown, the rest hidden (or all shown again with {@code null}). */
+export function focusLayer(layer: Layer | null): void {
+  setLayers(Object.fromEntries(LAYERS.map((l) => [l, layer === null || l === layer ? "show" : "hide"])) as Record<Layer, LayerMode>);
+}
+
 /** How wires are drawn between pins: Svelte Flow's built-in edge types. */
 export type WireStyle = "default" | "smoothstep" | "step" | "straight";
 
@@ -127,6 +159,7 @@ export const app = $state({
   /** Rates are shown per tick by default, or per second. */
   rateUnit: storedRateUnit(),
   wireStyle: storedWireStyle(),
+  layers: storedLayers(),
   /** Sheet nodes shown open in place, as frames with their sheet inside (by node id). */
   frames: storedFrames(),
   socketOpen: false,

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LayersButton from "./LayersButton.svelte";
   import { KIND_ICON, SparklesIcon, SplineIcon, ZapIcon } from "../../lib/icons";
   import { KIND_HINT, KIND_LABEL, SIGNAL_KINDS } from "../../lib/kinds";
   import { app, setWireStyle, WIRE_STYLE_LABEL, type WireStyle } from "../../lib/state.svelte";
@@ -81,6 +82,7 @@
     {#each holders as kind (kind)}{@render addButton(kind)}{/each}
     <span class="toolbar-divider" aria-hidden="true"></span>
   {/if}
+  <LayersButton />
   <!-- Wire style: a canvas setting, remembered in this browser. -->
   <MenuButton
     label={WIRE_STYLE_LABEL[app.wireStyle]}

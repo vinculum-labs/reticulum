@@ -173,7 +173,9 @@
       if (n.type === "graph" && n.measured?.width && !n.data.frame) sizes.set(n.id, { width: n.measured.width, height: n.measured.height ?? 0 });
     }
     const bindings = instance ? (instance.node.settings.bindings ?? {}) : undefined;
-    const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes, bindings);
+    const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes, bindings, {
+      modes: app.layers,
+    });
     const before = view.owner;
     view = built;
     builtFor = untrack(() => viewKey);
