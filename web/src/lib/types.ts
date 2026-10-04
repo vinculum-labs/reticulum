@@ -213,6 +213,26 @@ export interface SequencerSettings {
   tracks?: SequencerTrack[];
 }
 
+/**
+ * Flipped from the dashboard by players who can edit: {@code value} while on, 0 while off; with {@code level}, set to any
+ * value from 0 to {@code value}. Kept per blueprint instance.
+ */
+export interface SwitchSettings {
+  kind: "switch";
+  value?: number;
+  level?: boolean;
+}
+
+export type DisplayStyle = "number" | "gauge" | "light";
+
+/** Shows what is wired into it on the dashboard — a number (with its unit), a gauge up to {@code max}, or a light — and passes it on. */
+export interface DisplaySettings {
+  kind: "display";
+  style?: DisplayStyle;
+  unit?: string;
+  max?: number;
+}
+
 export type AlarmSeverity = "warning" | "critical";
 
 /** Goes off while its input passes the test (no op: above 0) for {@code delay} seconds; gives 15 (critical) or 7 (warning) while going off. */
@@ -236,7 +256,9 @@ export type SignalNodeSettings =
   | CounterSettings
   | DelaySettings
   | AlarmSettings
-  | SequencerSettings;
+  | SequencerSettings
+  | SwitchSettings
+  | DisplaySettings;
 
 
 export type NodeSettings =

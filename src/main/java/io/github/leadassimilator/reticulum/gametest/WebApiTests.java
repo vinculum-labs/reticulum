@@ -127,6 +127,64 @@ public final class WebApiTests {
     }
 
     /** A batch of edits is all or nothing: one refused undoes the ones before it (a new sheet, a template, a node). */
+    /**
+     * A dashboard switch is set per placed copy of its blueprint (under the id it runs as there), only to 0 or its value,
+     * and only by players who can edit.
+     */
+    @GameTest(template = "empty")
+    public static void switchesAreSetPerInstanceByEditors(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer viewer = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-viewer"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.setOwner(player.getUUID(), "web-test");
+        network.members().put(viewer.getUUID(), new io.github.leadassimilator.reticulum.security.Member(viewer.getUUID(), "web-viewer",
+                io.github.leadassimilator.reticulum.security.Role.VIEWER));
+        String id = network.id().toString();
+        String blueprint = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"bp\",\"blueprint\":true}]}")
+                .getAsJsonArray("results").get(0).getAsString();
+        String toggle = UUID.randomUUID().toString();
+        String a = UUID.randomUUID().toString();
+        String b = UUID.randomUUID().toString();
+        String root = network.root().id().toString();
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":["
+                + "{\"type\":\"addNode\",\"sheet\":\"" + blueprint + "\",\"node\":{\"id\":\"" + toggle + "\",\"settings\":{\"kind\":\"switch\",\"value\":9}}},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + root + "\",\"node\":{\"id\":\"" + a + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + blueprint + "\"}}},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + root + "\",\"node\":{\"id\":\"" + b + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + blueprint + "\"}}}"
+                + "]}");
+        String runA = UUID.nameUUIDFromBytes((a + "/" + toggle).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+        String runB = UUID.nameUUIDFromBytes((b + "/" + toggle).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+        java.util.function.BiFunction<String, Long, String> set = (run, value) -> "{\"op\":\"setSwitch\",\"network\":\"" + id + "\",\"sheet\":\""
+                + blueprint + "\",\"node\":\"" + toggle + "\",\"run\":\"" + run + "\",\"value\":" + value + "}";
+        call(helper, player, set.apply(runA, 9L));
+        if (network.signalMemory().getOrDefault(runA, 0L) != 9 || network.signalMemory().containsKey(runB)) {
+            helper.fail("Setting one copy's switch set " + network.signalMemory());
+        }
+        for (String[] refused : new String[][] {{set.apply(runB, 5L), "a value other than 0 or its own"},
+                {set.apply(UUID.randomUUID().toString(), 9L), "a copy that isn't placed"}}) {
+            try {
+                WebApi.handle(player, JsonParser.parseString(refused[0]).getAsJsonObject(), "t");
+                helper.fail("Set a switch to " + refused[1]);
+            } catch (WebApi.RequestException expected) {
+                // expected
+            }
+        }
+        try {
+            WebApi.handle(viewer, JsonParser.parseString(set.apply(runA, 0L)).getAsJsonObject(), "t");
+            helper.fail("A viewer flipped a switch");
+        } catch (WebApi.RequestException expected) {
+            // expected
+        }
+        call(helper, player, set.apply(runA, 0L));
+        if (network.signalMemory().containsKey(runA)) {
+            helper.fail("Turning the switch off left " + network.signalMemory());
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void aRefusedEditUndoesItsBatch(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);

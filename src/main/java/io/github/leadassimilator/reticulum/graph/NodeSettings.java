@@ -50,6 +50,8 @@ public sealed interface NodeSettings {
         DELAY(DelaySettings.CODEC, true),
         ALARM(AlarmSettings.CODEC, true),
         SEQUENCER(SequencerSettings.CODEC, true),
+        SWITCH(SwitchSettings.CODEC, true),
+        DISPLAY(DisplaySettings.CODEC, true),
         /** Engine-internal: a device's ME pin, resolved to the connector side it touches. Never saved or sent. */
         ME_PORT(null, false);
 
@@ -681,6 +683,66 @@ public sealed interface NodeSettings {
         @Override
         public Kind kind() {
             return Kind.COUNTER;
+        }
+    }
+
+    /**
+     * A switch flipped from the editor's dashboard (by players who can edit the network): gives {@code value} while on,
+     * 0 while off. With {@code level}, it is set to any value from 0 to {@code value} instead. Where it stands is kept
+     * across restarts, per blueprint instance.
+     */
+    record SwitchSettings(long value, boolean level) implements NodeSettings {
+        public static final MapCodec<SwitchSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.LONG.optionalFieldOf("value", 15L).forGetter(SwitchSettings::value),
+                Codec.BOOL.optionalFieldOf("level", false).forGetter(SwitchSettings::level)
+        ).apply(i, SwitchSettings::new));
+
+        public SwitchSettings {
+            value = Math.max(1, value);
+        }
+
+        /** What it may be set to: 0 or its value, or with {@code level} anything between. */
+        public boolean allows(long to) {
+            return level ? to >= 0 && to <= value : to == 0 || to == value;
+        }
+
+        @Override
+        public Kind kind() {
+            return Kind.SWITCH;
+        }
+    }
+
+    /** How a Display shows its value on the dashboard. */
+    enum DisplayStyle implements LowercaseName {
+        /** The number, with its unit. */
+        NUMBER,
+        /** A bar filling up to {@code max}. */
+        GAUGE,
+        /** A light: lit while above 0. */
+        LIGHT;
+
+        public static final Codec<DisplayStyle> CODEC = StringRepresentable.fromEnum(DisplayStyle::values);
+    }
+
+    /**
+     * Shows what is wired into it on the editor's dashboard (the highest of its wires), and passes it on. {@code unit}
+     * follows the number ("items", "%"); {@code max} is a gauge's full mark.
+     */
+    record DisplaySettings(DisplayStyle style, String unit, long max) implements NodeSettings {
+        public static final int UNIT_LIMIT = 16;
+        public static final MapCodec<DisplaySettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                DisplayStyle.CODEC.optionalFieldOf("style", DisplayStyle.NUMBER).forGetter(DisplaySettings::style),
+                Codec.string(0, UNIT_LIMIT).optionalFieldOf("unit", "").forGetter(DisplaySettings::unit),
+                Codec.LONG.optionalFieldOf("max", 15L).forGetter(DisplaySettings::max)
+        ).apply(i, DisplaySettings::new));
+
+        public DisplaySettings {
+            max = Math.max(1, max);
+        }
+
+        @Override
+        public Kind kind() {
+            return Kind.DISPLAY;
         }
     }
 

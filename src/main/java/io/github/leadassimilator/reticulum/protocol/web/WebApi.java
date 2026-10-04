@@ -242,6 +242,34 @@ public final class WebApi {
                 out.add("values", array);
                 yield out;
             }
+            case "setSwitch" -> {
+                // Not an edit (nothing in the network changes, no undo): where a dashboard switch stands, as a latch keeps.
+                Network network = viewable(player, request);
+                if (!Security.canEdit(network, player)) {
+                    throw new RequestException("You don't have edit access to " + network.name());
+                }
+                Sheet sheet = network.sheet(uuid(request, "sheet"));
+                Node node = sheet == null ? null : sheet.node(uuid(request, "node"));
+                if (node == null || !(node.settings() instanceof NodeSettings.SwitchSettings toggle)) {
+                    throw new RequestException("That switch is gone");
+                }
+                long value = request.has("value") ? request.get("value").getAsLong() : 0;
+                if (!toggle.allows(value)) {
+                    throw new RequestException("That switch can't be set to " + value);
+                }
+                // Which one: on its sheet, or in one blueprint instance (by the id it runs under there).
+                String run = request.has("run") && !request.get("run").isJsonNull() ? request.get("run").getAsString() : node.id().toString();
+                if (!Edits.running(network, sheet, node).contains(run)) {
+                    throw new RequestException("That switch isn't placed there");
+                }
+                if (value == 0) {
+                    network.signalMemory().remove(run);
+                } else {
+                    network.signalMemory().put(run, value);
+                }
+                NetworkManager.data(server).setDirty();
+                yield ok(id);
+            }
             case "deviceContents" -> {
                 Network network = viewable(player, request);
                 GlobalPos device = decode(server, GlobalPos.CODEC, request.get("device"), "device");
@@ -686,12 +714,16 @@ public final class WebApi {
          * what everything inside it remembered.
          */
         private static void forgetNode(Network network, Sheet sheet, Node node) {
-            List<String> running = sheet.blueprint()
-                    ? instances(network, sheet.id(), 0).stream().map(instance -> inInstance(instance, node.id())).toList()
-                    : List.of(node.id().toString());
-            for (String id : running) {
+            for (String id : running(network, sheet, node)) {
                 forgetRunning(network, id, node, 0);
             }
+        }
+
+        /** The ids a node runs under: its own on a sheet, or one per instance when its sheet is a blueprint. */
+        static List<String> running(Network network, Sheet sheet, Node node) {
+            return sheet.blueprint()
+                    ? instances(network, sheet.id(), 0).stream().map(instance -> inInstance(instance, node.id())).toList()
+                    : List.of(node.id().toString());
         }
 
         private static void forgetRunning(Network network, String id, Node node, int depth) {

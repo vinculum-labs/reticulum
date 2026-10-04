@@ -323,6 +323,28 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /**
+     * A dashboard switch gives its value while on (where it stands kept in signal memory, as the editor sets it) and 0
+     * while off; a Display passes on what is wired into it.
+     */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void switchThroughADisplayLightsALamp(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+        Node toggle = rig.node(new NodeSettings.SwitchSettings(15, false));
+        Node display = rig.node(new NodeSettings.DisplaySettings(NodeSettings.DisplayStyle.LIGHT, "", 15));
+        rig.signal(toggle, display, 0);
+        rig.signal(display, rig.redstoneTo(rig.device(0)), 0);
+        BlockPos lamp = rig.devices().get(0);
+        var memory = rig.network().signalMemory();
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> check(helper, !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "lit with the switch off"))
+                .thenExecute(() -> memory.put(toggle.id().toString(), 15L))
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "the switch on didn't light the lamp"))
+                .thenExecute(() -> memory.remove(toggle.id().toString()))
+                .thenWaitUntil(() -> check(helper, !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "the lamp stayed lit with the switch off"))
+                .thenSucceed();
+    }
+
     /** A connector cut off from its controller (no antenna) stops giving redstone: its lamp goes dark. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void aCutOffConnectorGivesNoRedstone(GameTestHelper helper) {

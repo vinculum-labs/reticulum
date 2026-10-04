@@ -36,6 +36,7 @@
   import Scissors from "@lucide/svelte/icons/scissors";
   import DeviceNodeEditor from "./DeviceNodeEditor.svelte";
   import SequencerGrid from "./SequencerGrid.svelte";
+  import ControlWidget from "./ControlWidget.svelte";
   import Chart from "./Chart.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
   import ThroughputSummary from "./ThroughputSummary.svelte";
@@ -416,6 +417,60 @@
       <button class="btn self-start" onclick={() => settings({ tracks: [...(s.tracks ?? []), { name: "", cells: "" }] })}>Add track</button>
     {/if}
     <Help>Wire each track to a device's redstone input — a note block per note. "run" (always on while unwired) plays it; "reset" goes back to step 1. The highlighted step updates about once a second.</Help>
+  {:else if s.kind === "switch"}
+    <Field label="On gives" hint="What it gives while on (0 while off). A level switch is set to anything from 0 to this.">
+      <NumberField value={s.value ?? 15} min={1} max={1_000_000} width="md" disabled={!canEdit} oncommit={(v) => settings({ value: v ?? 15 })} />
+    </Field>
+    <Field label="Set by">
+      <Segmented
+        label="Set by"
+        size="xs"
+        value={s.level ? "level" : "toggle"}
+        disabled={!canEdit}
+        options={[
+          { value: "toggle", label: "On / off" },
+          { value: "level", label: "Level" },
+        ]}
+        onchange={(v) => settings({ level: v === "level" })}
+      />
+    </Field>
+    {#if activityId}
+      <Field label="Now">
+        <ControlWidget control={{ node, sheet, run: activityId }} label={nodeTitle(node)} canEdit={app.snapshot?.canEdit ?? false} />
+      </Field>
+    {/if}
+    <Help>Flip it here or on the dashboard (anyone who can edit the network can). It keeps where it stands across restarts — in a blueprint, each placed copy on its own.</Help>
+  {:else if s.kind === "display"}
+    <Field label="Shows as">
+      <Segmented
+        label="Shows as"
+        size="xs"
+        value={s.style ?? "number"}
+        disabled={!canEdit}
+        options={[
+          { value: "number", label: "Number" },
+          { value: "gauge", label: "Gauge" },
+          { value: "light", label: "Light" },
+        ]}
+        onchange={(style) => settings({ style })}
+      />
+    </Field>
+    {#if (s.style ?? "number") !== "light"}
+      <Field label="Unit" hint="After the number: items, mB, %…">
+        <TextField value={s.unit ?? ""} placeholder="none" disabled={!canEdit} oncommit={(v) => settings({ unit: v.slice(0, 16) })} />
+      </Field>
+    {/if}
+    {#if s.style === "gauge"}
+      <Field label="Full at" hint="The value that fills the gauge.">
+        <NumberField value={s.max ?? 15} min={1} max={1_000_000_000_000} width="md" disabled={!canEdit} oncommit={(v) => settings({ max: v ?? 15 })} />
+      </Field>
+    {/if}
+    {#if activityId}
+      <Field label="Now">
+        <ControlWidget control={{ node, sheet, run: activityId }} label={nodeTitle(node)} canEdit={false} />
+      </Field>
+    {/if}
+    <Help>Shown on the dashboard with the node's name. It shows the highest value wired into it — a Level sensor's amount, a Counter, a Compare — and passes it on.</Help>
   {:else if s.kind === "alarm"}
     <Field label="Severity">
       <Segmented

@@ -7,6 +7,8 @@
   import type { Alarm, GraphNode, Sheet } from "../../lib/types";
   import Siren from "@lucide/svelte/icons/siren";
   import { severityColor } from "../../lib/status";
+  import { controls } from "../../lib/dashboard";
+  import ControlWidget from "./ControlWidget.svelte";
 
   const snapshot = $derived(app.snapshot!);
   const alarms = $derived(app.networks.find((n) => n.id === snapshot.id)?.alarms ?? []);
@@ -24,6 +26,13 @@
     if (s < 86_400) return `${Math.floor(s / 3600)} h`;
     return `${Math.floor(s / 86_400)} d`;
   }
+
+  /** Switches and displays, grouped by where they are (a sheet, or a blueprint placed in one). */
+  const groups = $derived.by(() => {
+    const by = new Map<string, ReturnType<typeof controls>>();
+    for (const c of controls(snapshot)) by.set(c.place, [...(by.get(c.place) ?? []), c]);
+    return [...by.entries()];
+  });
 
   function openAlarm(alarm: Alarm) {
     if (alarm.sheet) openSheet(alarm.sheet, alarm.node ? [alarm.node] : [], true);
@@ -69,6 +78,20 @@
 
 <InspectorPanel title="Dashboard" onclose={() => (app.panel = null)}>
 <div class="flex flex-col gap-4 text-sm">
+  {#if groups.length}
+    <section class="flex flex-col gap-2">
+      <h3 class="panel-title">Controls</h3>
+      {#each groups as [place, list] (place)}
+        <div class="flex flex-col gap-1.5">
+          <div class="truncate text-xs muted" title={place}>{place}</div>
+          {#each list as c (c.run)}
+            <ControlWidget control={c} label={nodeTitle(c.node)} canEdit={snapshot.canEdit} />
+          {/each}
+        </div>
+      {/each}
+    </section>
+  {/if}
+
   <section class="flex flex-col gap-1">
     <h3 class="panel-title">Alarms ({alarms.length})</h3>
     {#each alarms as alarm (alarm.key)}

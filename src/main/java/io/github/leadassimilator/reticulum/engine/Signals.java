@@ -389,6 +389,8 @@ final class Signals {
                 yield left > 0 ? ON : 0;
             }
             case NodeSettings.LatchSettings latch -> ctx.network().signalMemory().getOrDefault(key, 0L);
+            // Where the dashboard set it (kept like a latch's state); a lower value than it remembers is all it gives.
+            case NodeSettings.SwitchSettings toggle -> Math.min(toggle.value(), ctx.network().signalMemory().getOrDefault(key, 0L));
             case NodeSettings.CounterSettings counter -> ctx.network().signalMemory().getOrDefault(key, 0L);
             case NodeSettings.DelaySettings delay -> {
                 ArrayDeque<Long> queue = delays.get(id);

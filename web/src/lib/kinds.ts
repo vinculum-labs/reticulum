@@ -23,6 +23,8 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   delay: "Delay",
   alarm: "Alarm",
   sequencer: "Sequencer",
+  switch: "Switch",
+  display: "Display",
 };
 
 export const KIND_HINT: Record<NodeKind, string> = {
@@ -45,6 +47,8 @@ export const KIND_HINT: Record<NodeKind, string> = {
   counter: "Counts each time its input turns on — reset sets it back to 0.",
   delay: "Its input, some ticks later.",
   sequencer: "Steps through a grid of tracks — a song on note blocks, a light show, a door's moves — one output per track.",
+  switch: "Turned on and off (or set to a level) from the dashboard, by anyone who can edit the network.",
+  display: "Shows what is wired into it on the dashboard — a number, a gauge or a light — and passes it on.",
   alarm: "Goes off when its input passes a test — listed on the dashboard, and gives 15 (critical) or 7 (warning) while going off.",
 };
 
@@ -54,12 +58,14 @@ export const SIGNAL_KINDS: NodeKind[] = [
   "compare",
   "logic",
   "constant",
+  "switch",
   "timer",
   "pulse",
   "latch",
   "counter",
   "delay",
   "sequencer",
+  "display",
   "alarm",
 ];
 
@@ -91,6 +97,7 @@ export function signalInputs(kind: NodeKind): string[] {
     case "pulse":
     case "delay":
     case "alarm":
+    case "display":
       return ["in"];
     default:
       return [];
@@ -195,6 +202,10 @@ export function defaultSettings(
       return { kind, severity: "warning", message: "" };
     case "sequencer":
       return { kind, steps: 16, step_ticks: 4, loop: true, pulse: true, tracks: [{ name: "", cells: "" }] };
+    case "switch":
+      return { kind, value: 15 };
+    case "display":
+      return { kind, style: "number" };
     case "instance":
     case "sheet":
       return { kind, sheet: blueprint ?? "" };
@@ -356,6 +367,10 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
       const tracks = s.tracks?.length ?? 0;
       return `${tracks} track${tracks === 1 ? "" : "s"} · ${s.steps ?? 16} steps × ${s.step_ticks ?? 4} ticks${s.loop === false ? "" : " · loops"}`;
     }
+    case "switch":
+      return s.level ? `0–${s.value ?? 15}` : `off / ${s.value ?? 15}`;
+    case "display":
+      return s.style === "gauge" ? `gauge to ${s.max ?? 15}${s.unit ? ` ${s.unit}` : ""}` : s.style === "light" ? "light" : `number${s.unit ? ` · ${s.unit}` : ""}`;
     case "alarm": {
       const test = s.op ? `in ${OP_SYMBOL[s.op]} ${s.threshold ?? 0}` : "in on";
       const after = s.delay ? ` for ${s.delay}s` : "";
