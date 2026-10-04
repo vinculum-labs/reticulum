@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { onEscape } from "../../lib/escape";
   import X from "@lucide/svelte/icons/x";
   import { app, deviceName, request } from "../../lib/state.svelte";
   import { loadCatalog, type Catalog, type CatalogKind } from "../../lib/catalog";
@@ -29,8 +28,7 @@
   let generation = 0;
   /** A load still waiting on the game: the next tick skips (a slow server isn't sent more while it catches up). */
   let loading = false;
-  // Esc goes back to the sheet (inside the game, rather than closing the editor).
-  onDestroy(onEscape(() => (app.panel = null)));
+  // Not closed by Esc: like a tab, it stays open while Esc leaves the editor for the game, and is there on coming back.
 
   const MOVED: Resource[] = ["energy", "item", "fluid", "chemical"];
   /** Charted things in one chart: shades of its type's color, taking turns lighter and darker. */

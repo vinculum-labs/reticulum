@@ -2,9 +2,7 @@
   import Help from "./Help.svelte";
   import { app, nodeTitle, openSheet } from "../../lib/state.svelte";
   import { offReason, sheetPath } from "../../lib/tree";
-  import { onDestroy } from "svelte";
   import X from "@lucide/svelte/icons/x";
-  import { onEscape } from "../../lib/escape";
   import { STATUS_LABEL, formatRate } from "../../lib/kinds";
   import type { Alarm, GraphNode, Sheet } from "../../lib/types";
   import Siren from "@lucide/svelte/icons/siren";
@@ -17,8 +15,7 @@
    * off, and how it runs.
    */
   const snapshot = $derived(app.snapshot!);
-  // Esc goes back to the sheet (inside the game, rather than closing the editor).
-  onDestroy(onEscape(() => (app.panel = null)));
+  // Not closed by Esc: like a tab, it stays open while Esc leaves the editor for the game, and is there on coming back.
   const alarms = $derived(app.networks.find((n) => n.id === snapshot.id)?.alarms ?? []);
   /** Ticks over so "for 3 min" keeps up. */
   let now = $state(Date.now());
