@@ -72,6 +72,22 @@ public final class Alarms {
         return out.size() > LIMIT ? List.copyOf(out.subList(0, LIMIT)) : out;
     }
 
+    private record Cached(long tick, List<Alarm> alarms) {
+    }
+
+    private static final java.util.Map<UUID, Cached> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** {@link #of}, worked out at most once per server tick for each network. */
+    public static List<Alarm> cached(MinecraftServer server, Network network) {
+        long tick = server.getTickCount();
+        Cached cached = CACHE.get(network.id());
+        if (cached == null || cached.tick() != tick) {
+            cached = new Cached(tick, of(server, network));
+            CACHE.put(network.id(), cached);
+        }
+        return cached.alarms();
+    }
+
     /** The worst severity going off, or null when nothing is. */
     @Nullable
     public static AlarmSeverity worst(List<Alarm> alarms) {

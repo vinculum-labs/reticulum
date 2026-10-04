@@ -18,6 +18,7 @@ public class ModItemModels extends ItemModelProvider {
         withExistingParent(ModItems.CABLE.getId().getPath(), modLoc("block/cable_inventory"));
         withExistingParent(ModItems.CONNECTOR.getId().getPath(), modLoc("block/connector_inventory"));
         withExistingParent(ModItems.CONTROLLER.getId().getPath(), modLoc("block/controller"));
+        withExistingParent(ModItems.STATUS_BEACON.getId().getPath(), modLoc("block/status_beacon_none"));
         // The tool's head is colored by its mode (the "reticulum:mode" item property: 0 Configure, 0.5 Link, 1 Identify).
         basicItem(modLoc("network_tool_link"));
         basicItem(modLoc("network_tool_identify"));

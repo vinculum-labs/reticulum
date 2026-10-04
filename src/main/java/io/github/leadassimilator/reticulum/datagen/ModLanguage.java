@@ -23,6 +23,20 @@ public class ModLanguage extends LanguageProvider {
         add(ModBlocks.CABLE.get(), "Network Cable");
         add(ModBlocks.CONNECTOR.get(), "Network Connector");
         add(ModBlocks.CONTROLLER.get(), "Network Controller");
+        add(ModBlocks.STATUS_BEACON.get(), "Status Beacon");
+        add("screen.reticulum.beacon_watching", "Watching: %s");
+        add("screen.reticulum.beacon_watching_none", "Watching no network");
+        add("screen.reticulum.beacon_quiet", "Nothing is going off");
+        add("screen.reticulum.beacon_unbound", "Pick a network to watch, or place it against a cable");
+        add("screen.reticulum.beacon_warning", "Warning");
+        add("screen.reticulum.beacon_critical", "Critical");
+        add("screen.reticulum.beacon_beam", "Beam");
+        add("screen.reticulum.beacon_beam_through", "Beam through blocks");
+        add("screen.reticulum.beacon_glow", "Glow");
+        add("screen.reticulum.beacon_glow_through", "Glow through walls");
+        add("screen.reticulum.beacon_sound", "Sound");
+        add("screen.reticulum.beacon_read_only", "Only its network's users can change it");
+        add("message.reticulum.beacon_bound", "Now watching %s");
         add(ModItems.NETWORK_TOOL.get(), "Network Tool");
         add("tooltip.reticulum.remembers_network", "Remembers network %s");
 

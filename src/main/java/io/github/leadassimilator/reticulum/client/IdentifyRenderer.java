@@ -56,7 +56,7 @@ public final class IdentifyRenderer {
                     .setDepthTestState(States.NO_DEPTH)
                     .createCompositeState(false));
     /** Translucent quads that ignore depth, for a highlighted face. */
-    private static final RenderType QUADS_THROUGH_WALLS = RenderType.create("reticulum_identify_quads", DefaultVertexFormat.POSITION_COLOR,
+    static final RenderType QUADS_THROUGH_WALLS = RenderType.create("reticulum_identify_quads", DefaultVertexFormat.POSITION_COLOR,
             VertexFormat.Mode.QUADS, 1536, false, true, RenderType.CompositeState.builder()
                     .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
                     .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)

@@ -31,6 +31,12 @@ public final class ClientPayloadHandler {
         }
     }
 
+    public static void openBeaconScreen(io.github.leadassimilator.reticulum.protocol.Payloads.OpenBeaconScreen payload) {
+        if (mayReplace(Minecraft.getInstance())) {
+            Minecraft.getInstance().setScreen(new io.github.leadassimilator.reticulum.client.screen.StatusBeaconScreen(payload));
+        }
+    }
+
     public static void openNetworkPicker(io.github.leadassimilator.reticulum.protocol.Payloads.OpenNetworkPicker payload) {
         if (mayReplace(Minecraft.getInstance())) {
             Minecraft.getInstance().setScreen(new io.github.leadassimilator.reticulum.client.screen.NetworkPickerScreen(payload.connector(), payload.choices()));

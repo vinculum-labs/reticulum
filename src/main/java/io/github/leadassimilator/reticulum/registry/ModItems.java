@@ -18,6 +18,7 @@ public final class ModItems {
             () -> new ConnectorItem(ModBlocks.CONNECTOR.get(), new Item.Properties()));
     public static final DeferredItem<ControllerItem> CONTROLLER = ITEMS.register("controller",
             () -> new ControllerItem(ModBlocks.CONTROLLER.get(), new Item.Properties()));
+    public static final DeferredItem<BlockItem> STATUS_BEACON = ITEMS.registerSimpleBlockItem(ModBlocks.STATUS_BEACON);
     public static final DeferredItem<NetworkToolItem> NETWORK_TOOL = ITEMS.register("network_tool",
             () -> new NetworkToolItem(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<io.github.leadassimilator.reticulum.item.FacadeItem> FACADE = ITEMS.register("facade",

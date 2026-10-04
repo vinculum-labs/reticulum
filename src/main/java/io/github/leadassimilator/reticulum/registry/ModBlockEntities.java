@@ -22,6 +22,11 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ControllerBlockEntity>> CONTROLLER = BLOCK_ENTITIES.register("controller",
             () -> BlockEntityType.Builder.of(ControllerBlockEntity::new, ModBlocks.CONTROLLER.get()).build(null));
 
+    @SuppressWarnings("DataFlowIssue")
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity>> STATUS_BEACON =
+            BLOCK_ENTITIES.register("status_beacon", () -> BlockEntityType.Builder.of(io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity::new,
+                    ModBlocks.STATUS_BEACON.get()).build(null));
+
     private ModBlockEntities() {
     }
 }

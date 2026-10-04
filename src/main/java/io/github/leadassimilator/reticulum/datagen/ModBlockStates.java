@@ -25,6 +25,12 @@ public class ModBlockStates extends BlockStateProvider {
 
     @Override
     protected void registerStatesAndModels() {
+        // The Status Beacon: its lens gray, yellow or red by what is going off.
+        getVariantBuilder(ModBlocks.STATUS_BEACON.get()).forAllStates(state -> {
+            String shown = state.getValue(io.github.leadassimilator.reticulum.block.StatusBeaconBlock.ALARM).getSerializedName();
+            return net.neoforged.neoforge.client.model.generators.ConfiguredModel.builder()
+                    .modelFile(models().cubeAll("status_beacon_" + shown, modLoc("block/status_beacon_" + shown))).build();
+        });
         // The controller; with an antenna installed, its top shows that tier's antenna (like the item's icon), lying
         // with its base along the front edge. The top texture is drawn facing north, turned for the others.
         ModelFile plain = models().cubeAll("controller", modLoc("block/controller"));

@@ -64,6 +64,43 @@ public final class Screens {
     }
 
     /** Opens a network block's screen for the player. */
+    /** A Status Beacon's screen, for a player in reach. Anyone may look; changing it takes use of its network. */
+    public static void openBeacon(ServerPlayer player, BlockPos pos) {
+        if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, pos)
+                || !(player.serverLevel().getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
+            return;
+        }
+        io.github.leadassimilator.reticulum.network.Network network = beacon.networkId() == null ? null
+                : io.github.leadassimilator.reticulum.network.NetworkManager.network(player.server, beacon.networkId());
+        boolean canView = network != null && io.github.leadassimilator.reticulum.security.Security.canView(network, player);
+        java.util.List<String> alarms = new java.util.ArrayList<>();
+        if (canView) {
+            for (var alarm : io.github.leadassimilator.reticulum.engine.Alarms.cached(player.server, network)) {
+                if (alarms.size() < 8) {
+                    alarms.add((alarm.severity() == io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity.CRITICAL ? "!" : "?") + alarm.message());
+                }
+            }
+        }
+        boolean canEdit = network == null || io.github.leadassimilator.reticulum.security.Security.canUse(network, player);
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new Payloads.OpenBeaconScreen(pos,
+                network == null ? java.util.Optional.empty() : java.util.Optional.of(canView ? network.name() : "?"),
+                beacon.warningStyle(), beacon.criticalStyle(), alarms, canEdit));
+    }
+
+    static void setBeaconStyle(ServerPlayer player, Payloads.BeaconStyle payload) {
+        if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, payload.pos())
+                || !(player.serverLevel().getBlockEntity(payload.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
+            return;
+        }
+        io.github.leadassimilator.reticulum.network.Network network = beacon.networkId() == null ? null
+                : io.github.leadassimilator.reticulum.network.NetworkManager.network(player.server, beacon.networkId());
+        if (network != null && !io.github.leadassimilator.reticulum.security.Security.canUse(network, player)) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.no_access", network.name()), true);
+            return;
+        }
+        beacon.setStyles(payload.warning(), payload.critical());
+    }
+
     public static void open(ServerPlayer player, BlockPos pos) {
         send(player, pos, false);
     }

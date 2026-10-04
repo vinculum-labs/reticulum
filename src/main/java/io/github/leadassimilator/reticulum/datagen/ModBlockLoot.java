@@ -24,6 +24,11 @@ public class ModBlockLoot extends BlockLootSubProvider {
     protected void generate() {
         dropSelf(ModBlocks.CABLE.get());
         dropSelf(ModBlocks.CONNECTOR.get());
+        // A beacon keeps the network it watches.
+        add(ModBlocks.STATUS_BEACON.get(), LootTable.lootTable().withPool(applyExplosionCondition(ModBlocks.STATUS_BEACON.get(),
+                LootPool.lootPool().setRolls(ConstantValue.exactly(1)).add(LootItem.lootTableItem(ModBlocks.STATUS_BEACON.get())
+                        .apply(CopyComponentsFunction.copyComponents(CopyComponentsFunction.Source.BLOCK_ENTITY)
+                                .include(ModDataComponents.NETWORK_ID.get()))))));
         // The controller item keeps its network, its antenna and its charge, so placing it again brings back the whole
         // design. It always drops (by hand, in an explosion): an antenna is too dear to lose to a missing pickaxe.
         add(ModBlocks.CONTROLLER.get(), LootTable.lootTable().withPool(LootPool.lootPool().setRolls(ConstantValue.exactly(1))
@@ -37,6 +42,6 @@ public class ModBlockLoot extends BlockLootSubProvider {
 
     @Override
     protected Iterable<Block> getKnownBlocks() {
-        return List.of(ModBlocks.CABLE.get(), ModBlocks.CONNECTOR.get(), ModBlocks.CONTROLLER.get());
+        return List.of(ModBlocks.CABLE.get(), ModBlocks.CONNECTOR.get(), ModBlocks.CONTROLLER.get(), ModBlocks.STATUS_BEACON.get());
     }
 }

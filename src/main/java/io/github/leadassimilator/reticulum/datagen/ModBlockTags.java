@@ -17,6 +17,7 @@ public class ModBlockTags extends BlockTagsProvider {
 
     @Override
     protected void addTags(HolderLookup.Provider provider) {
-        tag(BlockTags.MINEABLE_WITH_PICKAXE).add(ModBlocks.CABLE.get(), ModBlocks.CONNECTOR.get(), ModBlocks.CONTROLLER.get());
+        tag(BlockTags.MINEABLE_WITH_PICKAXE).add(ModBlocks.CABLE.get(), ModBlocks.CONNECTOR.get(), ModBlocks.CONTROLLER.get(),
+                ModBlocks.STATUS_BEACON.get());
     }
 }

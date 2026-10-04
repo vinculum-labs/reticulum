@@ -46,6 +46,12 @@ public class ModRecipes extends RecipeProvider {
                 .define('C', ModItems.CABLE.get()).define('D', Tags.Items.GEMS_DIAMOND)
                 .unlockedBy("has_cable", has(ModItems.CABLE.get()))
                 .save(output);
+        ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, ModItems.STATUS_BEACON.get())
+                .pattern("GGG").pattern("GLG").pattern("ICI")
+                .define('G', Tags.Items.GLASS_BLOCKS).define('L', Items.REDSTONE_LAMP).define('I', Tags.Items.INGOTS_IRON)
+                .define('C', ModItems.CABLE.get())
+                .unlockedBy("has_cable", has(ModItems.CABLE.get()))
+                .save(output);
         ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ModItems.NETWORK_TOOL.get())
                 .pattern(" IC").pattern(" SI").pattern("S  ")
                 .define('I', Tags.Items.INGOTS_IRON).define('C', ModItems.CABLE.get()).define('S', ItemTags.PLANKS)

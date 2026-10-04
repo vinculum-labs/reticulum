@@ -293,6 +293,40 @@ public final class Payloads {
 
     // ---------------------------------------------------------------- registration
 
+    /** Opens a Status Beacon's screen: the network it watches (if any, by name), its settings, what is going off. */
+    public record OpenBeaconScreen(BlockPos pos, java.util.Optional<String> network, int warning, int critical, java.util.List<String> alarms, boolean canEdit)
+            implements CustomPacketPayload {
+        public static final Type<OpenBeaconScreen> TYPE = payloadType("open_beacon_screen");
+        public static final StreamCodec<RegistryFriendlyByteBuf, OpenBeaconScreen> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, OpenBeaconScreen::pos,
+                ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8), OpenBeaconScreen::network,
+                ByteBufCodecs.VAR_INT, OpenBeaconScreen::warning,
+                ByteBufCodecs.VAR_INT, OpenBeaconScreen::critical,
+                ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(64)), OpenBeaconScreen::alarms,
+                ByteBufCodecs.BOOL, OpenBeaconScreen::canEdit,
+                OpenBeaconScreen::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** A Status Beacon's settings, from its screen: per severity, a mask of what it does. */
+    public record BeaconStyle(BlockPos pos, int warning, int critical) implements CustomPacketPayload {
+        public static final Type<BeaconStyle> TYPE = payloadType("beacon_style");
+        public static final StreamCodec<RegistryFriendlyByteBuf, BeaconStyle> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, BeaconStyle::pos,
+                ByteBufCodecs.VAR_INT, BeaconStyle::warning,
+                ByteBufCodecs.VAR_INT, BeaconStyle::critical,
+                BeaconStyle::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     public static void register(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(VERSION);
         // Lambdas (not method references) keep client classes from loading on a dedicated server.
@@ -306,6 +340,10 @@ public final class Payloads {
                 (payload, context) -> io.github.leadassimilator.reticulum.client.IdentifyRenderer.accept(payload.markers()));
         registrar.playToServer(ToggleIdentify.TYPE, ToggleIdentify.STREAM_CODEC,
                 (payload, context) -> server(context, player -> Screens.toggleIdentify(player, payload)));
+        registrar.playToClient(OpenBeaconScreen.TYPE, OpenBeaconScreen.STREAM_CODEC,
+                (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openBeaconScreen(payload));
+        registrar.playToServer(BeaconStyle.TYPE, BeaconStyle.STREAM_CODEC,
+                (payload, context) -> server(context, player -> Screens.setBeaconStyle(player, payload)));
         registrar.playToClient(OpenNetworkPicker.TYPE, OpenNetworkPicker.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openNetworkPicker(payload));
         registrar.playToServer(RequestNetworkPicker.TYPE, RequestNetworkPicker.STREAM_CODEC,

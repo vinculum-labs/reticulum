@@ -61,7 +61,7 @@ final class Snapshots {
         out.addProperty("running", NetworkTicker.isRunning(server, network));
         // What is going off, for its tab and the dashboard (sent every second the list changes).
         JsonArray alarms = new JsonArray();
-        for (io.github.leadassimilator.reticulum.engine.Alarms.Alarm alarm : io.github.leadassimilator.reticulum.engine.Alarms.of(server, network)) {
+        for (io.github.leadassimilator.reticulum.engine.Alarms.Alarm alarm : io.github.leadassimilator.reticulum.engine.Alarms.cached(server, network)) {
             JsonObject json = new JsonObject();
             json.addProperty("key", alarm.key());
             json.addProperty("severity", alarm.severity().getSerializedName());

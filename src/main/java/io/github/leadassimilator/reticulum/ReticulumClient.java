@@ -34,6 +34,11 @@ public class ReticulumClient {
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.GameShuttingDownEvent event) -> io.github.leadassimilator.reticulum.client.webview.EmbeddedView.shutdown());
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::registerLayer);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::onRenderLevel);
+        modEventBus.addListener(io.github.leadassimilator.reticulum.client.StatusBeaconRenderer::register);
+        NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::onRenderLevel);
+        NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::onClientTick);
+        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) ->
+                io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.CLIENT_LOADED.clear());
         // Leaving a world forgets what was lit there.
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> io.github.leadassimilator.reticulum.client.IdentifyRenderer.accept(java.util.List.of()));
         NeoForge.EVENT_BUS.addListener(ToolHighlight::onRenderHighlight);

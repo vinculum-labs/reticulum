@@ -126,7 +126,8 @@ public abstract class QuickScreen extends Screen {
     public void tick() {
         super.tick();
         BlockPos pos = block();
-        if (pos != null && minecraft.player != null && minecraft.level != null && (!(minecraft.level.getBlockEntity(pos) instanceof NetworkBlockEntity)
+        if (pos != null && minecraft.player != null && minecraft.level != null && (!(minecraft.level.getBlockEntity(pos) instanceof NetworkBlockEntity
+                || minecraft.level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity)
                 || minecraft.player.position().distanceToSqr(Vec3.atCenterOf(pos)) > reach() * reach())) {
             // Broken, or walked away from: the server would refuse anything done here now.
             minecraft.setScreen(null);

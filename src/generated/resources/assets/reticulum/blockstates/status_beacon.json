@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "alarm=critical": {
+      "model": "reticulum:block/status_beacon_critical"
+    },
+    "alarm=none": {
+      "model": "reticulum:block/status_beacon_none"
+    },
+    "alarm=warning": {
+      "model": "reticulum:block/status_beacon_warning"
+    }
+  }
+}

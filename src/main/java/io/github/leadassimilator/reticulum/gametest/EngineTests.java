@@ -370,6 +370,27 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /** A Status Beacon watching a network shows its worst alarm in its block state, and goes back to quiet after. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void statusBeaconShowsTheWorstAlarm(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+        Node level = rig.node(new NodeSettings.ConstantSettings(1));
+        Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL, "Meltdown", java.util.Optional.empty(), 0, 0));
+        rig.signal(level, alarm, 0);
+        BlockPos at = new BlockPos(6, 1, 6);
+        helper.setBlock(at, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
+        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at);
+        beacon.setNetworkId(rig.network().id());
+        var shown = io.github.leadassimilator.reticulum.block.StatusBeaconBlock.ALARM;
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.Shown.CRITICAL,
+                        "the beacon doesn't show the critical alarm"))
+                .thenExecute(() -> rig.sheet().replace(rig.sheet().node(level.id()).with(new NodeSettings.ConstantSettings(0))))
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.Shown.NONE,
+                        "the beacon kept showing an alarm that stopped"))
+                .thenSucceed();
+    }
+
     /** A Constant with its "on" input wired gives its value only while that input is above 0. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void constantFollowsItsOnInput(GameTestHelper helper) {
