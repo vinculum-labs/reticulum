@@ -14,9 +14,9 @@ public final class ModBlocks {
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(Reticulum.MODID);
 
     public static final DeferredBlock<CableBlock> CABLE = BLOCKS.register("cable", () -> new CableBlock(
-            BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(0.5f).sound(SoundType.METAL).noOcclusion()));
+            BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(0.5f).sound(SoundType.METAL).noOcclusion().dynamicShape()));
     public static final DeferredBlock<ConnectorBlock> CONNECTOR = BLOCKS.register("connector", () -> new ConnectorBlock(
-            BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.0f).sound(SoundType.METAL).noOcclusion()));
+            BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.0f).sound(SoundType.METAL).noOcclusion().dynamicShape()));
     public static final DeferredBlock<ControllerBlock> CONTROLLER = BLOCKS.register("controller", () -> new ControllerBlock(
             BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL)));
 

@@ -26,6 +26,10 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.EntityCollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /** A network block with a {@link Link} property per side (cables and connectors). */
 public abstract class LinkedBlock extends NetworkBlock {
@@ -129,6 +133,64 @@ public abstract class LinkedBlock extends NetworkBlock {
     public int getLightEmission(BlockState state, BlockGetter level, BlockPos pos) {
         BlockState facade = facadeAt(level, pos);
         return facade != null ? facade.getLightEmission(level, pos) : super.getLightEmission(state, level, pos);
+    }
+
+    // ---------------------------------------------------------------- shape
+
+    /** The drawn shape per state (core, arms and plugs), built once each. */
+    private final Map<BlockState, VoxelShape> shapes = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * What is drawn, so a look through the empty parts reaches the block behind; a full block under a facade. Holding the
+     * network tool it is a full block too, so a side with no arm drawn (a disconnected joint) can still be aimed at.
+     */
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        if (context instanceof EntityCollisionContext entity && entity.getEntity() instanceof Player player
+                && (player.getMainHandItem().getItem() instanceof io.github.leadassimilator.reticulum.item.NetworkToolItem
+                        || player.getOffhandItem().getItem() instanceof io.github.leadassimilator.reticulum.item.NetworkToolItem)) {
+            return Shapes.block();
+        }
+        return getCollisionShape(state, level, pos, context);
+    }
+
+    /** Walked into as drawn (whatever is held), or as a full block under a facade. */
+    @Override
+    protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return facadeAt(level, pos) != null ? Shapes.block() : shapes.computeIfAbsent(state, this::drawnShape);
+    }
+
+    private VoxelShape drawnShape(BlockState state) {
+        boolean connector = this instanceof ConnectorBlock;
+        VoxelShape shape = connector ? Block.box(4, 4, 4, 12, 12, 12) : Block.box(6, 6, 6, 10, 10, 10);
+        for (Map.Entry<Direction, EnumProperty<Link>> entry : links.entrySet()) {
+            Direction side = entry.getKey();
+            switch (state.getValue(entry.getValue())) {
+                case CABLE -> shape = Shapes.or(shape, part(side, 6, 10, 0, connector ? 4 : 6));
+                case DEVICE -> shape = Shapes.or(shape, part(side, 3, 13, 0, 1), part(side, 5, 11, 1, 4));
+                case NONE -> {
+                }
+            }
+        }
+        return shape.optimize();
+    }
+
+    /**
+     * A box centered on the side's axis ({@code lo} to {@code hi} across it, in pixels), reaching from {@code near} to
+     * {@code far} pixels in from that side, as the models' parts drawn facing north are turned to face it.
+     */
+    private static VoxelShape part(Direction side, double lo, double hi, double near, double far) {
+        double[] min = {lo, lo, lo};
+        double[] max = {hi, hi, hi};
+        int axis = side.getAxis().ordinal();
+        if (side.getAxisDirection() == Direction.AxisDirection.NEGATIVE) {
+            min[axis] = near;
+            max[axis] = far;
+        } else {
+            min[axis] = 16 - far;
+            max[axis] = 16 - near;
+        }
+        return Block.box(min[0], min[1], min[2], max[0], max[1], max[2]);
     }
 
     /** A solid facade hides the neighbor's face against it, as the real block would. */
