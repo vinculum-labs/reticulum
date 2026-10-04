@@ -2,10 +2,11 @@
   import Plus from "@lucide/svelte/icons/plus";
   import { iconUrl, loadCatalog, type Catalog, type CatalogKind } from "../../lib/catalog";
   import CatalogPickDialog from "../inspector/CatalogPickDialog.svelte";
+  import RemoveButton from "./RemoveButton.svelte";
 
   /**
    * One item, fluid or chemical as a slot (its icon, or empty) with its name beside it: clicking the slot opens the
-   * catalog to pick another; with {@code onclear}, a Remove link empties it.
+   * catalog to pick another; with {@code onclear}, an × empties it.
    */
   let {
     kinds,
@@ -59,7 +60,7 @@
     {/if}
   </div>
   {#if picked && onclear && !disabled}
-    <button type="button" class="link text-xs muted" onclick={onclear}>Remove</button>
+    <RemoveButton label="Remove" onclick={onclear} />
   {/if}
 </div>
 {#if open}
@@ -85,10 +86,6 @@
   }
   .slot:disabled {
     opacity: 0.5;
-  }
-  .link:hover {
-    text-decoration: underline;
-    color: var(--ink);
   }
   /* An id cut from its start ("…:polished_andesite_stairs"): what it is matters more than its mod. */
   .tail {
