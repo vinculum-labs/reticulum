@@ -799,11 +799,37 @@
   // "Add to the open sheet" from a device's menu in the sidebar.
   $effect(() => onPlaceDevice((device) => addNode("device", viewCenter(), device)));
 
+  /**
+   * Where a card added mid-view goes: the middle of the view, or the nearest spot near it clear of the open sheet's
+   * cards (and the frames open on it), so a second one added doesn't land on the first.
+   */
   function viewCenter() {
     const rect = container?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
     const p = flow.screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-    return { x: p.x - 60 + (Math.random() - 0.5) * 40, y: p.y - 17 + (Math.random() - 0.5) * 40 };
+    const start = { x: Math.round(p.x - 70), y: Math.round(p.y - 30) };
+    // A new card's size until it is measured; the gap kept around the others.
+    const size = { width: 170, height: 70 };
+    const gap = 16;
+    const taken = nodes
+      .filter((n) => !n.parentId && n.type !== "sheetFrame")
+      .map((n) => ({ x: n.position.x, y: n.position.y, width: n.measured?.width ?? size.width, height: n.measured?.height ?? size.height }));
+    const clear = (at: { x: number; y: number }) =>
+      taken.every((t) => at.x + size.width + gap <= t.x || t.x + t.width + gap <= at.x || at.y + size.height + gap <= t.y || t.y + t.height + gap <= at.y);
+    // Rings around the middle, nearest first: a column's width across, a card's height down.
+    const step = { x: size.width + gap, y: size.height + gap };
+    for (let ring = 0; ring <= 8; ring++) {
+      const spots: { x: number; y: number }[] = [];
+      for (let i = -ring; i <= ring; i++) {
+        for (let j = -ring; j <= ring; j++) {
+          if (Math.max(Math.abs(i), Math.abs(j)) === ring) spots.push({ x: start.x + i * step.x, y: start.y + j * step.y });
+        }
+      }
+      spots.sort((a, b) => Math.hypot(a.x - start.x, a.y - start.y) - Math.hypot(b.x - start.x, b.y - start.y));
+      const free = spots.find(clear);
+      if (free) return free;
+    }
+    return start;
   }
 
   function ondragover(e: DragEvent) {
