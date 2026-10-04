@@ -431,8 +431,9 @@ ${idleTitle}` : idleTitle}
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 11px;
-    height: 11px;
+    /* An even size: centering it moves it whole pixels (an odd one's half pixel was snapped, setting it off the wire). */
+    width: 10px;
+    height: 10px;
     box-sizing: border-box;
     transform: translate(-50%, -50%) rotate(45deg);
     background: var(--panel);
