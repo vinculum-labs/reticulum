@@ -28,7 +28,8 @@
 </script>
 
 <div class="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Color">
-  <button type="button" class="btn px-2 text-xs" role="radio" aria-checked={!value} {disabled} onclick={() => onchange(undefined)}>Default</button>
+  <!-- The usual color: white, struck through. -->
+  <button type="button" class="swatch none" class:on={!value} role="radio" aria-checked={!value} aria-label="Default" title="Default" {disabled} onclick={() => onchange(undefined)}></button>
   {#each DYES as dye (dye.hex)}
     {@const on = value?.toLowerCase() === dye.hex}
     <button type="button" class="swatch" role="radio" aria-checked={on} aria-label={dye.name} title={dye.name} {disabled} style="background: {dye.hex}" onclick={() => onchange(dye.hex)}>
@@ -57,6 +58,14 @@
   .swatch:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+  /* A red line from the bottom left corner to the top right. */
+  .swatch.none {
+    background: linear-gradient(to bottom right, #fff calc(50% - 1px), #e0302a calc(50% - 1px), #e0302a calc(50% + 1px), #fff calc(50% + 1px));
+  }
+  .swatch.none.on {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
   .swatch.custom {
     background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
