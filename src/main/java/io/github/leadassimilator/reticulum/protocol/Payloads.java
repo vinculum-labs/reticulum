@@ -327,6 +327,51 @@ public final class Payloads {
         }
     }
 
+    /** What is going off on the player's networks: by network, bit 0 critical (else a warning), bit 1 not theirs (only viewable). */
+    public record AlarmStates(java.util.Map<java.util.UUID, Integer> states) implements CustomPacketPayload {
+        public static final Type<AlarmStates> TYPE = payloadType("alarm_states");
+        public static final StreamCodec<RegistryFriendlyByteBuf, AlarmStates> STREAM_CODEC = ByteBufCodecs
+                .<RegistryFriendlyByteBuf, java.util.UUID, Integer, java.util.Map<java.util.UUID, Integer>>map(java.util.HashMap::new,
+                        net.minecraft.core.UUIDUtil.STREAM_CODEC.cast(), ByteBufCodecs.VAR_INT.cast(), 4096)
+                .map(AlarmStates::new, AlarmStates::states);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** A block with something wrong, for the network tool's Status mode: 0 a warning, 1 critical. */
+    public record StatusMarker(BlockPos pos, int severity, String label) {
+        public static final StreamCodec<RegistryFriendlyByteBuf, StatusMarker> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, StatusMarker::pos,
+                ByteBufCodecs.VAR_INT, StatusMarker::severity,
+                ByteBufCodecs.stringUtf8(256), StatusMarker::label,
+                StatusMarker::new);
+    }
+
+    public record StatusMarkers(java.util.List<StatusMarker> markers) implements CustomPacketPayload {
+        public static final Type<StatusMarkers> TYPE = payloadType("status_markers");
+        public static final StreamCodec<RegistryFriendlyByteBuf, StatusMarkers> STREAM_CODEC =
+                StatusMarker.STREAM_CODEC.apply(ByteBufCodecs.list(256)).map(StatusMarkers::new, StatusMarkers::markers);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** Asked now and then while the network tool is held in Status mode. */
+    public record RequestStatusMarkers() implements CustomPacketPayload {
+        public static final Type<RequestStatusMarkers> TYPE = payloadType("request_status_markers");
+        public static final StreamCodec<RegistryFriendlyByteBuf, RequestStatusMarkers> STREAM_CODEC = StreamCodec.unit(new RequestStatusMarkers());
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     public static void register(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(VERSION);
         // Lambdas (not method references) keep client classes from loading on a dedicated server.
@@ -340,6 +385,12 @@ public final class Payloads {
                 (payload, context) -> io.github.leadassimilator.reticulum.client.IdentifyRenderer.accept(payload.markers()));
         registrar.playToServer(ToggleIdentify.TYPE, ToggleIdentify.STREAM_CODEC,
                 (payload, context) -> server(context, player -> Screens.toggleIdentify(player, payload)));
+        registrar.playToClient(AlarmStates.TYPE, AlarmStates.STREAM_CODEC,
+                (payload, context) -> io.github.leadassimilator.reticulum.client.AlarmClient.acceptStates(payload.states()));
+        registrar.playToClient(StatusMarkers.TYPE, StatusMarkers.STREAM_CODEC,
+                (payload, context) -> io.github.leadassimilator.reticulum.client.AlarmClient.acceptMarkers(payload.markers()));
+        registrar.playToServer(RequestStatusMarkers.TYPE, RequestStatusMarkers.STREAM_CODEC,
+                (payload, context) -> server(context, AlarmPush::sendMarkers));
         registrar.playToClient(OpenBeaconScreen.TYPE, OpenBeaconScreen.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openBeaconScreen(payload));
         registrar.playToServer(BeaconStyle.TYPE, BeaconStyle.STREAM_CODEC,

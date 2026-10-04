@@ -1,0 +1,197 @@
+package io.github.leadassimilator.reticulum.client;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+
+import io.github.leadassimilator.reticulum.ReticulumClientConfig;
+import io.github.leadassimilator.reticulum.item.NetworkToolItem;
+import io.github.leadassimilator.reticulum.item.ToolMode;
+import io.github.leadassimilator.reticulum.protocol.Payloads;
+import io.github.leadassimilator.reticulum.registry.ModDataComponents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
+
+/**
+ * The network tool and alarms, on the client: its mark while something is going off, its sound from the hotbar, and
+ * in Status mode markers on the blocks with something wrong — each muted per severity in the client config.
+ */
+public final class AlarmClient {
+    /** Per network with something going off: bit 0 critical (else a warning), bit 1 not the player's (only viewable). */
+    private static Map<UUID, Integer> states = Map.of();
+    private static List<Payloads.StatusMarker> markers = List.of();
+
+    private AlarmClient() {
+    }
+
+    public static void acceptStates(Map<UUID, Integer> received) {
+        states = Map.copyOf(received);
+    }
+
+    public static void acceptMarkers(List<Payloads.StatusMarker> received) {
+        markers = List.copyOf(received);
+    }
+
+    public static void clear() {
+        states = Map.of();
+        markers = List.of();
+    }
+
+    /** How many networks have a warning (index 0) or a critical alarm (1) going off, of the player's own. */
+    public static int[] counts() {
+        int[] out = new int[2];
+        states.values().stream().filter(s -> (s & 2) == 0).forEach(s -> out[s & 1]++);
+        return out;
+    }
+
+    /**
+     * The worst going off that a tool cares about: on the network it is linked to, else on any of the player's own.
+     * -1 nothing, 0 a warning, 1 critical.
+     */
+    public static int severity(ItemStack tool) {
+        UUID linked = tool.get(ModDataComponents.NETWORK_ID.get());
+        if (linked != null) {
+            Integer state = states.get(linked);
+            return state == null ? -1 : state & 1;
+        }
+        int worst = -1;
+        for (int state : states.values()) {
+            if ((state & 2) == 0) {
+                worst = Math.max(worst, state & 1);
+            }
+        }
+        return worst;
+    }
+
+    /** The item property: 0 nothing, 0.5 a warning, 1 critical (unless the tool's mark is muted for that severity). */
+    public static float toolProperty(ItemStack stack) {
+        int severity = severity(stack);
+        if (severity == 1 && ReticulumClientConfig.TOOL_COLOR_CRITICAL.getAsBoolean()) {
+            return 1f;
+        }
+        if (severity >= 0 && ReticulumClientConfig.TOOL_COLOR_WARNING.getAsBoolean()) {
+            return 0.5f;
+        }
+        return 0f;
+    }
+
+    public static void openSettings() {
+        Minecraft.getInstance().setScreen(new io.github.leadassimilator.reticulum.client.screen.AlarmSettingsScreen());
+    }
+
+    // ---------------------------------------------------------------- each tick
+
+    public static void onClientTick(ClientTickEvent.Post event) {
+        Minecraft mc = Minecraft.getInstance();
+        Player player = mc.player;
+        if (player == null || mc.level == null || mc.isPaused()) {
+            return;
+        }
+        long time = mc.level.getGameTime();
+        // The worst any tool in the hotbar (or the off hand) cares about, for the sound.
+        int worst = -1;
+        for (int slot = 0; slot < 9; slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (stack.getItem() instanceof NetworkToolItem) {
+                worst = Math.max(worst, severity(stack));
+            }
+        }
+        if (player.getOffhandItem().getItem() instanceof NetworkToolItem) {
+            worst = Math.max(worst, severity(player.getOffhandItem()));
+        }
+        if (worst == 1 && ReticulumClientConfig.TOOL_SOUND_CRITICAL.getAsBoolean()) {
+            // A short two-tone siren every ten seconds.
+            long phase = time % 200;
+            if (phase < 40 && phase % 10 == 0) {
+                mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_PLING.value(), (phase / 10) % 2 == 0 ? 1.6f : 1.2f, 0.6f));
+            }
+        } else if (worst >= 0 && ReticulumClientConfig.TOOL_SOUND_WARNING.getAsBoolean() && time % 200 == 0) {
+            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_CHIME.value(), 1.2f, 0.5f));
+        }
+        // Status mode: where things are wrong, asked for every two seconds while held.
+        if (holdingStatusTool(player)) {
+            if (time % 40 == 0) {
+                PacketDistributor.sendToServer(new Payloads.RequestStatusMarkers());
+            }
+        } else if (!markers.isEmpty()) {
+            markers = List.of();
+        }
+    }
+
+    private static boolean holdingStatusTool(Player player) {
+        for (ItemStack stack : List.of(player.getMainHandItem(), player.getOffhandItem())) {
+            if (stack.getItem() instanceof NetworkToolItem && NetworkToolItem.mode(stack) == ToolMode.STATUS) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ---------------------------------------------------------------- markers
+
+    public static void onRenderLevel(RenderLevelStageEvent event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || markers.isEmpty() || mc.level == null) {
+            return;
+        }
+        boolean warnings = ReticulumClientConfig.MARKERS_WARNING.getAsBoolean();
+        boolean criticals = ReticulumClientConfig.MARKERS_CRITICAL.getAsBoolean();
+        Vec3 camera = event.getCamera().getPosition();
+        PoseStack pose = event.getPoseStack();
+        pose.pushPose();
+        pose.translate(-camera.x, -camera.y, -camera.z);
+        MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
+        float pulse = 0.65f + 0.35f * Mth.sin((float) (System.currentTimeMillis() % 100_000) / 200f);
+        Font font = mc.font;
+        for (Payloads.StatusMarker marker : markers) {
+            boolean critical = marker.severity() == 1;
+            if (critical ? !criticals : !warnings) {
+                continue;
+            }
+            int color = critical ? StatusBeaconRenderer.CRITICAL_COLOR : StatusBeaconRenderer.WARNING_COLOR;
+            float r = ((color >> 16) & 0xFF) / 255f;
+            float g = ((color >> 8) & 0xFF) / 255f;
+            float b = (color & 0xFF) / 255f;
+            LevelRenderer.renderLineBox(pose, buffers.getBuffer(IdentifyRenderer.LINES_THROUGH_WALLS), new AABB(marker.pos()).inflate(0.03), r, g, b, pulse);
+        }
+        buffers.endBatch(IdentifyRenderer.LINES_THROUGH_WALLS);
+        // A warning sign and what is wrong above each block, facing the camera and growing with distance.
+        for (Payloads.StatusMarker marker : markers) {
+            boolean critical = marker.severity() == 1;
+            if (critical ? !criticals : !warnings) {
+                continue;
+            }
+            Vec3 at = Vec3.atCenterOf(marker.pos()).add(0, 0.9, 0);
+            double distance = Math.sqrt(camera.distanceToSqr(at));
+            float scale = 0.025f * (float) Math.max(1, distance / 10);
+            pose.pushPose();
+            pose.translate(at.x, at.y, at.z);
+            pose.mulPose(event.getCamera().rotation());
+            pose.scale(scale, -scale, scale);
+            Matrix4f matrix = pose.last().pose();
+            String label = "⚠ " + marker.label();
+            int color = critical ? StatusBeaconRenderer.CRITICAL_COLOR : StatusBeaconRenderer.WARNING_COLOR;
+            font.drawInBatch(label, -font.width(label) / 2f, 0, color, false, matrix, buffers, Font.DisplayMode.SEE_THROUGH, 0x60000000, LightTexture.FULL_BRIGHT);
+            pose.popPose();
+        }
+        buffers.endBatch();
+        pose.popPose();
+    }
+}

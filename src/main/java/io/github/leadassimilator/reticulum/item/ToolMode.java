@@ -16,7 +16,9 @@ public enum ToolMode implements LowercaseName {
     /** Copy a network (sneak + right-click a controller or connector) and bind connectors to it (right-click). */
     LINK,
     /** Light up a connector or device (right-click), or one face of a device (sneak + right-click), to find it again. */
-    IDENTIFY;
+    IDENTIFY,
+    /** Held: marks blocks with something wrong, through walls. Right-click the air: what the tool does about alarms. */
+    STATUS;
 
     public static final Codec<ToolMode> CODEC = StringRepresentable.fromEnum(ToolMode::values);
     public static final StreamCodec<ByteBuf, ToolMode> STREAM_CODEC = ByteBufCodecs.idMapper(i -> values()[i], ToolMode::ordinal);

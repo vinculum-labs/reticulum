@@ -282,6 +282,14 @@ public class ModLanguage extends LanguageProvider {
 
         // Identify
         add("tool.reticulum.mode.identify", "Identify");
+        add("tool.reticulum.mode.status", "Status");
+        add("tooltip.reticulum.tool_status", "Held, marks blocks with something wrong, through walls — right-click the air to choose what the tool does about alarms");
+        add("screen.reticulum.alarm_settings", "Alarms — the network tool");
+        add("screen.reticulum.alarm_tool_color", "Mark on the tool");
+        add("screen.reticulum.alarm_tool_sound", "Sound from the hotbar");
+        add("screen.reticulum.alarm_markers", "Markers in Status mode");
+        add("screen.reticulum.alarm_now", "Going off on your networks: %s");
+        add("screen.reticulum.alarm_none", "Nothing is going off on your networks");
         add("tooltip.reticulum.tool_identify", "Right-click a connector or device to light it up (or off) — sneak + right-click lights one face of a device");
         add("message.reticulum.identified", "Lit up %s");
         add("message.reticulum.unidentified", "Stopped lighting up %s");

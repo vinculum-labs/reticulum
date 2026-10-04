@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "reticulum:item/network_tool_link_critical"
+  }
+}

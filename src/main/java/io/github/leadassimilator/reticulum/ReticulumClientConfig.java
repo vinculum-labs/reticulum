@@ -79,6 +79,35 @@ public final class ReticulumClientConfig {
         BUILDER.pop();
     }
 
+    static {
+        BUILDER.push("alarms");
+    }
+
+    // What the network tool does about alarms going off on your networks, per severity (also set from the tool:
+    // right-click the air in Status mode).
+    public static final ModConfigSpec.BooleanValue TOOL_COLOR_WARNING = BUILDER
+            .comment("The network tool shows a yellow mark while a warning is going off.")
+            .define("toolColorWarning", true);
+    public static final ModConfigSpec.BooleanValue TOOL_COLOR_CRITICAL = BUILDER
+            .comment("The network tool shows a red mark while a critical alarm is going off.")
+            .define("toolColorCritical", true);
+    public static final ModConfigSpec.BooleanValue TOOL_SOUND_WARNING = BUILDER
+            .comment("A chime now and then while a warning is going off and the network tool is in your hotbar.")
+            .define("toolSoundWarning", false);
+    public static final ModConfigSpec.BooleanValue TOOL_SOUND_CRITICAL = BUILDER
+            .comment("A siren while a critical alarm is going off and the network tool is in your hotbar.")
+            .define("toolSoundCritical", true);
+    public static final ModConfigSpec.BooleanValue MARKERS_WARNING = BUILDER
+            .comment("In Status mode, the network tool marks blocks with a warning (offline devices, what warnings read).")
+            .define("markersWarning", true);
+    public static final ModConfigSpec.BooleanValue MARKERS_CRITICAL = BUILDER
+            .comment("In Status mode, the network tool marks what critical alarms read.")
+            .define("markersCritical", true);
+
+    static {
+        BUILDER.pop();
+    }
+
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private ReticulumClientConfig() {

@@ -154,6 +154,12 @@
   "screen.reticulum.access.password": "Password",
   "screen.reticulum.access.private": "Private",
   "screen.reticulum.access.public": "Public",
+  "screen.reticulum.alarm_markers": "Markers in Status mode",
+  "screen.reticulum.alarm_none": "Nothing is going off on your networks",
+  "screen.reticulum.alarm_now": "Going off on your networks: %s",
+  "screen.reticulum.alarm_settings": "Alarms — the network tool",
+  "screen.reticulum.alarm_tool_color": "Mark on the tool",
+  "screen.reticulum.alarm_tool_sound": "Sound from the hotbar",
   "screen.reticulum.attached": "Attached",
   "screen.reticulum.attached_tip": "Attached: the network uses this device. Click to detach it.",
   "screen.reticulum.beacon_beam": "Beam",
@@ -256,6 +262,7 @@
   "tool.reticulum.mode.configure": "Configure",
   "tool.reticulum.mode.identify": "Identify",
   "tool.reticulum.mode.link": "Link",
+  "tool.reticulum.mode.status": "Status",
   "tooltip.reticulum.antenna_1": "Wireless range: %s blocks, same dimension",
   "tooltip.reticulum.antenna_2": "Wireless range: the whole dimension",
   "tooltip.reticulum.antenna_3": "Wireless range: every dimension",
@@ -270,5 +277,6 @@
   "tooltip.reticulum.tool_configure": "Right-click a joint to connect or disconnect it, or a device side to attach or detach it. Sneak + right-click takes off a facade, or a controller's antenna",
   "tooltip.reticulum.tool_identify": "Right-click a connector or device to light it up (or off) — sneak + right-click lights one face of a device",
   "tooltip.reticulum.tool_link": "Sneak + right-click a controller or connector to copy its network. Right-click a connector to bind it. Right-click the air to pick a network (or unlink the tool)",
+  "tooltip.reticulum.tool_status": "Held, marks blocks with something wrong, through walls — right-click the air to choose what the tool does about alarms",
   "tooltip.reticulum.tool_switch": "Sneak + scroll to switch mode — sneak + right-click the air to open the editor"
 }

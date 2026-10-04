@@ -70,6 +70,7 @@ public class Reticulum {
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerStopped);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onTagsUpdated);
         NeoForge.EVENT_BUS.addListener(WebApi::onServerTick);
+        NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.protocol.AlarmPush::onServerTick);
         NeoForge.EVENT_BUS.addListener(WebApi::onLogout);
         NeoForge.EVENT_BUS.addListener(WebApi::onServerStopped);
 

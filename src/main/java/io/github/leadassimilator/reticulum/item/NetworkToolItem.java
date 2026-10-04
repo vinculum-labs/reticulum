@@ -60,6 +60,9 @@ public class NetworkToolItem extends Item {
     /** The item property its look follows: 0 Configure, 0.5 Link, 1 Identify (the item model picks a head color). */
     public static final net.minecraft.resources.ResourceLocation MODE_PROPERTY =
             net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(io.github.leadassimilator.reticulum.Reticulum.MODID, "mode");
+    /** The item property for an alarm going off: 0 nothing, 0.5 a warning, 1 critical (set on the client). */
+    public static final net.minecraft.resources.ResourceLocation ALARM_PROPERTY =
+            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(io.github.leadassimilator.reticulum.Reticulum.MODID, "alarm");
 
     public static ToolMode mode(ItemStack stack) {
         return stack.getOrDefault(ModDataComponents.TOOL_MODE.get(), ToolMode.CONFIGURE);
@@ -84,6 +87,13 @@ public class NetworkToolItem extends Item {
     /** Identify mode acts before the block does, so clicking a chest or machine lights it up instead of opening it. */
     @Override
     public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
+        // Status mode changes nothing in the world: a right-click anywhere is its settings.
+        if (mode(stack) == ToolMode.STATUS) {
+            if (context.getLevel().isClientSide && context.getPlayer() != null && !context.getPlayer().isShiftKeyDown()) {
+                io.github.leadassimilator.reticulum.client.AlarmClient.openSettings();
+            }
+            return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
+        }
         if (mode(stack) != ToolMode.IDENTIFY) {
             return InteractionResult.PASS;
         }
@@ -248,6 +258,12 @@ public class NetworkToolItem extends Item {
         if (player.isShiftKeyDown()) {
             if (level.isClientSide) {
                 io.github.leadassimilator.reticulum.client.web.WebBridge.openEditor(stack.get(ModDataComponents.NETWORK_ID.get()));
+            }
+            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
+        }
+        if (mode(stack) == ToolMode.STATUS) {
+            if (level.isClientSide) {
+                io.github.leadassimilator.reticulum.client.AlarmClient.openSettings();
             }
             return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
         }

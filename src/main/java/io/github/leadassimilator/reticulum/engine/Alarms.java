@@ -88,6 +88,40 @@ public final class Alarms {
         return cached.alarms();
     }
 
+    /** A device an alarm going off reads (through any signal nodes in between): where the trouble is. */
+    public record Source(net.minecraft.core.GlobalPos device, AlarmSeverity severity, String message) {
+    }
+
+    /** The devices behind every alarm node going off, found by following its wires upstream to Level sensors and redstone reads. */
+    public static List<Source> sources(MinecraftServer server, Network network) {
+        List<Source> out = new ArrayList<>();
+        if (!NetworkTicker.isRunning(server, network)) {
+            return out;
+        }
+        for (Signals.Raised raised : NetworkTicker.runtime(network.id()).raisedAlarms()) {
+            java.util.Map<UUID, CompiledSheet.SignalNode> byId = new java.util.HashMap<>();
+            raised.sheet().signals().forEach(node -> byId.put(node.node().id(), node));
+            String message = raised.alarm().message().isBlank() ? raised.node().node().label().orElse("Alarm") : raised.alarm().message();
+            java.util.ArrayDeque<UUID> todo = new java.util.ArrayDeque<>(raised.node().inputs().stream().flatMap(List::stream).toList());
+            Set<UUID> seen = new HashSet<>();
+            while (!todo.isEmpty() && seen.size() < 256) {
+                UUID id = todo.poll();
+                CompiledSheet.SignalNode node = byId.get(id);
+                if (node == null || !seen.add(id)) {
+                    continue;
+                }
+                switch (node.node().settings()) {
+                    case io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings level ->
+                            out.add(new Source(level.device(), raised.alarm().severity(), message));
+                    case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneInSettings in ->
+                            out.add(new Source(in.device(), raised.alarm().severity(), message));
+                    default -> node.inputs().forEach(todo::addAll);
+                }
+            }
+        }
+        return out;
+    }
+
     /** The worst severity going off, or null when nothing is. */
     @Nullable
     public static AlarmSeverity worst(List<Alarm> alarms) {
