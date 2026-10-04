@@ -1,20 +1,6 @@
 # Backlog
 
-What is left to do, ideas set aside for later, and known gaps chosen to leave for now. Move items out as they are done
-or decided against.
-
-## To check in game
-
-- Switches in a blueprint placed twice: flipping one placed blueprint's switch (dashboard or card) leaves the other's
-  alone.
-
-## Next
-
-- Bug pass over everything since the last one: dashboard (full canvas), Switch and Display nodes (icon, color, Message
-  style, `{value}`, steady sizing), notes on every node, the shared catalog browser and pick dialog, ColorField and
-  ColorButton, the switch control on cards, cached snapshots when switching networks, claiming ownerless networks.
-- README and design doc: alarms, Status Beacon, the network tool's Status mode, Sequencer, charts, wire layers,
-  dashboard, Switch and Display, notes.
+Ideas set aside for later, and known gaps chosen to leave for now. Move items out as they are done or decided against.
 
 ## Ideas (parked)
 
