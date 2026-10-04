@@ -202,7 +202,7 @@
     {#each rows as row (row.kind === "sheet" ? row.sheet.id : row.node.id)}
       {#if row.kind === "instance"}
         {@const holderOff = offReason(snapshot, row.holder, app.sheetsOff)}
-        {@const status = instanceStatus(row.node, row.holder, holderOff, snapshot.running, snapshot.enabled, unpowered)}
+        {@const status = instanceStatus(row.node, row.holder, holderOff, snapshot.running, snapshot.enabled, unpowered, !!snapshot.controller)}
         <!-- Lit while it is open, or an instance inside it is (opened from within it). -->
         {@const open = app.instance?.node === row.node.id || app.instance?.outer?.[0]?.node === row.node.id}
         {@const name = instanceName(row.node)}
@@ -274,7 +274,7 @@
             <span class="w-4 shrink-0"></span>
           {/if}
           <!-- How it is doing, left of its name: the network's state on the top row; a sheet's problems, why it is off, or running. -->
-          <StatusMark status={treeStatus(sheet, off, snapshot.running, snapshot.enabled, unpowered)} />
+          <StatusMark status={treeStatus(sheet, off, snapshot.running, snapshot.enabled, unpowered, !!snapshot.controller)} />
           {#if renaming === sheet.id}
             <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
           {:else}

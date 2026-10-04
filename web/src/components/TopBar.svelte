@@ -91,7 +91,7 @@
       onchange={(on) => edit([{ type: "setNetworkEnabled", enabled: on }], [{ type: "setNetworkEnabled", enabled: snapshot.enabled }], "network on/off")}
     />
     <!-- One fixed-size icon for the network's state, so nothing beside it shifts when the state changes. -->
-    {@const status = networkStatus(snapshot.running, snapshot.enabled, !!power?.enabled && !power.powered)}
+    {@const status = networkStatus(snapshot.running, snapshot.enabled, !!power?.enabled && !power.powered, !!snapshot.controller)}
     <span class="flex h-5 w-5 shrink-0 items-center justify-center" style="color: {status.color}" title={status.title} role="img" aria-label={status.title}>
       <status.icon size={16} />
     </span>

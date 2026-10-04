@@ -4,6 +4,7 @@ import Play from "@lucide/svelte/icons/circle-play";
 import Stop from "@lucide/svelte/icons/circle-stop";
 import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
 import Unplug from "@lucide/svelte/icons/unplug";
+import Ban from "@lucide/svelte/icons/ban";
 import Zap from "@lucide/svelte/icons/zap";
 import ZapOff from "@lucide/svelte/icons/zap-off";
 import type { Component } from "svelte";
@@ -17,12 +18,17 @@ export interface Status {
   title: string;
 }
 
-export function networkStatus(running: boolean, enabled: boolean, unpowered: boolean): Status {
+/**
+ * {@code hasController}: whether the network has a controller at all; without one it can't run, as with one whose
+ * chunk isn't loaded, but the fix differs (place one, or load its chunk).
+ */
+export function networkStatus(running: boolean, enabled: boolean, unpowered: boolean, hasController = true): Status {
   if (running && unpowered) {
     return { icon: ZapOff, color: "var(--bad)", title: "No power: the controller has too little FE for this network, so only energy flows run" };
   }
   if (running) return { icon: Play, color: "var(--good)", title: "Running" };
-  if (enabled) return { icon: Unplug, color: "var(--warn)", title: "No controller loaded: the controller's chunk isn't loaded, so nothing runs" };
+  if (enabled && !hasController) return { icon: Ban, color: "var(--warn)", title: "No controller: this network has none, so nothing runs — place one" };
+  if (enabled) return { icon: Unplug, color: "var(--warn)", title: "Controller not loaded: its chunk isn't loaded, so nothing runs" };
   return { icon: Stop, color: "var(--muted)", title: "Off: switched off with the On checkbox" };
 }
 
@@ -39,7 +45,7 @@ export interface TreeStatus {
  * The network (top row) or a sheet: plain when running, gray when off, amber when the network can't run (no power, or
  * its controller isn't loaded). The gate holding a sheet off and problems are badges, so they show whatever its state.
  */
-export function treeStatus(sheet: Sheet, off: OffReason | null, running: boolean, enabled: boolean, unpowered: boolean): TreeStatus {
+export function treeStatus(sheet: Sheet, off: OffReason | null, running: boolean, enabled: boolean, unpowered: boolean, hasController = true): TreeStatus {
   const badges: TreeStatus["badges"] = [];
   const lines: string[] = [];
   let color = "var(--ink)";
@@ -53,11 +59,13 @@ export function treeStatus(sheet: Sheet, off: OffReason | null, running: boolean
     );
   } else if (!running || unpowered) {
     color = "var(--warn)";
-    badges.push({ icon: unpowered ? ZapOff : Unplug, color: unpowered ? "var(--bad)" : "var(--warn)", corner: "bottom" });
+    badges.push({ icon: unpowered ? ZapOff : hasController ? Unplug : Ban, color: unpowered ? "var(--bad)" : "var(--warn)", corner: "bottom" });
     lines.push(
       unpowered
         ? "No power: the controller has too little FE for this network, so only energy flows run"
-        : "Not running: the controller's chunk isn't loaded",
+        : hasController
+          ? "Not running: the controller's chunk isn't loaded"
+          : "Not running: the network has no controller",
     );
   } else if (off?.kind === "controller") {
     color = "var(--muted)";
@@ -81,12 +89,12 @@ export function treeStatus(sheet: Sheet, off: OffReason | null, running: boolean
  * A blueprint instance in the tree, read like a sheet: off by its node's switch or the sheet holding it, with the problems
  * the server put on its node.
  */
-export function instanceStatus(node: GraphNode, holder: Sheet, holderOff: OffReason | null, running: boolean, enabled: boolean, unpowered: boolean): TreeStatus {
+export function instanceStatus(node: GraphNode, holder: Sheet, holderOff: OffReason | null, running: boolean, enabled: boolean, unpowered: boolean, hasController = true): TreeStatus {
   const off: OffReason | null =
     node.enabled === false ? { kind: "self" }
       : !holderOff ? null
       : holderOff.kind === "network" || holderOff.kind === "parent" || holderOff.kind === "controller" ? holderOff
       : { kind: "parent", sheet: holder };
   const errors = (holder.errors ?? []).filter((e) => e.node === node.id);
-  return { ...treeStatus({ ...holder, root: false, errors }, off, running, enabled, unpowered), icon: KIND_ICON.instance };
+  return { ...treeStatus({ ...holder, root: false, errors }, off, running, enabled, unpowered, hasController), icon: KIND_ICON.instance };
 }
