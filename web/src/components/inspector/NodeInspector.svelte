@@ -476,7 +476,7 @@
     </Field>
     {#if s.style === "message"}
       {@const messages = s.messages ?? []}
-      <Field label="Messages" hint="Each from its value up to the next one's. Below the first, the number shows.">
+      <Field label="Messages" hint="Each from its value up to the next one's; {value} in the text shows the value. Below the first, the number shows.">
         <div class="flex flex-col gap-1">
           {#each messages as m, i (i)}
             <div class="flex items-center gap-1">
@@ -491,7 +491,7 @@
               <TextField
                 class="min-w-0 flex-1"
                 value={m.text ?? ""}
-                placeholder="Text"
+                placeholder="Text — {value} shows the value"
                 disabled={!canEdit}
                 oncommit={(v) => settings({ messages: messages.map((x, j) => (j === i ? { ...x, text: v.slice(0, 64) } : x)) })}
               />

@@ -89,7 +89,8 @@
     <div class="flex items-center gap-2">
       {@render name()}
       {#if shown}
-        <span class="truncate font-semibold" style={shown.color ? `color: ${shown.color}` : ""} title={`${shown.text ?? ""} (${value})`}>{shown.text || "—"}</span>
+        {@const text = (shown.text ?? "").replaceAll("{value}", format(value))}
+        <span class="truncate font-semibold" style={shown.color ? `color: ${shown.color}` : ""} title={`${text} (${value})`}>{text || "—"}</span>
       {:else}
         <span class="text-base font-semibold tabular-nums">{format(value)}</span>
       {/if}
