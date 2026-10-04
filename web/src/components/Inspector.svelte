@@ -10,6 +10,7 @@
   import NetworkSettings from "./inspector/NetworkSettings.svelte";
   import IdentifiedPanel from "./inspector/IdentifiedPanel.svelte";
   import Dashboard from "./inspector/Dashboard.svelte";
+  import ChartsPanel from "./inspector/ChartsPanel.svelte";
   import EmptyState from "./EmptyState.svelte";
 
   const sheet = $derived(currentSheet());
@@ -24,13 +25,17 @@
 </script>
 
 <!-- A fixed width that nothing inside may widen: no sideways scrolling. -->
-<aside class="flex w-80 shrink-0 flex-col overflow-x-hidden overflow-y-auto border-l border-line bg-panel p-3">
+<!-- Charts get room to be read. -->
+<aside class="flex shrink-0 flex-col overflow-x-hidden overflow-y-auto border-l border-line bg-panel p-3" class:w-80={app.panel !== "charts"}
+  class:w-[34rem]={app.panel === "charts"}>
   {#if app.panel === "network" && app.snapshot}
     <NetworkSettings />
   {:else if app.panel === "identified" && app.snapshot}
     <IdentifiedPanel />
   {:else if app.panel === "dashboard" && app.snapshot}
     <Dashboard />
+  {:else if app.panel === "charts" && app.snapshot}
+    <ChartsPanel />
   {:else if device}
     {#key app.selectedDevice}
       <DeviceInspector {device} />

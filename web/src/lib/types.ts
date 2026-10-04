@@ -371,7 +371,24 @@ export interface Member {
   role: "viewer" | "user" | "editor" | "admin";
 }
 
+/**
+ * Something the network charts beyond its totals: an item, fluid or chemical moved (by id), or what a device holds of a
+ * resource. {@code key} names it to the server; {@code series} is its history's id.
+ */
+export interface ChartSeries {
+  kind: "item" | "fluid" | "chemical" | "level";
+  id?: string;
+  device?: GlobalPos;
+  resource?: Resource;
+  key: string;
+  series: string;
+}
+
 export interface Snapshot extends NetworkSummary {
+  /** What is charted beyond the totals (16 at most). */
+  charts?: ChartSeries[];
+  /** The history ids of everything moved of each resource. */
+  chartTotals?: Partial<Record<Resource, string>>;
   revision: number;
   canEdit: boolean;
   canAdmin: boolean;

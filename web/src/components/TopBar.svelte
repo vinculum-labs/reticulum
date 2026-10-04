@@ -2,6 +2,7 @@
   import Segmented from "./controls/Segmented.svelte";
   import Switch from "./controls/Switch.svelte";
   import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
+  import ChartLine from "@lucide/svelte/icons/chart-line";
   import Lightbulb from "@lucide/svelte/icons/lightbulb";
   import Metronome from "@lucide/svelte/icons/metronome";
   import Timer from "@lucide/svelte/icons/timer";
@@ -105,6 +106,12 @@
           style="color: {severityColor(alarms[0].severity)}"
           title={`${alarms.length} alarm${alarms.length === 1 ? "" : "s"} going off`}>{alarms.length}</span
         >{/if}</button
+    >
+    <button
+      class="btn flex items-center gap-1"
+      aria-pressed={app.panel === "charts"}
+      onclick={() => (app.panel = app.panel === "charts" ? null : "charts")}
+      title="What the network moves of each resource over time, and anything charted"><ChartLine size={14} />Charts</button
     >
     <button
       class="btn flex items-center gap-1"

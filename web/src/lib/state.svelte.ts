@@ -169,7 +169,7 @@ export const app = $state({
   /** A node just added to be named: its panel's name field takes the keyboard, its default name selected. */
   nameNode: null as string | null,
   /** A panel shown in place of the inspector ("network" = network settings). */
-  panel: null as "network" | "identified" | "dashboard" | null,
+  panel: null as "network" | "identified" | "dashboard" | "charts" | null,
   /** How long the network's ticks take, in ms (last 200 ticks). */
   tick: null as { average: number; longest: number } | null,
   busy: 0,
