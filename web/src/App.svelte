@@ -6,6 +6,7 @@
   import Sidebar from "./components/Sidebar.svelte";
   import Canvas from "./components/Canvas.svelte";
   import Inspector from "./components/Inspector.svelte";
+  import ChartsPanel from "./components/inspector/ChartsPanel.svelte";
   import Toasts from "./components/Toasts.svelte";
   import Tooltips from "./components/Tooltips.svelte";
   import ContextMenu from "./components/ContextMenu.svelte";
@@ -63,8 +64,10 @@
       <Sidebar />
       <main class="relative min-w-0 flex-1">
         <Canvas />
+        {#if app.panel === "charts"}<ChartsPanel />{/if}
       </main>
-      <Inspector />
+      <!-- Charts take the inspector's room as well. -->
+      {#if app.panel !== "charts"}<Inspector />{/if}
     </div>
     </SvelteFlowProvider>
   {/if}

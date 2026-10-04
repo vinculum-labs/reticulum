@@ -18,6 +18,7 @@
   let { lines, step }: { lines: PlotLine[]; step: number } = $props();
 
   let host: HTMLDivElement | undefined = $state();
+  const HEIGHT = 220;
   let plot: uPlot | null = null;
   /** The lines the plot was built for: another set (or colors) builds it again; new values only update it. */
   let builtFor = "";
@@ -44,7 +45,7 @@
     plot = new uPlot(
       {
         width: host.clientWidth,
-        height: 150,
+        height: HEIGHT,
         cursor: { y: false },
         legend: { show: true, live: true },
         scales: { x: { time: true }, y: { range: (_u, _min, max) => [0, Math.max(1, max * 1.1)] } },
@@ -61,6 +62,16 @@
     if (v >= 10_000) return `${(v / 1000).toFixed(1)}k`;
     return v >= 100 ? v.toFixed(0) : v.toFixed(2);
   }
+
+  // Its card is as wide as the grid makes it: the plot follows.
+  $effect(() => {
+    if (!host) return;
+    const observer = new ResizeObserver(() => {
+      if (plot && host && Math.abs(plot.width - host.clientWidth) > 1) plot.setSize({ width: host.clientWidth, height: HEIGHT });
+    });
+    observer.observe(host);
+    return () => observer.disconnect();
+  });
 
   onDestroy(() => plot?.destroy());
 </script>

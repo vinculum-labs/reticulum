@@ -376,12 +376,15 @@ export interface Member {
  * resource. {@code key} names it to the server; {@code series} is its history's id.
  */
 export interface ChartSeries {
-  kind: "item" | "fluid" | "chemical" | "level";
+  kind: "item" | "fluid" | "chemical" | "level" | "through";
   id?: string;
   device?: GlobalPos;
   resource?: Resource;
   key: string;
   series: string;
+  /** A "through" chart's two series: what goes into its device, and what comes out. */
+  seriesIn?: string;
+  seriesOut?: string;
 }
 
 export interface Snapshot extends NetworkSummary {
