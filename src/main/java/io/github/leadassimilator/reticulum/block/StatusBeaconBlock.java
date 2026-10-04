@@ -32,8 +32,13 @@ public class StatusBeaconBlock extends BaseEntityBlock {
     public static final int WARNING = 16;
     /** Network mode: a critical alarm going off. */
     public static final int CRITICAL = 17;
-    /** What it shows: 0 nothing, 1 to 15 the redstone level (Redstone mode), {@link #WARNING} or {@link #CRITICAL}. */
-    public static final IntegerProperty SHOWN = IntegerProperty.create("shown", 0, 17);
+    /** Redstone mode: signal 0 has a look of its own, and shows it. */
+    public static final int LEVEL_ZERO = 18;
+    /**
+     * What it shows: 0 nothing, 1 to 15 the redstone level (Redstone mode), {@link #LEVEL_ZERO}, {@link #WARNING} or
+     * {@link #CRITICAL}.
+     */
+    public static final IntegerProperty SHOWN = IntegerProperty.create("shown", 0, 18);
 
     public StatusBeaconBlock(Properties properties) {
         super(properties);
@@ -117,6 +122,6 @@ public class StatusBeaconBlock extends BaseEntityBlock {
     @Override
     protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
         int shown = state.getValue(SHOWN);
-        return shown == WARNING ? 7 : shown == CRITICAL ? 15 : shown;
+        return shown == WARNING ? 7 : shown == CRITICAL ? 15 : shown == LEVEL_ZERO ? 0 : shown;
     }
 }

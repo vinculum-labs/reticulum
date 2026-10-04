@@ -417,6 +417,28 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /** A beacon in Redstone mode with a look for signal 0 shows it with no signal (opposite logic, no inverter needed). */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void statusBeaconShowsSignalZero(GameTestHelper helper) {
+        BlockPos at = new BlockPos(2, 1, 2);
+        helper.setBlock(at, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
+        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at);
+        var settings = beacon.settings();
+        settings.putString("mode", "redstone");
+        var levels = settings.getCompound("levels");
+        levels.put("0", new io.github.leadassimilator.reticulum.block.entity.BeaconLook(0x00FF00, io.github.leadassimilator.reticulum.block.entity.BeaconLook.BEAM,
+                net.minecraft.resources.ResourceLocation.withDefaultNamespace("block.note_block.chime"), 1f, 40, 16).save());
+        settings.put("levels", levels);
+        beacon.applySettings(settings);
+        var shown = io.github.leadassimilator.reticulum.block.StatusBeaconBlock.SHOWN;
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.LEVEL_ZERO
+                        && beacon.look() != null && beacon.look().color() == 0x00FF00, "signal 0's look isn't shown with no signal"))
+                .thenExecute(() -> helper.setBlock(at.east(), Blocks.REDSTONE_BLOCK))
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == 15, "a full signal didn't show level 15"))
+                .thenSucceed();
+    }
+
     /** A Constant with its "on" input wired gives its value only while that input is above 0. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void constantFollowsItsOnInput(GameTestHelper helper) {

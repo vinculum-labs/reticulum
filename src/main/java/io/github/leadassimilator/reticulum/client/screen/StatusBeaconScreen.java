@@ -30,7 +30,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  */
 public class StatusBeaconScreen extends QuickScreen {
     private static final int WIDTH = 300;
-    private static final int CELL = 18;
+    private static final int CELL = 16;
     private static final int SWATCH = 12;
     private static final int RESULTS = 4;
     /** Every sound in the game, by id, for the search. */
@@ -38,7 +38,7 @@ public class StatusBeaconScreen extends QuickScreen {
 
     private Payloads.OpenBeaconScreen view;
     private CompoundTag settings;
-    /** The state being edited: 1 to 15 a signal level, or {@link StatusBeaconBlock#WARNING} / {@link StatusBeaconBlock#CRITICAL}. */
+    /** The state being edited: 0 to 15 a signal level, or {@link StatusBeaconBlock#WARNING} / {@link StatusBeaconBlock#CRITICAL}. */
     private int selected;
     private String search = "";
     private int left;
@@ -54,7 +54,7 @@ public class StatusBeaconScreen extends QuickScreen {
         super(Component.translatable("block.reticulum.status_beacon"));
         this.view = view;
         this.settings = view.settings().copy();
-        this.selected = redstone() ? Math.max(1, view.signal()) : StatusBeaconBlock.WARNING;
+        this.selected = redstone() ? view.signal() : StatusBeaconBlock.WARNING;
     }
 
     public BlockPos pos() {
@@ -67,7 +67,7 @@ public class StatusBeaconScreen extends QuickScreen {
         view = next;
         settings = next.settings().copy();
         if (modeChanged) {
-            selected = redstone() ? Math.max(1, next.signal()) : StatusBeaconBlock.WARNING;
+            selected = redstone() ? next.signal() : StatusBeaconBlock.WARNING;
         }
         rebuildKeepingInput();
     }
@@ -98,7 +98,7 @@ public class StatusBeaconScreen extends QuickScreen {
 
     /** The look a level shows: its own or the nearest below (null: nothing). */
     private CompoundTag shownAt(int level) {
-        for (int i = level; i >= 1; i--) {
+        for (int i = level; i >= 0; i--) {
             CompoundTag look = own(i);
             if (look != null) {
                 return look;
@@ -110,7 +110,7 @@ public class StatusBeaconScreen extends QuickScreen {
     private void setOwn(int level, boolean on) {
         CompoundTag levels = settings.getCompound("levels");
         if (on) {
-            CompoundTag below = level > 1 ? shownAt(level - 1) : null;
+            CompoundTag below = level > 0 ? shownAt(level - 1) : null;
             levels.put(Integer.toString(level), below != null ? below.copy() : (level >= 8 ? BeaconLook.CRITICAL : BeaconLook.WARNING).save());
         } else {
             levels.remove(Integer.toString(level));
@@ -161,7 +161,7 @@ public class StatusBeaconScreen extends QuickScreen {
         int y = editorTop;
         if (redstone()) {
             boolean ownLook = own(selected) != null;
-            Checkbox ownBox = Checkbox.builder(selected == 1 ? Component.translatable("screen.reticulum.beacon_own_first")
+            Checkbox ownBox = Checkbox.builder(selected == 0 ? Component.translatable("screen.reticulum.beacon_own_first")
                             : Component.translatable("screen.reticulum.beacon_own_level", selected - 1), font)
                     .pos(left, y).selected(ownLook).onValueChange((box, on) -> setOwn(selected, on)).build();
             ownBox.active = view.canEdit();
@@ -325,7 +325,7 @@ public class StatusBeaconScreen extends QuickScreen {
     // ---------------------------------------------------------------- drawn by hand: the level strip and the swatches
 
     private int stripX(int level) {
-        return left + (level - 1) * (CELL + 2);
+        return left + level * (CELL + 2);
     }
 
     private int swatchX(int i) {
@@ -339,7 +339,7 @@ public class StatusBeaconScreen extends QuickScreen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (redstone() && mouseY >= pickerTop && mouseY < pickerTop + CELL) {
-            for (int level = 1; level <= 15; level++) {
+            for (int level = 0; level <= 15; level++) {
                 if (mouseX >= stripX(level) && mouseX < stripX(level) + CELL) {
                     commit();
                     selected = level;
@@ -381,7 +381,7 @@ public class StatusBeaconScreen extends QuickScreen {
             }
         } else {
             // The strip: each level in the color it shows (dark where nothing), the edited one framed, the live one marked.
-            for (int level = 1; level <= 15; level++) {
+            for (int level = 0; level <= 15; level++) {
                 CompoundTag look = shownAt(level);
                 int x = stripX(level);
                 int color = look == null ? 0xFF202226 : 0xFF000000 | look.getInt("color");
@@ -389,7 +389,7 @@ public class StatusBeaconScreen extends QuickScreen {
                     graphics.fill(x - 1, pickerTop - 1, x + CELL + 1, pickerTop + CELL + 1, 0xFFFFFFFF);
                 }
                 graphics.fill(x, pickerTop, x + CELL, pickerTop + CELL, color);
-                if (own(level) == null && level > 1) {
+                if (own(level) == null && level > 0) {
                     graphics.fill(x, pickerTop + CELL - 3, x + CELL, pickerTop + CELL, 0x80000000);
                 }
                 String number = Integer.toString(level);
@@ -401,7 +401,7 @@ public class StatusBeaconScreen extends QuickScreen {
         }
         CompoundTag look = own(selected);
         if (redstone() && look == null) {
-            CompoundTag below = selected > 1 ? shownAt(selected - 1) : null;
+            CompoundTag below = selected > 0 ? shownAt(selected - 1) : null;
             graphics.drawString(font, below == null ? Component.translatable("screen.reticulum.beacon_shows_nothing")
                     : Component.translatable("screen.reticulum.beacon_same_as", selected - 1), left, editorTop + 26, 0xA0A0A0);
             return;

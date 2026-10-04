@@ -30,6 +30,9 @@
     "shown=17": {
       "model": "reticulum:block/status_beacon"
     },
+    "shown=18": {
+      "model": "reticulum:block/status_beacon"
+    },
     "shown=2": {
       "model": "reticulum:block/status_beacon"
     },

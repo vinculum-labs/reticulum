@@ -28,7 +28,7 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.beacon_mode_network", "Mode: its network's alarms");
         add("screen.reticulum.beacon_mode_redstone", "Mode: redstone signal");
         add("screen.reticulum.beacon_mode_hint_network", "Shows the worst alarm on the network of the connector it is attached to");
-        add("screen.reticulum.beacon_mode_hint_redstone", "Shows a look for the signal it gets, set per level below — by default 1 to 7 yellow, 8 to 15 red (an Alarm node gives 7 for a warning, 15 for critical)");
+        add("screen.reticulum.beacon_mode_hint_redstone", "Shows a look for the signal it gets, set per level below (0 is no signal) — by default 1 to 7 yellow, 8 to 15 red (an Alarm node gives 7 for a warning, 15 for critical)");
         add("lookat.reticulum.beacon_mode_network", "Shows its network's alarms");
         add("lookat.reticulum.beacon_mode_redstone", "Shows a redstone signal");
         add("lookat.reticulum.beacon_watching", "Watching %s");
@@ -53,7 +53,7 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.beacon_preview", "▶");
         add("screen.reticulum.beacon_level", "Signal %s");
         add("screen.reticulum.beacon_own_level", "Own look (else as signal %s)");
-        add("screen.reticulum.beacon_own_first", "Shows something at signal 1");
+        add("screen.reticulum.beacon_own_first", "Shows something at signal 0 (no signal)");
         add("screen.reticulum.beacon_shows_nothing", "Shows nothing");
         add("screen.reticulum.beacon_same_as", "Same as signal %s");
         add("lookat.reticulum.beacon_level", "Showing signal %s");

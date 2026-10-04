@@ -70,7 +70,8 @@ public final class LookAt {
                         ? Component.translatable("lookat.reticulum.beacon_critical").withStyle(ChatFormatting.RED)
                 : shown == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.WARNING
                         ? Component.translatable("lookat.reticulum.beacon_warning").withStyle(ChatFormatting.GOLD)
-                : Component.translatable("lookat.reticulum.beacon_level", shown).withStyle(ChatFormatting.GOLD));
+                : Component.translatable("lookat.reticulum.beacon_level", shown == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.LEVEL_ZERO ? 0 : shown)
+                        .withStyle(ChatFormatting.GOLD));
     }
 
     private static void describeNetworkBlock(ServerLevel level, NetworkBlockEntity be, Player player, List<Component> lines) {

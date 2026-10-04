@@ -30,7 +30,7 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Shows a state with a look of its own (color, beam, glow, sound; see {@link BeaconLook}). In Network mode the states
  * are the worst alarm going off on the network of the connector it is attached to: a warning or critical. In Redstone
- * mode they are the signal it gets, 1 to 15, each level with a look of its own or the same as the level below.
+ * mode they are the signal it gets, 0 to 15, each level with a look of its own or the same as the level below.
  */
 public class StatusBeaconBlockEntity extends BlockEntity {
     public enum Mode implements LowercaseName {
@@ -46,7 +46,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     private Mode mode = Mode.NETWORK;
     private BeaconLook warning = BeaconLook.WARNING;
     private BeaconLook critical = BeaconLook.CRITICAL;
-    /** Redstone mode: the look of each level (1 to 15), or null for the same as the level below (level 1: nothing shown). */
+    /** Redstone mode: the look of each level (0 to 15), or null for the same as the level below (level 0: nothing shown). */
     private final BeaconLook[] levels = new BeaconLook[16];
     /** Client: how far the beam reaches up and down from the block, worked out now and then (not every frame). */
     private int beamUp;
@@ -65,7 +65,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     /** The look of a level in Redstone mode: its own, else the nearest level below with one (null: nothing shown). */
     @Nullable
     public BeaconLook levelLook(int level) {
-        for (int i = Math.min(15, level); i >= 1; i--) {
+        for (int i = Math.min(15, level); i >= 0; i--) {
             if (levels[i] != null) {
                 return levels[i];
             }
@@ -78,7 +78,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     public BeaconLook look() {
         int shown = getBlockState().getValue(StatusBeaconBlock.SHOWN);
         return shown == StatusBeaconBlock.WARNING ? warning : shown == StatusBeaconBlock.CRITICAL ? critical
-                : shown >= 1 && shown <= 15 ? levelLook(shown) : null;
+                : shown == StatusBeaconBlock.LEVEL_ZERO ? levelLook(0) : shown >= 1 && shown <= 15 ? levelLook(shown) : null;
     }
 
     public int beamUp() {
@@ -98,7 +98,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
         tag.put("warning", warning.save());
         tag.put("critical", critical.save());
         CompoundTag own = new CompoundTag();
-        for (int i = 1; i <= 15; i++) {
+        for (int i = 0; i <= 15; i++) {
             if (levels[i] != null) {
                 own.put(Integer.toString(i), levels[i].save());
             }
@@ -114,7 +114,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
         critical = tag.contains("critical") ? BeaconLook.load(tag.getCompound("critical"), BeaconLook.CRITICAL) : BeaconLook.CRITICAL;
         if (tag.contains("levels")) {
             CompoundTag own = tag.getCompound("levels");
-            for (int i = 1; i <= 15; i++) {
+            for (int i = 0; i <= 15; i++) {
                 String key = Integer.toString(i);
                 levels[i] = own.contains(key) ? BeaconLook.load(own.getCompound(key), i >= 8 ? BeaconLook.CRITICAL : BeaconLook.WARNING) : null;
             }
@@ -128,9 +128,9 @@ public class StatusBeaconBlockEntity extends BlockEntity {
             warning = recolor(warning, color);
         } else if (shown == StatusBeaconBlock.CRITICAL) {
             critical = recolor(critical, color);
-        } else if (shown >= 1 && shown <= 15) {
-            int from = shown;
-            while (from > 1 && levels[from] == null) {
+        } else if (shown >= 1 && shown <= 15 || shown == StatusBeaconBlock.LEVEL_ZERO) {
+            int from = shown == StatusBeaconBlock.LEVEL_ZERO ? 0 : shown;
+            while (from > 0 && levels[from] == null) {
                 from--;
             }
             if (levels[from] == null) {
@@ -189,7 +189,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     public int wanted(ServerLevel level) {
         if (mode == Mode.REDSTONE) {
             int signal = level.getBestNeighborSignal(worldPosition);
-            return signal > 0 && levelLook(signal) != null ? signal : 0;
+            return levelLook(signal) == null ? 0 : signal == 0 ? StatusBeaconBlock.LEVEL_ZERO : signal;
         }
         Watch watch = watch(level);
         AlarmSeverity worst = watch.network() == null || !watch.reachable() ? null : Alarms.worst(Alarms.cached(level.getServer(), watch.network()));
