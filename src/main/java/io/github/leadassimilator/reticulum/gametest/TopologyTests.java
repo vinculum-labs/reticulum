@@ -125,6 +125,37 @@ public final class TopologyTests {
         helper.succeed();
     }
 
+    /**
+     * A piece cut off from a network whose controller is still there can be joined to another network: just that
+     * piece moves, and the first network keeps its controller and the rest of its cable.
+     */
+    @GameTest(template = "empty")
+    public static void aCutOffPieceJoinsAnotherNetwork(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(3, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        helper.setBlock(new BlockPos(4, 1, 2), Blocks.CHEST);
+        place(helper, new BlockPos(4, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
+        UUID a = net(helper, new BlockPos(1, 1, 1));
+        net.minecraft.core.GlobalPos chest = net.minecraft.core.GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(4, 1, 2)));
+        network(helper, new BlockPos(1, 1, 1)).device(chest).setName("ore box");
+        // Cut 3-4 off from A: it stays A's (A's controller is still there).
+        Topology.toggle(helper.getLevel(), helper.absolutePos(new BlockPos(2, 1, 1)), Direction.EAST, null);
+        check(helper, a.equals(net(helper, new BlockPos(3, 1, 1))), "setup: the cut-off piece should still be A's");
+        // A second network beside it; its cable isn't joined to the piece.
+        place(helper, new BlockPos(6, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(5, 1, 1), ModBlocks.CABLE.get(), Direction.EAST);
+        UUID b = net(helper, new BlockPos(6, 1, 1));
+        check(helper, !a.equals(b), "setup: two networks expected");
+        Topology.toggle(helper.getLevel(), helper.absolutePos(new BlockPos(5, 1, 1)), Direction.WEST, null);
+        check(helper, Topology.connected(helper.getLevel(), helper.absolutePos(new BlockPos(5, 1, 1)), Direction.WEST), "the joint wasn't connected");
+        check(helper, b.equals(net(helper, new BlockPos(3, 1, 1))) && b.equals(net(helper, new BlockPos(4, 1, 1))), "the piece didn't move to B");
+        check(helper, a.equals(net(helper, new BlockPos(2, 1, 1))) && a.equals(net(helper, new BlockPos(1, 1, 1))), "A lost its controller or cable");
+        var moved = network(helper, new BlockPos(6, 1, 1)).device(chest);
+        check(helper, moved != null && "ore box".equals(moved.name()), "the chest's name didn't come along: " + (moved == null ? "no record" : moved.name()));
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void differentNetworksDoNotJoin(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);

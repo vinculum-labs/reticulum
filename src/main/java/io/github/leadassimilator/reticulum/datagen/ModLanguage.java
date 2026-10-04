@@ -36,7 +36,7 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.no_access_private", "That network is private");
         add("message.reticulum.already_member_role", "You're already a member of %s — an admin can change your role");
         add("message.reticulum.merge_needs_owner", "Joining these cables would merge %s into this network — only its owner can do that");
-        add("message.reticulum.still_has_controller", "These cables belong to %s, which still has its controller — join them to that network instead");
+        add("message.reticulum.piece_moved", "Connected — these cables and connectors moved from %s to %s (the rest of %1$s is unchanged)");
         add("message.reticulum.ambiguous_placement", "Touches several networks — not connected to any. Use the network tool or the cable screen to connect one.");
         add("message.reticulum.controller_exists", "%s already has a controller — this one starts a new network");
         add("message.reticulum.controller_reconnected", "Took over %s, which had lost its controller");

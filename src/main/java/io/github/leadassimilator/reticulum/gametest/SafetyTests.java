@@ -222,11 +222,12 @@ public final class SafetyTests {
         Network b = network(helper, new BlockPos(5, 1, 3));
         check(helper, a != b, "setup: two networks expected");
 
-        // Joining A's piece to B must not merge all of A (whose controller is still there) into B.
+        // Joining A's piece to B must not merge all of A (whose controller is still there) into B: only the piece moves.
         Topology.toggle(helper.getLevel(), helper.absolutePos(new BlockPos(3, 1, 2)), Direction.NORTH, null);
         check(helper, NetworkManager.network(helper.getLevel().getServer(), a.id()) == a, "network A was merged away");
         check(helper, network(helper, new BlockPos(1, 1, 1)) == a, "A's controller changed network");
-        check(helper, network(helper, new BlockPos(3, 1, 1)) == a, "A's cut-off cable changed network");
+        check(helper, network(helper, new BlockPos(2, 1, 1)) == a, "A's own cable changed network");
+        check(helper, network(helper, new BlockPos(3, 1, 1)) == b, "the cut-off piece didn't move to B");
         helper.succeed();
     }
 

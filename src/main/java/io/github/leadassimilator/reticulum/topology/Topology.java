@@ -528,10 +528,43 @@ public final class Topology {
         be.setNetworkId(to);
         if (be instanceof ConnectorBlockEntity connector) {
             Network oldNetwork = NetworkManager.network(level.getServer(), from);
+            // Its name and its devices' and faces' names go with it (not left behind on the network it leaves).
+            var oldRecord = oldNetwork == null ? null : oldNetwork.connector(connector.connectorId());
+            String name = oldRecord == null ? null : oldRecord.name();
+            java.util.Map<GlobalPos, io.github.leadassimilator.reticulum.network.DeviceRecord> named = new java.util.HashMap<>();
+            if (oldRecord != null) {
+                for (GlobalPos device : oldRecord.devices()) {
+                    var record = oldNetwork.device(device);
+                    if (record != null) {
+                        named.put(device, record);
+                    }
+                }
+            }
             if (oldNetwork != null) {
                 NetworkManager.removeConnector(level.getServer(), oldNetwork, connector.connectorId());
             }
             rescanConnector(level, pos);
+            Network newNetwork = NetworkManager.network(level.getServer(), to);
+            if (newNetwork != null) {
+                var newRecord = newNetwork.connector(connector.connectorId());
+                if (newRecord != null && newRecord.name() == null && name != null) {
+                    newRecord.setName(name);
+                }
+                named.forEach((device, old) -> {
+                    var record = newNetwork.device(device);
+                    if (record == null) {
+                        return;
+                    }
+                    if (record.name() == null && old.name() != null) {
+                        record.setName(old.name());
+                    }
+                    old.faceNames().forEach((face, faceName) -> {
+                        if (record.faceName(face) == null) {
+                            record.setFaceName(face, faceName);
+                        }
+                    });
+                });
+            }
         }
     }
 
@@ -671,16 +704,15 @@ public final class Topology {
         }
         UUID absorbed = compA.network() != null && !compA.network().equals(target) ? compA.network()
                 : compB.network() != null && !compB.network().equals(target) ? compB.network() : null;
-        // Only a network that has lost its controller is merged in. A cut-off piece of a network whose controller is
-        // still there (on its other piece) stays that network's; joining it elsewhere would take the whole network.
+        // A network that has lost its controller is merged in whole. A cut-off piece of a network whose controller is
+        // still there (on its other piece) only moves itself: its cables and connectors (with their devices) join this
+        // network, and the rest of that network stays as it is.
         Network absorbedNetwork = NetworkManager.network(level.getServer(), absorbed);
-        if (absorbedNetwork != null && absorbedNetwork.controller() != null
-                && controllerStillThere(level, absorbedNetwork.controller(), absorbedNetwork.id())) {
-            return Component.translatable("message.reticulum.still_has_controller", absorbedNetwork.name());
-        }
+        boolean pieceOnly = absorbedNetwork != null && absorbedNetwork.controller() != null
+                && controllerStillThere(level, absorbedNetwork.controller(), absorbedNetwork.id());
         // Merged in, it is gone and its contents change hands: only its owner may.
         Network targetNetwork = NetworkManager.network(level.getServer(), target);
-        if (player != null && absorbedNetwork != null && targetNetwork != null && absorbedNetwork != targetNetwork
+        if (!pieceOnly && player != null && absorbedNetwork != null && targetNetwork != null && absorbedNetwork != targetNetwork
                 && !Security.mayAbsorb(absorbedNetwork, targetNetwork, player)) {
             return Component.translatable("message.reticulum.merge_needs_owner", absorbedNetwork.name());
         }
@@ -691,7 +723,7 @@ public final class Topology {
         // A network without a controller joining one with a controller is merged into it, names and sheets included.
         Network into = NetworkManager.network(level.getServer(), target);
         Network from = NetworkManager.network(level.getServer(), absorbed);
-        if (into != null && from != null && into != from) {
+        if (!pieceOnly && into != null && from != null && into != from) {
             Role cap = player == null ? Role.ADMIN : Security.role(into, player).orElse(Role.VIEWER);
             NetworkManager.absorb(level.getServer(), into, from, cap);
         }
@@ -701,6 +733,9 @@ public final class Topology {
         Set<BlockPos> changed = new HashSet<>(compA.blocks());
         changed.addAll(compB.blocks());
         refreshAround(level, changed);
+        if (pieceOnly && from != null && into != null) {
+            return Component.translatable("message.reticulum.piece_moved", from.name(), into.name());
+        }
         return Component.translatable("message.reticulum.connected");
     }
 
