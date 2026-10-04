@@ -21,6 +21,7 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   latch: "Latch",
   counter: "Counter",
   delay: "Delay",
+  alarm: "Alarm",
 };
 
 export const KIND_HINT: Record<NodeKind, string> = {
@@ -42,6 +43,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   latch: "Set turns it on, reset turns it off — it remembers in between.",
   counter: "Counts each time its input turns on — reset sets it back to 0.",
   delay: "Its input, some ticks later.",
+  alarm: "Goes off when its input passes a test — listed on the dashboard, and gives 15 while going off to drive a siren or lamp.",
 };
 
 /** Redstone (signal) nodes, in the order of the toolbar's Redstone menu. */
@@ -55,6 +57,7 @@ export const SIGNAL_KINDS: NodeKind[] = [
   "latch",
   "counter",
   "delay",
+  "alarm",
 ];
 
 export function isSignal(kind: NodeKind | undefined): boolean {
@@ -82,6 +85,7 @@ export function signalInputs(kind: NodeKind): string[] {
     case "logic":
     case "pulse":
     case "delay":
+    case "alarm":
       return ["in"];
     default:
       return [];
@@ -182,6 +186,8 @@ export function defaultSettings(
       return { kind };
     case "delay":
       return { kind, ticks: 1 };
+    case "alarm":
+      return { kind, severity: "warning", message: "" };
     case "instance":
     case "sheet":
       return { kind, sheet: blueprint ?? "" };
@@ -339,6 +345,11 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
       return "count / reset";
     case "delay":
       return `${s.ticks ?? 1} tick${(s.ticks ?? 1) === 1 ? "" : "s"} late`;
+    case "alarm": {
+      const test = s.op ? `in ${OP_SYMBOL[s.op]} ${s.threshold ?? 0}` : "in on";
+      const after = s.delay ? ` for ${s.delay}s` : "";
+      return `${s.severity === "critical" ? "Critical" : "Warning"} · ${test}${after}`;
+    }
   }
 }
 

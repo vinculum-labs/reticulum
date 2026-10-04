@@ -59,11 +59,23 @@ final class Snapshots {
         out.addProperty("role", role.map(Role::getSerializedName).orElse("none"));
         out.addProperty("enabled", network.enabled());
         out.addProperty("running", NetworkTicker.isRunning(server, network));
-        // At a glance on its tab: problems that stop flows from running, and devices it can't use right now.
-        NetworkRuntime runtime = NetworkTicker.runtime(network.id());
-        out.addProperty("errors", runtime.compiled(network.root(), network).errors().size());
-        out.addProperty("offline", network.devices().stream()
-                .filter(d -> d.state() != DeviceRecord.State.ACTIVE || runtime.outOfRange(d.pos())).count());
+        // What is going off, for its tab and the dashboard (sent every second the list changes).
+        JsonArray alarms = new JsonArray();
+        for (io.github.leadassimilator.reticulum.engine.Alarms.Alarm alarm : io.github.leadassimilator.reticulum.engine.Alarms.of(server, network)) {
+            JsonObject json = new JsonObject();
+            json.addProperty("key", alarm.key());
+            json.addProperty("severity", alarm.severity().getSerializedName());
+            json.addProperty("message", alarm.message());
+            if (alarm.sheet() != null) {
+                json.addProperty("sheet", alarm.sheet().toString());
+            }
+            if (alarm.node() != null) {
+                json.addProperty("node", alarm.node().toString());
+            }
+            json.addProperty("since", alarm.since());
+            alarms.add(json);
+        }
+        out.add("alarms", alarms);
         return out;
     }
 

@@ -194,6 +194,18 @@ export interface DelaySettings {
   ticks?: number;
 }
 
+export type AlarmSeverity = "warning" | "critical";
+
+/** Goes off while its input passes the test (no op: above 0) for {@code delay} seconds; gives 15 while going off. */
+export interface AlarmSettings {
+  kind: "alarm";
+  severity?: AlarmSeverity;
+  message?: string;
+  op?: CompareOp;
+  threshold?: number;
+  delay?: number;
+}
+
 export type SignalNodeSettings =
   | LevelSettings
   | CompareSettings
@@ -203,7 +215,8 @@ export type SignalNodeSettings =
   | PulseSettings
   | LatchSettings
   | CounterSettings
-  | DelaySettings;
+  | DelaySettings
+  | AlarmSettings;
 
 
 export type NodeSettings =
@@ -315,10 +328,21 @@ export interface NetworkSummary {
   role: "viewer" | "user" | "editor" | "admin" | "owner" | "none";
   enabled: boolean;
   running: boolean;
-  /** Problems that keep flows from running (the canvas's red marks). */
-  errors?: number;
-  /** Devices it can't use right now: out of range, orphaned or missing. */
-  offline?: number;
+  /** What is going off: its alarm nodes and the built-in alarms, critical first, then oldest first. */
+  alarms?: Alarm[];
+}
+
+/**
+ * One alarm going off. {@code sheet} and {@code node}: where it shows (for a node in a placed blueprint, the blueprint's
+ * node); absent for a built-in alarm about the whole network. {@code since}: when it went off, ms since the epoch.
+ */
+export interface Alarm {
+  key: string;
+  severity: AlarmSeverity;
+  message: string;
+  sheet?: string;
+  node?: string;
+  since: number;
 }
 
 export interface Member {

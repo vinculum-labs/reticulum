@@ -4,9 +4,30 @@
   import { offReason, sheetPath } from "../../lib/tree";
   import InspectorPanel from "./InspectorPanel.svelte";
   import { STATUS_LABEL, formatRate } from "../../lib/kinds";
-  import type { GraphNode, Sheet } from "../../lib/types";
+  import type { Alarm, GraphNode, Sheet } from "../../lib/types";
+  import Siren from "@lucide/svelte/icons/siren";
+  import { severityColor } from "../../lib/status";
 
   const snapshot = $derived(app.snapshot!);
+  const alarms = $derived(app.networks.find((n) => n.id === snapshot.id)?.alarms ?? []);
+  /** Ticks over so "for 3 min" keeps up. */
+  let now = $state(Date.now());
+  $effect(() => {
+    const timer = setInterval(() => (now = Date.now()), 5000);
+    return () => clearInterval(timer);
+  });
+
+  function age(since: number): string {
+    const s = Math.max(0, Math.round((now - since) / 1000));
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)} min`;
+    if (s < 86_400) return `${Math.floor(s / 3600)} h`;
+    return `${Math.floor(s / 86_400)} d`;
+  }
+
+  function openAlarm(alarm: Alarm) {
+    if (alarm.sheet) openSheet(alarm.sheet, alarm.node ? [alarm.node] : [], true);
+  }
 
   /** Every node on every sheet, with its sheet. */
   const nodes = $derived(
@@ -48,6 +69,20 @@
 
 <InspectorPanel title="Dashboard" onclose={() => (app.panel = null)}>
 <div class="flex flex-col gap-4 text-sm">
+  <section class="flex flex-col gap-1">
+    <h3 class="panel-title">Alarms ({alarms.length})</h3>
+    {#each alarms as alarm (alarm.key)}
+      {@const sheet = alarm.sheet ? snapshot.sheets.find((s) => s.id === alarm.sheet) : undefined}
+      <button class="list-row flex items-center gap-2 rounded px-1 text-left" disabled={!alarm.sheet} onclick={() => openAlarm(alarm)}>
+        <span class="trim-text flex shrink-0" style="color: {severityColor(alarm.severity)}" title={alarm.severity === "critical" ? "Critical" : "Warning"}><Siren size={14} /></span>
+        <span class="min-w-0 flex-1 truncate">{alarm.message}{#if sheet}<span class="muted"> · {sheetPath(snapshot, sheet)}</span>{/if}</span>
+        <span class="shrink-0 tabular-nums muted" title={new Date(alarm.since).toLocaleString()}>{age(alarm.since)}</span>
+      </button>
+    {:else}
+      <p class="muted">Nothing is going off.</p>
+    {/each}
+  </section>
+
   <section class="flex flex-col gap-1">
     <h3 class="panel-title">Tick cost</h3>
     {#if app.tick}

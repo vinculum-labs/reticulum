@@ -369,6 +369,41 @@
     <Field label="Ticks" hint="How late the output follows the input. A loop of signal wires must pass a Delay, Latch or Counter.">
       <NumberField value={s.ticks ?? 1} min={1} max={1200} width="md" disabled={!canEdit} oncommit={(v) => settings({ ticks: v })} />
     </Field>
+  {:else if s.kind === "alarm"}
+    <Field label="Severity">
+      <Segmented
+        label="Severity"
+        size="xs"
+        value={s.severity ?? "warning"}
+        disabled={!canEdit}
+        options={[
+          { value: "warning", label: "Warning" },
+          { value: "critical", label: "Critical" },
+        ]}
+        onchange={(severity) => settings({ severity })}
+      />
+    </Field>
+    <Field label="Message" hint="What the dashboard (and beacons) say while it is going off. Blank: the node's name.">
+      <TextField value={s.message ?? ""} placeholder={node.label || "Alarm"} disabled={!canEdit} oncommit={(v) => settings({ message: v.slice(0, 200) })} />
+    </Field>
+    <Field label="Goes off when" hint="The input against a number (a Level sensor's amount, say), or just while the input is on. Unwired, it never goes off.">
+      <div class="flex items-center gap-2">
+        <span>in</span>
+        <Select
+          value={s.op ?? "on"}
+          disabled={!canEdit}
+          options={[{ value: "on", label: "is on" }, ...Object.entries(OP_SYMBOL).map(([key, symbol]) => ({ value: key, label: symbol }))]}
+          onchange={(op) => settings({ op: op === "on" ? undefined : (op as CompareOp) })}
+        />
+        {#if s.op}
+          <NumberField value={s.threshold ?? 0} min={-1_000_000_000_000} max={1_000_000_000_000} width="md" disabled={!canEdit} oncommit={(v) => settings({ threshold: v ?? 0 })} />
+        {/if}
+      </div>
+    </Field>
+    <Field label="For (seconds)" hint="Goes off only once that has held this long, so a dip that recovers at once raises nothing.">
+      <NumberField value={s.delay ?? 0} min={0} max={86_400} width="md" disabled={!canEdit} oncommit={(v) => settings({ delay: v ?? 0 })} />
+    </Field>
+    <Help>While going off it gives 15: wire it to a device's redstone input (a siren, a lamp). Switch the node off to mute it.</Help>
   {:else if s.kind === "latch" || s.kind === "counter"}
     <Help>It remembers its value across restarts. Its output follows one tick after its inputs.</Help>
   {/if}

@@ -460,6 +460,18 @@ public final class NetworkRuntime {
         };
     }
 
+    /** The alarm nodes going off, as of the last tick. */
+    java.util.Collection<Signals.Raised> raisedAlarms() {
+        return signals.raised();
+    }
+
+    void forgetAlarms() {
+        signals.forgetAlarms();
+    }
+
+    /** When each built-in alarm (by key) started, wall clock ms: kept while it lasts. */
+    final Map<String, Long> builtInSince = new HashMap<>();
+
     /** The controller's antenna tier as of the last reach check (-1 before the network has run). */
     public int antennaTier() {
         return reachTier;

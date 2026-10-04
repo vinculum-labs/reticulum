@@ -28,7 +28,7 @@
     setSheetEnabled,
     updateNodeEdit,
   } from "../../lib/state.svelte";
-  import { instanceStatus, issuesInside, offlineUsed, treeStatus } from "../../lib/status";
+  import { alarmsIn, instanceStatus, issuesInside, offlineUsed, treeStatus } from "../../lib/status";
   import { childSheets, descendants, offReason, rootSheet } from "../../lib/tree";
   import type { GraphNode, Sheet } from "../../lib/types";
   import AddButton from "../controls/AddButton.svelte";
@@ -274,7 +274,7 @@
             <span class="w-4 shrink-0"></span>
           {/if}
           <!-- How it is doing, left of its name: the network's state on the top row; a sheet's problems, why it is off, or running. -->
-          <StatusMark status={treeStatus(sheet, off, snapshot.running, snapshot.enabled, unpowered, !!snapshot.controller, offlineUsed(snapshot, sheet), issuesInside(snapshot, sheet))} />
+          <StatusMark status={treeStatus(sheet, off, snapshot.running, snapshot.enabled, unpowered, !!snapshot.controller, offlineUsed(snapshot, sheet), issuesInside(snapshot, sheet), alarmsIn(snapshot, sheet, app.networks.find((n) => n.id === snapshot.id)?.alarms ?? []))} />
           {#if renaming === sheet.id}
             <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
           {:else}

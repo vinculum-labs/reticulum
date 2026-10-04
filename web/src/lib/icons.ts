@@ -4,6 +4,7 @@ import AppWindow from "@lucide/svelte/icons/app-window";
 import Binary from "@lucide/svelte/icons/binary";
 import Box from "@lucide/svelte/icons/box";
 import Clock from "@lucide/svelte/icons/clock";
+import Siren from "@lucide/svelte/icons/siren";
 import Funnel from "@lucide/svelte/icons/funnel";
 import Gauge from "@lucide/svelte/icons/gauge";
 import Hash from "@lucide/svelte/icons/hash";
@@ -43,4 +44,5 @@ export const KIND_ICON: Record<NodeKind, Component<{ size?: number | string; cla
   latch: ToggleRight,
   counter: Hash,
   delay: Clock,
+  alarm: Siren,
 };

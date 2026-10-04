@@ -57,6 +57,14 @@ final class Signals {
     /** Sheet nodes that were off at the end of last tick: the logic in their sheets sleeps this tick. */
     private Set<UUID> asleep = Set.of();
     private final Set<UUID> pulsed = new HashSet<>();
+    /** Alarms whose test passes, and since which tick (to wait out their delay). */
+    private final Map<UUID, Long> alarmSince = new HashMap<>();
+    /** An alarm node that has gone off: where it is compiled, its settings and when (wall clock, ms) it went off. */
+    record Raised(CompiledSheet sheet, CompiledSheet.SignalNode node, NodeSettings.AlarmSettings alarm, long at) {
+    }
+
+    /** The alarms going off, by compiled node id, in the order they went off. */
+    private final Map<UUID, Raised> raised = new java.util.LinkedHashMap<>();
 
     Map<UUID, Long> values() {
         return values;
@@ -68,6 +76,16 @@ final class Signals {
 
     Set<UUID> pulsed() {
         return pulsed;
+    }
+
+    java.util.Collection<Raised> raised() {
+        return raised.values();
+    }
+
+    /** Not running (its controller unloaded or gone): nothing is known to be going off. */
+    void forgetAlarms() {
+        raised.clear();
+        alarmSince.clear();
     }
 
     void startTick() {
@@ -135,8 +153,11 @@ final class Signals {
                 for (CompiledSheet.SignalNode node : sheet.signals()) {
                     UUID id = node.node().id();
                     if (!sheet.keepRunning().contains(id) && sheet.inside(id, sleeping)) {
-                        values.put(id, whileOff(sheet, node, group == sheets ? emit : dark));
+                        values.put(id, node.node().settings() instanceof NodeSettings.AlarmSettings ? 0 : whileOff(sheet, node, group == sheets ? emit : dark));
                         slept.add(id);
+                        asleepNow.add(id);
+                    } else if (node.node().settings() instanceof NodeSettings.AlarmSettings alarm) {
+                        values.put(id, alarm(ctx, sheet, node, alarm));
                     } else {
                         values.put(id, output(ctx, sheet, node, group == sheets ? emit : dark));
                     }
@@ -150,6 +171,12 @@ final class Signals {
             }
         }
         values.keySet().retainAll(worked);
+        // A switched-off or removed alarm is no longer going off; one in a sleeping sheet is muted with it.
+        Set<UUID> awake = new HashSet<>(worked);
+        awake.removeAll(asleepNow);
+        alarmSince.keySet().retainAll(awake);
+        raised.keySet().retainAll(awake);
+        asleepNow.clear();
         applyEmissions(ctx.server(), ctx.network(), emit, id -> ctx.runtime().reach(id) != NetworkRuntime.Reach.OUT_OF_RANGE);
     }
 
@@ -191,6 +218,26 @@ final class Signals {
             }
         }
         asleep = now;
+    }
+
+    /** Alarm nodes in sleeping sheets this tick. */
+    private final Set<UUID> asleepNow = new HashSet<>();
+
+    /** An alarm node: 15 while going off (its test passing for its delay), else 0; notes when it went off. */
+    private long alarm(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.SignalNode node, NodeSettings.AlarmSettings alarm) {
+        UUID id = node.node().id();
+        if (node.input(0).isEmpty() || !alarm.holds(in(node, 0))) {
+            alarmSince.remove(id);
+            raised.remove(id);
+            return 0;
+        }
+        long since = alarmSince.computeIfAbsent(id, k -> ctx.runtime().ticks());
+        if (ctx.runtime().ticks() - since < alarm.delay() * 20L) {
+            return 0;
+        }
+        Raised before = raised.get(id);
+        raised.put(id, new Raised(sheet, node, alarm, before == null ? System.currentTimeMillis() : before.at()));
+        return ON;
     }
 
     private long in(CompiledSheet.SignalNode node, int input) {

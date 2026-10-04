@@ -21,9 +21,10 @@
     setRateUnit,
   } from "../lib/state.svelte";
   import { confirmDialog } from "../lib/dialog.svelte";
-  import { networkStatus, tabStatus } from "../lib/status";
+  import { networkStatus, severityColor, tabStatus } from "../lib/status";
 
   const snapshot = $derived(app.snapshot);
+  const alarms = $derived(app.networks.find((n) => n.id === app.current)?.alarms ?? []);
 
   async function deleteNetwork() {
     if (!snapshot) return;
@@ -99,7 +100,11 @@
       class="btn flex items-center gap-1"
       aria-pressed={app.panel === "dashboard"}
       onclick={() => (app.panel = app.panel === "dashboard" ? null : "dashboard")}
-      title="Busiest and waiting flows, what is switched off, tick cost and the overflow buffer"><LayoutDashboard size={14} />Dashboard</button
+      title="Alarms, busiest and waiting flows, what is switched off, tick cost and the overflow buffer"><LayoutDashboard size={14} />Dashboard{#if alarms.length}<span
+          class="tabular-nums font-medium"
+          style="color: {severityColor(alarms[0].severity)}"
+          title={`${alarms.length} alarm${alarms.length === 1 ? "" : "s"} going off`}>{alarms.length}</span
+        >{/if}</button
     >
     <button
       class="btn flex items-center gap-1"

@@ -338,6 +338,38 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /**
+     * An alarm goes off once its test has passed for its delay: it is listed with its message and gives 15 (lighting a
+     * lamp), and it stops when its input drops.
+     */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void alarmGoesOffAfterItsDelayAndDrivesALamp(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+        Node level = rig.node(new NodeSettings.ConstantSettings(3));
+        Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL, "Battery low",
+                java.util.Optional.of(NodeSettings.CompareOp.LT), 5, 1));
+        rig.signal(level, alarm, 0);
+        rig.signal(alarm, rig.redstoneTo(rig.device(0)), 0);
+        BlockPos lamp = rig.devices().get(0);
+        var network = rig.network();
+        java.util.function.Supplier<java.util.List<io.github.leadassimilator.reticulum.engine.Alarms.Alarm>> alarms =
+                () -> io.github.leadassimilator.reticulum.engine.Alarms.of(helper.getLevel().getServer(), network).stream()
+                        .filter(a -> a.node() != null).toList();
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> check(helper, alarms.get().isEmpty(), "went off before its delay"))
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "didn't light the lamp once going off"))
+                .thenExecute(() -> {
+                    var listed = alarms.get();
+                    check(helper, listed.size() == 1 && listed.getFirst().message().equals("Battery low")
+                            && listed.getFirst().severity() == NodeSettings.AlarmSeverity.CRITICAL
+                            && alarm.id().equals(listed.getFirst().node()), "not listed as going off: " + listed);
+                    rig.sheet().replace(rig.sheet().node(level.id()).with(new NodeSettings.ConstantSettings(9)));
+                })
+                .thenWaitUntil(() -> check(helper, alarms.get().isEmpty() && !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT),
+                        "kept going off with its input back above the threshold"))
+                .thenSucceed();
+    }
+
     /** A Constant with its "on" input wired gives its value only while that input is above 0. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void constantFollowsItsOnInput(GameTestHelper helper) {

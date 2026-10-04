@@ -48,6 +48,7 @@ public sealed interface NodeSettings {
         LATCH(LatchSettings.CODEC, true),
         COUNTER(CounterSettings.CODEC, true),
         DELAY(DelaySettings.CODEC, true),
+        ALARM(AlarmSettings.CODEC, true),
         /** Engine-internal: a device's ME pin, resolved to the connector side it touches. Never saved or sent. */
         ME_PORT(null, false);
 
@@ -601,6 +602,39 @@ public sealed interface NodeSettings {
         @Override
         public Kind kind() {
             return Kind.CONSTANT;
+        }
+    }
+
+    /** How bad a raised alarm is: shown yellow or red, and what beacons and the network tool react to. */
+    enum AlarmSeverity implements LowercaseName {
+        WARNING, CRITICAL;
+
+        public static final Codec<AlarmSeverity> CODEC = StringRepresentable.fromEnum(AlarmSeverity::values);
+    }
+
+    /**
+     * Raises an alarm while its input passes the test ({@code op} against {@code threshold}; with no test, while it is
+     * above 0) and has for {@code delay} seconds; gives 15 while raised, so it can drive a device (a siren, a lamp).
+     * Unwired, it never goes off; switched off, it is muted.
+     */
+    record AlarmSettings(AlarmSeverity severity, String message, Optional<CompareOp> op, long threshold, int delay) implements NodeSettings {
+        public static final int MESSAGE_LIMIT = 200;
+        public static final MapCodec<AlarmSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                AlarmSeverity.CODEC.optionalFieldOf("severity", AlarmSeverity.WARNING).forGetter(AlarmSettings::severity),
+                Codec.string(0, MESSAGE_LIMIT).optionalFieldOf("message", "").forGetter(AlarmSettings::message),
+                CompareOp.CODEC.optionalFieldOf("op").forGetter(AlarmSettings::op),
+                Codec.LONG.optionalFieldOf("threshold", 0L).forGetter(AlarmSettings::threshold),
+                Codec.intRange(0, 86_400).optionalFieldOf("delay", 0).forGetter(AlarmSettings::delay)
+        ).apply(i, AlarmSettings::new));
+
+        /** Whether an input value sets it off (before its delay). */
+        public boolean holds(long input) {
+            return op.map(o -> o.test(input, threshold)).orElse(input > 0);
+        }
+
+        @Override
+        public Kind kind() {
+            return Kind.ALARM;
         }
     }
 

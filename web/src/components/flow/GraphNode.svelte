@@ -1,5 +1,6 @@
 <script lang="ts">
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
+  import Siren from "@lucide/svelte/icons/siren";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
@@ -68,6 +69,8 @@
             : KIND_LABEL[kind]),
   );
   const offline = $derived(data.device && (data.device.state !== "active" || data.device.outOfRange));
+  /** Alarms going off from this node (or, on a placed blueprint, from inside it). */
+  const raised = $derived((app.networks.find((n) => n.id === app.current)?.alarms ?? []).filter((a) => a.node === data.node.id));
   const disabled = $derived(data.node.enabled === false);
 
   type Row = { label: string; title: string; color: string; handle: string };
@@ -304,7 +307,11 @@ ${idleTitle}` : idleTitle}
   {/if}
 </div>
 
-{#if data.problem}
+{#if raised.length}
+  {@const critical = raised.some((a) => a.severity === "critical")}
+  {@const why = raised.map((a) => `${a.severity === "critical" ? "Critical" : "Warning"}: ${a.message}`).join("\n")}
+  <span class="problem-badge" class:warn={!critical} title={why} role="img" aria-label={`Going off: ${why}`}><Siren size={12} /></span>
+{:else if data.problem}
   <span class="problem-badge" title={data.problem} role="img" aria-label={`Error: ${data.problem}`}><TriangleAlert size={12} /></span>
 {:else if offline}
   <!-- Not an error in the sheet, but it does nothing until its block is back in reach: a warning on the same corner. -->

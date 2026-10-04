@@ -10,7 +10,8 @@ import ZapOff from "@lucide/svelte/icons/zap-off";
 import type { Component } from "svelte";
 import { KIND_ICON } from "./icons";
 import type { OffReason } from "./tree";
-import { posKey, type Device, type GlobalPos, type GraphNode, type Sheet, type Snapshot } from "./types";
+import { posKey, type Alarm, type AlarmSeverity, type Device, type GlobalPos, type GraphNode, type Sheet, type Snapshot } from "./types";
+import Siren from "@lucide/svelte/icons/siren";
 
 export interface Status {
   icon: Component<{ size?: number | string; class?: string }>;
@@ -32,14 +33,34 @@ export function networkStatus(running: boolean, enabled: boolean, unpowered: boo
   return { icon: Stop, color: "var(--muted)", title: "Off: switched off with the On checkbox" };
 }
 
-/** A network's tab: its dot's color and what it means — problems first, then offline devices, then whether it runs. */
-export function tabStatus(n: { running: boolean; enabled: boolean; errors?: number; offline?: number }): { color: string; title: string } {
-  const lines: string[] = [];
-  if (n.errors) lines.push(`${n.errors} problem${n.errors === 1 ? "" : "s"} keeping flows from running`);
-  if (n.offline) lines.push(`${n.offline} device${n.offline === 1 ? "" : "s"} offline — unreachable, orphaned or missing`);
+/** The color of an alarm's severity. */
+export function severityColor(severity: AlarmSeverity | undefined): string {
+  return severity === "critical" ? "var(--bad)" : "var(--warn)";
+}
+
+/** A network's tab: its dot's color and what it means — what is going off first, then whether it runs. */
+export function tabStatus(n: { running: boolean; enabled: boolean; alarms?: Alarm[] }): { color: string; title: string } {
+  const alarms = n.alarms ?? [];
+  const lines = alarms.map((a) => `${a.severity === "critical" ? "Critical" : "Warning"}: ${a.message}`);
   lines.push(n.running ? "Running" : n.enabled ? "Not running" : "Off");
-  const color = n.errors ? "var(--bad)" : n.offline || (n.enabled && !n.running) ? "var(--warn)" : n.running ? "var(--good)" : "var(--muted)";
+  const color = alarms.length ? severityColor(alarms[0].severity) : n.enabled && !n.running ? "var(--warn)" : n.running ? "var(--good)" : "var(--muted)";
   return { color, title: lines.join("\n") };
+}
+
+/** The alarm nodes going off on a sheet and every sheet inside it. */
+export function alarmsIn(snapshot: Snapshot, sheet: Sheet, alarms: Alarm[]): Alarm[] {
+  const ids = new Set<string>([sheet.id]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const s of snapshot.sheets) {
+      if (s.parent && ids.has(s.parent) && !ids.has(s.id)) {
+        ids.add(s.id);
+        grew = true;
+      }
+    }
+  }
+  return alarms.filter((a) => a.sheet && ids.has(a.sheet));
 }
 
 /**
@@ -121,6 +142,7 @@ export function treeStatus(
   hasController = true,
   offline: string[] = [],
   inside: { errors: number; offline: number } = { errors: 0, offline: 0 },
+  alarms: Alarm[] = [],
 ): TreeStatus {
   const badges: TreeStatus["badges"] = [];
   const lines: string[] = [];
@@ -154,8 +176,12 @@ export function treeStatus(
   } else {
     lines.push("Running");
   }
-  // One mark for everything wrong in or under it: red for problems, amber when it's only devices offline.
-  if (sheet.errors?.length || inside.errors) {
+  // One mark for everything wrong in or under it: an alarm going off first (in its severity's color), then red for
+  // problems, amber when it's only devices offline.
+  if (alarms.length) {
+    badges.push({ icon: Siren, color: severityColor(alarms.some((a) => a.severity === "critical") ? "critical" : "warning"), corner: "top" });
+    lines.push(...alarms.map((a) => `${a.severity === "critical" ? "Critical" : "Warning"}: ${a.message}`));
+  } else if (sheet.errors?.length || inside.errors) {
     badges.push({ icon: TriangleAlert, color: "var(--bad)", corner: "top" });
   } else if (offline.length || inside.offline) {
     badges.push({ icon: TriangleAlert, color: "var(--warn)", corner: "top" });
