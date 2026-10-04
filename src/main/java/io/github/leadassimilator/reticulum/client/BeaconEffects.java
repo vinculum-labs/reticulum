@@ -163,10 +163,13 @@ public final class BeaconEffects {
         }
         long time = mc.level.getGameTime();
         boolean muteRedstone = ReticulumClientConfig.MUTE_REDSTONE_BEACONS.getAsBoolean();
+        // A network tool in hand sounding the alarm takes priority over beacons showing alarms.
+        boolean muteNetwork = AlarmClient.toolSounding();
         for (StatusBeaconBlockEntity beacon : StatusBeaconBlockEntity.CLIENT_LOADED) {
             BeaconLook look = beacon.look();
             if (look == null || beacon.getLevel() != mc.level || beacon.isRemoved() || !look.has(BeaconLook.SOUND)
-                    || muteRedstone && beacon.mode() == StatusBeaconBlockEntity.Mode.REDSTONE) {
+                    || muteRedstone && beacon.mode() == StatusBeaconBlockEntity.Mode.REDSTONE
+                    || muteNetwork && beacon.mode() == StatusBeaconBlockEntity.Mode.NETWORK) {
                 continue;
             }
             int interval = Math.max(1, look.interval());

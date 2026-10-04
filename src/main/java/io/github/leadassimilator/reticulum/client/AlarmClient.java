@@ -168,6 +168,25 @@ public final class AlarmClient {
         return false;
     }
 
+    /**
+     * Whether a network tool in the player's hand is sounding an alarm now (its sound on for the worst it cares about):
+     * beacons showing alarms then keep quiet, the tool's sound taking priority.
+     */
+    public static boolean toolSounding() {
+        Player player = Minecraft.getInstance().player;
+        if (player == null) {
+            return false;
+        }
+        int worst = -1;
+        for (ItemStack stack : List.of(player.getMainHandItem(), player.getOffhandItem())) {
+            if (stack.getItem() instanceof NetworkToolItem) {
+                worst = Math.max(worst, severity(stack));
+            }
+        }
+        return worst == 1 ? ReticulumClientConfig.TOOL_SOUND_CRITICAL.getAsBoolean()
+                : worst == 0 && ReticulumClientConfig.TOOL_SOUND_WARNING.getAsBoolean();
+    }
+
     private static boolean holdingStatusTool(Player player) {
         for (ItemStack stack : List.of(player.getMainHandItem(), player.getOffhandItem())) {
             if (stack.getItem() instanceof NetworkToolItem && NetworkToolItem.mode(stack) == ToolMode.STATUS) {
