@@ -35,9 +35,9 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.password_empty", "The password can't be empty");
         add("message.reticulum.no_access_private", "That network is private");
         add("message.reticulum.already_member_role", "You're already a member of %s — an admin can change your role");
-        add("message.reticulum.merge_needs_owner", "Joining these cables would merge %s into this network — only its owner can do that");
-        add("message.reticulum.piece_moved", "Connected — these cables and connectors moved from %s to %s (the rest of %1$s is unchanged)");
-        add("message.reticulum.ambiguous_placement", "Touches several networks — not connected to any. Use the network tool or the cable screen to connect one.");
+        add("message.reticulum.merge_needs_owner", "That would merge %s in — only its owner can");
+        add("message.reticulum.piece_moved", "Connected — this piece moved from %s to %s");
+        add("message.reticulum.ambiguous_placement", "Touches several networks — connect one with the tool or cable screen");
         add("message.reticulum.controller_exists", "%s already has a controller — this one starts a new network");
         add("message.reticulum.controller_reconnected", "Took over %s, which had lost its controller");
         add("command.reticulum.deleted", "Deleted network %s");
@@ -189,9 +189,9 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.tool_mode", "Network tool: %s mode");
         add("message.reticulum.tool_linked", "Network tool linked to %s");
         add("message.reticulum.tool_cleared", "Network tool cleared");
-        add("message.reticulum.tool_empty", "Copy a network first: sneak + right-click a controller or connector, or right-click the air");
+        add("message.reticulum.tool_empty", "No network yet — sneak + right-click a controller or connector");
         add("message.reticulum.not_a_connector", "Only connectors can be bound to a network");
-        add("message.reticulum.wired_connector", "A cable joins this connector, so the cable decides its network");
+        add("message.reticulum.wired_connector", "Its cable decides its network — disconnect it to rebind");
         add("message.reticulum.already_bound", "Already on %s");
         add("message.reticulum.bound", "Bound to %s");
         add("message.reticulum.stack_bound", "Bound %s connector(s) to %s — place them where no cable joins them");

@@ -37,6 +37,8 @@ public class ReticulumClient {
         // Leaving a world forgets what was lit there.
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> io.github.leadassimilator.reticulum.client.IdentifyRenderer.accept(java.util.List.of()));
         NeoForge.EVENT_BUS.addListener(ToolHighlight::onRenderHighlight);
+        // A message too long for the line above the hotbar goes to chat, where it wraps.
+        NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.LongMessages::onSystemMessage);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.ScreenHighlight::onRenderLevel);
         NeoForge.EVENT_BUS.addListener(LookHud::onClientTick);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingIn event) -> WebBridge.onLoggedIn());
