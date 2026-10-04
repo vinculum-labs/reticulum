@@ -101,6 +101,11 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         return registered;
     }
 
+    /** Arrived with data saved somewhere else: moved here by a piston or contraption, or copied. */
+    public boolean arrivedFromElsewhere() {
+        return copied;
+    }
+
     public void setRegistered() {
         registered = true;
         setChanged();

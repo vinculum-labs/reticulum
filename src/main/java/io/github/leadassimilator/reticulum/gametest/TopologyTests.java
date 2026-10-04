@@ -249,6 +249,50 @@ public final class TopologyTests {
         });
     }
 
+    /**
+     * A connector moved by a piston against a private network of another owner's cable keeps its own network (the
+     * joint cut); against a public one it joins.
+     */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void aMovedConnectorOnlyJoinsNetworksItMay(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
+        place(helper, new BlockPos(1, 1, 5), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 5), ModBlocks.CABLE.get(), Direction.WEST);
+        UUID a = net(helper, new BlockPos(1, 1, 1));
+        Network b = network(helper, new BlockPos(1, 1, 5));
+        b.setOwner(UUID.randomUUID(), "someone");
+        b.setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PRIVATE);
+
+        var connector = be(helper, new BlockPos(3, 1, 1));
+        var registries = helper.getLevel().registryAccess();
+        var data = connector.saveWithFullMetadata(registries);
+        var level = helper.getLevel();
+        level.setBlock(helper.absolutePos(new BlockPos(3, 1, 1)), Blocks.AIR.defaultBlockState(),
+                net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
+        BlockPos to = helper.absolutePos(new BlockPos(3, 1, 5));
+        level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        level.getBlockEntity(to).loadWithComponents(data, registries);
+        helper.runAfterDelay(5, () -> {
+            check(helper, a.equals(net(helper, new BlockPos(3, 1, 5))), "the moved connector joined another owner's private network");
+            check(helper, !Topology.connected(level, to, Direction.WEST), "the moved connector is cabled into the private network");
+
+            // The same move against a public network joins it.
+            b.setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PUBLIC);
+            var again = be(helper, new BlockPos(3, 1, 5)).saveWithFullMetadata(registries);
+            level.setBlock(to, Blocks.AIR.defaultBlockState(),
+                    net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
+            BlockPos next = helper.absolutePos(new BlockPos(2, 1, 6));
+            level.setBlock(next, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+            level.getBlockEntity(next).loadWithComponents(again, registries);
+            helper.runAfterDelay(5, () -> {
+                check(helper, b.id().equals(net(helper, new BlockPos(2, 1, 6))), "the moved connector didn't join the public network");
+                helper.succeed();
+            });
+        });
+    }
+
     @GameTest(template = "empty")
     public static void differentNetworksDoNotJoin(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);

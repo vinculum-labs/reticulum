@@ -282,6 +282,19 @@ public final class Topology {
             }
             sides.put(dir, comp);
         }
+        // Moved here by a piston or contraption (no player to ask): it joins what it lands against only where that
+        // network is public or has the same owner as the one it brings; elsewhere it keeps its own, the joint cut.
+        if (player == null && be.arrivedFromElsewhere() && be.networkId() != null && !(be instanceof ControllerBlockEntity)) {
+            Network carried = NetworkManager.network(level.getServer(), be.networkId());
+            for (var it = sides.entrySet().iterator(); it.hasNext(); ) {
+                var side = it.next();
+                Network there = NetworkManager.network(level.getServer(), side.getValue().network());
+                if (!mayCarryInto(carried, there)) {
+                    disconnectAutomatically(be, blockEntity(level, pos.relative(side.getKey())), side.getKey());
+                    it.remove();
+                }
+            }
+        }
 
         // A connector from a bound stack joins the network it was bound to, even against another network's cable or
         // controller: the binding is the player's choice, and sides on other networks are cut.
@@ -378,6 +391,12 @@ public final class Topology {
         }
         return blockEntity(level, pos) instanceof ConnectorBlockEntity connector && blockEntity(level, next) instanceof ControllerBlockEntity controller
                 && !java.util.Objects.equals(networkOf(level, connector), networkOf(level, controller));
+    }
+
+    /** Whether a block carried off {@code from} by a piston or contraption may join {@code to} where it lands. */
+    private static boolean mayCarryInto(@Nullable Network from, @Nullable Network to) {
+        return to == null || to == from || to.owner() == null || to.accessMode() == io.github.leadassimilator.reticulum.security.AccessMode.PUBLIC
+                || from != null && to.owner().equals(from.owner());
     }
 
     private static void disconnectAutomatically(NetworkBlockEntity be, NetworkBlockEntity neighbor, Direction dir) {
