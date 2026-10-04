@@ -251,7 +251,8 @@ final class Signals {
                 }
                 yield logic.op().test(on, node.input(0).size()) ? ON : 0;
             }
-            case NodeSettings.ConstantSettings constant -> constant.value();
+            // Its value while its "on" input is above 0 or unwired, else 0 (an on/off signal turned into a value).
+            case NodeSettings.ConstantSettings constant -> node.input(0).isEmpty() || in(node, 0) > 0 ? constant.value() : 0;
             case NodeSettings.TimerSettings timer -> {
                 boolean running = node.input(0).isEmpty() || in(node, 0) > 0;
                 yield running && Math.floorMod(ctx.runtime().ticks(), Math.max(1, timer.interval())) == 0 ? ON : 0;

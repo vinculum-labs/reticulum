@@ -590,8 +590,8 @@ public sealed interface NodeSettings {
     }
 
     /**
-     * Gives {@code value} all the time (0 to 15 for redstone; more to count with or compare against). Switched off, it
-     * gives nothing: its switch works as a lever in the editor.
+     * Gives {@code value} (0 to 15 for redstone; more to count with or compare against) while its "on" input is above 0
+     * or unwired, else 0. Switched off, it gives nothing: its switch works as a lever in the editor.
      */
     record ConstantSettings(long value) implements NodeSettings {
         public static final MapCodec<ConstantSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(

@@ -323,6 +323,22 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /** A Constant with its "on" input wired gives its value only while that input is above 0. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void constantFollowsItsOnInput(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+        Node control = rig.node(new NodeSettings.ConstantSettings(0));
+        Node constant = rig.node(new NodeSettings.ConstantSettings(15));
+        rig.signal(control, constant, 0);
+        rig.signal(constant, rig.redstoneTo(rig.device(0)), 0);
+        BlockPos lamp = rig.devices().get(0);
+        helper.startSequence()
+                .thenExecuteAfter(20, () -> check(helper, !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "lit with its on input at 0"))
+                .thenExecute(() -> rig.sheet().replace(rig.sheet().node(control.id()).with(new NodeSettings.ConstantSettings(1))))
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "not lit with its on input above 0"))
+                .thenSucceed();
+    }
+
     /** A Level sensor's output: the amount, 0 to 15 between two amounts, or 0 to 15 like a comparator. */
     @GameTest(template = "empty")
     public static void levelSensorMapsOntoRedstone(GameTestHelper helper) {

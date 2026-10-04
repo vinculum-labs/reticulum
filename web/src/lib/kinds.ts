@@ -36,7 +36,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   level: "How much of a resource a device holds.",
   compare: "15 when A compares true against B (or a number), else 0.",
   logic: "AND, OR, NOT / NOR, XOR, NAND or XNOR of every wire into it.",
-  constant: "A value you set, all the time — switch it off and on as a lever from here.",
+  constant: "A value you set, while its input is on or unwired — or switch it off and on as a lever from here.",
   timer: "A one-tick pulse every so many ticks.",
   pulse: "A short pulse each time its input turns on.",
   latch: "Set turns it on, reset turns it off — it remembers in between.",
@@ -72,6 +72,8 @@ export function signalInputs(kind: NodeKind): string[] {
       return ["count", "reset"];
     case "timer":
       return ["run"];
+    case "constant":
+      return ["on"];
     case "logic":
     case "pulse":
     case "delay":

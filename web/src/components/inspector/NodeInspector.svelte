@@ -354,7 +354,7 @@
       />
     </Field>
   {:else if s.kind === "constant"}
-    <Field label="Value" hint="What it gives: 0 to 15 for redstone (more is 15 to a device), or any number to count with or compare against. Its switch above turns it off (0) and on.">
+    <Field label="Value" hint="What it gives while its input is on (or unwired): 0 to 15 for redstone (more is 15 to a device), or any number to count with or compare against. Its switch above turns it off (0) and on.">
       <NumberField value={s.value ?? 15} min={0} max={1_000_000_000} width="md" disabled={!canEdit} oncommit={(v) => settings({ value: v ?? 0 })} />
     </Field>
   {:else if s.kind === "timer"}
