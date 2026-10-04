@@ -59,6 +59,11 @@ final class Snapshots {
         out.addProperty("role", role.map(Role::getSerializedName).orElse("none"));
         out.addProperty("enabled", network.enabled());
         out.addProperty("running", NetworkTicker.isRunning(server, network));
+        // At a glance on its tab: problems that stop flows from running, and devices it can't use right now.
+        NetworkRuntime runtime = NetworkTicker.runtime(network.id());
+        out.addProperty("errors", runtime.compiled(network.root(), network).errors().size());
+        out.addProperty("offline", network.devices().stream()
+                .filter(d -> d.state() != DeviceRecord.State.ACTIVE || runtime.outOfRange(d.pos())).count());
         return out;
     }
 

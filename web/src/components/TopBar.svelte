@@ -21,7 +21,7 @@
     setRateUnit,
   } from "../lib/state.svelte";
   import { confirmDialog } from "../lib/dialog.svelte";
-  import { networkStatus } from "../lib/status";
+  import { networkStatus, tabStatus } from "../lib/status";
 
   const snapshot = $derived(app.snapshot);
 
@@ -75,9 +75,9 @@
         aria-current={n.id === app.current ? "page" : undefined}
         aria-pressed={n.id === app.current}
         onclick={() => selectNetwork(n.id)}
-        title={`${n.access}, owner ${n.owner || "none"}, your role: ${n.role}`}
+        title={`${tabStatus(n).title}\n${n.access}, owner ${n.owner || "none"}, your role: ${n.role}`}
       >
-        <span class="inline-block h-2 w-2 rounded-full" style="background: {n.running ? 'var(--good)' : 'var(--muted)'}"></span>
+        <span class="inline-block h-2 w-2 rounded-full" style="background: {tabStatus(n).color}"></span>
         {n.name}
       </button>
     {/each}

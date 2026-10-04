@@ -315,6 +315,10 @@ export interface NetworkSummary {
   role: "viewer" | "user" | "editor" | "admin" | "owner" | "none";
   enabled: boolean;
   running: boolean;
+  /** Problems that keep flows from running (the canvas's red marks). */
+  errors?: number;
+  /** Devices it can't use right now: out of range, orphaned or missing. */
+  offline?: number;
 }
 
 export interface Member {
