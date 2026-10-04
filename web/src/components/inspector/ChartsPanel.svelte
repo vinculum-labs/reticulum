@@ -4,7 +4,8 @@
   import { app, deviceName, request } from "../../lib/state.svelte";
   import { loadCatalog, type Catalog, type CatalogKind } from "../../lib/catalog";
   import { addChart, removeChart } from "../../lib/charts";
-  import CatalogField from "../controls/CatalogField.svelte";
+  import CatalogPickDialog from "./CatalogPickDialog.svelte";
+  import Plus from "@lucide/svelte/icons/plus";
   import { RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR } from "../../lib/kinds";
   import { posKey, type ChartSeries, type Resource } from "../../lib/types";
   import Segmented from "../controls/Segmented.svelte";
@@ -108,6 +109,7 @@
 
   let catalog = $state<Catalog | null>(null);
   loadCatalog().then((c) => (catalog = c)).catch(() => {});
+  let picking = $state(false);
 </script>
 
 <!-- Over the canvas (which stays as it was underneath): room for the charts side by side. -->
@@ -164,14 +166,17 @@
     <aside class="flex w-72 shrink-0 flex-col gap-2 overflow-y-auto border-l border-line bg-panel p-3 text-sm">
       {#if snapshot.canEdit && charts.length < 16}
         <h3 class="panel-title">Chart what moves</h3>
-        <!-- Picking charts it at once. -->
-        <CatalogField
-          kinds={["item", "fluid", "chemical"]}
-          placeholder="Choose an item, fluid or chemical…"
-          title="Chart what moves"
-          omit={(kind, id) => charts.some((c) => c.kind === kind && c.id === id)}
-          onpick={(p) => addChart({ kind: p.kind, id: p.id })}
-        />
+        <!-- An action, not a value: picking charts it at once. -->
+        <button class="btn flex items-center gap-1 self-start" onclick={() => (picking = true)}><Plus size={14} />Chart an item, fluid or chemical…</button>
+        {#if picking}
+          <CatalogPickDialog
+            title="Chart what moves"
+            kinds={["item", "fluid", "chemical"]}
+            omit={(kind, id) => charts.some((c) => c.kind === kind && c.id === id)}
+            onpick={(p) => addChart({ kind: p.kind, id: p.id })}
+            onclose={() => (picking = false)}
+          />
+        {/if}
         <p class="text-xs muted">To chart a device — what it holds, or what moves into and out of it — right-click it in the devices list.</p>
       {/if}
       <!-- Below the picker, so its list has room to drop over it (not cut off by the panel). -->
