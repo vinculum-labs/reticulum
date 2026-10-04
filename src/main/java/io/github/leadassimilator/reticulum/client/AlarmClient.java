@@ -152,6 +152,20 @@ public final class AlarmClient {
         mc.getSoundManager().play(SimpleSoundInstance.forUI(sound != null ? sound : fallback, at, 0.6f));
     }
 
+    /** Whether the tool in Status mode marks this block now (a beacon's own text then steps aside). */
+    public static boolean marks(net.minecraft.core.BlockPos pos) {
+        Player player = Minecraft.getInstance().player;
+        if (player == null || markers.isEmpty() || !holdingStatusTool(player)) {
+            return false;
+        }
+        for (Payloads.StatusMarker marker : markers) {
+            if (marker.pos().equals(pos)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static boolean holdingStatusTool(Player player) {
         for (ItemStack stack : List.of(player.getMainHandItem(), player.getOffhandItem())) {
             if (stack.getItem() instanceof NetworkToolItem && NetworkToolItem.mode(stack) == ToolMode.STATUS) {

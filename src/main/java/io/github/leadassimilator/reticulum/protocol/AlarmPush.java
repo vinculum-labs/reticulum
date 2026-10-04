@@ -108,11 +108,10 @@ public final class AlarmPush {
                     if (level != null && level.isLoaded(device.pos().pos())
                             && level.getBlockEntity(device.pos().pos()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon
                             && beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.NETWORK) {
+                        // Whatever the beacon is set to show: the tool in Status mode sees it all (the beacon's own text steps
+                        // aside for the marker on the client).
                         var watch = beacon.watch(level);
-                        var shownLook = beacon.look();
-                        boolean showsText = shownLook != null && shownLook.has(io.github.leadassimilator.reticulum.block.entity.BeaconLook.TEXT)
-                                && shownLook.label().isBlank();
-                        if (watch.network() == network && watch.reachable() && !showsText) {
+                        if (watch.network() == network && watch.reachable()) {
                             for (Alarms.Alarm alarm : alarms.subList(0, Math.min(10, alarms.size()))) {
                                 add(player, markers, marked, device.pos(), alarm.severity() == AlarmSeverity.CRITICAL ? 1 : 0, alarm.message());
                             }

@@ -100,7 +100,8 @@ public final class BeaconEffects {
             for (StatusBeaconBlockEntity beacon : StatusBeaconBlockEntity.CLIENT_LOADED) {
                 BeaconLook look = beacon.look();
                 if (look == null || beacon.getLevel() != mc.level || beacon.isRemoved() || !look.has(BeaconLook.TEXT)
-                        || camera.distanceToSqr(Vec3.atCenterOf(beacon.getBlockPos())) > distance * distance) {
+                        || camera.distanceToSqr(Vec3.atCenterOf(beacon.getBlockPos())) > distance * distance
+                        || look.label().isBlank() && AlarmClient.marks(beacon.getBlockPos())) {
                     continue;
                 }
                 boolean through = look.has(BeaconLook.TEXT_THROUGH)
