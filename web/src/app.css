@@ -163,13 +163,60 @@ textarea:focus {
   box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
-/* A slider: the browser's own, in the accent color, its thumb reaching both ends. */
+/*
+ * A slider drawn in the page's colors (the browser's own darkens while dragged): a thin track filled with the accent up
+ * to the value (--fill, a percentage the slider sets), and a round thumb that brightens on hover and while dragged.
+ */
 input[type="range"] {
-  accent-color: var(--accent);
+  appearance: none;
   min-width: 0;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
 }
 input[type="range"]:focus {
   outline: none;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--line) var(--fill, 0%));
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+input[type="range"]:hover::-webkit-slider-thumb,
+input[type="range"]:active::-webkit-slider-thumb {
+  background: color-mix(in srgb, var(--accent) 80%, white);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+input[type="range"]::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+input[type="range"]:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* A checkbox drawn to match: a rounded box, filled with the accent and a check when ticked. */

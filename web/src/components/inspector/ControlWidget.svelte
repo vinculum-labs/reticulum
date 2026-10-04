@@ -54,6 +54,7 @@
         min="0"
         {max}
         value={dragging ?? value}
+        style="--fill: {(Math.max(0, Math.min(max, dragging ?? value)) / max) * 100}%"
         disabled={!canEdit}
         aria-label={label}
         oninput={(e) => (dragging = Number(e.currentTarget.value))}
