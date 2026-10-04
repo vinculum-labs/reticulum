@@ -41,7 +41,8 @@
       left: Math.max(8, Math.min(rect.left, window.innerWidth - span - 8)),
       top: above ? rect.top - 4 : rect.bottom + 4,
       width: w,
-      maxHeight: Math.max(120, Math.min(480, above ? aboveRoom : below)),
+      // A list scrolls past 480px; a menu takes the room there is, so none of its items hide below its edge.
+      maxHeight: Math.max(120, Math.min(role === "menu" ? Infinity : 480, above ? aboveRoom : below)),
       above,
     };
   }
