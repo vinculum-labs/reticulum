@@ -145,9 +145,11 @@
 
   function dropSheet(target: Sheet) {
     const sheet = snapshot.sheets.find((s) => s.id === dragged);
+    // Checked before the drag is forgotten: canDrop looks the dragged sheet up.
+    const ok = canDrop(target);
     dragged = null;
     dropOn = null;
-    if (sheet && canDrop(target)) moveSheet(sheet, target);
+    if (sheet && ok) moveSheet(sheet, target);
   }
 
   // ---------------------------------------------------------------- right-click menus
