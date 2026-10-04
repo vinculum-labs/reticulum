@@ -800,34 +800,38 @@
   $effect(() => onPlaceDevice((device) => addNode("device", viewCenter(), device)));
 
   /**
-   * Where a card added mid-view goes: the middle of the view, or the nearest spot near it clear of the open sheet's
-   * cards (and the frames open on it), so a second one added doesn't land on the first.
+   * Where a card added from the toolbar (or a device's "Add to the open sheet") goes. Things flow left to right, so:
+   * just downstream of the one card selected (a column to its right, level with it), else the middle of the view;
+   * then down that column to the first spot clear of the open sheet's cards and frames, and on to the next column
+   * right. Never above or left. From the middle, a column ends at the bottom of the view.
    */
   function viewCenter() {
     const rect = container?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
-    const p = flow.screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-    const start = { x: Math.round(p.x - 70), y: Math.round(p.y - 30) };
-    // A new card's size until it is measured; the gap kept around the others.
+    // A new card's size until it is measured; the gap kept around the others; the room left for a wire.
     const size = { width: 170, height: 70 };
     const gap = 16;
-    const taken = nodes
-      .filter((n) => !n.parentId && n.type !== "sheetFrame")
-      .map((n) => ({ x: n.position.x, y: n.position.y, width: n.measured?.width ?? size.width, height: n.measured?.height ?? size.height }));
+    const wireRoom = 60;
+    const box = (n: Node<NodeData>) => ({ x: n.position.x, y: n.position.y, width: n.measured?.width ?? size.width, height: n.measured?.height ?? size.height });
+    const taken = nodes.filter((n) => !n.parentId && n.type !== "sheetFrame").map(box);
     const clear = (at: { x: number; y: number }) =>
       taken.every((t) => at.x + size.width + gap <= t.x || t.x + t.width + gap <= at.x || at.y + size.height + gap <= t.y || t.y + t.height + gap <= at.y);
-    // Rings around the middle, nearest first: a column's width across, a card's height down.
-    const step = { x: size.width + gap, y: size.height + gap };
-    for (let ring = 0; ring <= 8; ring++) {
-      const spots: { x: number; y: number }[] = [];
-      for (let i = -ring; i <= ring; i++) {
-        for (let j = -ring; j <= ring; j++) {
-          if (Math.max(Math.abs(i), Math.abs(j)) === ring) spots.push({ x: start.x + i * step.x, y: start.y + j * step.y });
-        }
+    const picked = app.selectedNodes.length === 1 ? nodes.find((n) => n.id === app.selectedNodes[0] && !n.parentId && n.type === "graph") : undefined;
+    const middle = flow.screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    const bottom = flow.screenToFlowPosition({ x: rect.left, y: rect.bottom }).y;
+    const after = picked && box(picked);
+    const start = after
+      ? { x: Math.round(after.x + after.width + wireRoom), y: Math.round(after.y) }
+      : { x: Math.round(middle.x - size.width / 2), y: Math.round(middle.y - size.height / 2) };
+    const across = size.width + wireRoom;
+    const down = size.height + gap;
+    for (let column = 0; column < 12; column++) {
+      for (let row = 0; row < 24; row++) {
+        const at = { x: start.x + column * across, y: start.y + row * down };
+        // From the middle, a column stops at the bottom of the view (its first spot is always tried).
+        if (!after && row > 0 && at.y + size.height > bottom) break;
+        if (clear(at)) return at;
       }
-      spots.sort((a, b) => Math.hypot(a.x - start.x, a.y - start.y) - Math.hypot(b.x - start.x, b.y - start.y));
-      const free = spots.find(clear);
-      if (free) return free;
     }
     return start;
   }
