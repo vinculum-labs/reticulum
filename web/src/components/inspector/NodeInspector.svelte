@@ -156,6 +156,17 @@
     return [...messages].sort((a, b) => (a.from ?? 0) - (b.from ?? 0));
   }
 
+  /**
+   * Places another blueprint here (its slots start empty). A numbered name the old blueprint gave it ("Smelter #2") goes,
+   * so the game numbers it for the new one; a name typed in stays.
+   */
+  function switchBlueprint(sheet: string) {
+    if (node.settings.kind !== "instance") return;
+    const old = app.snapshot?.sheets.find((x) => x.id === (node.settings as { sheet?: string }).sheet)?.name;
+    const numbered = !!old && !!node.label?.startsWith(`${old} #`) && /^\d+$/.test(node.label.slice(old.length + 2));
+    save({ ...node, label: numbered ? undefined : node.label, settings: { ...node.settings, sheet, bindings: undefined } as NodeSettings }, "change blueprint");
+  }
+
   /** Another placement of the same blueprint with this one's name. */
   const sameName = $derived.by(() => {
     if (s.kind !== "instance" || !node.label) return false;
@@ -628,7 +639,7 @@
         disabled={!canEdit}
         placeholder="(missing)"
         options={choices.map((choice) => ({ value: choice.id, label: choice.name }))}
-        onchange={(sheet) => settings({ sheet, bindings: undefined })}
+        onchange={(sheet) => switchBlueprint(sheet)}
       />
     </Field>
     {#if used}
