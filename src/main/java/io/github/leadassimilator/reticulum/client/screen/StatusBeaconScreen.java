@@ -1,38 +1,75 @@
 package io.github.leadassimilator.reticulum.client.screen;
 
-import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+import io.github.leadassimilator.reticulum.ReticulumConfig;
+import io.github.leadassimilator.reticulum.block.StatusBeaconBlock;
+import io.github.leadassimilator.reticulum.block.entity.BeaconLook;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.item.DyeColor;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * A Status Beacon: its mode (its network's alarms, or a redstone signal), what it shows now, and per severity what it
- * does — beam, beam through blocks, glow, glow through walls, sound.
+ * A Status Beacon: its mode, what it shows now, and the look of each state — Warning and Critical in Network mode, each
+ * signal level (its own look, or the same as the level below) in Redstone mode. A look is a color, beam and glow
+ * switches, and a sound with its pitch, repeat and range.
  */
 public class StatusBeaconScreen extends QuickScreen {
-    private static final int WIDTH = 250;
-    private static final int ROW = 22;
-    private static final int[] OPTIONS = {StatusBeaconBlockEntity.BEAM, StatusBeaconBlockEntity.BEAM_THROUGH, StatusBeaconBlockEntity.GLOW,
-            StatusBeaconBlockEntity.GLOW_THROUGH, StatusBeaconBlockEntity.SOUND};
-    private static final String[] LABELS = {"beam", "beam_through", "glow", "glow_through", "sound"};
+    private static final int WIDTH = 300;
+    private static final int CELL = 18;
+    private static final int SWATCH = 12;
+    private static final int RESULTS = 4;
+    /** Every sound in the game, by id, for the search. */
+    private static List<String> allSounds;
 
-    private final Payloads.OpenBeaconScreen view;
-    private int warning;
-    private int critical;
+    private Payloads.OpenBeaconScreen view;
+    private CompoundTag settings;
+    /** The state being edited: 1 to 15 a signal level, or {@link StatusBeaconBlock#WARNING} / {@link StatusBeaconBlock#CRITICAL}. */
+    private int selected;
+    private String search = "";
     private int left;
     private int top;
-    private int gridTop;
+    private int pickerTop;
+    private int editorTop;
+    private EditBox hex;
+    private EditBox pitch;
+    private EditBox interval;
+    private EditBox range;
 
     public StatusBeaconScreen(Payloads.OpenBeaconScreen view) {
         super(Component.translatable("block.reticulum.status_beacon"));
         this.view = view;
-        this.warning = view.warning();
-        this.critical = view.critical();
+        this.settings = view.settings().copy();
+        this.selected = redstone() ? Math.max(1, view.signal()) : StatusBeaconBlock.WARNING;
+    }
+
+    public BlockPos pos() {
+        return view.pos();
+    }
+
+    /** New contents from the server (after a mode change): the status and alarms; the settings as the server kept them. */
+    public void refresh(Payloads.OpenBeaconScreen next) {
+        boolean modeChanged = redstone() != "redstone".equals(next.settings().getString("mode"));
+        view = next;
+        settings = next.settings().copy();
+        if (modeChanged) {
+            selected = redstone() ? Math.max(1, next.signal()) : StatusBeaconBlock.WARNING;
+        }
+        rebuildKeepingInput();
     }
 
     @Override
@@ -40,76 +77,363 @@ public class StatusBeaconScreen extends QuickScreen {
         return view.pos();
     }
 
-    private String modeName() {
-        return view.mode() == 1 ? "redstone" : "network";
+    private boolean redstone() {
+        return "redstone".equals(settings.getString("mode"));
     }
+
+    // ---------------------------------------------------------------- looks in the settings
+
+    /** The tag of a state's own look, or null when a level takes the one below. */
+    private CompoundTag own(int state) {
+        if (state == StatusBeaconBlock.WARNING) {
+            return settings.getCompound("warning");
+        }
+        if (state == StatusBeaconBlock.CRITICAL) {
+            return settings.getCompound("critical");
+        }
+        CompoundTag levels = settings.getCompound("levels");
+        String key = Integer.toString(state);
+        return levels.contains(key) ? levels.getCompound(key) : null;
+    }
+
+    /** The look a level shows: its own or the nearest below (null: nothing). */
+    private CompoundTag shownAt(int level) {
+        for (int i = level; i >= 1; i--) {
+            CompoundTag look = own(i);
+            if (look != null) {
+                return look;
+            }
+        }
+        return null;
+    }
+
+    private void setOwn(int level, boolean on) {
+        CompoundTag levels = settings.getCompound("levels");
+        if (on) {
+            CompoundTag below = level > 1 ? shownAt(level - 1) : null;
+            levels.put(Integer.toString(level), below != null ? below.copy() : (level >= 8 ? BeaconLook.CRITICAL : BeaconLook.WARNING).save());
+        } else {
+            levels.remove(Integer.toString(level));
+        }
+        settings.put("levels", levels);
+        send();
+        rebuildWidgets();
+    }
+
+    private void send() {
+        PacketDistributor.sendToServer(new Payloads.BeaconSettings(view.pos(), settings));
+    }
+
+    /** Changes the edited look, sends it, and redraws. */
+    private void change(java.util.function.Consumer<CompoundTag> edit) {
+        CompoundTag look = own(selected);
+        if (look == null) {
+            return;
+        }
+        edit.accept(look);
+        send();
+    }
+
+    // ---------------------------------------------------------------- widgets
 
     @Override
     protected void init() {
         left = (width - WIDTH) / 2;
-        int lines = view.mode() == 0 ? Math.max(1, view.alarms().size()) : 0;
-        int height = 76 + lines * 11 + 18 + OPTIONS.length * ROW;
-        top = Math.max(8, (this.height - height) / 2);
-        Button mode = Button.builder(Component.translatable("screen.reticulum.beacon_mode_" + modeName()),
-                        b -> send(view.mode() == 1 ? 0 : 1))
-                .bounds(left, top + 14, WIDTH, 20)
-                .tooltip(Tooltip.create(Component.translatable("screen.reticulum.beacon_mode_hint_" + modeName())))
+        int alarms = redstone() ? 0 : Math.min(3, Math.max(1, view.alarms().size()));
+        int height = 230 + alarms * 11;
+        top = Math.max(6, (this.height - height) / 2);
+        String mode = redstone() ? "redstone" : "network";
+        Button modeButton = Button.builder(Component.translatable("screen.reticulum.beacon_mode_" + mode), b -> {
+                    settings.putString("mode", redstone() ? "network" : "redstone");
+                    send();
+                })
+                .bounds(left, top + 12, WIDTH, 20)
+                .tooltip(Tooltip.create(Component.translatable("screen.reticulum.beacon_mode_hint_" + mode)))
                 .build();
-        mode.active = view.canEdit();
-        addRenderableWidget(mode);
-        gridTop = top + 56 + lines * 11 + 18;
-        for (int row = 0; row < OPTIONS.length; row++) {
-            int bit = OPTIONS[row];
-            for (int column = 0; column < 2; column++) {
-                boolean criticalColumn = column == 1;
-                Checkbox box = Checkbox.builder(Component.empty(), font)
-                        .pos(left + 150 + column * 56, gridTop + row * ROW)
-                        .selected(((criticalColumn ? critical : warning) & bit) != 0)
-                        .onValueChange((checkbox, on) -> set(criticalColumn, bit, on))
-                        .build();
-                box.active = view.canEdit();
-                addRenderableWidget(box);
+        modeButton.active = view.canEdit();
+        addRenderableWidget(modeButton);
+        pickerTop = top + 50 + alarms * 11;
+        if (!redstone()) {
+            addState(StatusBeaconStatePicker.WARNING_LABEL, StatusBeaconBlock.WARNING, left);
+            addState(StatusBeaconStatePicker.CRITICAL_LABEL, StatusBeaconBlock.CRITICAL, left + 76);
+        }
+        editorTop = pickerTop + 28;
+        int y = editorTop;
+        if (redstone()) {
+            boolean ownLook = own(selected) != null;
+            Checkbox ownBox = Checkbox.builder(selected == 1 ? Component.translatable("screen.reticulum.beacon_own_first")
+                            : Component.translatable("screen.reticulum.beacon_own_level", selected - 1), font)
+                    .pos(left, y).selected(ownLook).onValueChange((box, on) -> setOwn(selected, on)).build();
+            ownBox.active = view.canEdit();
+            addRenderableWidget(ownBox);
+            y += 24;
+        }
+        CompoundTag look = own(selected);
+        if (look == null) {
+            return;
+        }
+        BeaconLook current = BeaconLook.load(look, BeaconLook.WARNING);
+        // Color: swatches are drawn and clicked by hand (see render and mouseClicked); the hex box is here.
+        hex = kept("hex", new SeeThroughTextBox(font, left + WIDTH - 64, y, 64, 14, Component.translatable("screen.reticulum.beacon_color")));
+        hex.setMaxLength(7);
+        hex.setValue(String.format(Locale.ROOT, "#%06X", current.color()));
+        hex.setEditable(view.canEdit());
+        addRenderableWidget(hex);
+        y += 22;
+        y = flagRow(y, current, new int[] {BeaconLook.BEAM, BeaconLook.BEAM_THROUGH}, new String[] {"beam", "beam_through"});
+        y = flagRow(y, current, new int[] {BeaconLook.GLOW, BeaconLook.GLOW_THROUGH}, new String[] {"glow", "glow_through"});
+        y = flagRow(y, current, new int[] {BeaconLook.SOUND, BeaconLook.TWO_TONE}, new String[] {"sound", "two_tone"});
+        addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.beacon_preview"), b -> preview())
+                .bounds(left + WIDTH - 20, y - 22, 20, 18).build());
+        EditBox searchBox = kept("search", new SeeThroughTextBox(font, left, y, WIDTH, 16, Component.translatable("screen.reticulum.beacon_search")));
+        searchBox.setMaxLength(100);
+        searchBox.setValue(search);
+        searchBox.setHint(Component.literal(current.sound().toString()));
+        searchBox.setEditable(view.canEdit());
+        searchBox.setResponder(text -> {
+            if (!text.equals(search)) {
+                search = text;
+                rebuildKeepingInput();
+            }
+        });
+        addRenderableWidget(searchBox);
+        y += 18;
+        if (!search.isBlank()) {
+            for (String id : matches(search)) {
+                addRenderableWidget(Button.builder(Component.literal(id), b -> {
+                    change(t -> t.putString("sound", id));
+                    search = "";
+                    rebuildWidgets();
+                }).bounds(left, y, WIDTH, 14).build());
+                y += 15;
             }
         }
+        y += 4;
+        int third = (WIDTH - 8) / 3;
+        pitch = number("pitch", left, y + 10, third, String.format(Locale.ROOT, "%.2f", current.pitch()));
+        interval = number("interval", left + third + 4, y + 10, third, Integer.toString(current.interval()));
+        range = number("range", left + 2 * (third + 4), y + 10, third, Integer.toString(current.range()));
     }
 
-    private void set(boolean criticalColumn, int bit, boolean on) {
-        if (criticalColumn) {
-            critical = on ? critical | bit : critical & ~bit;
-        } else {
-            warning = on ? warning | bit : warning & ~bit;
+    private void addState(String label, int state, int x) {
+        Button button = Button.builder(Component.translatable(label), b -> {
+            commit();
+            selected = state;
+            rebuildWidgets();
+        }).bounds(x, pickerTop, 72, 20).build();
+        button.active = selected != state;
+        addRenderableWidget(button);
+    }
+
+    private int flagRow(int y, BeaconLook look, int[] flags, String[] labels) {
+        for (int i = 0; i < flags.length; i++) {
+            int flag = flags[i];
+            Checkbox box = Checkbox.builder(Component.translatable("screen.reticulum.beacon_" + labels[i]), font)
+                    .pos(left + i * 120, y).selected(look.has(flag))
+                    .onValueChange((checkbox, on) -> change(t -> t.putInt("flags", on ? t.getInt("flags") | flag : t.getInt("flags") & ~flag)))
+                    .build();
+            box.active = view.canEdit();
+            addRenderableWidget(box);
         }
-        send(view.mode());
+        return y + 22;
     }
 
-    /** Sends the settings; the server sends the screen back (a new mode shows something else). */
-    private void send(int mode) {
-        PacketDistributor.sendToServer(new Payloads.BeaconStyle(view.pos(), mode, warning, critical));
+    private EditBox number(String key, int x, int y, int width, String value) {
+        EditBox box = kept(key, new SeeThroughTextBox(font, x, y, width, 14, Component.translatable("screen.reticulum.beacon_" + key)));
+        box.setMaxLength(6);
+        box.setValue(value);
+        box.setEditable(view.canEdit());
+        addRenderableWidget(box);
+        return box;
+    }
+
+    private static List<String> matches(String text) {
+        if (allSounds == null) {
+            allSounds = BuiltInRegistries.SOUND_EVENT.keySet().stream().map(ResourceLocation::toString).sorted().toList();
+        }
+        String needle = text.toLowerCase(Locale.ROOT).trim();
+        List<String> banned = bannedSounds();
+        List<String> out = new ArrayList<>();
+        for (String id : allSounds) {
+            if (id.contains(needle) && !banned.contains(id)) {
+                out.add(id);
+                if (out.size() == RESULTS) {
+                    break;
+                }
+            }
+        }
+        return out;
+    }
+
+    private static List<String> bannedSounds() {
+        try {
+            return List.copyOf(ReticulumConfig.BEACON_BANNED_SOUNDS.get());
+        } catch (IllegalStateException notLoaded) {
+            return List.of();
+        }
+    }
+
+    private void preview() {
+        CompoundTag look = own(selected);
+        if (look == null) {
+            return;
+        }
+        BeaconLook current = BeaconLook.load(look, BeaconLook.WARNING);
+        SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(current.sound());
+        if (sound != null) {
+            minecraft.getSoundManager().play(SimpleSoundInstance.forUI(sound, current.pitch(), 1f));
+        }
+    }
+
+    /** The color, pitch, repeat and range boxes, read on Enter and when leaving. */
+    @Override
+    protected void commit() {
+        CompoundTag look = own(selected);
+        if (look == null || hex == null || !view.canEdit()) {
+            return;
+        }
+        boolean changed = false;
+        try {
+            int color = Integer.parseInt(hex.getValue().replace("#", "").trim(), 16) & 0xFFFFFF;
+            changed |= color != look.getInt("color");
+            look.putInt("color", color);
+        } catch (NumberFormatException ignored) {
+        }
+        try {
+            float value = Float.parseFloat(pitch.getValue().trim());
+            changed |= value != look.getFloat("pitch");
+            look.putFloat("pitch", value);
+        } catch (NumberFormatException ignored) {
+        }
+        try {
+            int value = Integer.parseInt(interval.getValue().trim());
+            changed |= value != look.getInt("interval");
+            look.putInt("interval", value);
+        } catch (NumberFormatException ignored) {
+        }
+        try {
+            int value = Integer.parseInt(range.getValue().trim());
+            changed |= value != look.getInt("range");
+            look.putInt("range", value);
+        } catch (NumberFormatException ignored) {
+        }
+        if (changed) {
+            send();
+        }
+    }
+
+    // ---------------------------------------------------------------- drawn by hand: the level strip and the swatches
+
+    private int stripX(int level) {
+        return left + (level - 1) * (CELL + 2);
+    }
+
+    private int swatchX(int i) {
+        return left + 40 + (i % 8) * (SWATCH + 2);
+    }
+
+    private int swatchY(int i) {
+        return editorTop + (redstone() ? 24 : 0) - 2 + (i / 8) * (SWATCH + 2) - 6;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (redstone() && mouseY >= pickerTop && mouseY < pickerTop + CELL) {
+            for (int level = 1; level <= 15; level++) {
+                if (mouseX >= stripX(level) && mouseX < stripX(level) + CELL) {
+                    commit();
+                    selected = level;
+                    rebuildWidgets();
+                    return true;
+                }
+            }
+        }
+        if (own(selected) != null && view.canEdit()) {
+            DyeColor[] dyes = DyeColor.values();
+            for (int i = 0; i < dyes.length; i++) {
+                if (mouseX >= swatchX(i) && mouseX < swatchX(i) + SWATCH && mouseY >= swatchY(i) && mouseY < swatchY(i) + SWATCH) {
+                    int color = dyes[i].getTextureDiffuseColor() & 0xFFFFFF;
+                    change(t -> t.putInt("color", color));
+                    if (hex != null) {
+                        hex.setValue(String.format(Locale.ROOT, "#%06X", color));
+                    }
+                    return true;
+                }
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawString(font, title, left, top, 0xFFFFFF);
-        graphics.drawString(font, view.status(), left, top + 40, 0xC0C0C0);
-        if (view.mode() == 0) {
-            int y = top + 56;
+        graphics.drawString(font, view.status(), left, top + 37, 0xC0C0C0);
+        if (!redstone()) {
+            int y = top + 48;
             if (view.alarms().isEmpty()) {
                 graphics.drawString(font, Component.translatable("screen.reticulum.beacon_quiet"), left, y, 0x80C080);
             }
-            for (String alarm : view.alarms()) {
+            for (String alarm : view.alarms().subList(0, Math.min(3, view.alarms().size()))) {
                 boolean critical = alarm.startsWith("!");
                 graphics.drawString(font, font.plainSubstrByWidth(alarm.substring(1), WIDTH), left, y, critical ? 0xFF5050 : 0xFFC040);
                 y += 11;
             }
+        } else {
+            // The strip: each level in the color it shows (dark where nothing), the edited one framed, the live one marked.
+            for (int level = 1; level <= 15; level++) {
+                CompoundTag look = shownAt(level);
+                int x = stripX(level);
+                int color = look == null ? 0xFF202226 : 0xFF000000 | look.getInt("color");
+                if (level == selected) {
+                    graphics.fill(x - 1, pickerTop - 1, x + CELL + 1, pickerTop + CELL + 1, 0xFFFFFFFF);
+                }
+                graphics.fill(x, pickerTop, x + CELL, pickerTop + CELL, color);
+                if (own(level) == null && level > 1) {
+                    graphics.fill(x, pickerTop + CELL - 3, x + CELL, pickerTop + CELL, 0x80000000);
+                }
+                String number = Integer.toString(level);
+                graphics.drawString(font, number, x + (CELL - font.width(number)) / 2, pickerTop + 5, 0xFFFFFF, true);
+                if (level == view.signal()) {
+                    graphics.drawString(font, "▲", x + (CELL - font.width("▲")) / 2, pickerTop + CELL + 1, 0xFFFFFF);
+                }
+            }
         }
-        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_warning"), left + 146, gridTop - 14, 0xFFC040);
-        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_critical"), left + 202, gridTop - 14, 0xFF5050);
-        for (int row = 0; row < OPTIONS.length; row++) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_" + LABELS[row]), left, gridTop + row * ROW + 6, 0xE0E0E0);
+        CompoundTag look = own(selected);
+        if (redstone() && look == null) {
+            CompoundTag below = selected > 1 ? shownAt(selected - 1) : null;
+            graphics.drawString(font, below == null ? Component.translatable("screen.reticulum.beacon_shows_nothing")
+                    : Component.translatable("screen.reticulum.beacon_same_as", selected - 1), left, editorTop + 26, 0xA0A0A0);
+            return;
+        }
+        if (look == null) {
+            return;
+        }
+        int colorRow = editorTop + (redstone() ? 24 : 0);
+        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_color"), left, colorRow + 3, 0xE0E0E0);
+        DyeColor[] dyes = DyeColor.values();
+        for (int i = 0; i < dyes.length; i++) {
+            int x = swatchX(i);
+            int y = swatchY(i);
+            int color = dyes[i].getTextureDiffuseColor() & 0xFFFFFF;
+            if (color == look.getInt("color")) {
+                graphics.fill(x - 1, y - 1, x + SWATCH + 1, y + SWATCH + 1, 0xFFFFFFFF);
+            }
+            graphics.fill(x, y, x + SWATCH, y + SWATCH, 0xFF000000 | color);
+        }
+        if (pitch != null) {
+            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_pitch"), pitch.getX(), pitch.getY() - 10, 0xE0E0E0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_interval"), interval.getX(), interval.getY() - 10, 0xE0E0E0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_range"), range.getX(), range.getY() - 10, 0xE0E0E0);
         }
         if (!view.canEdit()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_read_only"), left, gridTop + OPTIONS.length * ROW + 4, 0xA0A0A0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_read_only"), left, pitch.getY() + 20, 0xA0A0A0);
         }
+    }
+
+    /** The labels of Network mode's two states. */
+    private static final class StatusBeaconStatePicker {
+        static final String WARNING_LABEL = "screen.reticulum.beacon_warning";
+        static final String CRITICAL_LABEL = "screen.reticulum.beacon_critical";
     }
 }

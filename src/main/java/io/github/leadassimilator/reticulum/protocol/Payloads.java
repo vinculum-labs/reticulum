@@ -294,30 +294,17 @@ public final class Payloads {
     // ---------------------------------------------------------------- registration
 
     /**
-     * Opens a Status Beacon's screen: its mode (0 Network, 1 Redstone), a line on what it shows (its network and reach,
-     * or the signal), what is going off, and its settings.
+     * Opens (or refreshes) a Status Beacon's screen: a line on what it shows (its network and reach, or the signal), its
+     * settings (mode and looks), the signal it gets now, what is going off, and whether the player may change it.
      */
-    public record OpenBeaconScreen(BlockPos pos, int mode, net.minecraft.network.chat.Component status, int styles,
+    public record OpenBeaconScreen(BlockPos pos, net.minecraft.network.chat.Component status, net.minecraft.nbt.CompoundTag settings, int signal,
             java.util.List<String> alarms, boolean canEdit) implements CustomPacketPayload {
-        public OpenBeaconScreen(BlockPos pos, int mode, net.minecraft.network.chat.Component status, int warning, int critical,
-                java.util.List<String> alarms, boolean canEdit) {
-            this(pos, mode, status, warning | critical << 8, alarms, canEdit);
-        }
-
-        public int warning() {
-            return styles & 0xFF;
-        }
-
-        public int critical() {
-            return styles >> 8 & 0xFF;
-        }
-
         public static final Type<OpenBeaconScreen> TYPE = payloadType("open_beacon_screen");
         public static final StreamCodec<RegistryFriendlyByteBuf, OpenBeaconScreen> STREAM_CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, OpenBeaconScreen::pos,
-                ByteBufCodecs.VAR_INT, OpenBeaconScreen::mode,
                 net.minecraft.network.chat.ComponentSerialization.STREAM_CODEC, OpenBeaconScreen::status,
-                ByteBufCodecs.VAR_INT, OpenBeaconScreen::styles,
+                ByteBufCodecs.COMPOUND_TAG, OpenBeaconScreen::settings,
+                ByteBufCodecs.VAR_INT, OpenBeaconScreen::signal,
                 ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(64)), OpenBeaconScreen::alarms,
                 ByteBufCodecs.BOOL, OpenBeaconScreen::canEdit,
                 OpenBeaconScreen::new);
@@ -328,15 +315,13 @@ public final class Payloads {
         }
     }
 
-    /** A Status Beacon's settings, from its screen: its mode, and per severity a mask of what it does. */
-    public record BeaconStyle(BlockPos pos, int mode, int warning, int critical) implements CustomPacketPayload {
-        public static final Type<BeaconStyle> TYPE = payloadType("beacon_style");
-        public static final StreamCodec<RegistryFriendlyByteBuf, BeaconStyle> STREAM_CODEC = StreamCodec.composite(
-                BlockPos.STREAM_CODEC, BeaconStyle::pos,
-                ByteBufCodecs.VAR_INT, BeaconStyle::mode,
-                ByteBufCodecs.VAR_INT, BeaconStyle::warning,
-                ByteBufCodecs.VAR_INT, BeaconStyle::critical,
-                BeaconStyle::new);
+    /** A Status Beacon's settings from its screen (mode and looks); the server keeps them within its limits. */
+    public record BeaconSettings(BlockPos pos, net.minecraft.nbt.CompoundTag settings) implements CustomPacketPayload {
+        public static final Type<BeaconSettings> TYPE = payloadType("beacon_settings");
+        public static final StreamCodec<RegistryFriendlyByteBuf, BeaconSettings> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, BeaconSettings::pos,
+                ByteBufCodecs.COMPOUND_TAG, BeaconSettings::settings,
+                BeaconSettings::new);
 
         @Override
         public Type<? extends CustomPacketPayload> type() {
@@ -410,8 +395,8 @@ public final class Payloads {
                 (payload, context) -> server(context, AlarmPush::sendMarkers));
         registrar.playToClient(OpenBeaconScreen.TYPE, OpenBeaconScreen.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openBeaconScreen(payload));
-        registrar.playToServer(BeaconStyle.TYPE, BeaconStyle.STREAM_CODEC,
-                (payload, context) -> server(context, player -> Screens.setBeaconStyle(player, payload)));
+        registrar.playToServer(BeaconSettings.TYPE, BeaconSettings.STREAM_CODEC,
+                (payload, context) -> server(context, player -> Screens.setBeaconSettings(player, payload)));
         registrar.playToClient(OpenNetworkPicker.TYPE, OpenNetworkPicker.STREAM_CODEC,
                 (payload, context) -> io.github.leadassimilator.reticulum.client.ClientPayloadHandler.openNetworkPicker(payload));
         registrar.playToServer(RequestNetworkPicker.TYPE, RequestNetworkPicker.STREAM_CODEC,

@@ -5,10 +5,8 @@ import javax.annotation.Nullable;
 import com.mojang.serialization.MapCodec;
 
 import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
-import io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity;
 import io.github.leadassimilator.reticulum.protocol.Screens;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
-import io.github.leadassimilator.reticulum.util.LowercaseName;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,32 +21,23 @@ import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 /** Shows an alarm: gray, yellow (a warning) or red (critical) — its network's, or what a redstone signal says. */
 public class StatusBeaconBlock extends BaseEntityBlock {
     public static final MapCodec<StatusBeaconBlock> CODEC = simpleCodec(StatusBeaconBlock::new);
 
-    /** The worst alarm going off on its network, as shown. */
-    public enum Shown implements LowercaseName {
-        NONE, WARNING, CRITICAL;
-
-        public static Shown of(@Nullable AlarmSeverity severity) {
-            return severity == null ? NONE : severity == AlarmSeverity.CRITICAL ? CRITICAL : WARNING;
-        }
-
-        @Nullable
-        public AlarmSeverity severity() {
-            return this == NONE ? null : this == CRITICAL ? AlarmSeverity.CRITICAL : AlarmSeverity.WARNING;
-        }
-    }
-
-    public static final EnumProperty<Shown> ALARM = EnumProperty.create("alarm", Shown.class);
+    /** Network mode: a warning going off. */
+    public static final int WARNING = 16;
+    /** Network mode: a critical alarm going off. */
+    public static final int CRITICAL = 17;
+    /** What it shows: 0 nothing, 1 to 15 the redstone level (Redstone mode), {@link #WARNING} or {@link #CRITICAL}. */
+    public static final IntegerProperty SHOWN = IntegerProperty.create("shown", 0, 17);
 
     public StatusBeaconBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(ALARM, Shown.NONE));
+        registerDefaultState(stateDefinition.any().setValue(SHOWN, 0));
     }
 
     @Override
@@ -58,7 +47,7 @@ public class StatusBeaconBlock extends BaseEntityBlock {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(ALARM);
+        builder.add(SHOWN);
     }
 
     @Override
@@ -89,6 +78,28 @@ public class StatusBeaconBlock extends BaseEntityBlock {
         }
     }
 
+    /** A dye recolors the look showing now (Network mode's warning or critical, or the redstone level's). */
+    @Override
+    protected net.minecraft.world.ItemInteractionResult useItemOn(net.minecraft.world.item.ItemStack stack, BlockState state, Level level, BlockPos pos,
+            Player player, net.minecraft.world.InteractionHand hand, BlockHitResult hit) {
+        if (!(stack.getItem() instanceof net.minecraft.world.item.DyeItem dye)) {
+            return super.useItemOn(stack, state, level, pos, player, hand, hit);
+        }
+        if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon) {
+            if (!Screens.mayChangeBeacon(serverPlayer, beacon)) {
+                return net.minecraft.world.ItemInteractionResult.CONSUME;
+            }
+            if (!beacon.recolorShown(dye.getDyeColor().getTextureDiffuseColor() & 0xFFFFFF)) {
+                serverPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.beacon_dye_nothing"), true);
+                return net.minecraft.world.ItemInteractionResult.CONSUME;
+            }
+            if (!player.getAbilities().instabuild) {
+                stack.shrink(1);
+            }
+        }
+        return net.minecraft.world.ItemInteractionResult.sidedSuccess(level.isClientSide);
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (player instanceof ServerPlayer serverPlayer) {
@@ -102,13 +113,10 @@ public class StatusBeaconBlock extends BaseEntityBlock {
         return true;
     }
 
-    /** A comparator reads 0 (nothing), 7 (a warning) or 15 (critical). */
+    /** A comparator reads what it shows: the redstone level it got, or 7 for a warning and 15 for critical. */
     @Override
     protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
-        return switch (state.getValue(ALARM)) {
-            case NONE -> 0;
-            case WARNING -> 7;
-            case CRITICAL -> 15;
-        };
+        int shown = state.getValue(SHOWN);
+        return shown == WARNING ? 7 : shown == CRITICAL ? 15 : shown;
     }
 }

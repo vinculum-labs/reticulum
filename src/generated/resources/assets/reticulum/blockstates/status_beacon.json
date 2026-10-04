@@ -1,13 +1,58 @@
 {
   "variants": {
-    "alarm=critical": {
-      "model": "reticulum:block/status_beacon_critical"
+    "shown=0": {
+      "model": "reticulum:block/status_beacon"
     },
-    "alarm=none": {
-      "model": "reticulum:block/status_beacon_none"
+    "shown=1": {
+      "model": "reticulum:block/status_beacon"
     },
-    "alarm=warning": {
-      "model": "reticulum:block/status_beacon_warning"
+    "shown=10": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=11": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=12": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=13": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=14": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=15": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=16": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=17": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=2": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=3": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=4": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=5": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=6": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=7": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=8": {
+      "model": "reticulum:block/status_beacon"
+    },
+    "shown=9": {
+      "model": "reticulum:block/status_beacon"
     }
   }
 }

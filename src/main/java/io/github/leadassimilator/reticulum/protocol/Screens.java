@@ -85,8 +85,8 @@ public final class Screens {
             }
         }
         boolean canEdit = network == null || io.github.leadassimilator.reticulum.security.Security.canUse(network, player);
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new Payloads.OpenBeaconScreen(pos, beacon.mode().ordinal(),
-                beaconStatus(player, beacon, watch), beacon.warningStyle(), beacon.criticalStyle(), alarms, canEdit));
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new Payloads.OpenBeaconScreen(pos, beaconStatus(player, beacon, watch),
+                beacon.settings(), player.serverLevel().getBestNeighborSignal(pos), alarms, canEdit));
     }
 
     /** One line on what a beacon shows: the network it watches and whether it reaches it, or the signal it gets. */
@@ -104,7 +104,17 @@ public final class Screens {
         return net.minecraft.network.chat.Component.translatable(watch.reachable() ? "lookat.reticulum.beacon_watching" : "lookat.reticulum.beacon_unreachable", name);
     }
 
-    static void setBeaconStyle(ServerPlayer player, Payloads.BeaconStyle payload) {
+    /** Whether the player may change a beacon: any player, unless it is a device of a network they can't use. */
+    public static boolean mayChangeBeacon(ServerPlayer player, io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon) {
+        io.github.leadassimilator.reticulum.network.Network network = beacon.watch(player.serverLevel()).network();
+        if (network != null && !io.github.leadassimilator.reticulum.security.Security.canUse(network, player)) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.no_access", network.name()), true);
+            return false;
+        }
+        return true;
+    }
+
+    static void setBeaconSettings(ServerPlayer player, Payloads.BeaconSettings payload) {
         if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, payload.pos())
                 || !(player.serverLevel().getBlockEntity(payload.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
             return;
@@ -114,9 +124,12 @@ public final class Screens {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.no_access", network.name()), true);
             return;
         }
-        var modes = io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.values();
-        beacon.setSettings(modes[Math.floorMod(payload.mode(), modes.length)], payload.warning(), payload.critical());
-        openBeacon(player, payload.pos());
+        var before = beacon.mode();
+        beacon.applySettings(payload.settings());
+        // A new mode shows something else: the screen is sent again (other changes the screen already shows).
+        if (beacon.mode() != before) {
+            openBeacon(player, payload.pos());
+        }
     }
 
     public static void open(ServerPlayer player, BlockPos pos) {

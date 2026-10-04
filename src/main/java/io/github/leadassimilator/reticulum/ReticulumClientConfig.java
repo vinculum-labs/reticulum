@@ -100,6 +100,12 @@ public final class ReticulumClientConfig {
     public static final ModConfigSpec.BooleanValue MARKERS_WARNING = BUILDER
             .comment("In Status mode, the network tool marks blocks with a warning (offline devices, what warnings read).")
             .define("markersWarning", true);
+    public static final ModConfigSpec.BooleanValue MUTE_REDSTONE_BEACONS = BUILDER
+            .comment("Mute Status Beacons in Redstone mode (anyone can set those off). Beacons showing a network's alarms still sound.")
+            .define("muteRedstoneBeacons", false);
+    public static final ModConfigSpec.BooleanValue HIDE_REDSTONE_BEACON_GLOW = BUILDER
+            .comment("Don't draw Redstone-mode Status Beacons' glow through walls (it still shows where you can see the beacon).")
+            .define("hideRedstoneBeaconGlow", false);
     public static final ModConfigSpec.BooleanValue MARKERS_CRITICAL = BUILDER
             .comment("In Status mode, the network tool marks what critical alarms read.")
             .define("markersCritical", true);

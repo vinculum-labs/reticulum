@@ -130,6 +130,26 @@ public final class ReticulumConfig {
         BUILDER.pop();
     }
 
+    static {
+        BUILDER.push("beacons");
+    }
+
+    public static final ModConfigSpec.IntValue BEACON_MAX_RANGE = BUILDER
+            .comment("How far (in blocks) a Status Beacon's sound may be set to carry. Players only hear beacons in chunks they have loaded.")
+            .defineInRange("beaconMaxRange", 256, 1, 1024);
+
+    public static final ModConfigSpec.IntValue BEACON_MIN_INTERVAL = BUILDER
+            .comment("The shortest a Status Beacon may wait between plays of its sound, in ticks (20 a second).")
+            .defineInRange("beaconMinInterval", 10, 1, 1200);
+
+    public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> BEACON_BANNED_SOUNDS = BUILDER
+            .comment("Sounds Status Beacons may not play, by id (\"minecraft:entity.ghast.scream\", say).")
+            .defineListAllowEmpty("beaconBannedSounds", java.util.List.of(), () -> "", o -> o instanceof String);
+
+    static {
+        BUILDER.pop();
+    }
+
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private ReticulumConfig() {

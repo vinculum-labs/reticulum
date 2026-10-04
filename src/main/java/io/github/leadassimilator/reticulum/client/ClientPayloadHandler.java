@@ -32,8 +32,11 @@ public final class ClientPayloadHandler {
     }
 
     public static void openBeaconScreen(io.github.leadassimilator.reticulum.protocol.Payloads.OpenBeaconScreen payload) {
-        if (mayReplace(Minecraft.getInstance())) {
-            Minecraft.getInstance().setScreen(new io.github.leadassimilator.reticulum.client.screen.StatusBeaconScreen(payload));
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof io.github.leadassimilator.reticulum.client.screen.StatusBeaconScreen open && open.pos().equals(payload.pos())) {
+            open.refresh(payload);
+        } else if (mayReplace(mc)) {
+            mc.setScreen(new io.github.leadassimilator.reticulum.client.screen.StatusBeaconScreen(payload));
         }
     }
 

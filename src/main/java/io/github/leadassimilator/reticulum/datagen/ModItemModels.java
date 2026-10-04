@@ -19,7 +19,7 @@ public class ModItemModels extends ItemModelProvider {
         withExistingParent(ModItems.CABLE.getId().getPath(), modLoc("block/cable_inventory"));
         withExistingParent(ModItems.CONNECTOR.getId().getPath(), modLoc("block/connector_inventory"));
         withExistingParent(ModItems.CONTROLLER.getId().getPath(), modLoc("block/controller"));
-        withExistingParent(ModItems.STATUS_BEACON.getId().getPath(), modLoc("block/status_beacon_none"));
+        withExistingParent(ModItems.STATUS_BEACON.getId().getPath(), modLoc("block/status_beacon"));
         // The tool's head is colored by its mode (the "reticulum:mode" item property: 0 Configure, 0.5 Link, 1 Identify).
         // An alarm going off adds a yellow or red mark ("reticulum:alarm": 0.5 a warning, 1 critical) to whichever mode.
         String[] modes = {"", "_link", "_identify", "_status"};

@@ -64,11 +64,13 @@ public final class LookAt {
                 && (watch.network() == null || !watch.reachable());
         lines.add(io.github.leadassimilator.reticulum.protocol.Screens.beaconStatus(player, beacon, watch)
                 .copy().withStyle(unreachable ? ChatFormatting.RED : ChatFormatting.GRAY));
-        var shown = beacon.shown();
-        lines.add(shown == null ? Component.translatable("lookat.reticulum.beacon_quiet").withStyle(ChatFormatting.GREEN)
-                : Component.translatable(shown == io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity.CRITICAL
-                        ? "lookat.reticulum.beacon_critical" : "lookat.reticulum.beacon_warning")
-                        .withStyle(shown == io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity.CRITICAL ? ChatFormatting.RED : ChatFormatting.GOLD));
+        int shown = beacon.getBlockState().getValue(io.github.leadassimilator.reticulum.block.StatusBeaconBlock.SHOWN);
+        lines.add(shown == 0 ? Component.translatable("lookat.reticulum.beacon_quiet").withStyle(ChatFormatting.GREEN)
+                : shown == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.CRITICAL
+                        ? Component.translatable("lookat.reticulum.beacon_critical").withStyle(ChatFormatting.RED)
+                : shown == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.WARNING
+                        ? Component.translatable("lookat.reticulum.beacon_warning").withStyle(ChatFormatting.GOLD)
+                : Component.translatable("lookat.reticulum.beacon_level", shown).withStyle(ChatFormatting.GOLD));
     }
 
     private static void describeNetworkBlock(ServerLevel level, NetworkBlockEntity be, Player player, List<Component> lines) {

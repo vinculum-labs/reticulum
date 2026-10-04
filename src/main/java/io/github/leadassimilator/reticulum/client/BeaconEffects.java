@@ -6,13 +6,15 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
-import io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity;
+import io.github.leadassimilator.reticulum.ReticulumClientConfig;
+import io.github.leadassimilator.reticulum.block.entity.BeaconLook;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.AABB;
@@ -20,11 +22,8 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
-/** Status Beacons' glow (a pulsing bubble, through walls if set) and their alarm sound. */
+/** Status Beacons' glow (a pulsing bubble, through walls if set), their sound and their lens color. */
 public final class BeaconEffects {
-    /** Glows further away than this aren't drawn. */
-    private static final double GLOW_DISTANCE = 160;
-
     private BeaconEffects() {
     }
 
@@ -40,19 +39,22 @@ public final class BeaconEffects {
         pose.translate(-camera.x, -camera.y, -camera.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         float pulse = 0.5f + 0.5f * Mth.sin((float) (System.currentTimeMillis() % 100_000) / 180f);
+        // As far as the world is drawn.
+        double distance = mc.options.getEffectiveRenderDistance() * 16.0;
         boolean any = false;
         for (StatusBeaconBlockEntity beacon : StatusBeaconBlockEntity.CLIENT_LOADED) {
-            AlarmSeverity shown = beacon.shown();
-            if (shown == null || beacon.getLevel() != mc.level || beacon.isRemoved()) {
+            BeaconLook look = beacon.look();
+            if (look == null || beacon.getLevel() != mc.level || beacon.isRemoved() || !look.has(BeaconLook.GLOW)) {
                 continue;
             }
-            int style = beacon.style(shown);
             BlockPos pos = beacon.getBlockPos();
-            if ((style & StatusBeaconBlockEntity.GLOW) == 0 || camera.distanceToSqr(Vec3.atCenterOf(pos)) > GLOW_DISTANCE * GLOW_DISTANCE) {
+            if (camera.distanceToSqr(Vec3.atCenterOf(pos)) > distance * distance) {
                 continue;
             }
-            boolean through = (style & StatusBeaconBlockEntity.GLOW_THROUGH) != 0;
-            int color = shown == AlarmSeverity.CRITICAL ? StatusBeaconRenderer.CRITICAL_COLOR : StatusBeaconRenderer.WARNING_COLOR;
+            // Through walls, unless it is a Redstone-mode beacon and the player hides those (against trolling).
+            boolean through = look.has(BeaconLook.GLOW_THROUGH)
+                    && !(beacon.mode() == StatusBeaconBlockEntity.Mode.REDSTONE && ReticulumClientConfig.HIDE_REDSTONE_BEACON_GLOW.getAsBoolean());
+            int color = look.color();
             float r = ((color >> 16) & 0xFF) / 255f;
             float g = ((color >> 8) & 0xFF) / 255f;
             float b = (color & 0xFF) / 255f;
@@ -92,27 +94,49 @@ public final class BeaconEffects {
         }
     }
 
-    /** The alarm sound: a chime every two seconds for a warning, a two-tone siren for critical. */
+    /** Each beacon's sound, every so many ticks as its look says (lower every other time when two-tone). */
     public static void onClientTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.isPaused() || StatusBeaconBlockEntity.CLIENT_LOADED.isEmpty()) {
             return;
         }
         long time = mc.level.getGameTime();
+        boolean muteRedstone = ReticulumClientConfig.MUTE_REDSTONE_BEACONS.getAsBoolean();
         for (StatusBeaconBlockEntity beacon : StatusBeaconBlockEntity.CLIENT_LOADED) {
-            AlarmSeverity shown = beacon.shown();
-            if (shown == null || beacon.getLevel() != mc.level || beacon.isRemoved() || (beacon.style(shown) & StatusBeaconBlockEntity.SOUND) == 0) {
+            BeaconLook look = beacon.look();
+            if (look == null || beacon.getLevel() != mc.level || beacon.isRemoved() || !look.has(BeaconLook.SOUND)
+                    || muteRedstone && beacon.mode() == StatusBeaconBlockEntity.Mode.REDSTONE) {
                 continue;
             }
-            BlockPos pos = beacon.getBlockPos();
-            if (shown == AlarmSeverity.CRITICAL) {
-                if (time % 10 == 0) {
-                    float pitch = (time / 10) % 2 == 0 ? 1.6f : 1.2f;
-                    mc.level.playLocalSound(pos, SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.BLOCKS, 2f, pitch, false);
-                }
-            } else if (time % 40 == 0) {
-                mc.level.playLocalSound(pos, SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.BLOCKS, 1.5f, 1.2f, false);
+            int interval = Math.max(1, look.interval());
+            if (time % interval != 0) {
+                continue;
             }
+            SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(look.sound());
+            if (sound == null) {
+                continue;
+            }
+            float pitch = look.has(BeaconLook.TWO_TONE) && (time / interval) % 2 == 1 ? look.pitch() * 0.75f : look.pitch();
+            // A sound carries 16 blocks times its volume (when above 1).
+            mc.level.playLocalSound(beacon.getBlockPos(), sound, SoundSource.BLOCKS, Math.max(0.2f, look.range() / 16f), pitch, false);
         }
+    }
+
+    /** The lens takes the look's color; gray when nothing is shown. */
+    public static int lensColor(net.minecraft.world.level.block.state.BlockState state, @javax.annotation.Nullable net.minecraft.world.level.BlockAndTintGetter level,
+            @javax.annotation.Nullable BlockPos pos, int tint) {
+        if (level != null && pos != null && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon) {
+            BeaconLook look = beacon.look();
+            return look == null ? 0x585C66 : look.color();
+        }
+        return 0x585C66;
+    }
+
+    public static void registerColors(net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Block event) {
+        event.register(BeaconEffects::lensColor, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
+    }
+
+    public static void registerItemColors(net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Item event) {
+        event.register((stack, tint) -> 0xFF585C66, io.github.leadassimilator.reticulum.registry.ModItems.STATUS_BEACON.get());
     }
 }

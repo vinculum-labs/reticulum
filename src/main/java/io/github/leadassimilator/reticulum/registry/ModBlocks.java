@@ -19,8 +19,7 @@ public final class ModBlocks {
             BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.0f).sound(SoundType.METAL).noOcclusion().dynamicShape()));
     public static final DeferredBlock<io.github.leadassimilator.reticulum.block.StatusBeaconBlock> STATUS_BEACON = BLOCKS.register("status_beacon",
             () -> new io.github.leadassimilator.reticulum.block.StatusBeaconBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.5f)
-                    .sound(SoundType.METAL).lightLevel(state -> state.getValue(io.github.leadassimilator.reticulum.block.StatusBeaconBlock.ALARM)
-                            == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.Shown.NONE ? 0 : 15)));
+                    .sound(SoundType.METAL).lightLevel(state -> state.getValue(io.github.leadassimilator.reticulum.block.StatusBeaconBlock.SHOWN) == 0 ? 0 : 15)));
     public static final DeferredBlock<ControllerBlock> CONTROLLER = BLOCKS.register("controller", () -> new ControllerBlock(
             BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL)));
 
