@@ -156,6 +156,18 @@ public final class TopologyTests {
         helper.succeed();
     }
 
+    /** A controller placed and broken leaves no network behind, though every network has a top sheet. */
+    @GameTest(template = "empty")
+    public static void aControllerPlacedAndBrokenLeavesNoNetwork(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        Network network = network(helper, new BlockPos(1, 1, 1));
+        network.ensureTree();
+        check(helper, network.root() != null, "setup: the network should have its top sheet");
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.AIR);
+        check(helper, NetworkManager.network(helper.getLevel().getServer(), network.id()) == null, "the empty network was left behind");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void differentNetworksDoNotJoin(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);

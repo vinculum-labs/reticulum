@@ -47,7 +47,11 @@ public final class ReticulumSavedData extends SavedData {
         Contents.CODEC.parse(RegistryOps.create(NbtOps.INSTANCE, registries), tag)
                 .resultOrPartial(err -> Reticulum.LOGGER.error("Failed to load Reticulum networks: {}", err))
                 .ifPresent(contents -> {
-                    contents.networks().forEach(n -> data.networks.put(n.id(), n));
+                    // A network with no controller and nothing in it is left over (a controller placed and broken while
+                    // an empty top sheet kept it from being deleted): dropped.
+                    contents.networks().stream()
+                            .filter(n -> n.controller() != null || !NetworkManager.isEmpty(n))
+                            .forEach(n -> data.networks.put(n.id(), n));
                     data.aliases.putAll(contents.aliases());
                 });
         return data;

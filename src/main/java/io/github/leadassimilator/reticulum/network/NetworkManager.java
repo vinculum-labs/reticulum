@@ -187,7 +187,6 @@ public final class NetworkManager {
         return true;
     }
 
-    /** True when the network holds nothing a player made: no sheets, devices, connectors, filters or overflow. */
     /**
      * Moves an orphaned or missing device's names, face names, identifies and every flow reference onto another
      * device (a machine moved or replaced), then forgets the old record. Returns false when either isn't suitable.
@@ -235,9 +234,13 @@ public final class NetworkManager {
         return true;
     }
 
+    /**
+     * True when the network holds nothing a player made: no nodes on any sheet (an empty top sheet, which every
+     * network has, doesn't count), no devices, connectors, filter templates or overflow.
+     */
     public static boolean isEmpty(Network network) {
-        return network.sheets().isEmpty() && network.devices().isEmpty() && network.connectors().isEmpty()
-                && network.filters().isEmpty() && network.overflow().isEmpty();
+        return network.sheets().stream().allMatch(sheet -> sheet.root() && sheet.nodes().isEmpty()) && network.devices().isEmpty()
+                && network.connectors().isEmpty() && network.filters().isEmpty() && network.overflow().isEmpty();
     }
 
     /**
