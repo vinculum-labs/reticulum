@@ -163,6 +163,15 @@ export function holderPins(sheet: Sheet | undefined, input: boolean): HolderPin[
   });
 }
 
+/**
+ * A sheet's pins as its node shows them, an untyped one with what it carries inside (worked out from what it is wired
+ * to there), so the node's pin, its wires and the layers agree. Shown only: what may be wired to it is its type.
+ */
+export function carriedPins(sheet: Sheet | undefined, input: boolean, sheets: Sheet[], seen?: Set<string>): HolderPin[] {
+  const pins = sheetPins(sheet, input);
+  return holderPins(sheet, input).map((p, i) => (p.resource || !sheet ? p : { ...p, resource: pinCarries(sheet, pins[i], sheets, seen) }));
+}
+
 export interface Activity {
   rates: Record<string, number>;
   fiveMinutes: Record<string, number>;
@@ -244,7 +253,7 @@ export function resources(sheet: Sheet, sheets: Sheet[] = []): { wires: Map<stri
     }
     if (s.kind === "sheet" || s.kind === "instance") {
       const held = sheets.find((x) => x.id === s.sheet);
-      for (const pin of holderPins(held, false)) if (flows(pin.resource)) emit(n.id, pin.resource, pin.slot);
+      for (const pin of carriedPins(held, false, sheets)) if (flows(pin.resource)) emit(n.id, pin.resource, pin.slot);
     }
   }
   while (queue.length) {
@@ -254,28 +263,60 @@ export function resources(sheet: Sheet, sheets: Sheet[] = []): { wires: Map<stri
   return { wires, nodes };
 }
 
+/** Nodes a resource passes through as it is (what is wired on beyond them tells what it is). */
+const PASSING = new Set(["filter", "rate_limit", "splitter", "kit"]);
+
 /**
  * What a sheet pin carries: its type, or for an untyped one ("anything") what it is wired to on this sheet takes or
- * gives, so it and its wires show in that color.
+ * gives — past filters, rate limits, splitters and kits, and into sheets and blueprints — so it and its wires show in
+ * that color. {@code seen} stops pins wired to each other through sheets going round forever.
  */
-export function pinCarries(sheet: Sheet, pin: GraphNode, sheets: Sheet[] = []): Resource | undefined {
+export function pinCarries(sheet: Sheet, pin: GraphNode, sheets: Sheet[] = [], seen = new Set<string>()): Resource | undefined {
   const s = pin.settings;
   if (s.kind !== "sheet_input" && s.kind !== "sheet_output") return undefined;
   if (s.resource) return s.resource;
+  if (seen.has(pin.id)) return undefined;
+  seen.add(pin.id);
+  const input = s.kind === "sheet_input";
   const byId = new Map((sheet.nodes ?? []).map((n) => [n.id, n]));
-  for (const w of sheet.wires ?? []) {
-    if (s.kind === "sheet_input" && w.from === pin.id) {
-      const to = byId.get(w.to);
-      const r = (w.input ?? 0) === GATE || isSignal(to?.settings.kind) ? "redstone" : pinResource(to, "in", w.input ?? 0, sheets);
-      if (r) return r;
+  const visited = new Set([pin.id]);
+  let frontier = [pin.id];
+  while (frontier.length) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      for (const w of sheet.wires ?? []) {
+        if (input ? w.from !== id : w.to !== id) continue;
+        if (input && (w.input ?? 0) === GATE) return "redstone";
+        const other = byId.get(input ? w.to : w.from);
+        if (!other) continue;
+        if (isSignal(other.settings.kind)) return "redstone";
+        const r = carriedAt(sheet, other, input ? "in" : "out", input ? (w.input ?? 0) : (w.output ?? 0), sheets, seen);
+        if (r) return r;
+        if (PASSING.has(other.settings.kind) && !visited.has(other.id)) {
+          visited.add(other.id);
+          next.push(other.id);
+        }
+      }
     }
-    if (s.kind === "sheet_output" && w.to === pin.id) {
-      const from = byId.get(w.from);
-      const r = isSignal(from?.settings.kind) ? "redstone" : pinResource(from, "out", w.output ?? 0, sheets);
-      if (r) return r;
-    }
+    frontier = next;
   }
   return undefined;
+}
+
+/**
+ * What a node's pin carries as shown: its type ({@link pinResource}), or for an untyped sheet pin — or a sheet or
+ * blueprint node's untyped pin — what it is wired to inside.
+ */
+export function carriedAt(sheet: Sheet, node: GraphNode | undefined, direction: "in" | "out", index: number, sheets: Sheet[], seen = new Set<string>()): Resource | null {
+  const typed = pinResource(node, direction, index, sheets);
+  if (typed || !node) return typed;
+  const s = node.settings;
+  if (s.kind === "sheet_input" || s.kind === "sheet_output") return pinCarries(sheet, node, sheets, seen) ?? null;
+  if (s.kind === "sheet" || s.kind === "instance") {
+    const held = sheets.find((x) => x.id === s.sheet);
+    return carriedPins(held, direction === "in", sheets, seen).find((p) => p.slot === index)?.resource ?? null;
+  }
+  return null;
 }
 
 /**
@@ -534,8 +575,8 @@ function sheetFlow(
       const used = sheets.find((x) => x.id === s.sheet);
       holder = {
         sheet: used,
-        inputs: holderPins(used, true),
-        outputs: holderPins(used, false),
+        inputs: carriedPins(used, true, sheets),
+        outputs: carriedPins(used, false, sheets),
         problems: s.kind === "sheet" && used ? problemsInside(sheets, used) : 0,
       };
     }
@@ -547,7 +588,7 @@ function sheetFlow(
       data: {
         node: n,
         device,
-        resource: kinds.nodes.get(n.id) ?? null,
+        resource: kinds.nodes.get(n.id) ?? (isPin(n) ? pinCarries(sheet, n, sheets) : undefined) ?? null,
         rate: rates[n.id] ?? 0,
         fiveMinutes: activity.fiveMinutes[n.id] ?? 0,
         status: activity.status[n.id],
@@ -572,7 +613,7 @@ function sheetFlow(
     const resource = kinds.wires.get(w.id) ?? null;
     const fromNode = byId.get(w.from);
     // An untyped sheet pin's wires take what it carries from what else it is wired to.
-    const pin = pinResource(fromNode, "out", w.output ?? 0, sheets) ?? (fromNode ? pinCarries(sheet, fromNode, sheets) : undefined) ?? null;
+    const pin = carriedAt(sheet, fromNode, "out", w.output ?? 0, sheets);
     const signal = isSignal(fromNode?.settings.kind) || pin === "redstone";
     const on = signal && (activity.signals[isSignal(fromNode?.settings.kind) ? w.from : `${w.from}/out/${w.output ?? 0}`] ?? 0) > 0;
     const color = signal ? "var(--c-signal)" : pin === "me" ? "var(--c-me)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
