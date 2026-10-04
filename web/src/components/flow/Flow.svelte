@@ -1153,6 +1153,17 @@
       <Panel position="top-left">
         <Toolbar bind:this={toolbar} {sheet} {tidying} onadd={(kind) => addNode(kind, viewCenter())} onslot={addSlot} ontidy={tidy} />
       </Panel>
+    {:else if !canEdit && app.snapshot}
+      <!-- No toolbar: say why, so an empty canvas isn't a mystery. -->
+      <Panel position="top-left">
+        <p class="box text-sm" role="status">
+          {#if !app.snapshot.owner}
+            View only — {app.snapshot.name} has no owner yet (a machine placed its controller). Open its controller in the game to make it yours.
+          {:else}
+            View only — you can't edit {app.snapshot.name}. Its owner, {app.snapshot.owner}, can make you an editor.
+          {/if}
+        </p>
+      </Panel>
     {/if}
     {#if sheet && app.snapshot && (!sheet.root || sheet.blueprint)}
       <Panel position="top-right">

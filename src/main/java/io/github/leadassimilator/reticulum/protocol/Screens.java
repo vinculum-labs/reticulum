@@ -131,7 +131,27 @@ public final class Screens {
     }
 
     public static void open(ServerPlayer player, BlockPos pos) {
+        claim(player, pos);
         send(player, pos, false);
+    }
+
+    /**
+     * A network with no owner (its controller placed by a machine, a schematic or a Deployer) becomes the player's who
+     * first opens its controller, as if they had placed it.
+     */
+    private static void claim(ServerPlayer player, BlockPos pos) {
+        ServerLevel level = player.serverLevel();
+        if (player instanceof net.neoforged.neoforge.common.util.FakePlayer || player.isSpectator()
+                || !(level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity controller)) {
+            return;
+        }
+        Network network = NetworkManager.network(level.getServer(), controller.networkId());
+        if (network == null || network.owner() != null) {
+            return;
+        }
+        network.setOwner(player.getUUID(), player.getGameProfile().getName());
+        NetworkManager.changed(level.getServer(), network);
+        player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.network_claimed", network.name()), false);
     }
 
     /** New contents for a screen after a change made in it; the client ignores it if the screen was closed meanwhile. */

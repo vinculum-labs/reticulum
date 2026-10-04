@@ -69,7 +69,10 @@ public abstract class NetworkBlock extends BaseEntityBlock {
         Direction against = PLACED_AGAINST.get();
         PLACED_AGAINST.remove();
         if (level instanceof ServerLevel serverLevel) {
-            Topology.onPlaced(serverLevel, pos, against, placer instanceof ServerPlayer player ? player : null);
+            // A fake player (a Deployer, a block placer) is automation, not a player: the block goes in as if placed by a
+            // machine, so a controller it places starts a network a real player can claim rather than one nobody can open.
+            Topology.onPlaced(serverLevel, pos, against,
+                    placer instanceof ServerPlayer player && !(player instanceof net.neoforged.neoforge.common.util.FakePlayer) ? player : null);
         }
     }
 

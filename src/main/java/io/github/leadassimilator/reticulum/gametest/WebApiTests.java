@@ -127,6 +127,24 @@ public final class WebApiTests {
     }
 
     /** A batch of edits is all or nothing: one refused undoes the ones before it (a new sheet, a template, a node). */
+    /** A controller a fake player places (a Deployer, say) starts an ownerless public network, not one owned by the fake player. */
+    @GameTest(template = "empty")
+    public static void aFakePlayersControllerHasNoOwner(GameTestHelper helper) {
+        ServerPlayer fake = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "[Deployer]"));
+        BlockPos at = new BlockPos(1, 1, 1);
+        helper.setBlock(at, ModBlocks.CONTROLLER.get());
+        ModBlocks.CONTROLLER.get().setPlacedBy(helper.getLevel(), helper.absolutePos(at), helper.getBlockState(at), fake,
+                new ItemStack(ModBlocks.CONTROLLER.get()));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(at))));
+        if (network == null || network.owner() != null || network.accessMode() != AccessMode.PUBLIC) {
+            helper.fail("A fake player's controller made " + (network == null ? "no network" : "a network owned by " + network.ownerName()
+                    + ", " + network.accessMode()));
+        }
+        helper.succeed();
+    }
+
     /**
      * A dashboard switch is set per placed copy of its blueprint (under the id it runs as there), only to 0 or its value,
      * and only by players who can edit.

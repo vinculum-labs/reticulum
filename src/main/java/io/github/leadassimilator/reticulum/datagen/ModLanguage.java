@@ -91,6 +91,7 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.ambiguous_placement", "Touches several networks — connect one with the tool or cable screen");
         add("message.reticulum.controller_exists", "%s already has a controller — this one starts a new network");
         add("message.reticulum.controller_reconnected", "Took over %s, which had lost its controller");
+        add("message.reticulum.network_claimed", "%s had no owner — it is yours now");
         add("command.reticulum.deleted", "Deleted network %s");
         add("command.reticulum.merged", "Merged %s into %s");
         add("command.reticulum.merge_same", "Those are the same network");
