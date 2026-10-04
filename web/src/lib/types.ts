@@ -165,6 +165,12 @@ export interface LogicSettings {
   op?: LogicOp;
 }
 
+/** Gives {@code value} all the time (15 when not set); switched off, nothing. */
+export interface ConstantSettings {
+  kind: "constant";
+  value?: number;
+}
+
 export interface TimerSettings {
   kind: "timer";
   interval?: number;
@@ -192,6 +198,7 @@ export type SignalNodeSettings =
   | LevelSettings
   | CompareSettings
   | LogicSettings
+  | ConstantSettings
   | TimerSettings
   | PulseSettings
   | LatchSettings

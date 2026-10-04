@@ -15,6 +15,7 @@ import Package from "@lucide/svelte/icons/package";
 import Scale from "@lucide/svelte/icons/scale";
 import Split from "@lucide/svelte/icons/split";
 import Timer from "@lucide/svelte/icons/timer";
+import CircleDot from "@lucide/svelte/icons/circle-dot";
 import ToggleRight from "@lucide/svelte/icons/toggle-right";
 import type { NodeKind } from "./types";
 
@@ -36,6 +37,7 @@ export const KIND_ICON: Record<NodeKind, Component<{ size?: number | string; cla
   level: Gauge,
   compare: Scale,
   logic: Binary,
+  constant: CircleDot,
   timer: Timer,
   pulse: Activity,
   latch: ToggleRight,

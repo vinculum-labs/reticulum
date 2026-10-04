@@ -251,6 +251,7 @@ final class Signals {
                 }
                 yield logic.op().test(on, node.input(0).size()) ? ON : 0;
             }
+            case NodeSettings.ConstantSettings constant -> constant.value();
             case NodeSettings.TimerSettings timer -> {
                 boolean running = node.input(0).isEmpty() || in(node, 0) > 0;
                 yield running && Math.floorMod(ctx.runtime().ticks(), Math.max(1, timer.interval())) == 0 ? ON : 0;

@@ -42,6 +42,7 @@ public sealed interface NodeSettings {
         LEVEL(LevelSettings.CODEC, true),
         COMPARE(CompareSettings.CODEC, true),
         LOGIC(LogicSettings.CODEC, true),
+        CONSTANT(ConstantSettings.CODEC, true),
         TIMER(TimerSettings.CODEC, true),
         PULSE(PulseSettings.CODEC, true),
         LATCH(LatchSettings.CODEC, true),
@@ -585,6 +586,21 @@ public sealed interface NodeSettings {
         @Override
         public Kind kind() {
             return Kind.LOGIC;
+        }
+    }
+
+    /**
+     * Gives {@code value} all the time (0 to 15 for redstone; more to count with or compare against). Switched off, it
+     * gives nothing: its switch works as a lever in the editor.
+     */
+    record ConstantSettings(long value) implements NodeSettings {
+        public static final MapCodec<ConstantSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.LONG.optionalFieldOf("value", 15L).forGetter(ConstantSettings::value)
+        ).apply(i, ConstantSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.CONSTANT;
         }
     }
 

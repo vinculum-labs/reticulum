@@ -353,6 +353,10 @@
         onchange={(op) => settings({ op })}
       />
     </Field>
+  {:else if s.kind === "constant"}
+    <Field label="Value" hint="What it gives: 0 to 15 for redstone (more is 15 to a device), or any number to count with or compare against. Its switch above turns it off (0) and on.">
+      <NumberField value={s.value ?? 15} min={0} max={1_000_000_000} width="md" disabled={!canEdit} oncommit={(v) => settings({ value: v ?? 0 })} />
+    </Field>
   {:else if s.kind === "timer"}
     <Field label="Every" hint="Ticks between one-tick pulses (20 ticks = 1 second). Runs while its input is on or unwired.">
       <NumberField value={s.interval ?? 20} min={1} max={72_000} width="md" disabled={!canEdit} oncommit={(v) => settings({ interval: v })} />

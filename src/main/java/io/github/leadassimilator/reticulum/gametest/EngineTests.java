@@ -309,6 +309,20 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /** A Constant gives its value to a lamp; switched off it gives nothing, as a lever would. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void constantLightsALampUntilSwitchedOff(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+        Node constant = rig.node(new NodeSettings.ConstantSettings(15));
+        rig.signal(constant, rig.redstoneTo(rig.device(0)), 0);
+        BlockPos lamp = rig.devices().get(0);
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "the constant didn't light the lamp"))
+                .thenExecute(() -> rig.sheet().replace(rig.sheet().node(constant.id()).withEnabled(false)))
+                .thenWaitUntil(() -> check(helper, !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "the lamp stayed lit with the constant off"))
+                .thenSucceed();
+    }
+
     /** A Level sensor's output: the amount, 0 to 15 between two amounts, or 0 to 15 like a comparator. */
     @GameTest(template = "empty")
     public static void levelSensorMapsOntoRedstone(GameTestHelper helper) {

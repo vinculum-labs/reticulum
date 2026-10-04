@@ -15,6 +15,7 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   level: "Level sensor",
   compare: "Compare",
   logic: "Logic",
+  constant: "Constant",
   timer: "Timer",
   pulse: "Pulse",
   latch: "Latch",
@@ -35,6 +36,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   level: "How much of a resource a device holds.",
   compare: "15 when A compares true against B (or a number), else 0.",
   logic: "AND, OR, NOT / NOR, XOR, NAND or XNOR of every wire into it.",
+  constant: "A value you set, all the time — switch it off and on as a lever from here.",
   timer: "A one-tick pulse every so many ticks.",
   pulse: "A short pulse each time its input turns on.",
   latch: "Set turns it on, reset turns it off — it remembers in between.",
@@ -47,6 +49,7 @@ export const SIGNAL_KINDS: NodeKind[] = [
   "level",
   "compare",
   "logic",
+  "constant",
   "timer",
   "pulse",
   "latch",
@@ -161,6 +164,8 @@ export function defaultSettings(
       return { kind, op: "ge", constant: 1 };
     case "logic":
       return { kind, op: "and" };
+    case "constant":
+      return { kind, value: 15 };
     case "timer":
       return { kind, interval: 20 };
     case "pulse":
@@ -315,6 +320,8 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
       return `A ${OP_SYMBOL[s.op ?? "ge"]} ${s.constant ?? 1} (or B)`;
     case "logic":
       return (s.op ?? "and").toUpperCase();
+    case "constant":
+      return `${s.value ?? 15}`;
     case "timer":
       return `every ${s.interval ?? 20} ticks`;
     case "pulse":
