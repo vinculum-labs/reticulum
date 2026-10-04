@@ -26,4 +26,9 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   snapshot.
 - Two placed blueprints can end up with one numbered name (undo of a removal after the number was reused, or a paste
   keeping its label): the name field warns, nothing renumbers.
+- Two quick edits to the same node within a tick: an edit queued behind one the server refuses still carries the refused
+  change, and two quick list resizes (adding two inputs) can merge to the last only. Edits rebase on the snapshot plus
+  what is in flight; a proper fix means rebasing on each confirmed step.
+- A cable placed by a command or machine between blocks of a private network stays cut off from it, silently (no player
+  to tell); someone with access can connect its joints by hand.
 
