@@ -535,21 +535,48 @@
       const f = target.frame;
       return { node, x: f ? abs.x - f.ax + f.dx : abs.x, y: f ? abs.y - f.ay + f.dy : abs.y };
     });
-    // XXX: a frame draws its sheet from its contents' top-left corner, and moves() shifts the frame when that corner
-    // moves; this doesn't, so taking a card out of an open frame (or dropping one in its left or top margin) makes the
-    // frame's other cards jump on screen.
     const change = moveAcross(app.snapshot, from, target.sheet, items, nodeTitle, uuid);
     if (!change) {
       toast("Can't move it there: one of its wires couldn't be kept.");
       resync.count++;
       return true;
     }
-    const ok = await edit(change.edits, change.undo, nodesMoved.length === 1 ? `move to ${target.sheet.name}` : `move ${nodesMoved.length} to ${target.sheet.name}`);
+    const shifts = frameShifts(change.edits);
+    const ok = await edit([...change.edits, ...shifts.edits], [...shifts.undo, ...change.undo], nodesMoved.length === 1 ? `move to ${target.sheet.name}` : `move ${nodesMoved.length} to ${target.sheet.name}`);
     // Off the canvas now: a button there takes you to it.
     const goTo = { label: "Show", run: () => showNode(target.sheet.id, nodesMoved[0].id) };
     if (ok && intoParent) toast(`Moved to “${target.sheet.name}”, beside this sheet's node (undo puts it back).`, "info", goTo);
     if (ok && intoClosed) toast(`Moved into “${target.sheet.name}” (undo puts it back).`, "info", goTo);
     return true;
+  }
+
+  /**
+   * A frame draws its sheet from its contents' top-left corner: when edits change what a sheet open in a frame holds
+   * (cards moved in or out, pins made), the frame moves by as much as that corner, so the cards left in it stay where
+   * they are on screen (as moves() does for cards dragged within one).
+   */
+  function frameShifts(edits: Edit[]): { edits: Edit[]; undo: Edit[] } {
+    const out: Edit[] = [];
+    const undo: Edit[] = [];
+    for (const [frameId, frame] of view.frames) {
+      const held = app.snapshot?.sheets.find((x) => x.id === frame.sheet);
+      const outer = sheetOf(frameId);
+      const node = nodeOf(frameId);
+      if (!held || !outer || !node) continue;
+      const removed = new Set(edits.filter((e) => e.type === "removeNode" && e.sheet === held.id).map((e) => e.node as string));
+      const added = edits.filter((e) => e.type === "addNode" && e.sheet === held.id).map((e) => e.node as GraphNode);
+      if (!removed.size && !added.length) continue;
+      const after = [...(held.nodes ?? []).filter((n) => !removed.has(n.id)), ...added];
+      if (!after.length) continue;
+      const was = contentCorner(held.nodes ?? []);
+      const now = contentCorner(after);
+      if (was.x === now.x && was.y === now.y) continue;
+      const x = Math.round((node.x ?? 0) + now.x - was.x);
+      const y = Math.round((node.y ?? 0) + now.y - was.y);
+      out.push({ type: "moveNodes", sheet: outer.id, positions: [{ id: frameId, x, y }] });
+      undo.push({ type: "moveNodes", sheet: outer.id, positions: [{ id: frameId, x: node.x ?? 0, y: node.y ?? 0 }] });
+    }
+    return { edits: out, undo };
   }
 
   /**
