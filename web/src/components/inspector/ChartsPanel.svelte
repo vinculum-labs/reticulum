@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import X from "@lucide/svelte/icons/x";
-  import { app, deviceName, edit, request } from "../../lib/state.svelte";
-  import { iconUrl, loadCatalog, matchesSearch, type Catalog, type CatalogKind } from "../../lib/catalog";
+  import { app, deviceName, request } from "../../lib/state.svelte";
+  import { loadCatalog, type Catalog, type CatalogKind } from "../../lib/catalog";
+  import { addChart, removeChart } from "../../lib/charts";
+  import CatalogCombobox from "../controls/CatalogCombobox.svelte";
   import { RESOURCE_LABEL, RESOURCE_UNIT } from "../../lib/kinds";
   import { posKey, type ChartSeries, type Resource } from "../../lib/types";
   import Segmented from "../controls/Segmented.svelte";
-  import Select from "../controls/Select.svelte";
-  import TextField from "../controls/TextField.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
   import Help from "./Help.svelte";
   import ChartPlot, { type PlotLine } from "./ChartPlot.svelte";
@@ -97,50 +97,13 @@
 
   let catalog = $state<Catalog | null>(null);
   loadCatalog().then((c) => (catalog = c)).catch(() => {});
-  let addKind = $state<"item" | "fluid" | "chemical" | "level" | "through">("item");
+  let addKind = $state<CatalogKind>("item");
   let addId = $state("");
-  let addDevice = $state("");
-  let addResource = $state<Resource>("energy");
-  let search = $state("");
-  const forDevice = $derived(addKind === "level" || addKind === "through");
-  /** Up to 8 entries of the kind matching what is typed (a name, an id, "@mod" or "#tag"). */
-  const matches = $derived.by(() => {
-    if (forDevice || !catalog || !search.trim()) return [];
-    const words = search.toLowerCase().trim().split(/\s+/);
-    const out = [];
-    for (const entry of catalog[addKind as CatalogKind] ?? []) {
-      if (matchesSearch(entry, words)) {
-        out.push(entry);
-        if (out.length === 8) break;
-      }
-    }
-    return out;
-  });
-  const picked = $derived(forDevice || !catalog ? undefined : (catalog[addKind as CatalogKind] ?? []).find((e) => e.id === addId));
-  const deviceResources = $derived.by(() => {
-    const device = snapshot.devices.find((d) => posKey(d.pos) === addDevice);
-    return (["energy", "item", "fluid", "chemical"] as Resource[]).filter((r) => device?.resources?.[r]?.length);
-  });
-  const resourceChosen = $derived(deviceResources.includes(addResource) ? addResource : deviceResources[0]);
 
   function add() {
-    let chart: Partial<ChartSeries>;
-    if (forDevice) {
-      const device = snapshot.devices.find((d) => posKey(d.pos) === addDevice);
-      if (!device || !resourceChosen) return;
-      chart = { kind: addKind, device: device.pos, resource: resourceChosen };
-    } else {
-      if (!addId) return;
-      chart = { kind: addKind, id: addId };
-    }
-    edit([{ type: "addChart", chart }], undefined, "chart");
+    if (!addId) return;
+    addChart({ kind: addKind, id: addId });
     addId = "";
-    search = "";
-  }
-
-  function remove(c: ChartSeries) {
-    const chart = { kind: c.kind, id: c.id, device: c.device, resource: c.resource };
-    edit([{ type: "removeChart", key: c.key }], [{ type: "addChart", chart }], "stop charting");
   }
 </script>
 
@@ -198,56 +161,36 @@
           <span class="min-w-0 flex-1 truncate"
             >{chartLabel(c)} <span class="muted">· {c.kind === "level" ? "held" : c.kind === "through" ? "in and out" : "moved"}</span></span
           >
-          {#if snapshot.canEdit}<RemoveButton label={`Stop charting ${chartLabel(c)}`} onclick={() => remove(c)} />{/if}
+          {#if snapshot.canEdit}<RemoveButton label={`Stop charting ${chartLabel(c)}`} onclick={() => removeChart(c)} />{/if}
         </div>
       {:else}
         <p class="muted">Only the totals so far.</p>
       {/each}
       {#if snapshot.canEdit && charts.length < 16}
-        <h3 class="panel-title mt-2">Chart</h3>
-        <Select
+        <h3 class="panel-title mt-2">Chart what moves</h3>
+        <Segmented
+          label="What to chart"
+          size="xs"
           value={addKind}
           options={[
-            { value: "item", label: "An item moved" },
-            { value: "fluid", label: "A fluid moved" },
-            { value: "chemical", label: "A chemical moved" },
-            { value: "through", label: "What moves into and out of a device" },
-            { value: "level", label: "What a device holds" },
+            { value: "item", label: "Item" },
+            { value: "fluid", label: "Fluid" },
+            { value: "chemical", label: "Chemical" },
           ]}
-          onchange={(v) => (addKind = v as typeof addKind)}
+          onchange={(v) => {
+            addKind = v as CatalogKind;
+            addId = "";
+          }}
         />
-        {#if forDevice}
-          <Select
-            value={addDevice}
-            options={[{ value: "", label: "Pick a device…" }, ...snapshot.devices.filter((d) => d.state === "active").map((d) => ({ value: posKey(d.pos), label: deviceName(d) }))]}
-            onchange={(v) => (addDevice = v)}
-          />
-          {#if deviceResources.length > 1}
-            <Select value={resourceChosen} options={deviceResources.map((r) => ({ value: r, label: RESOURCE_LABEL[r] }))} onchange={(v) => (addResource = v as Resource)} />
-          {:else if addDevice && deviceResources.length === 0}
-            <p class="text-xs muted">That device has no energy, items, fluid or chemical to chart.</p>
-          {/if}
-        {:else}
-          <TextField
-            value={search}
-            placeholder={`Search ${addKind === "item" ? "items" : addKind === "fluid" ? "fluids" : "chemicals"} by name or id`}
-            oncommit={(v) => (search = v)}
-            oninput={(v) => (search = v)}
-          />
-          {#each matches as entry (entry.id)}
-            <button
-              class="list-row flex items-center gap-2 rounded px-1 text-left"
-              style={entry.id === addId ? "background: var(--panel-2); outline: 1px solid var(--accent)" : ""}
-              onclick={() => (addId = entry.id)}
-            >
-              <img src={iconUrl(addKind as CatalogKind, entry.id)} alt="" width="16" height="16" class="shrink-0" style="image-rendering: pixelated" />
-              <span class="min-w-0 flex-1 truncate">{entry.name}</span>
-              <span class="shrink-0 text-xs muted">{entry.id}</span>
-            </button>
-          {/each}
-          {#if picked}<span class="text-xs">Picked: <strong>{picked.name}</strong> <span class="muted">{picked.id}</span></span>{/if}
-        {/if}
-        <button class="btn self-start" disabled={forDevice ? !addDevice || !resourceChosen : !addId} onclick={add}>Chart it</button>
+        <CatalogCombobox
+          kind={addKind}
+          entries={catalog?.[addKind] ?? []}
+          value={addId}
+          placeholder={`Choose ${addKind === "item" ? "an item" : addKind === "fluid" ? "a fluid" : "a chemical"}…`}
+          onchange={(id) => (addId = id)}
+        />
+        <button class="btn self-start" disabled={!addId} onclick={add}>Chart it</button>
+        <p class="text-xs muted">To chart a device — what it holds, or what moves into and out of it — right-click it in the devices list.</p>
       {/if}
       <Help>Totals are always kept. Anything else is recorded only once charted. Charts start when charted and reset when the server restarts. Click a name in a chart's legend to hide or show its line.</Help>
     </aside>

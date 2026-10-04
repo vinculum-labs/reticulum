@@ -4,6 +4,8 @@
   import Plus from "@lucide/svelte/icons/plus";
   import { help } from "../../lib/help.svelte";
   import { identifyItem, openMenu } from "../../lib/menu.svelte";
+  import { chartableResources, deviceChart, deviceChartLabel, toggleDeviceChart, type DeviceChart } from "../../lib/charts";
+  import ChartLine from "@lucide/svelte/icons/chart-line";
   import { app, deviceName, deviceUses, matchesDevice, openDevice, placeDevice } from "../../lib/state.svelte";
   import { posKey, type Device } from "../../lib/types";
   import Segmented from "../controls/Segmented.svelte";
@@ -64,6 +66,22 @@
         disabled: !canPlace,
         hint: !canPlace && homed && !open?.blueprint ? "It already has a node" : undefined,
         run: () => placeDevice(d),
+      },
+      chartableResources(d).length > 0 && {
+        label: "Chart",
+        icon: ChartLine,
+        items: [
+          ...(["level", "through"] as DeviceChart[]).flatMap((kind) =>
+            chartableResources(d).map((resource) => ({
+              label: deviceChartLabel(kind, resource),
+              checked: !!deviceChart(d, kind, resource),
+              disabled: !canEdit || (!deviceChart(d, kind, resource) && (snapshot.charts?.length ?? 0) >= 16),
+              run: () => toggleDeviceChart(d, kind, resource),
+            })),
+          ),
+          "-" as const,
+          { label: "Open charts", run: () => (app.panel = "charts") },
+        ],
       },
     ]);
   }
