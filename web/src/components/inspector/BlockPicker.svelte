@@ -13,7 +13,7 @@
 
   /**
    * Chooses the kind of block a blueprint's slot takes: from a device on this network (which also gives the slot a
-   * place, for filling copies by layout), or any block from the game's catalog (a kind only). A button showing the
+   * place, for filling instances by layout), or any block from the game's catalog (a kind only). A button showing the
    * current kind, opening a searchable list: the network's devices first, then every block. Only the rows in view
    * are built. {@code button} replaces the field-like button (the toolbar's Slot).
    */

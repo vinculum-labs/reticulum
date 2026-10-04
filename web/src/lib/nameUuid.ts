@@ -1,6 +1,6 @@
 /**
  * Java's UUID.nameUUIDFromBytes (a version 3, MD5-based UUID) for UTF-8 text: how the server names the nodes and wires
- * of a blueprint pasted in as a copy ("<copy node id>/<blueprint node id>"), so the editor can find their activity.
+ * of a blueprint pasted in as an instance ("<instance node id>/<blueprint node id>"), so the editor can find their activity.
  * Remembered: the same few names are asked for on every redraw.
  */
 export function nameUuid(text: string): string {

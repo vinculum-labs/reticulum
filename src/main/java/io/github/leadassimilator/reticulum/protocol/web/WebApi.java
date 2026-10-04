@@ -417,13 +417,13 @@ public final class WebApi {
                     Sheet made = makeBlueprint(server, network, sheet(network, edit), edit.has("keep") && edit.get("keep").getAsBoolean());
                     return new com.google.gson.JsonPrimitive(made.id().toString());
                 }
-                case "convertCopy" -> {
+                case "detachInstance" -> {
                     Sheet parent = sheet(network, edit);
                     Node node = parent.node(uuid(edit, "node"));
                     if (node == null) {
                         throw new RequestException("No such node");
                     }
-                    return new com.google.gson.JsonPrimitive(convertCopy(network, parent, node).id().toString());
+                    return new com.google.gson.JsonPrimitive(detachInstance(network, parent, node).id().toString());
                 }
                 case "duplicateBlueprint" -> {
                     Sheet blueprint = sheet(network, edit);
@@ -633,12 +633,12 @@ public final class WebApi {
 
         /**
          * What a removed latch or counter remembered goes with it (undo starts it from 0, as a new node), wherever it
-         * runs: on its sheet, or under each copy's id for it when its sheet is a blueprint. A removed copy node takes
+         * runs: on its sheet, or under each instance's id for it when its sheet is a blueprint. A removed instance node takes
          * what everything inside it remembered.
          */
         private static void forgetNode(Network network, Sheet sheet, Node node) {
             List<String> running = sheet.blueprint()
-                    ? instances(network, sheet.id(), 0).stream().map(instance -> inCopy(instance, node.id())).toList()
+                    ? instances(network, sheet.id(), 0).stream().map(instance -> inInstance(instance, node.id())).toList()
                     : List.of(node.id().toString());
             for (String id : running) {
                 forgetRunning(network, id, node, 0);
@@ -647,15 +647,15 @@ public final class WebApi {
 
         private static void forgetRunning(Network network, String id, Node node, int depth) {
             network.signalMemory().keySet().removeIf(k -> k.equals(id) || k.startsWith(id + "/"));
-            if (depth < NESTING && node.settings() instanceof NodeSettings.CopySettings copy && network.sheet(copy.sheet()) instanceof Sheet blueprint) {
+            if (depth < NESTING && node.settings() instanceof NodeSettings.InstanceSettings instance && network.sheet(instance.sheet()) instanceof Sheet blueprint) {
                 for (Node inner : blueprint.nodes()) {
-                    forgetRunning(network, inCopy(id, inner.id()), inner, depth + 1);
+                    forgetRunning(network, inInstance(id, inner.id()), inner, depth + 1);
                 }
             }
         }
 
         /**
-         * A sheet pin's wires one level up go with it: on the sheet's node, or for a blueprint's pin on every copy node
+         * A sheet pin's wires one level up go with it: on the sheet's node, or for a blueprint's pin on every instance node
          * of it. Left, they would hang off a handle that is gone, and reattach to a later pin given its slot.
          */
         private static void dropHolderWires(Network network, Sheet sheet, Node node) {
@@ -665,9 +665,9 @@ public final class WebApi {
             List<Network.Placement> holders = new ArrayList<>();
             if (sheet.blueprint()) {
                 for (Sheet on : network.sheets()) {
-                    for (Node copy : on.nodes()) {
-                        if (copy.settings() instanceof NodeSettings.CopySettings c && c.sheet().equals(sheet.id())) {
-                            holders.add(new Network.Placement(on, copy));
+                    for (Node instance : on.nodes()) {
+                        if (instance.settings() instanceof NodeSettings.InstanceSettings c && c.sheet().equals(sheet.id())) {
+                            holders.add(new Network.Placement(on, instance));
                         }
                     }
                 }
@@ -685,12 +685,12 @@ public final class WebApi {
             }
         }
 
-        /** How deep copies inside blueprints are followed (the engine refuses deeper ones). */
+        /** How deep instances inside blueprints are followed (the engine refuses deeper ones). */
         private static final int NESTING = 8;
 
         /**
-         * The ids a blueprint's contents run under: a copy's node id for each copy on a sheet, and for a copy inside
-         * another blueprint, one per copy of that blueprint.
+         * The ids a blueprint's contents run under: an instance's node id for each instance on a sheet, and for an instance inside
+         * another blueprint, one per instance of that blueprint.
          */
         private static List<String> instances(Network network, UUID blueprint, int depth) {
             List<String> out = new ArrayList<>();
@@ -699,12 +699,12 @@ public final class WebApi {
             }
             for (Sheet sheet : network.sheets()) {
                 for (Node node : sheet.nodes()) {
-                    if (node.settings() instanceof NodeSettings.CopySettings copy && copy.sheet().equals(blueprint)) {
+                    if (node.settings() instanceof NodeSettings.InstanceSettings instance && instance.sheet().equals(blueprint)) {
                         if (!sheet.blueprint()) {
                             out.add(node.id().toString());
                         } else {
                             for (String outer : instances(network, sheet.id(), depth + 1)) {
-                                out.add(inCopy(outer, node.id()));
+                                out.add(inInstance(outer, node.id()));
                             }
                         }
                     }
@@ -723,13 +723,13 @@ public final class WebApi {
             }
         }
 
-        private static String inCopy(String copy, String node) {
-            return inCopy(copy, UUID.fromString(node));
+        private static String inInstance(String instance, String node) {
+            return inInstance(instance, UUID.fromString(node));
         }
 
-        /** The id a blueprint's node runs under in a copy (as the engine pastes it). */
-        private static String inCopy(String copy, UUID node) {
-            return UUID.nameUUIDFromBytes((copy + "/" + node).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+        /** The id a blueprint's node runs under in an instance (as the engine pastes it). */
+        private static String inInstance(String instance, UUID node) {
+            return UUID.nameUUIDFromBytes((instance + "/" + node).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
         }
 
         private static void roomForSheet(Network network) throws RequestException {
@@ -852,7 +852,7 @@ public final class WebApi {
         /**
          * A device lives on one sheet: a second device node for it, anywhere in the tree, is refused (naming where it
          * lives). A device several sheets need goes on the sheet holding them, its flows wired down through pins.
-         * Blueprints are left alone: they are placed by copy.
+         * Blueprints are left alone: they are placed as instances.
          */
         /**
          * A device has one node. Only the devices this edit gives the node are checked ({@code before}: the node as it
@@ -867,10 +867,10 @@ public final class WebApi {
                 if (!had.contains(device.device())) {
                     livesNowhere(network, device.device(), node.id());
                 }
-            } else if (node.settings() instanceof NodeSettings.CopySettings copy) {
-                // A block filling a slot of a copy lives there, like a device node: once, in one slot.
+            } else if (node.settings() instanceof NodeSettings.InstanceSettings instance) {
+                // A block filling a slot of an instance lives there, like a device node: once, in one slot.
                 java.util.Set<net.minecraft.core.GlobalPos> seen = new java.util.HashSet<>();
-                for (NodeSettings.Binding binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network.sheet(copy.sheet()), copy).values()) {
+                for (NodeSettings.Binding binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network.sheet(instance.sheet()), instance).values()) {
                     if (!seen.add(binding.device())) {
                         throw new RequestException("One block can't fill two slots");
                     }
@@ -881,13 +881,13 @@ public final class WebApi {
             }
         }
 
-        /** The devices a node is the home of: a device node's device, the blocks filling a copy's slots. */
+        /** The devices a node is the home of: a device node's device, the blocks filling an instance's slots. */
         private static java.util.Set<net.minecraft.core.GlobalPos> homes(Network network, Node node) {
             java.util.Set<net.minecraft.core.GlobalPos> out = new java.util.HashSet<>();
             if (node.settings() instanceof NodeSettings.DeviceSettings device) {
                 out.add(device.device());
-            } else if (node.settings() instanceof NodeSettings.CopySettings copy) {
-                io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network.sheet(copy.sheet()), copy).values().forEach(b -> out.add(b.device()));
+            } else if (node.settings() instanceof NodeSettings.InstanceSettings instance) {
+                io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network.sheet(instance.sheet()), instance).values().forEach(b -> out.add(b.device()));
             }
             return out;
         }
@@ -902,7 +902,7 @@ public final class WebApi {
 
         /**
          * A blueprint made from a sheet in the tree: its nodes and wires (new ids), its device nodes as slots for their
-         * kinds of blocks. Unless {@code keep}, the sheet becomes the blueprint's first copy, its slots filled with the
+         * kinds of blocks. Unless {@code keep}, the sheet becomes the blueprint's first instance, its slots filled with the
          * sheet's own blocks, so nothing stops running. Sheets with sheets inside them are refused for now.
          */
         private static Sheet makeBlueprint(MinecraftServer server, Network network, Sheet sheet, boolean keep) throws RequestException {
@@ -927,7 +927,7 @@ public final class WebApi {
                     slotOf.putIfAbsent(device.device(), slot.id());
                 }
             }
-            // A Level sensor reading one of the sheet's devices reads that device's slot: in each copy, its block.
+            // A Level sensor reading one of the sheet's devices reads that device's slot: in each instance, its block.
             for (Node node : List.copyOf(blueprint.nodes())) {
                 if (node.settings() instanceof NodeSettings.LevelSettings level && level.slot().isEmpty() && slotOf.containsKey(level.device())) {
                     blueprint.replace(node.with(level.readingSlot(slotOf.get(level.device()), level.device())));
@@ -936,35 +936,35 @@ public final class WebApi {
             network.sheets().add(blueprint);
             Network.Placement placement = network.placement(sheet.id());
             if (!keep && placement != null) {
-                // Its latches and counters keep what they remember, under the ids they now run under in the copy.
+                // Its latches and counters keep what they remember, under the ids they now run under in the instance.
                 for (Node original : sheet.nodes()) {
-                    moveMemory(network, original.id().toString(), inCopy(placement.node().id().toString(), ids.get(original.id())));
+                    moveMemory(network, original.id().toString(), inInstance(placement.node().id().toString(), ids.get(original.id())));
                 }
                 forget(server, network, sheet);
                 // Same node, same wires: the blueprint's pins keep their slots.
-                placement.parent().replace(placement.node().with(new NodeSettings.CopySettings(blueprint.id(), bindings)));
+                placement.parent().replace(placement.node().with(new NodeSettings.InstanceSettings(blueprint.id(), bindings)));
             }
             return blueprint;
         }
 
         /**
-         * A copy turned back into a normal sheet in the tree: the blueprint's nodes and wires (new ids), each filled slot
+         * An instance turned back into a normal sheet in the tree: the blueprint's nodes and wires (new ids), each filled slot
          * a device node for its block; an empty one keeps the position it was laid out at.
          */
-        private static Sheet convertCopy(Network network, Sheet parent, Node node) throws RequestException {
-            if (!(node.settings() instanceof NodeSettings.CopySettings copy)) {
-                throw new RequestException("That node isn't a blueprint copy");
+        private static Sheet detachInstance(Network network, Sheet parent, Node node) throws RequestException {
+            if (!(node.settings() instanceof NodeSettings.InstanceSettings instance)) {
+                throw new RequestException("That node isn't a placed blueprint");
             }
             if (parent.blueprint()) {
-                throw new RequestException("A copy inside a blueprint can't become a sheet: sheets don't go in blueprints");
+                throw new RequestException("A blueprint placed inside a blueprint can't become a sheet: sheets don't go in blueprints");
             }
-            Sheet blueprint = network.sheet(copy.sheet());
+            Sheet blueprint = network.sheet(instance.sheet());
             if (blueprint == null) {
                 throw new RequestException("Its blueprint no longer exists");
             }
             roomForSheet(network);
             deepEnough(network, parent, 0);
-            Map<UUID, NodeSettings.Binding> live = io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(blueprint, copy);
+            Map<UUID, NodeSettings.Binding> live = io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(blueprint, instance);
             if (blueprint.nodes().stream().anyMatch(slot -> slot.settings() instanceof NodeSettings.DeviceSettings && !live.containsKey(slot.id()))) {
                 throw new RequestException("Fill its empty slots first: an empty slot has no block of its own to become a device node");
             }
@@ -973,7 +973,7 @@ public final class WebApi {
             sheet.setBlueprint(false);
             for (Node inner : blueprint.nodes()) {
                 Node made = sheet.node(ids.get(inner.id()));
-                NodeSettings bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(inner, copy.bindings());
+                NodeSettings bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(inner, instance.bindings());
                 if (bound == null && inner.settings() instanceof NodeSettings.DeviceSettings device) {
                     bound = device.withBlock(java.util.Optional.empty());
                 } else if (bound == null && inner.settings() instanceof NodeSettings.LevelSettings level) {
@@ -981,8 +981,8 @@ public final class WebApi {
                     bound = level.readingDevice(level.device(), level.faces());
                 }
                 sheet.replace(made.with(bound));
-                // What it remembered in the copy, now under its own id.
-                moveMemory(network, inCopy(node.id().toString(), inner.id()), ids.get(inner.id()).toString());
+                // What it remembered in the instance, now under its own id.
+                moveMemory(network, inInstance(node.id().toString(), inner.id()), ids.get(inner.id()).toString());
             }
             network.sheets().add(sheet);
             parent.replace(node.with(new NodeSettings.SheetSettings(sheet.id())));

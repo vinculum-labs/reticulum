@@ -90,7 +90,7 @@ export interface DeviceOutput {
 /** A block that is both fed and emptied: numbered inputs (left) and outputs (right). */
 export interface DeviceNodeSettings {
   kind: "device";
-  /** In a blueprint, a slot: where the block it was made from sat (laying copies out from it). */
+  /** In a blueprint, a slot: where the block it was made from sat (laying instances out from it). */
   device: GlobalPos;
   inputs?: DeviceInput[];
   outputs?: DeviceOutput[];
@@ -104,15 +104,15 @@ export interface SheetNodeSettings {
   sheet: string;
 }
 
-/** A copy of a blueprint; its pins are that sheet's Sheet input and Sheet output nodes. */
-export interface CopySettings {
-  kind: "copy";
+/** An instance of a blueprint; its pins are that sheet's Sheet input and Sheet output nodes. */
+export interface InstanceSettings {
+  kind: "instance";
   sheet: string;
   /** The block filling each slot, by the slot's node id in the blueprint. */
   bindings?: Record<string, Binding>;
 }
 
-/** The block filling a slot of a copy, and how far the set is turned from the blueprint's (quarter turns clockwise). */
+/** The block filling a slot of an instance, and how far the set is turned from the blueprint's (quarter turns clockwise). */
 export interface Binding {
   device: GlobalPos;
   turns?: number;
@@ -145,7 +145,7 @@ export interface LevelSettings {
   output?: "amount" | "range" | "comparator";
   low?: number;
   high?: number;
-  /** On a blueprint: the slot whose block it reads, by the slot node's id (each copy reads the block filling it). */
+  /** On a blueprint: the slot whose block it reads, by the slot node's id (each instance reads the block filling it). */
   slot?: string;
 }
 
@@ -206,7 +206,7 @@ export type NodeSettings =
   | KitSettings
   | DeviceNodeSettings
   | SheetNodeSettings
-  | CopySettings
+  | InstanceSettings
   | SheetPinSettings
   | SignalNodeSettings;
 export type NodeKind = NodeSettings["kind"];
@@ -253,7 +253,7 @@ export interface Sheet {
   enabled?: boolean;
   interval?: number;
   priority?: number;
-  /** A blueprint never runs on its own; other sheets place copies of it. */
+  /** A blueprint never runs on its own; other sheets place instances of it. */
   blueprint?: boolean;
   nodes?: GraphNode[];
   wires?: Wire[];

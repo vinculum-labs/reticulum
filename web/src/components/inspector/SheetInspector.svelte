@@ -1,9 +1,9 @@
 <script lang="ts">
   import Help from "./Help.svelte";
   import Trash from "@lucide/svelte/icons/trash";
-  import { app, copySheetJson, deleteSheet, duplicateBlueprint, edit, moveSheet, nodeTitle, openCopy, openSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
+  import { app, copySheetJson, deleteSheet, duplicateBlueprint, edit, moveSheet, nodeTitle, openInstance, openSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
-  import { copiesOf } from "../../lib/blueprints";
+  import { instancesOf } from "../../lib/blueprints";
   import { pruneDevices, pruneSheet } from "../../lib/prune";
   import Scissors from "@lucide/svelte/icons/scissors";
   import NetworkIcon from "@lucide/svelte/icons/network";
@@ -40,11 +40,11 @@
     edit([{ type: "updateSheet", sheet: sheet.id, ...patch }], [{ type: "updateSheet", sheet: sheet.id, ...before }], label);
   }
 
-  const copies = $derived(sheet.blueprint ? copiesOf(snapshot, sheet.id) : []);
+  const instances = $derived(sheet.blueprint ? instancesOf(snapshot, sheet.id) : []);
   const hasSheets = $derived(descendants(snapshot, sheet).length > 0);
 
   /**
-   * Make blueprint: the sheet's devices become slots, and the sheet stays where it is as the blueprint's first copy
+   * Make blueprint: the sheet's devices become slots, and the sheet stays where it is as the blueprint's first instance
    * (filled with its own blocks). Copy as blueprint ({@code keep}) leaves the sheet as it is.
    */
   async function makeBlueprint(keep: boolean) {
@@ -53,7 +53,7 @@
       const ok = await confirmDialog({
         title: `Make a blueprint from “${sheet.name}”?`,
         message:
-          "Its devices become slots for their kinds of blocks, and this sheet becomes the blueprint's first copy, filled with its own blocks: it keeps running as it does now. Then place more copies anywhere and fill their slots. This can't be undone.",
+          "Its devices become slots for their kinds of blocks, and this sheet's node becomes the blueprint placed there, filled with its own blocks: it keeps running as it does now. Then place it anywhere else and fill its slots there. This can't be undone.",
         confirm: "Make blueprint",
       });
       if (!ok || app.current !== network) return;
@@ -61,7 +61,7 @@
     const results = await edit([{ type: "makeBlueprint", sheet: sheet.id, ...(keep ? { keep: true } : {}) }]);
     if (results?.[0]) {
       openSheet(results[0] as string);
-      toast(keep ? "Blueprint made — the sheet is as it was." : "Blueprint made — the sheet is now its first copy.", "info");
+      toast(keep ? "Blueprint made — the sheet is as it was." : "Blueprint made — it is placed where the sheet was.", "info");
     }
   }
 
@@ -95,7 +95,7 @@
 <InspectorPanel title={sheet.root ? "Top sheet" : sheet.blueprint ? "Blueprint" : "Sheet"}>
   {#snippet icon()}
     <!-- As in the tree: the network's icon for the top sheet, a blueprint's or a sheet's for the rest. -->
-    {@const KindIcon = sheet.root ? NetworkIcon : KIND_ICON[sheet.blueprint ? "copy" : "sheet"]}
+    {@const KindIcon = sheet.root ? NetworkIcon : KIND_ICON[sheet.blueprint ? "instance" : "sheet"]}
     <span class="shrink-0 muted"><KindIcon size={24} /></span>
   {/snippet}
   {#snippet actions()}
@@ -135,11 +135,11 @@
       oncommit={(v) => update({ interval: v }, { interval: sheet.interval ?? 10 }, "sheet interval")} />
   </Field>
   {#if sheet.blueprint}
-    <Field label="Copies" hint="Each fills the slots with its own blocks. A change here reaches them all.">
+    <Field label="Where it's placed" hint="Each place fills the slots with its own blocks. A change here reaches them all.">
       <ul class="flex flex-col gap-0.5 text-sm">
-        {#each copies as c (c.node.id)}
+        {#each instances as c (c.node.id)}
           <li>
-            <button class="list-row w-full truncate rounded px-1 text-left text-accent" onclick={() => openCopy(c.sheet.id, c.node.id)}>
+            <button class="list-row w-full truncate rounded px-1 text-left text-accent" onclick={() => openInstance(c.sheet.id, c.node.id)}>
               {nodeTitle(c.node)} <span class="muted">in {sheetPath(snapshot, c.sheet)}</span>
             </button>
           </li>
@@ -149,20 +149,20 @@
       </ul>
     </Field>
     {#if canEdit}
-      <button class="btn self-start text-sm" onclick={duplicate} title="A new blueprint like this one, to change without touching this one's copies">Duplicate blueprint</button>
+      <button class="btn self-start text-sm" onclick={duplicate} title="A new blueprint like this one, to change without touching where this one is placed">Duplicate blueprint</button>
     {/if}
   {:else if !sheet.root && canEdit}
     <div class="flex flex-col gap-1">
       <div class="flex flex-wrap gap-2">
         <button class="btn text-sm" disabled={hasSheets} onclick={() => makeBlueprint(false)}
-          title="Its devices become slots — this sheet stays as the first copy, still running on its blocks">Make blueprint…</button>
+          title="Its devices become slots — the blueprint is placed where this sheet was, still running on its blocks">Make blueprint…</button>
         <button class="btn text-sm" disabled={hasSheets} onclick={() => makeBlueprint(true)}
           title="A new blueprint like this sheet — the sheet stays as it is">Copy as blueprint</button>
       </div>
       {#if hasSheets}
         <span class="text-xs muted">Not for a sheet with sheets inside it (yet) — move them out first.</span>
       {:else}
-        <Help>To build the same set again elsewhere: a blueprint is placed as copies, each filled with its own blocks.</Help>
+        <Help>To build the same set again elsewhere: place a blueprint as often as you like, each place filled with its own blocks.</Help>
       {/if}
     </div>
   {/if}

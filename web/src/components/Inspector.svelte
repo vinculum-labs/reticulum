@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { inCopy } from "../lib/blueprints";
-  import { app, currentSheet, deviceAt, openCopyNode, sheetHolding } from "../lib/state.svelte";
-  import CopyPanel from "./inspector/CopyPanel.svelte";
+  import { inInstance } from "../lib/blueprints";
+  import { app, currentSheet, deviceAt, openInstanceNode, sheetHolding } from "../lib/state.svelte";
+  import InstancePanel from "./inspector/InstancePanel.svelte";
   import SlotInspector from "./inspector/SlotInspector.svelte";
   import NodeInspector from "./inspector/NodeInspector.svelte";
   import WireInspector from "./inspector/WireInspector.svelte";
@@ -19,8 +19,8 @@
   const wireSheet = $derived(!node && app.selectedEdges.length === 1 ? sheetHolding(app.selectedEdges[0]) : undefined);
   const wire = $derived(wireSheet?.wires?.find((w) => w.id === app.selectedEdges[0]));
   const device = $derived(app.selectedDevice ? deviceAt(app.selectedDevice) : undefined);
-  /** A copy open on the canvas: only its slots can be changed, so the side panel is about them. */
-  const copy = $derived(app.copy ? openCopyNode() : null);
+  /** An instance open on the canvas: only its slots can be changed, so the side panel is about them. */
+  const instance = $derived(app.instance ? openInstanceNode() : null);
 </script>
 
 <!-- A fixed width that nothing inside may widen: no sideways scrolling. -->
@@ -35,17 +35,17 @@
     {#key app.selectedDevice}
       <DeviceInspector {device} />
     {/key}
-  {:else if copy}
+  {:else if instance}
     {#if node?.settings.kind === "device"}
       {#key node.id}
-        <SlotInspector sheet={copy.sheet} copy={copy.node} blueprint={copy.blueprint} slot={node} />
+        <SlotInspector sheet={instance.sheet} instance={instance.node} blueprint={instance.blueprint} slot={node} />
       {/key}
     {:else if node}
       {#key node.id}
-        <NodeInspector {node} sheet={copy.blueprint} inCopyAs={copy.run ? inCopy(copy.run, node.id) : node.id} />
+        <NodeInspector {node} sheet={instance.blueprint} inInstanceAs={instance.run ? inInstance(instance.run, node.id) : node.id} />
       {/key}
     {:else}
-      <CopyPanel sheet={copy.sheet} copy={copy.node} blueprint={copy.blueprint} />
+      <InstancePanel sheet={instance.sheet} instance={instance.node} blueprint={instance.blueprint} />
     {/if}
   {:else if node && nodeSheet}
     {#key node.id}

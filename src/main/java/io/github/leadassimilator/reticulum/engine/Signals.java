@@ -177,7 +177,7 @@ final class Signals {
         return value;
     }
 
-    /** After switching: the sheet and copy nodes now off, whose logic sleeps next tick. */
+    /** After switching: the sheet and instance nodes now off, whose logic sleeps next tick. */
     void noteAsleep(CompiledSheet sheet) {
         Set<UUID> now = new HashSet<>();
         for (UUID holder : sheet.sheetNodes().values()) {
@@ -185,7 +185,7 @@ final class Signals {
                 now.add(holder);
             }
         }
-        for (UUID holder : sheet.copyNodes()) {
+        for (UUID holder : sheet.instanceNodes()) {
             if (off.contains(holder)) {
                 now.add(holder);
             }
@@ -273,7 +273,7 @@ final class Signals {
                 ArrayDeque<Long> queue = delays.get(id);
                 yield queue != null && queue.size() >= Math.max(1, delay.ticks()) ? queue.peekFirst() : 0;
             }
-            // Sheet pins pass signals through a sheet's (or blueprint copy's) edge.
+            // Sheet pins pass signals through a sheet's (or blueprint instance's) edge.
             default -> {
                 long best = 0;
                 for (int i = 0; i < node.inputs().size(); i++) {

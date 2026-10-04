@@ -39,12 +39,12 @@
 
   const DeviceKindIcon = KIND_ICON.device;
   const movers: NodeKind[] = ["device", "filter", "rate_limit", "splitter", "kit"];
-  /** Blueprints that can be placed here (as copies): not this sheet. */
+  /** Blueprints that can be placed here (as instances): not this sheet. */
   const blueprints = $derived((app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== sheet?.id));
   const holders = $derived<NodeKind[]>([
     // Sheets go inside sheets in the tree, never inside a blueprint.
     ...(sheet?.blueprint ? [] : (["sheet"] as NodeKind[])),
-    ...(blueprints.length ? (["copy"] as NodeKind[]) : []),
+    ...(blueprints.length ? (["instance"] as NodeKind[]) : []),
   ]);
 </script>
 
@@ -60,7 +60,7 @@
       <!-- On a blueprint a device is a slot: the kind of block it takes, from a device here or the catalog. -->
       <BlockPicker bind:this={slotPicker} devices={app.snapshot?.devices ?? []} onchange={(pick) => onslot(pick, slotAt)}>
         {#snippet button({ open })}
-          <button class="btn flex items-center gap-1 text-sm" title="A slot: a kind of block each copy fills with one" onclick={() => ((slotAt = null), open())}>
+          <button class="btn flex items-center gap-1 text-sm" title="A slot: a kind of block, filled with one wherever the blueprint is placed" onclick={() => ((slotAt = null), open())}>
             <DeviceKindIcon size={14} />Slot
           </button>
         {/snippet}

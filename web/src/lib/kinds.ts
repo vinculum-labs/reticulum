@@ -9,7 +9,7 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   splitter: "Splitter",
   kit: "Kit",
   sheet: "Sheet",
-  copy: "Blueprint",
+  instance: "Blueprint",
   sheet_input: "Input pin",
   sheet_output: "Output pin",
   level: "Level sensor",
@@ -29,7 +29,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   splitter: "Shares between outputs: in turn, in order, by weight, or nearest first.",
   kit: "Moves a set of items all together or not at all.",
   sheet: "A sheet inside this one: double-click to open it. Its switch and gate switch everything in it.",
-  copy: "A copy of a blueprint, used like one node: double-click it to fill its slots with blocks.",
+  instance: "A blueprint placed here, used like one node: double-click it to fill its slots with blocks.",
   sheet_input: "Where resources or signals come into this sheet: a pin on its left edge (and its node's).",
   sheet_output: "Where resources or signals leave this sheet: a pin on its right edge (and its node's).",
   level: "How much of a resource a device holds.",
@@ -170,7 +170,7 @@ export function defaultSettings(
       return { kind };
     case "delay":
       return { kind, ticks: 1 };
-    case "copy":
+    case "instance":
     case "sheet":
       return { kind, sheet: blueprint ?? "" };
     case "sheet_input":
@@ -296,7 +296,7 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
             : "round robin";
     case "kit":
       return s.lines.map((l) => `${l.count}× ${l.filter || "anything"}`).join(" + ") + (s.max_kits && s.max_kits > 1 ? `, up to ${s.max_kits}` : "");
-    case "copy":
+    case "instance":
       return "blueprint";
     case "sheet":
       return "sheet";

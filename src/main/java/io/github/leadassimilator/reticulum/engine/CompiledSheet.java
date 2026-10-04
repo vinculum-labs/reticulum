@@ -27,7 +27,7 @@ import io.github.leadassimilator.reticulum.network.Network;
  * A network's sheets turned into routes: every path from a source through filters, rate limits, splitters and kits to
  * a sink. The whole tree is compiled at once, from the root sheet down: each child sheet's nodes and wires are pasted
  * in where its sheet node is (under their own ids), so routes run across sheets through their pins, and each blueprint
- * is pasted as a copy. Compiled again whenever a sheet in it changes; problems are collected in {@link #errors()} and
+ * is pasted as an instance. Compiled again whenever a sheet in it changes; problems are collected in {@link #errors()} and
  * the affected routes left out.
  */
 public final class CompiledSheet {
@@ -54,7 +54,7 @@ public final class CompiledSheet {
     /**
      * {@code path} lists every node from source to sink and {@code wires} every wire between them, for metrics.
      * {@code controls} holds every node whose switch or gate can switch the route off: the nodes on it,
-     * the device nodes their sources and sinks belong to, and the copy nodes they were pasted from.
+     * the device nodes their sources and sinks belong to, and the instance nodes they were pasted from.
      */
     public record Route(Node source, Node sink, List<Gate> gates, List<Node> rateLimits, List<Branch> branches,
             @Nullable Node kit, List<Gate> gatesBeforeKit, List<UUID> path, List<UUID> wires, Set<UUID> controls) {
@@ -82,12 +82,12 @@ public final class CompiledSheet {
     private boolean followsConnectors;
     /** Revision of every sheet and blueprint pasted in, so a change to one compiles the network again. */
     private final Map<UUID, Integer> dependencies = new LinkedHashMap<>();
-    /** For every node as compiled (pasted copies, device sides and pins included): the sheet it shows on. */
+    /** For every node as compiled (pasted instances, device sides and pins included): the sheet it shows on. */
     private final Map<UUID, UUID> nodeSheet = new LinkedHashMap<>();
     /** Each sheet's operation interval and priority, by sheet id, for what is compiled from it. */
     private final Map<UUID, int[]> sheetTiming = new LinkedHashMap<>();
-    /** Each copy node's blueprint's interval and priority, for what runs in it. */
-    private final Map<UUID, int[]> copyTiming = new LinkedHashMap<>();
+    /** Each instance node's blueprint's interval and priority, for what runs in it. */
+    private final Map<UUID, int[]> instanceTiming = new LinkedHashMap<>();
     /** The sheet node of every sheet in the tree, by sheet id (the root has none). */
     private final Map<UUID, UUID> sheetNodes = new LinkedHashMap<>();
     private final List<Source> sources = new ArrayList<>();
@@ -167,26 +167,26 @@ public final class CompiledSheet {
         return sheet.id();
     }
 
-    /** Ticks between item operations for what is compiled from this node's sheet (in a copy, its blueprint's). */
+    /** Ticks between item operations for what is compiled from this node's sheet (in an instance, its blueprint's). */
     public int intervalOf(UUID node) {
         int[] timing = timing(node);
         return timing == null ? sheet.interval() : timing[0];
     }
 
-    /** The priority of this node's sheet (in a copy, its blueprint's): sheets with a higher one move first. */
+    /** The priority of this node's sheet (in an instance, its blueprint's): sheets with a higher one move first. */
     public int priorityOf(UUID node) {
         int[] timing = timing(node);
         return timing == null ? sheet.priority() : timing[1];
     }
 
-    /** The interval and priority a node runs with: the innermost copy's blueprint's, else its sheet's. */
+    /** The interval and priority a node runs with: the innermost instance's blueprint's, else its sheet's. */
     @Nullable
     private int[] timing(UUID node) {
         UUID current = node;
         for (int hops = 0; current != null && hops < 32; hops++) {
-            int[] copy = copyTiming.get(current);
-            if (copy != null) {
-                return copy;
+            int[] instance = instanceTiming.get(current);
+            if (instance != null) {
+                return instance;
             }
             current = owners.get(current);
         }
@@ -198,9 +198,9 @@ public final class CompiledSheet {
         return sheetNodes;
     }
 
-    /** Every copy node pasted in (a copy inside a copy under its pasted id): each switches what it holds, as a sheet node does. */
-    public Set<UUID> copyNodes() {
-        return copyNodes;
+    /** Every instance node pasted in (an instance inside an instance under its pasted id): each switches what it holds, as a sheet node does. */
+    public Set<UUID> instanceNodes() {
+        return instanceNodes;
     }
 
     /** The sheet node holding a node pasted in from a child sheet (a sheet node for one inside another), or null. */
@@ -250,7 +250,7 @@ public final class CompiledSheet {
             if (!node.enabled()) {
                 continue;
             }
-            // One node per device (a slot a copy fills counts): a second one is flagged, though it still runs. An empty
+            // One node per device (a slot an instance fills counts): a second one is flagged, though it still runs. An empty
             // slot of a blueprint only names a kind of block: two slots made from the same block are fine.
             if (node.settings() instanceof NodeSettings.DeviceSettings device && device.block().isEmpty()) {
                 Node first = homes.putIfAbsent(device.device(), node);
@@ -455,7 +455,7 @@ public final class CompiledSheet {
     private final List<SignalNode> signals = new ArrayList<>();
     /** Nodes with a signal wire into their gate, and the nodes wired into it. */
     private final Map<UUID, List<UUID>> switchedBy = new LinkedHashMap<>();
-    /** Nodes (by compiled id, including copy nodes) whose gate runs them once per pulse. */
+    /** Nodes (by compiled id, including instance nodes) whose gate runs them once per pulse. */
     private final Set<UUID> pulseGates = new java.util.HashSet<>();
 
     public List<SignalNode> signals() {
@@ -608,8 +608,8 @@ public final class CompiledSheet {
     }
 
     /**
-     * The given nodes plus everything that holds them: the device nodes of device sides, the copy nodes of pasted
-     * copies, and the sheet nodes of the sheets they are on, all the way up, so switching any of those off stops them.
+     * The given nodes plus everything that holds them: the device nodes of device sides, the instance nodes of pasted
+     * instances, and the sheet nodes of the sheets they are on, all the way up, so switching any of those off stops them.
      */
     private Set<UUID> controls(List<UUID> raw) {
         Set<UUID> out = new java.util.HashSet<>();
@@ -623,7 +623,7 @@ public final class CompiledSheet {
         return out;
     }
 
-    /** What holds a compiled node: its device or copy node, else the sheet node of the sheet it was pasted from. */
+    /** What holds a compiled node: its device or instance node, else the sheet node of the sheet it was pasted from. */
     @Nullable
     private UUID holder(UUID node) {
         UUID owner = owners.get(node);
@@ -632,8 +632,8 @@ public final class CompiledSheet {
 
     /** For every node pasted in from a child sheet: that sheet's sheet node. Not an owner: the node shows as itself. */
     private final Map<UUID, UUID> containers = new LinkedHashMap<>();
-    private final Set<UUID> copyNodes = new java.util.HashSet<>();
-    /** Sheet and copy nodes whose own switch is off: what is in them is compiled but stays off. */
+    private final Set<UUID> instanceNodes = new java.util.HashSet<>();
+    /** Sheet and instance nodes whose own switch is off: what is in them is compiled but stays off. */
     private final Set<UUID> disabledHolders = new java.util.HashSet<>();
     /** Signal outputs (a sheet's output pins, devices' redstone inputs) by what they do while their sheet is off. */
     private final Map<UUID, NodeSettings.OffBehavior> whileOff = new LinkedHashMap<>();
@@ -671,16 +671,16 @@ public final class CompiledSheet {
 
     /** Node ids of the sources and sinks a device node is made of, mapped back to the device node (for metrics). */
     private final Map<UUID, UUID> owners = new LinkedHashMap<>();
-    /** Nodes pasted in from a blueprint for a copy (not a device's sides, which are its device node's own). */
-    private final Set<UUID> fromCopies = new HashSet<>();
+    /** Nodes pasted in from a blueprint for an instance (not a device's sides, which are its device node's own). */
+    private final Set<UUID> fromInstances = new HashSet<>();
 
-    /** Whether a compiled node was pasted in from a blueprint for a copy. */
-    public boolean fromCopy(UUID node) {
-        return fromCopies.contains(node);
+    /** Whether a compiled node was pasted in from a blueprint for an instance. */
+    public boolean fromInstance(UUID node) {
+        return fromInstances.contains(node);
     }
 
     /**
-     * The node the editor shows for a node id: a device node for its internal sources and sinks, the copy
+     * The node the editor shows for a node id: a device node for its internal sources and sinks, the instance
      * node for anything pasted in from a blueprint, else the node itself.
      */
     public UUID owner(UUID node) {
@@ -695,7 +695,7 @@ public final class CompiledSheet {
         return current;
     }
 
-    private static final int MAX_COPY_DEPTH = 8;
+    private static final int MAX_INSTANCE_DEPTH = 8;
     /**
      * How big a sheet may get with its blueprints pasted in, and how much work finding its routes may take. Blueprints
      * inside blueprints multiply, and so do splitters whose branches meet again; past these the sheet is refused with
@@ -716,15 +716,15 @@ public final class CompiledSheet {
 
     /**
      * Copies nodes into {@code out}, replacing every sheet node with that sheet's own nodes and wires (under their own
-     * ids) and every copy node with a copy of that blueprint's (under new ids). Wires on either node are moved to
+     * ids) and every instance node with its blueprint's nodes and wires (under new ids). Wires on either node are moved to
      * the pins inside, by slot. {@code using} is the chain of sheets being pasted (to refuse loops); {@code on} is the
      * sheet these nodes show on.
      */
     private void paste(Network network, List<Node> from, List<Node> out, List<Wire> wires, List<UUID> using, UUID on) {
         for (Node node : from) {
             boolean child = node.settings() instanceof NodeSettings.SheetSettings;
-            boolean holds = child || node.settings() instanceof NodeSettings.CopySettings;
-            // A switched-off sheet or copy still compiles (marked off), so its signal outputs can hold while it is off.
+            boolean holds = child || node.settings() instanceof NodeSettings.InstanceSettings;
+            // A switched-off sheet or instance still compiles (marked off), so its signal outputs can hold while it is off.
             if (!node.enabled() && !holds) {
                 continue;
             }
@@ -732,25 +732,25 @@ public final class CompiledSheet {
                 disabledHolders.add(node.id());
             }
             if (!child && holds) {
-                copyNodes.add(node.id());
+                instanceNodes.add(node.id());
             }
             nodeSheet.putIfAbsent(node.id(), on);
-            if (!child && !(node.settings() instanceof NodeSettings.CopySettings)) {
+            if (!child && !(node.settings() instanceof NodeSettings.InstanceSettings)) {
                 out.add(node);
                 continue;
             }
             if (node.gate() == Node.Gate.PULSE) {
                 pulseGates.add(node.id());
             }
-            UUID usedId = child ? ((NodeSettings.SheetSettings) node.settings()).sheet() : ((NodeSettings.CopySettings) node.settings()).sheet();
+            UUID usedId = child ? ((NodeSettings.SheetSettings) node.settings()).sheet() : ((NodeSettings.InstanceSettings) node.settings()).sheet();
             Sheet used = network.sheet(usedId);
             if (used == null || used.blueprint() != !child) {
                 error(node, describe(node) + (child ? ": the sheet it holds no longer exists"
                         : ": the blueprint it uses no longer exists or is no longer marked as a blueprint"));
                 continue;
             }
-            long copyDepth = using.stream().map(network::sheet).filter(s -> s != null && s.blueprint()).count();
-            if (using.contains(used.id()) || (!child && copyDepth >= MAX_COPY_DEPTH)) {
+            long instanceDepth = using.stream().map(network::sheet).filter(s -> s != null && s.blueprint()).count();
+            if (using.contains(used.id()) || (!child && instanceDepth >= MAX_INSTANCE_DEPTH)) {
                 error(node, describe(node) + ": " + (child ? "sheet" : "blueprint") + " '" + used.name() + "' contains itself");
                 continue;
             }
@@ -761,15 +761,15 @@ public final class CompiledSheet {
                 return;
             }
             // A child sheet keeps its own ids (it is placed once, and the editor shows its nodes' activity); a
-            // blueprint's copy gets ids of its own, made from the copy node's.
-            java.util.function.Function<UUID, UUID> copy = child ? id -> id
+            // blueprint's instance gets ids of its own, made from the instance node's.
+            java.util.function.Function<UUID, UUID> instance = child ? id -> id
                     : id -> UUID.nameUUIDFromBytes((node.id() + "/" + id).getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            List<Node> copies = new ArrayList<>();
-            Map<UUID, NodeSettings.Binding> bindings = child ? Map.of() : ((NodeSettings.CopySettings) node.settings()).bindings();
+            List<Node> instances = new ArrayList<>();
+            Map<UUID, NodeSettings.Binding> bindings = child ? Map.of() : ((NodeSettings.InstanceSettings) node.settings()).bindings();
             for (Node inner : used.nodes()) {
-                Node pasted = child ? inner : inner.withId(copy.apply(inner.id()));
+                Node pasted = child ? inner : inner.withId(instance.apply(inner.id()));
                 if (!child) {
-                    // A copy fills its blueprint's slots with blocks; one left empty can't run, nor can routes through it.
+                    // An instance fills its blueprint's slots with blocks; one left empty can't run, nor can routes through it.
                     NodeSettings bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(inner, bindings);
                     if (bound == null) {
                         UUID needed = io.github.leadassimilator.reticulum.graph.Blueprints.slotNeeded(inner);
@@ -777,46 +777,46 @@ public final class CompiledSheet {
                         error(node, describe(node) + (slot == null
                                 ? ": a Level sensor in it reads a slot the blueprint no longer has"
                                 : ": its slot " + io.github.leadassimilator.reticulum.graph.Blueprints.slotName(slot)
-                                        + " has no block yet (open the copy and drop a device on it)"));
+                                        + " has no block yet (open it and drop a device on it)"));
                         continue;
                     }
                     pasted = pasted.with(bound);
-                    // A splitter's weights are by wire, and the copy's wires have ids of their own.
+                    // A splitter's weights are by wire, and the instance's wires have ids of their own.
                     if (pasted.settings() instanceof NodeSettings.SplitterSettings splitter && !splitter.weights().isEmpty()) {
-                        pasted = pasted.with(splitter.renamed(copy));
+                        pasted = pasted.with(splitter.renamed(instance));
                     }
                 }
-                copies.add(pasted);
+                instances.add(pasted);
                 if (child) {
                     containers.put(pasted.id(), node.id());
                 } else {
                     owners.put(pasted.id(), node.id());
-                    fromCopies.add(pasted.id());
+                    fromInstances.add(pasted.id());
                 }
             }
             if (child) {
                 sheetNodes.put(used.id(), node.id());
                 sheetTiming.put(used.id(), new int[] {used.interval(), used.priority()});
             } else {
-                copyTiming.put(node.id(), new int[] {used.interval(), used.priority()});
+                instanceTiming.put(node.id(), new int[] {used.interval(), used.priority()});
             }
             for (Wire inner : used.wires()) {
-                wires.add(child ? inner : new Wire(copy.apply(inner.id()), copy.apply(inner.from()), inner.output(), copy.apply(inner.to()),
+                wires.add(child ? inner : new Wire(instance.apply(inner.id()), instance.apply(inner.from()), inner.output(), instance.apply(inner.to()),
                         inner.input(), inner.order()));
             }
             for (int i = 0; i < wires.size(); i++) {
                 Wire w = wires.get(i);
                 if (w.to().equals(node.id()) && w.input() != Wire.GATE) {
                     Node pin = used.pin(true, w.input());
-                    wires.set(i, pin == null ? w : new Wire(w.id(), w.from(), w.output(), copy.apply(pin.id()), 0, w.order()));
+                    wires.set(i, pin == null ? w : new Wire(w.id(), w.from(), w.output(), instance.apply(pin.id()), 0, w.order()));
                 } else if (w.from().equals(node.id())) {
                     Node pin = used.pin(false, w.output());
-                    wires.set(i, pin == null ? w : new Wire(w.id(), copy.apply(pin.id()), Wire.MATCH, w.to(), w.input(), w.order()));
+                    wires.set(i, pin == null ? w : new Wire(w.id(), instance.apply(pin.id()), Wire.MATCH, w.to(), w.input(), w.order()));
                 }
             }
             List<UUID> deeper = new ArrayList<>(using);
             deeper.add(used.id());
-            paste(network, copies, out, wires, deeper, child ? used.id() : on);
+            paste(network, instances, out, wires, deeper, child ? used.id() : on);
         }
     }
 
@@ -888,8 +888,8 @@ public final class CompiledSheet {
             error(node, "Wires loop back to " + describe(node) + " — resource wires must not form a cycle");
             return;
         }
-        // Counted under its own id (a device's input or output under its device node), and the copies it sits in once
-        // each: a copy's nodes show their own activity in the open copy, and the copy node what passed through it.
+        // Counted under its own id (a device's input or output under its device node), and the instances it sits in once
+        // each: an instance's nodes show their own activity in the open instance, and the instance node what passed through it.
         UUID shown = node.settings() instanceof NodeSettings.SourceSettings || node.settings() instanceof NodeSettings.SinkSettings
                 ? owners.getOrDefault(node.id(), node.id())
                 : node.id();
@@ -1052,6 +1052,10 @@ public final class CompiledSheet {
         if (network != null && node.settings() instanceof NodeSettings.DeviceSettings device && network.device(device.device()) != null) {
             var record = network.device(device.device());
             return record.name() != null ? record.name() : record.blockId().getPath().replace('_', ' ') + " at " + device.device().pos().toShortString();
+        }
+        // A placed blueprint by the blueprint's name (in the editor it is just "a blueprint" placed here).
+        if (network != null && node.settings() instanceof NodeSettings.InstanceSettings instance && network.sheet(instance.sheet()) != null) {
+            return "blueprint '" + network.sheet(instance.sheet()).name() + "'";
         }
         return node.kind().getSerializedName() + " " + node.id().toString().substring(0, 8);
     }

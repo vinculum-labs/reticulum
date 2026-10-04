@@ -114,9 +114,9 @@ final class Snapshots {
                 if (problem.node() != null) {
                     UUID owner = compiled.owner(problem.node());
                     error.addProperty("node", owner.toString());
-                    // Not for a node inside a copy: it is named in the message, the copy shown (a device's side is
+                    // Not for a node inside an instance: it is named in the message, the instance shown (a device's side is
                     // its device node's own, which is shown).
-                    if (problem.detail() != null && !compiled.fromCopy(problem.node())) {
+                    if (problem.detail() != null && !compiled.fromInstance(problem.node())) {
                         error.addProperty("detail", problem.detail());
                     }
                 }

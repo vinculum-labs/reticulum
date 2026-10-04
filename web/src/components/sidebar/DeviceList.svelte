@@ -53,7 +53,7 @@
   function deviceMenu(e: MouseEvent, d: Device) {
     const open = snapshot.sheets.find((s) => s.id === app.sheetId);
     const homed = placed(posKey(d.pos));
-    const canPlace = canEdit && d.state === "active" && !!open && !app.copy && (open.blueprint || !homed);
+    const canPlace = canEdit && d.state === "active" && !!open && !app.instance && (open.blueprint || !homed);
     openMenu(e, [
       identifyItem(d.pos),
       { label: "Names…", icon: Pencil, run: () => openDevice(d) },

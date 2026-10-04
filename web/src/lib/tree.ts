@@ -1,5 +1,5 @@
 // The sheet tree as the snapshot gives it: the root sheet holds the others as sheet nodes, which hold theirs. A
-// sheet's parent is wherever its sheet node is; blueprints stand apart (placed by copy).
+// sheet's parent is wherever its sheet node is; blueprints stand apart (placed by instance).
 
 import type { GraphNode, Sheet, Snapshot } from "./types";
 

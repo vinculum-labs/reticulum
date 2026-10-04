@@ -31,8 +31,8 @@
     deviceAt,
     edit,
     nodeTitle,
-    openCopyFrom,
-    openCopyNode,
+    openInstanceFrom,
+    openInstanceNode,
     openSheet,
     resync,
     showNode,
@@ -44,7 +44,7 @@
     fillSlot,
     homeCheck,
   } from "../../lib/state.svelte";
-  import { copiesOf, copyActivity, nowhere, ownBlocks, slotsOf } from "../../lib/blueprints";
+  import { instancesOf, instanceActivity, nowhere, ownBlocks, slotsOf } from "../../lib/blueprints";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
   import Breadcrumbs from "./Breadcrumbs.svelte";
@@ -52,7 +52,7 @@
   import { crossWire, nextOrder } from "../../lib/crossing";
   import { moveAcross } from "../../lib/moveAcross";
   import { RESOURCE_VAR, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
-  import type { CopySettings, Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
+  import type { InstanceSettings, Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
   import { GATE, pinSlot, sheetPins } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
   import ConnectionLine from "./ConnectionLine.svelte";
@@ -76,20 +76,20 @@
 
   const sheet = $derived(currentSheet());
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
-  /** A blueprint copy open on the canvas: its blueprint shows, read-only but for filling its slots. */
-  const copy = $derived(app.copy ? openCopyNode() : null);
-  const editable = $derived(canEdit && !copy);
-  /** How many copies the open blueprint has: editing it changes them all. */
-  const copyCount = $derived(sheet?.blueprint && app.snapshot ? copiesOf(app.snapshot, sheet.id).length : 0);
+  /** A blueprint instance open on the canvas: its blueprint shows, read-only but for filling its slots. */
+  const instance = $derived(app.instance ? openInstanceNode() : null);
+  const editable = $derived(canEdit && !instance);
+  /** How many instances the open blueprint has: editing it changes them all. */
+  const instanceCount = $derived(sheet?.blueprint && app.snapshot ? instancesOf(app.snapshot, sheet.id).length : 0);
 
   /**
    * Each sheet opens where it was left (pan and zoom, remembered per browser), or fitted to its contents the first
    * time: once its cards are measured and Svelte Flow is ready. The canvas stays for every sheet (re-making Svelte Flow
-   * per sheet left the handle here pointing at a dead store), so this runs whenever the open sheet (or copy) changes.
+   * per sheet left the handle here pointing at a dead store), so this runs whenever the open sheet (or instance) changes.
    */
-  const viewKey = $derived(copy ? `copy:${copy.node.id}` : (sheet?.id ?? null));
+  const viewKey = $derived(instance ? `instance:${instance.node.id}` : (sheet?.id ?? null));
   let viewShown: string | null = null;
-  /** The sheet (or copy) the canvas's nodes are for: right after a switch they are still the last one's. */
+  /** The sheet (or instance) the canvas's nodes are for: right after a switch they are still the last one's. */
   let builtFor: string | null = null;
   let flowReady = $state(false);
   $effect(() => {
@@ -159,9 +159,9 @@
       signals: app.signals,
       me: app.me,
     };
-    // An open copy shows its blueprint's nodes: their activity is kept under this copy's names for them.
-    // A copy that doesn't run itself (one inside a blueprint, opened on its own) shows no activity.
-    const activity = copy && s ? (copy.run ? copyActivity(live, copy.run, s) : { ...live, rates: {}, fiveMinutes: {}, signals: {}, me: {} }) : live;
+    // An open instance shows its blueprint's nodes: their activity is kept under this instance's names for them.
+    // An instance that doesn't run itself (one inside a blueprint, opened on its own) shows no activity.
+    const activity = instance && s ? (instance.run ? instanceActivity(live, instance.run, s) : { ...live, rates: {}, fiveMinutes: {}, signals: {}, me: {} }) : live;
     // The selection is carried into the rebuilt nodes but isn't a reason to rebuild: the canvas already shows it.
     const selected = untrack(() => new Set([...app.selectedNodes, ...app.selectedEdges]));
     const unit = app.rateUnit;
@@ -172,7 +172,7 @@
     for (const n of untrack(() => nodes)) {
       if (n.type === "graph" && n.measured?.width && !n.data.frame) sizes.set(n.id, { width: n.measured.width, height: n.measured.height ?? 0 });
     }
-    const bindings = copy ? (copy.node.settings.bindings ?? {}) : undefined;
+    const bindings = instance ? (instance.node.settings.bindings ?? {}) : undefined;
     const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes, bindings);
     const before = view.owner;
     view = built;
@@ -315,7 +315,7 @@
     if (framesAround(c.source).includes(c.target) || framesAround(c.target).includes(c.source)) return false;
     const sheets = app.snapshot?.sheets ?? [];
     const untypedPin = (node: GraphNode, p: Resource | null) =>
-      !p && ["sheet_input", "sheet_output", "sheet", "copy"].includes(node.settings.kind);
+      !p && ["sheet_input", "sheet_output", "sheet", "instance"].includes(node.settings.kind);
     // What each end carries: a pin's resource, "signal" for signal nodes, "flow" for routing nodes.
     const fromPin = pinResource(from, "out", handleIndex(c.sourceHandle), sheets);
     const toPin = c.targetHandle === "gate" ? "signal" : pinResource(to, "in", handleIndex(c.targetHandle), sheets);
@@ -426,14 +426,14 @@
       }
     }
     // A pin's wires one level up go with it (the server drops them): on its sheet's node, or for a blueprint's pin on
-    // every copy node of it. Undo puts them back.
+    // every instance node of it. Undo puts them back.
     for (const n of gone) {
       const on = sheetOf(n.id);
       const node = nodeOf(n.id);
       const s = node?.settings;
       if (!on || deleted.has(on.id) || !node || !(s?.kind === "sheet_input" || s?.kind === "sheet_output")) continue;
       const holders: { sheet: Sheet; node: string }[] = on.blueprint
-        ? (app.snapshot?.sheets ?? []).flatMap((x) => (x.nodes ?? []).filter((h) => h.settings.kind === "copy" && h.settings.sheet === on.id).map((h) => ({ sheet: x, node: h.id })))
+        ? (app.snapshot?.sheets ?? []).flatMap((x) => (x.nodes ?? []).filter((h) => h.settings.kind === "instance" && h.settings.sheet === on.id).map((h) => ({ sheet: x, node: h.id })))
         : on.node
           ? (app.snapshot?.sheets ?? []).filter((x) => x.nodes?.some((h) => h.id === on.node)).map((x) => ({ sheet: x, node: on.node! }))
           : [];
@@ -746,7 +746,7 @@
       }
       return;
     }
-    // A Level sensor on a blueprint reads its first slot (each copy: the block filling it); with no slots, a device.
+    // A Level sensor on a blueprint reads its first slot (each instance: the block filling it); with no slots, a device.
     const firstSlot = into.blueprint && kind === "level" && !device ? slotsOf(into)[0] : undefined;
     if (firstSlot) {
       const node: GraphNode = {
@@ -771,8 +771,8 @@
       if (ok) app.selectedNodes = [node.id];
       return;
     }
-    const blueprint = kind === "copy" ? (blueprintId ?? blueprints[0]?.id) : undefined;
-    if (kind === "copy" && !blueprint) {
+    const blueprint = kind === "instance" ? (blueprintId ?? blueprints[0]?.id) : undefined;
+    if (kind === "instance" && !blueprint) {
       toast("Make a blueprint first: from a sheet (in its settings), or New blueprint in the list.");
       return;
     }
@@ -782,10 +782,10 @@
       x: Math.round(at.x),
       y: Math.round(at.y),
     };
-    // A copy comes filled with the blocks its blueprint was made from, where they are still free (one put back).
-    const used = kind === "copy" && !into.blueprint ? app.snapshot?.sheets.find((x) => x.id === blueprint) : undefined;
+    // An instance comes filled with the blocks its blueprint was made from, where they are still free (one put back).
+    const used = kind === "instance" && !into.blueprint ? app.snapshot?.sheets.find((x) => x.id === blueprint) : undefined;
     const own = used ? ownBlocks(used, app.snapshot!.devices, homeCheck()) : {};
-    if (Object.keys(own).length) (node.settings as CopySettings).bindings = own;
+    if (Object.keys(own).length) (node.settings as InstanceSettings).bindings = own;
     const ok = await edit([{ type: "addNode", sheet: into.id, node }], [{ type: "removeNode", sheet: into.id, node: node.id }], "add node");
     if (ok) {
       app.selectedNodes = [node.id];
@@ -883,7 +883,7 @@
     const device = key ? deviceAt(key) : undefined;
     if (!device) return;
     e.preventDefault();
-    if (copy) {
+    if (instance) {
       dropOnSlot(e, device);
       return;
     }
@@ -919,8 +919,8 @@
     get editable() {
       return editable;
     },
-    get inCopy() {
-      return !!copy;
+    get inInstance() {
+      return !!instance;
     },
     get tidying() {
       return tidying;
@@ -939,16 +939,16 @@
     remove: ({ nodes: n = [], edges: e = [] }) => flow.deleteElements({ nodes: n.map((id) => ({ id })), edges: e.map((id) => ({ id })) }),
   };
 
-  /** A device dropped on a slot of the open copy fills it. */
+  /** A device dropped on a slot of the open instance fills it. */
   async function dropOnSlot(e: DragEvent, device: Device) {
-    if (!copy || !canEdit) return;
+    if (!instance || !canEdit) return;
     const id = document.elementFromPoint(e.clientX, e.clientY)?.closest(".svelte-flow__node")?.getAttribute("data-id");
     const slot = sheet?.nodes?.find((n) => n.id === id && n.settings.kind === "device");
     if (!slot) {
       toast("Drop it on one of the slots.", "info");
       return;
     }
-    await fillSlot(copy.sheet, copy.node, copy.blueprint, slot, device);
+    await fillSlot(instance.sheet, instance.node, instance.blueprint, slot, device);
     app.selectedNodes = [slot.id];
   }
 
@@ -1033,12 +1033,12 @@
     );
   }
 
-  /** Blueprints that can be placed here (as copies): not this sheet. */
+  /** Blueprints that can be placed here (as instances): not this sheet. */
   const blueprints = $derived((app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== sheet?.id));
 
   /**
-   * Double-click a sheet node to open its sheet, or a copy node to open the copy (its blueprint with its blocks); a
-   * copy inside a blueprint opens that blueprint.
+   * Double-click a sheet node to open its sheet, or an instance node to open the instance (its blueprint with its blocks); a
+   * instance inside a blueprint opens that blueprint.
    */
   function nodeClick({ node, event }: { node: Node<NodeData>; event: MouseEvent | TouchEvent }) {
     if (node.selectable !== false) {
@@ -1047,10 +1047,10 @@
     }
     if (!node.data?.node) return;
     const s = node.data.node.settings;
-    if (!(event instanceof MouseEvent) || event.detail !== 2 || (s.kind !== "copy" && s.kind !== "sheet")) return;
+    if (!(event instanceof MouseEvent) || event.detail !== 2 || (s.kind !== "instance" && s.kind !== "sheet")) return;
     if (!app.snapshot?.sheets.some((x) => x.id === s.sheet)) return;
     const on = sheetOf(node.id);
-    if (s.kind === "copy" && on) openCopyFrom(on, node.id);
+    if (s.kind === "instance" && on) openInstanceFrom(on, node.id);
     else openSheet(s.sheet);
   }
 
@@ -1152,22 +1152,22 @@
     {/if}
     {#if sheet && app.snapshot && (!sheet.root || sheet.blueprint)}
       <Panel position="top-right">
-        <Breadcrumbs {sheet} snapshot={app.snapshot} copy={copy ? { sheet: copy.sheet, node: copy.node, outer: app.copy?.outer ?? [] } : null} />
+        <Breadcrumbs {sheet} snapshot={app.snapshot} instance={instance ? { sheet: instance.sheet, node: instance.node, outer: app.instance?.outer ?? [] } : null} />
       </Panel>
     {/if}
     {#if sheet && app.snapshot}
       <Panel position="bottom-center">
         <div class="flex max-w-xl flex-col gap-2">
-          {#if copy}
+          {#if instance}
             <p class="box text-sm" role="status">
-              A copy of the blueprint “{copy.blueprint.name}”: drop devices from the list on its slots to fill them. To change
-              anything else, edit the blueprint{copyCount > 1 ? ` (that changes all ${copyCount} copies)` : ""}.
-              <button class="btn ml-1 text-xs" onclick={() => openSheet(copy.blueprint.id)}>Edit the blueprint</button>
+              The blueprint “{instance.blueprint.name}”, placed here: drop devices from the list on its slots to fill them. To change
+              anything else, edit the blueprint{instanceCount > 1 ? ` (that changes it in all ${instanceCount} places it's placed)` : ""}.
+              <button class="btn ml-1 text-xs" onclick={() => openSheet(instance.blueprint.id)}>Edit the blueprint</button>
             </p>
           {:else if sheet.blueprint}
             <p class="box text-sm" role="status">
-              A blueprint: it runs only as its copies. Devices dropped here become slots for their kind of block.
-              {copyCount ? `Changes here reach its ${copyCount === 1 ? "copy" : `${copyCount} copies`}.` : "It has no copies yet."}
+              A blueprint: it runs only where it's placed. Devices dropped here become slots for their kind of block.
+              {instanceCount ? `Changes here reach ${instanceCount === 1 ? "the 1 place" : `all ${instanceCount} places`} it's placed.` : "It isn't placed anywhere yet."}
             </p>
           {/if}
           <SheetOffNotice {sheet} snapshot={app.snapshot} />

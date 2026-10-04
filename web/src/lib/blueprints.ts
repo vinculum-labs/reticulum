@@ -1,17 +1,17 @@
-// Blueprints: reusable sheets whose device nodes are slots, placeholders for a kind of block. A copy node places one
+// Blueprints: reusable sheets whose device nodes are slots, placeholders for a kind of block. An instance node places one
 // and says which block fills each slot (and how far the set is turned).
 
-import type { Binding, CopySettings, Device, DeviceNodeSettings, GlobalPos, GraphNode, Sheet, Snapshot } from "./types";
+import type { Binding, InstanceSettings, Device, DeviceNodeSettings, GlobalPos, GraphNode, Sheet, Snapshot } from "./types";
 import { posKey } from "./types";
 import type { Activity } from "./graph";
 import { nameUuid } from "./nameUuid";
 
-/** Every copy of a blueprint in the network: the sheet it is on and its node. */
-export function copiesOf(snapshot: Snapshot, blueprintId: string): { sheet: Sheet; node: GraphNode }[] {
+/** Every instance of a blueprint in the network: the sheet it is on and its node. */
+export function instancesOf(snapshot: Snapshot, blueprintId: string): { sheet: Sheet; node: GraphNode }[] {
   const out: { sheet: Sheet; node: GraphNode }[] = [];
   for (const sheet of snapshot.sheets) {
     for (const node of sheet.nodes ?? []) {
-      if (node.settings.kind === "copy" && node.settings.sheet === blueprintId) out.push({ sheet, node });
+      if (node.settings.kind === "instance" && node.settings.sheet === blueprintId) out.push({ sheet, node });
     }
   }
   return out;
@@ -35,7 +35,7 @@ const NOWHERE_Y = -100_000;
 
 /**
  * A place for a slot picked from the catalog: below any world, so no block is ever there (a slot keeps a place, for
- * filling copies by layout; this one has none to measure from). Spread out so two such slots never share one.
+ * filling instances by layout; this one has none to measure from). Spread out so two such slots never share one.
  */
 export function nowhere(): GlobalPos {
   return { dimension: "minecraft:overworld", pos: [Math.floor(Math.random() * 1_000_000), NOWHERE_Y, Math.floor(Math.random() * 1_000_000)] };
@@ -61,7 +61,7 @@ function turn(dx: number, dz: number, turns: number): [number, number] {
 }
 
 /**
- * Fills a copy's empty slots by layout, from one filled slot (the anchor): each other slot's block is looked for at
+ * Fills an instance's empty slots by layout, from one filled slot (the anchor): each other slot's block is looked for at
  * the same place relative to the anchor's block as in the blueprint, turned the same way, and taken only if it is
  * exactly that kind of block and lives nowhere yet. Returns the new bindings and how many slots it filled.
  */
@@ -97,7 +97,7 @@ export function fillByLayout(
 }
 
 /**
- * One slot of a copy filled with {@code binding}. When it is the copy's first, the other slots are filled by layout
+ * One slot of an instance filled with {@code binding}. When it is the instance's first, the other slots are filled by layout
  * from it too (see {@link fillByLayout}). Returns the new bindings and how many more slots that filled.
  */
 export function fillOne(
@@ -116,8 +116,8 @@ export function fillOne(
 }
 
 /**
- * A new copy's slots filled with the blocks the blueprint was made from, each where it still is, still that kind of
- * block and living nowhere: a copy put back where it was comes back filled.
+ * A new instance's slots filled with the blocks the blueprint was made from, each where it still is, still that kind of
+ * block and living nowhere: an instance put back where it was comes back filled.
  */
 export function ownBlocks(blueprint: Sheet, devices: Device[], placed: (device: Device) => boolean): Record<string, Binding> {
   const bindings: Record<string, Binding> = {};
@@ -134,20 +134,20 @@ export function ownBlocks(blueprint: Sheet, devices: Device[], placed: (device: 
   return bindings;
 }
 
-/** The server's id for a blueprint's node or wire as it runs in a copy (its activity is kept under it). */
-export function inCopy(copyNode: string, id: string): string {
-  return nameUuid(`${copyNode}/${id}`);
+/** The server's id for a blueprint's node or wire as it runs in an instance (its activity is kept under it). */
+export function inInstance(instanceNode: string, id: string): string {
+  return nameUuid(`${instanceNode}/${id}`);
 }
 
 /**
- * Activity as an open copy's nodes and wires show it. The canvas shows the blueprint's own nodes, but the server names
- * them in this copy "<copy node>/<blueprint node>" (as a name UUID), and keeps their activity under those names.
- * Statuses aren't moved: the server puts those on the copy node.
+ * Activity as an open instance's nodes and wires show it. The canvas shows the blueprint's own nodes, but the server names
+ * them in this instance "<instance node>/<blueprint node>" (as a name UUID), and keeps their activity under those names.
+ * Statuses aren't moved: the server puts those on the instance node.
  */
-export function copyActivity(activity: Activity, copyNode: string, blueprint: Sheet): Activity {
+export function instanceActivity(activity: Activity, instanceNode: string, blueprint: Sheet): Activity {
   const ids = [...(blueprint.nodes ?? []).map((n) => n.id), ...(blueprint.wires ?? []).map((w) => w.id)];
-  // The copy's name for each blueprint id. A pin's value is under "<id>/out/<n>" or "<id>/in/<n>": moved with it.
-  const own = new Map(ids.map((id) => [inCopy(copyNode, id), id]));
+  // The instance's name for each blueprint id. A pin's value is under "<id>/out/<n>" or "<id>/in/<n>": moved with it.
+  const own = new Map(ids.map((id) => [inInstance(instanceNode, id), id]));
   function remap<T>(from: Record<string, T>): Record<string, T> {
     const out: Record<string, T> = {};
     for (const [key, value] of Object.entries(from)) {
@@ -162,15 +162,15 @@ export function copyActivity(activity: Activity, copyNode: string, blueprint: Sh
 
 /**
  * Where the server keeps activity for this id (a node's, or a pin's "<node>/out/<n>") as the canvas shows it: in an
- * open copy, under the copy's name for it.
+ * open instance, under the instance's name for it.
  */
-export function liveKey(key: string, copyNode: string | undefined): string {
-  if (!copyNode) return key;
+export function liveKey(key: string, instanceNode: string | undefined): string {
+  if (!instanceNode) return key;
   const slash = key.indexOf("/");
-  return slash < 0 ? inCopy(copyNode, key) : inCopy(copyNode, key.slice(0, slash)) + key.slice(slash);
+  return slash < 0 ? inInstance(instanceNode, key) : inInstance(instanceNode, key.slice(0, slash)) + key.slice(slash);
 }
 
-/** A copy node's bindings (none yet: empty). */
+/** An instance node's bindings (none yet: empty). */
 export function bindingsOf(node: GraphNode | undefined): Record<string, Binding> {
-  return node?.settings.kind === "copy" ? ((node.settings as CopySettings).bindings ?? {}) : {};
+  return node?.settings.kind === "instance" ? ((node.settings as InstanceSettings).bindings ?? {}) : {};
 }

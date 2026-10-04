@@ -78,15 +78,15 @@ export function treeStatus(sheet: Sheet, off: OffReason | null, running: boolean
 }
 
 /**
- * A blueprint copy in the tree, read like a sheet: off by its node's switch or the sheet holding it, with the problems
+ * A blueprint instance in the tree, read like a sheet: off by its node's switch or the sheet holding it, with the problems
  * the server put on its node.
  */
-export function copyStatus(node: GraphNode, holder: Sheet, holderOff: OffReason | null, running: boolean, enabled: boolean, unpowered: boolean): TreeStatus {
+export function instanceStatus(node: GraphNode, holder: Sheet, holderOff: OffReason | null, running: boolean, enabled: boolean, unpowered: boolean): TreeStatus {
   const off: OffReason | null =
     node.enabled === false ? { kind: "self" }
       : !holderOff ? null
       : holderOff.kind === "network" || holderOff.kind === "parent" ? holderOff
       : { kind: "parent", sheet: holder };
   const errors = (holder.errors ?? []).filter((e) => e.node === node.id);
-  return { ...treeStatus({ ...holder, root: false, errors }, off, running, enabled, unpowered), icon: KIND_ICON.copy };
+  return { ...treeStatus({ ...holder, root: false, errors }, off, running, enabled, unpowered), icon: KIND_ICON.instance };
 }

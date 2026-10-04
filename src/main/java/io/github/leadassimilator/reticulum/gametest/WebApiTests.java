@@ -248,7 +248,7 @@ public final class WebApiTests {
 
     /**
      * A blueprint made from a sheet: a Level sensor reading one of its devices reads that device's slot, by id, so in
-     * each copy it reads the block filling the slot (whatever kind or layout position the slot is given later).
+     * each instance it reads the block filling the slot (whatever kind or layout position the slot is given later).
      */
     @GameTest(template = "empty")
     public static void aSensorOnABlueprintReadsItsSlot(GameTestHelper helper) {
@@ -278,18 +278,18 @@ public final class WebApiTests {
             helper.fail("The sensor doesn't read the slot made from its device: " + sensor.settings());
             return;
         }
-        // In a copy filled with another block, it reads that block.
+        // In an instance filled with another block, it reads that block.
         net.minecraft.core.GlobalPos other = net.minecraft.core.GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(5, 1, 5)));
         var bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(sensor, java.util.Map.of(slot.id(), new NodeSettings.Binding(other, 0)));
         if (!(bound instanceof NodeSettings.LevelSettings reading) || !reading.device().equals(other) || reading.slot().isPresent()) {
-            helper.fail("In a copy the sensor doesn't read the block filling its slot: " + bound);
+            helper.fail("In an instance the sensor doesn't read the block filling its slot: " + bound);
         }
         helper.succeed();
     }
 
-    /** Removing a blueprint's pin removes the wires on it on every copy of the blueprint. */
+    /** Removing a blueprint's pin removes the wires on it on every instance of the blueprint. */
     @GameTest(template = "empty")
-    public static void removingABlueprintPinRemovesItsWiresOnCopies(GameTestHelper helper) {
+    public static void removingABlueprintPinRemovesItsWiresOnInstances(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
         ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
                 new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
@@ -301,17 +301,17 @@ public final class WebApiTests {
         String blueprint = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"bp\",\"blueprint\":true}]}")
                 .getAsJsonArray("results").get(0).getAsString();
         String pin = UUID.randomUUID().toString();
-        String copy = UUID.randomUUID().toString();
+        String instance = UUID.randomUUID().toString();
         String filter = UUID.randomUUID().toString();
         call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":["
                 + "{\"type\":\"addNode\",\"sheet\":\"" + blueprint + "\",\"node\":{\"id\":\"" + pin + "\",\"settings\":{\"kind\":\"sheet_output\",\"name\":\"out\",\"slot\":0}}},"
-                + "{\"type\":\"addNode\",\"sheet\":\"" + root + "\",\"node\":{\"id\":\"" + copy + "\",\"settings\":{\"kind\":\"copy\",\"sheet\":\"" + blueprint + "\"}}},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + root + "\",\"node\":{\"id\":\"" + instance + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + blueprint + "\"}}},"
                 + "{\"type\":\"addNode\",\"sheet\":\"" + root + "\",\"node\":{\"id\":\"" + filter + "\",\"settings\":{\"kind\":\"filter\",\"expression\":\"\"}}},"
-                + "{\"type\":\"connect\",\"sheet\":\"" + root + "\",\"wire\":{\"id\":\"" + UUID.randomUUID() + "\",\"from\":\"" + copy + "\",\"output\":0,\"to\":\"" + filter + "\"}}"
+                + "{\"type\":\"connect\",\"sheet\":\"" + root + "\",\"wire\":{\"id\":\"" + UUID.randomUUID() + "\",\"from\":\"" + instance + "\",\"output\":0,\"to\":\"" + filter + "\"}}"
                 + "]}");
         call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"removeNode\",\"sheet\":\"" + blueprint + "\",\"node\":\"" + pin + "\"}]}");
-        if (network.root().wires().stream().anyMatch(w -> w.from().toString().equals(copy))) {
-            helper.fail("A wire is left on the copy for the removed pin");
+        if (network.root().wires().stream().anyMatch(w -> w.from().toString().equals(instance))) {
+            helper.fail("A wire is left on the instance for the removed pin");
         }
         helper.succeed();
     }

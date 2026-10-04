@@ -32,7 +32,7 @@ public sealed interface NodeSettings {
         DEVICE(DeviceSettings.CODEC, false),
         /** A child sheet, placed on its parent: its pins are its Sheet input and Sheet output nodes. */
         SHEET(SheetSettings.CODEC, false),
-        COPY(CopySettings.CODEC, false),
+        INSTANCE(InstanceSettings.CODEC, false),
         SHEET_INPUT(SheetPinSettings.INPUT_CODEC, false),
         SHEET_OUTPUT(SheetPinSettings.OUTPUT_CODEC, false),
         /** Engine-internal: a device's redstone output pin. Never saved or sent. */
@@ -192,7 +192,7 @@ public sealed interface NodeSettings {
             return Math.max(0, weights.getOrDefault(wire, 1));
         }
 
-        /** The same weights under other wire ids (a blueprint's splitter as pasted into a copy). */
+        /** The same weights under other wire ids (a blueprint's splitter as pasted into an instance). */
         public SplitterSettings renamed(java.util.function.Function<UUID, UUID> wireId) {
             Map<UUID, Integer> out = new java.util.LinkedHashMap<>();
             weights.forEach((wire, weight) -> out.put(wireId.apply(wire), weight));
@@ -303,27 +303,27 @@ public sealed interface NodeSettings {
     }
 
     /**
-     * A copy of a blueprint placed here, {@code bindings} saying which block fills each of its slots. Its pins are the
+     * An instance of a blueprint placed here, {@code bindings} saying which block fills each of its slots. Its pins are the
      * blueprint's Sheet input nodes (inputs, left) and Sheet output nodes (outputs, right); wires attach to them by slot.
      */
-    record CopySettings(UUID sheet, Map<UUID, Binding> bindings) implements NodeSettings {
-        public CopySettings(UUID sheet) {
+    record InstanceSettings(UUID sheet, Map<UUID, Binding> bindings) implements NodeSettings {
+        public InstanceSettings(UUID sheet) {
             this(sheet, Map.of());
         }
 
-        public static final MapCodec<CopySettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Ids.UUID_CODEC.fieldOf("sheet").forGetter(CopySettings::sheet),
-                Codec.unboundedMap(Ids.UUID_CODEC, Binding.CODEC).optionalFieldOf("bindings", Map.of()).forGetter(CopySettings::bindings)
-        ).apply(i, CopySettings::new));
+        public static final MapCodec<InstanceSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Ids.UUID_CODEC.fieldOf("sheet").forGetter(InstanceSettings::sheet),
+                Codec.unboundedMap(Ids.UUID_CODEC, Binding.CODEC).optionalFieldOf("bindings", Map.of()).forGetter(InstanceSettings::bindings)
+        ).apply(i, InstanceSettings::new));
 
         @Override
         public Kind kind() {
-            return Kind.COPY;
+            return Kind.INSTANCE;
         }
     }
 
     /**
-     * The block filling one slot of a blueprint copy, and how far the set is turned from the blueprint's (quarter turns
+     * The block filling one slot of a blueprint instance, and how far the set is turned from the blueprint's (quarter turns
      * clockwise seen from above), so its faces turn with it.
      */
     record Binding(GlobalPos device, int turns) {
@@ -448,7 +448,7 @@ public sealed interface NodeSettings {
     /**
      * {@code output}: what it gives: the amount itself, the amount mapped onto 0 to 15 between {@code low} (0) and
      * {@code high} (15), or 0 to 15 by how full the device is, like a comparator. {@code slot}: on a blueprint, the slot
-     * whose block it reads (by the slot node's id; each copy reads the block filling it), else {@code device} itself.
+     * whose block it reads (by the slot node's id; each instance reads the block filling it), else {@code device} itself.
      */
     record LevelSettings(ResourceKind resource, GlobalPos device, List<FaceKey> faces, String filter, LevelOutput output, long low, long high,
             Optional<UUID> slot) implements NodeSettings {
@@ -476,7 +476,7 @@ public sealed interface NodeSettings {
             return new LevelSettings(resource, device, faces, filter, output, low, high, slot);
         }
 
-        /** The same sensor reading a device itself, not a slot (in a copy: the block filling its slot). */
+        /** The same sensor reading a device itself, not a slot (in an instance: the block filling its slot). */
         public LevelSettings readingDevice(GlobalPos device, List<FaceKey> faces) {
             return new LevelSettings(resource, device, faces, filter, output, low, high, Optional.empty());
         }

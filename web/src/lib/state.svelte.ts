@@ -2,13 +2,13 @@
 // replaces what is shown. Undo and redo send the inverse edits recorded with each change.
 
 import { Connection } from "./protocol";
-import type { Binding, CopySettings, Device, Edit, GlobalPos, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face, Identify, PowerState } from "./types";
+import type { Binding, InstanceSettings, Device, Edit, GlobalPos, GraphNode, NetworkSummary, Sheet, Snapshot, MeUsage, Face, Identify, PowerState } from "./types";
 import { posKey } from "./types";
 import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
 import { descendants, rootSheet, sheetPath } from "./tree";
 import { confirmDialog, promptDialog } from "./dialog.svelte";
-import { copiesOf, fillOne, inCopy, slotName } from "./blueprints";
+import { instancesOf, fillOne, inInstance, slotName } from "./blueprints";
 
 export interface Toast {
   id: number;
@@ -64,7 +64,7 @@ export function setWireStyle(style: WireStyle): void {
   }
 }
 
-/** Each sheet's pan and zoom as last left (by sheet id; "copy:<node id>" for an open blueprint copy), per browser. */
+/** Each sheet's pan and zoom as last left (by sheet id; "instance:<node id>" for an open blueprint instance), per browser. */
 type SavedView = { x: number; y: number; zoom: number };
 
 function storedViews(): Record<string, SavedView> {
@@ -137,12 +137,12 @@ export const app = $state({
   snapshot: null as Snapshot | null,
   sheetId: null as string | null,
   /**
-   * A blueprint copy open on the canvas: the sheet its node is on, and that node. The canvas shows its blueprint
-   * ({@code sheetId}), read-only but for filling its slots. A copy inside a blueprint, opened from within a copy of
-   * that blueprint, keeps the copies it was opened through ({@code outer}, from the one placed on a sheet down): it
-   * runs once per copy of the blueprint holding it, and they say which run is shown.
+   * A blueprint instance open on the canvas: the sheet its node is on, and that node. The canvas shows its blueprint
+   * ({@code sheetId}), read-only but for filling its slots. An instance inside a blueprint, opened from within an instance of
+   * that blueprint, keeps the instances it was opened through ({@code outer}, from the one placed on a sheet down): it
+   * runs once per instance of the blueprint holding it, and they say which run is shown.
    */
-  copy: null as { sheet: string; node: string; outer?: { sheet: string; node: string }[] } | null,
+  instance: null as { sheet: string; node: string; outer?: { sheet: string; node: string }[] } | null,
   /** Amount moved in the last second, per node and wire id. */
   rates: {} as Record<string, number>,
   /** Amount moved over the last 5 minutes, per node and wire id. */
@@ -377,12 +377,12 @@ function setSnapshot(snapshot: Snapshot): void {
   if (merged !== app.snapshot) app.snapshot = merged;
   const summary = app.networks.find((n) => n.id === snapshot.id);
   if (summary) Object.assign(summary, { name: snapshot.name, running: snapshot.running, enabled: snapshot.enabled });
-  if (app.copy) {
-    // An open copy that is gone (deleted, turned into a sheet, its blueprint deleted): back to the sheet holding it.
+  if (app.instance) {
+    // An open instance that is gone (deleted, turned into a sheet, its blueprint deleted): back to the sheet holding it.
     // One now using another blueprint: that one opens.
-    const open = openCopyNode();
-    if (!open) openSheet(snapshot.sheets.some((s) => s.id === app.copy!.sheet) ? app.copy.sheet : (rootSheet(snapshot)?.id ?? ""));
-    else if (open.blueprint.id !== app.sheetId) openCopy(open.sheet.id, open.node.id, app.copy.outer);
+    const open = openInstanceNode();
+    if (!open) openSheet(snapshot.sheets.some((s) => s.id === app.instance!.sheet) ? app.instance.sheet : (rootSheet(snapshot)?.id ?? ""));
+    else if (open.blueprint.id !== app.sheetId) openInstance(open.sheet.id, open.node.id, app.instance.outer);
   } else if (!snapshot.sheets.some((s) => s.id === app.sheetId)) openSheet(rootSheet(snapshot)?.id ?? snapshot.sheets[0]?.id ?? "");
   // A network that stopped gets no more metrics: what it last moved isn't shown as moving.
   if (!snapshot.running) {
@@ -660,7 +660,7 @@ export function nodeTitle(node: GraphNode | undefined): string {
   if (node.label && own) return node.label;
   const s = node.settings;
   if (s.kind === "device") return deviceName(deviceAt(posKey(s.device)));
-  if (s.kind === "copy") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing blueprint";
+  if (s.kind === "instance") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing blueprint";
   if (s.kind === "sheet") return app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Missing sheet";
   if ((s.kind === "sheet_input" || s.kind === "sheet_output") && s.name) return s.name;
   return KIND_LABEL[s.kind];
@@ -668,7 +668,7 @@ export function nodeTitle(node: GraphNode | undefined): string {
 
 /**
  * One place a device is used: a sheet (which opens it, the node selected).
- * {@code home}: its device node, where it lives (one per device; blueprints' copies aside).
+ * {@code home}: its device node, where it lives (one per device; blueprints' instances aside).
  */
 export interface DeviceUse {
   label: string;
@@ -699,13 +699,13 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
       else if (s.kind === "device") add(s.device, { label: `${label}: a blueprint slot is made from it (where its layout measures from)`, sheetId: sheet.id, nodeId: node.id });
       // A sensor reading a blueprint slot reads whatever fills it, not the block the slot was laid out on.
       else if ("device" in s && !(s.kind === "level" && s.slot)) add(s.device as GlobalPos, { label: `${label}: a ${KIND_LABEL[s.kind]} reads it`, sheetId: sheet.id, nodeId: node.id });
-      // A block filling a slot of a copy lives in that copy.
-      if (s.kind === "copy" && !sheet.blueprint) {
-        const copyLabel = `${label} › ${nodeTitle(node)}`;
+      // A block filling a slot of an instance lives in that instance.
+      if (s.kind === "instance" && !sheet.blueprint) {
+        const instanceLabel = `${label} › ${nodeTitle(node)}`;
         const blueprint = snapshot.sheets.find((b) => b.id === s.sheet);
         for (const [slot, binding] of Object.entries(s.bindings ?? {})) {
           // Only slots the blueprint still has: one taken out leaves its block free (as the server sees it).
-          if (blueprint?.nodes?.some((n) => n.id === slot)) add(binding.device, { label: copyLabel, sheetId: sheet.id, nodeId: node.id, home: true });
+          if (blueprint?.nodes?.some((n) => n.id === slot)) add(binding.device, { label: instanceLabel, sheetId: sheet.id, nodeId: node.id, home: true });
         }
       }
     }
@@ -775,7 +775,7 @@ export async function moveSheet(sheet: Sheet, parent: Sheet) {
 /** Shows a sheet, with nothing selected (or the given nodes), and the inspector for it. */
 export function openSheet(id: string, select: string[] = [], focus = false): void {
   app.sheetId = id;
-  app.copy = null;
+  app.instance = null;
   app.focusNode = focus && select.length ? select[0] : null;
   app.selectedNodes = select;
   app.selectedEdges = [];
@@ -783,72 +783,72 @@ export function openSheet(id: string, select: string[] = [], focus = false): voi
   app.panel = null;
 }
 
-/** Opens a blueprint copy: its blueprint on the canvas, with the blocks filling its slots ({@code outer}: see app.copy). */
-export function openCopy(sheetId: string, node: string, outer: { sheet: string; node: string }[] = []): void {
+/** Opens a blueprint instance: its blueprint on the canvas, with the blocks filling its slots ({@code outer}: see app.instance). */
+export function openInstance(sheetId: string, node: string, outer: { sheet: string; node: string }[] = []): void {
   const held = app.snapshot?.sheets.find((s) => s.id === sheetId)?.nodes?.find((n) => n.id === node);
-  if (held?.settings.kind !== "copy") return;
+  if (held?.settings.kind !== "instance") return;
   openSheet(held.settings.sheet);
-  app.copy = { sheet: sheetId, node, ...(outer.length ? { outer } : {}) };
+  app.instance = { sheet: sheetId, node, ...(outer.length ? { outer } : {}) };
 }
 
-const openRun = $derived(app.copy ? (openCopyNode()?.run ?? null) : null);
+const openRun = $derived(app.instance ? (openInstanceNode()?.run ?? null) : null);
 
-/** The id the open copy runs under (null when none is open, or it doesn't run itself): see openCopyNode. */
-export function copyRun(): string | null {
+/** The id the open instance runs under (null when none is open, or it doesn't run itself): see openInstanceNode. */
+export function instanceRun(): string | null {
   return openRun;
 }
 
 /**
- * Opens the copy node {@code node} on {@code on}: from within the copy open now when {@code on} is its blueprint (so
- * the copy inside is shown as it runs in that one), else on its own.
+ * Opens the instance node {@code node} on {@code on}: from within the instance open now when {@code on} is its blueprint (so
+ * the instance inside is shown as it runs in that one), else on its own.
  */
-export function openCopyFrom(on: Sheet, node: string): void {
-  const open = app.copy && on.blueprint ? openCopyNode() : null;
-  const outer = open && open.blueprint.id === on.id ? [...(app.copy!.outer ?? []), { sheet: app.copy!.sheet, node: app.copy!.node }] : [];
-  openCopy(on.id, node, outer);
+export function openInstanceFrom(on: Sheet, node: string): void {
+  const open = app.instance && on.blueprint ? openInstanceNode() : null;
+  const outer = open && open.blueprint.id === on.id ? [...(app.instance!.outer ?? []), { sheet: app.instance!.sheet, node: app.instance!.node }] : [];
+  openInstance(on.id, node, outer);
 }
 
 /**
- * The copy open on the canvas: the sheet it is on, its node and its blueprint (null when none, or it is gone), and
- * {@code run}: the id it runs under, which its nodes' activity is kept by. Null when it doesn't run itself: a copy
- * inside a blueprint opened on its own (it runs once per copy of that blueprint), or one whose way in is gone.
+ * The instance open on the canvas: the sheet it is on, its node and its blueprint (null when none, or it is gone), and
+ * {@code run}: the id it runs under, which its nodes' activity is kept by. Null when it doesn't run itself: an instance
+ * inside a blueprint opened on its own (it runs once per instance of that blueprint), or one whose way in is gone.
  */
-export function openCopyNode(): { sheet: Sheet; node: GraphNode & { settings: CopySettings }; blueprint: Sheet; run: string | null } | null {
-  const at = app.copy;
+export function openInstanceNode(): { sheet: Sheet; node: GraphNode & { settings: InstanceSettings }; blueprint: Sheet; run: string | null } | null {
+  const at = app.instance;
   const sheets = app.snapshot?.sheets ?? [];
   const sheet = at && sheets.find((s) => s.id === at.sheet);
   const node = sheet?.nodes?.find((n) => n.id === at!.node);
-  if (!sheet || node?.settings.kind !== "copy") return null;
-  const blueprint = sheets.find((s) => s.id === (node.settings as CopySettings).sheet);
+  if (!sheet || node?.settings.kind !== "instance") return null;
+  const blueprint = sheets.find((s) => s.id === (node.settings as InstanceSettings).sheet);
   if (!blueprint) return null;
-  // The way in, outside in: each copy must sit on the blueprint of the one before it, the first on a sheet that runs.
+  // The way in, outside in: each instance must sit on the blueprint of the one before it, the first on a sheet that runs.
   const chain = [...(at!.outer ?? []), { sheet: at!.sheet, node: at!.node }];
   let run: string | null = null;
   let expected: string | undefined;
   for (const [i, step] of chain.entries()) {
     const on = sheets.find((s) => s.id === step.sheet);
-    const copy = on?.nodes?.find((n) => n.id === step.node);
-    if (!on || copy?.settings.kind !== "copy" || (i === 0 ? on.blueprint : on.id !== expected)) {
+    const instance = on?.nodes?.find((n) => n.id === step.node);
+    if (!on || instance?.settings.kind !== "instance" || (i === 0 ? on.blueprint : on.id !== expected)) {
       run = null;
       break;
     }
-    run = i === 0 ? copy.id : inCopy(run!, copy.id);
-    expected = copy.settings.sheet;
+    run = i === 0 ? instance.id : inInstance(run!, instance.id);
+    expected = instance.settings.sheet;
   }
-  return { sheet, node: node as GraphNode & { settings: CopySettings }, blueprint, run };
+  return { sheet, node: node as GraphNode & { settings: InstanceSettings }, blueprint, run };
 }
 
 /**
- * Changes which blocks fill a copy's slots, undoably. {@code change} gets the fillings as last sent (an earlier fill
+ * Changes which blocks fill an instance's slots, undoably. {@code change} gets the fillings as last sent (an earlier fill
  * may not be back from the server yet) and returns the new ones.
  */
 export function setBindings(
   sheet: Sheet,
-  node: GraphNode & { settings: CopySettings },
+  node: GraphNode & { settings: InstanceSettings },
   change: (bindings: Record<string, Binding>) => Record<string, Binding>,
   label = "fill slot",
 ) {
-  const before = (sentNodes.get(node.id) ?? node) as GraphNode & { settings: CopySettings };
+  const before = (sentNodes.get(node.id) ?? node) as GraphNode & { settings: InstanceSettings };
   const next = { ...before, settings: { ...before.settings, bindings: change(before.settings.bindings ?? {}) } };
   return edit([{ type: "updateNode", sheet: sheet.id, node: next }], [{ type: "updateNode", sheet: sheet.id, node: before }], label);
 }
@@ -893,12 +893,12 @@ export async function deleteSheet(sheet: Sheet) {
     inside ? `the ${inside} sheet${inside === 1 ? "" : "s"} inside it` : "",
   ].filter(Boolean);
   const what = sheet.blueprint ? "blueprint" : "sheet";
-  // A blueprint's copies keep their nodes but have nothing left to run.
-  const copies = sheet.blueprint ? copiesOf(app.snapshot!, sheet.id).length : 0;
+  // A blueprint's instances keep their nodes but have nothing left to run.
+  const instances = sheet.blueprint ? instancesOf(app.snapshot!, sheet.id).length : 0;
   const message = [
     parts.length ? `${parts.join(" and ")[0].toUpperCase()}${parts.join(" and ").slice(1)} go with it.` : "",
-    copies === 1 ? "Its copy stops working and shows an error until deleted." : "",
-    copies > 1 ? `Its ${copies} copies stop working and show an error until deleted.` : "",
+    instances === 1 ? "Where it's placed, it stops working and shows an error until removed." : "",
+    instances > 1 ? `In the ${instances} places it's placed, it stops working and shows an error until removed.` : "",
     "This can't be undone.",
   ].filter(Boolean).join(" ");
   const ok = await confirmDialog({
@@ -912,15 +912,15 @@ export async function deleteSheet(sheet: Sheet) {
   }
 }
 
-/** Deletes a blueprint copy (its node and wires, one undoable change); an open copy goes back to the sheet that held it. */
-export async function deleteCopy(holder: Sheet, node: GraphNode) {
+/** Deletes a blueprint instance (its node and wires, one undoable change); an open instance goes back to the sheet that held it. */
+export async function deleteInstance(holder: Sheet, node: GraphNode) {
   const wires = (holder.wires ?? []).filter((w) => w.from === node.id || w.to === node.id);
   const ok = await edit(
     [{ type: "removeNode", sheet: holder.id, node: node.id }],
     [{ type: "addNode", sheet: holder.id, node } as Edit, ...wires.map((wire) => ({ type: "connect", sheet: holder.id, wire }) as Edit)],
-    "delete copy",
+    "remove placed blueprint",
   );
-  if (ok && app.copy?.node === node.id) openSheet(holder.id);
+  if (ok && app.instance?.node === node.id) openSheet(holder.id);
 }
 
 /** Copies a sheet or blueprint as JSON, to paste with the matching import here or in another world. */
@@ -934,7 +934,7 @@ export async function copySheetJson(sheet: Sheet) {
   }
 }
 
-/** A new blueprint like this one, opened (to change without touching this one's copies). */
+/** A new blueprint like this one, opened (to change without touching this one's instances). */
 export async function duplicateBlueprint(sheet: Sheet) {
   const results = await edit([{ type: "duplicateBlueprint", sheet: sheet.id }]);
   if (results?.[0]) openSheet(results[0] as string);
@@ -1001,7 +1001,7 @@ export async function importSheet(what: "sheet" | "blueprint") {
   openSheet(results[0] as string);
   if (sheet.blueprint) {
     toast(
-      what === "blueprint" ? "Imported. Its copies fill its slots with blocks of the same kinds." : "That's a blueprint — it's been added to Blueprints.",
+      what === "blueprint" ? "Imported. Wherever it's placed, blocks of the same kinds fill its slots." : "That's a blueprint — it's been added to Blueprints.",
       "info",
     );
   } else {
@@ -1023,7 +1023,7 @@ export function onPlaceDevice(listener: (device: Device) => void): () => void {
 }
 
 /**
- * Whether a device already has its home: a device node on a sheet of the tree, or a slot of a copy it fills. Worked
+ * Whether a device already has its home: a device node on a sheet of the tree, or a slot of an instance it fills. Worked
  * out once, for asking about many devices.
  */
 export function homeCheck(): (device: Device) => boolean {
@@ -1032,15 +1032,15 @@ export function homeCheck(): (device: Device) => boolean {
 }
 
 /**
- * Fills a slot of a copy with a device, turned as the slot already was (else as the copy's other slots are). The
- * copy's first block fills the rest by layout too: one undo step, offered on the toast.
+ * Fills a slot of an instance with a device, turned as the slot already was (else as the instance's other slots are). The
+ * instance's first block fills the rest by layout too: one undo step, offered on the toast.
  */
-export async function fillSlot(holder: Sheet, copy: GraphNode & { settings: CopySettings }, blueprint: Sheet, slot: GraphNode, device: Device): Promise<boolean> {
+export async function fillSlot(holder: Sheet, instance: GraphNode & { settings: InstanceSettings }, blueprint: Sheet, slot: GraphNode, device: Device): Promise<boolean> {
   const homed = homeCheck();
   let more = 0;
   const ok = await setBindings(
     holder,
-    copy,
+    instance,
     (bindings) => {
       const turns = bindings[slot.id]?.turns ?? Object.values(bindings).find((b) => b.turns)?.turns;
       const result = fillOne(blueprint, bindings, slot.id, { device: device.pos, ...(turns ? { turns } : {}) }, app.snapshot!.devices, homed);

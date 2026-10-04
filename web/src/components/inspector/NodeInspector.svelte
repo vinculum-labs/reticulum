@@ -1,7 +1,7 @@
 <script lang="ts">
   import Help from "./Help.svelte";
   import Trash from "@lucide/svelte/icons/trash";
-  import { app, deviceAt, edit, nodeTitle, openCopy, openDevice, openSheet, rebase, updateNodeEdit } from "../../lib/state.svelte";
+  import { app, deviceAt, edit, nodeTitle, openInstance, openDevice, openSheet, rebase, updateNodeEdit } from "../../lib/state.svelte";
   import { slotName, slotsOf } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
@@ -54,17 +54,17 @@
   let {
     node,
     sheet,
-    inCopyAs,
+    inInstanceAs,
   }: {
     node: GraphNode;
     sheet: Sheet;
-    /** Shown inside an open copy: read-only, its activity kept under this id (the copy's name for it). */
-    inCopyAs?: string;
+    /** Shown inside an open instance: read-only, its activity kept under this id (the instance's name for it). */
+    inInstanceAs?: string;
   } = $props();
 
-  const canEdit = $derived(!inCopyAs && (app.snapshot?.canEdit ?? false));
-  /** Whose activity to show: its own, or the copy's name for it. A blueprint itself never runs: none. */
-  const activityId = $derived(inCopyAs ?? (sheet.blueprint ? null : node.id));
+  const canEdit = $derived(!inInstanceAs && (app.snapshot?.canEdit ?? false));
+  /** Whose activity to show: its own, or the instance's name for it. A blueprint itself never runs: none. */
+  const activityId = $derived(inInstanceAs ?? (sheet.blueprint ? null : node.id));
   const s = $derived(node.settings);
   const signal = $derived(isSignal(s.kind));
   /** The device the node points at, whose names (and face names) can be edited. */
@@ -97,7 +97,7 @@
     return side ? RESOURCE_UNIT[side.resource] : unit;
   });
 
-  /** A device node on a blueprint is a slot: a kind of block each copy fills, not a block of its own. */
+  /** A device node on a blueprint is a slot: a kind of block each instance fills, not a block of its own. */
   const slot = $derived(sheet.blueprint && s.kind === "device");
   const DeviceKindIcon = KIND_ICON.device;
   const gateWired = $derived((sheet.wires ?? []).some((w) => w.to === node.id && (w.input ?? 0) === GATE));
@@ -168,7 +168,7 @@
 
 <InspectorPanel
   title={slot ? slotName({ ...node, label: undefined }) : KIND_LABEL[s.kind]}
-  subtitle={slot ? "A slot of this blueprint: each copy fills it with a block of this kind. Its inputs and outputs here are every copy's." : KIND_HINT[s.kind]}
+  subtitle={slot ? "A slot of this blueprint: wherever it's placed, a block of this kind fills it. Its inputs and outputs here apply in every place." : KIND_HINT[s.kind]}
 >
   {#snippet icon()}
     {#if slot}
@@ -221,9 +221,9 @@
         <IdentifyToggle target={{ kind: "device", device: namedDevice.pos }} title="Light the device up in the world until turned off" />
       </div>
     </Field>
-  {:else if s.kind === "copy"}
+  {:else if s.kind === "instance"}
     <Field label="Name" hint="Optional — the blueprint's name is shown otherwise.">
-      <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)} value={node.label} disabled={!canEdit} placeholder={app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Optional"} oncommit={(v) => save({ ...node, label: v || undefined }, "rename copy")} />
+      <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)} value={node.label} disabled={!canEdit} placeholder={app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Optional"} oncommit={(v) => save({ ...node, label: v || undefined }, "rename instance")} />
     </Field>
   {:else if s.kind !== "sheet_input" && s.kind !== "sheet_output"}
     <Field label="Name" hint={slot ? "Optional — the kind of block is shown otherwise." : `Optional — “${KIND_LABEL[s.kind]}” is shown otherwise.`}>
@@ -256,9 +256,9 @@
 
   {#if s.kind === "level"}
     {#if sheet.blueprint}
-      <!-- On a blueprint it reads a slot, by the slot's id: in each copy, the block filling it. Or one fixed device. -->
+      <!-- On a blueprint it reads a slot, by the slot's id: in each instance, the block filling it. Or one fixed device. -->
       {@const slots = slotsOf(sheet)}
-      <Field label="Reads" hint="A slot: each copy's sensor reads the block filling that slot. A fixed device: the same block for every copy.">
+      <Field label="Reads" hint="A slot: wherever the blueprint is placed, it reads the block filling that slot there. A fixed device: the same block everywhere.">
         <Select
           value={s.slot ?? ""}
           disabled={!canEdit}
@@ -406,10 +406,10 @@
     {:else}
       <p class="text-sm text-bad">The sheet this node held is gone.</p>
     {/if}
-  {:else if s.kind === "copy"}
+  {:else if s.kind === "instance"}
     {@const choices = (app.snapshot?.sheets ?? []).filter((x) => x.blueprint && x.id !== sheet.id)}
     {@const used = app.snapshot?.sheets.find((x) => x.id === s.sheet)}
-    <Field label="Blueprint" hint="Double-click the node to open the copy and fill its slots. Another blueprint empties them.">
+    <Field label="Blueprint" hint="Double-click the node to open it and fill its slots. Another blueprint empties them.">
       <Select
         value={s.sheet}
         disabled={!canEdit}
@@ -430,7 +430,7 @@
       </div>
       <div class="flex flex-wrap gap-2">
         {#if !sheet.blueprint}
-          <button class="btn text-sm" onclick={() => openCopy(sheet.id, node.id)}>Open the copy</button>
+          <button class="btn text-sm" onclick={() => openInstance(sheet.id, node.id)}>Open to fill its slots</button>
         {/if}
         <button class="btn text-sm" onclick={() => openSheet(used.id)}>Edit the blueprint</button>
       </div>

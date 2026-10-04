@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { app, copyRun, deviceAt, deviceName, fillSlot, homeCheck, setBindings, toast } from "../../lib/state.svelte";
-  import { blockName, fillByLayout, inCopy, slotName, slotsOf } from "../../lib/blueprints";
+  import { app, instanceRun, deviceAt, deviceName, fillSlot, homeCheck, setBindings, toast } from "../../lib/state.svelte";
+  import { blockName, fillByLayout, inInstance, slotName, slotsOf } from "../../lib/blueprints";
   import { RESOURCE_UNIT } from "../../lib/kinds";
-  import { posKey, type CopySettings, type Device, type GraphNode, type Sheet } from "../../lib/types";
+  import { posKey, type InstanceSettings, type Device, type GraphNode, type Sheet } from "../../lib/types";
   import DeviceIcon from "../DeviceIcon.svelte";
   import Segmented from "../controls/Segmented.svelte";
   import DevicePicker from "./DevicePicker.svelte";
@@ -11,11 +11,11 @@
   import ThroughputSummary from "./ThroughputSummary.svelte";
   import Chart from "./Chart.svelte";
 
-  /** A slot of an open copy: which block fills it, how far it is turned, and filling the rest by layout. */
-  let { sheet, copy, blueprint, slot }: { sheet: Sheet; copy: GraphNode & { settings: CopySettings }; blueprint: Sheet; slot: GraphNode } = $props();
+  /** A slot of an open instance: which block fills it, how far it is turned, and filling the rest by layout. */
+  let { sheet, instance, blueprint, slot }: { sheet: Sheet; instance: GraphNode & { settings: InstanceSettings }; blueprint: Sheet; slot: GraphNode } = $props();
 
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
-  const bindings = $derived(copy.settings.bindings ?? {});
+  const bindings = $derived(instance.settings.bindings ?? {});
   const binding = $derived(bindings[slot.id]);
   const filler = $derived(binding ? deviceAt(posKey(binding.device)) : undefined);
   const block = $derived(slot.settings.kind === "device" ? slot.settings.block : undefined);
@@ -24,17 +24,17 @@
   const empty = $derived(slotsOf(blueprint).filter((s) => !bindings[s.id]).length);
 
   function fill(device: Device) {
-    fillSlot(sheet, copy, blueprint, slot, device);
+    fillSlot(sheet, instance, blueprint, slot, device);
   }
 
   function turn(turns: number) {
-    if (binding) setBindings(sheet, copy, (b) => (b[slot.id] ? { ...b, [slot.id]: { device: b[slot.id].device, ...(turns ? { turns } : {}) } } : b), "turn slot");
+    if (binding) setBindings(sheet, instance, (b) => (b[slot.id] ? { ...b, [slot.id]: { device: b[slot.id].device, ...(turns ? { turns } : {}) } } : b), "turn slot");
   }
 
   function clear() {
     setBindings(
       sheet,
-      copy,
+      instance,
       (b) => {
         const { [slot.id]: _gone, ...rest } = b;
         return rest;
@@ -50,7 +50,7 @@
       toast("No other slot's block is where the layout says (the same kind of block, unused, at the same place from this one).", "info");
       return;
     }
-    const ok = await setBindings(sheet, copy, () => result.bindings, "fill by layout");
+    const ok = await setBindings(sheet, instance, () => result.bindings, "fill by layout");
     if (ok) toast(`Filled ${result.filled} of ${empty} empty slot${empty === 1 ? "" : "s"}.`, "info");
   }
 </script>
@@ -92,10 +92,10 @@
       </div>
     {/if}
   {/if}
-  <!-- What the block filling it is moving (kept under the copy's name for this slot), and its graph. -->
+  <!-- What the block filling it is moving (kept under the instance's name for this slot), and its graph. -->
   {#if binding}
-    {@const run = copyRun()}
-    <ThroughputSummary id={run ? inCopy(run, slot.id) : slot.id} />
-    <Chart item={run ? inCopy(run, slot.id) : slot.id} unit={unit} />
+    {@const run = instanceRun()}
+    <ThroughputSummary id={run ? inInstance(run, slot.id) : slot.id} />
+    <Chart item={run ? inInstance(run, slot.id) : slot.id} unit={unit} />
   {/if}
 </InspectorPanel>

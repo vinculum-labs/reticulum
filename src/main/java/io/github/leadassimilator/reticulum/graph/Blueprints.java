@@ -8,7 +8,7 @@ import javax.annotation.Nullable;
 
 
 /**
- * Blueprints: reusable sheets whose device nodes are slots, placeholders for a kind of block. A copy of one (a copy
+ * Blueprints: reusable sheets whose device nodes are slots, placeholders for a kind of block. An instance of one (an instance
  * node) says which block fills each slot; this is how its nodes read with those blocks in place.
  */
 public final class Blueprints {
@@ -16,7 +16,7 @@ public final class Blueprints {
     }
 
     /**
-     * A blueprint node as a copy with these bindings has it: a slot gets its block (faces turned to match), a Level
+     * A blueprint node as an instance with these bindings has it: a slot gets its block (faces turned to match), a Level
      * node reading a slot reads the block filling it. Null for a slot nothing fills, or a sensor reading one: it can't run.
      */
     @Nullable
@@ -44,11 +44,11 @@ public final class Blueprints {
         };
     }
 
-    /** A copy's bindings for the slots its blueprint still has (one taken out leaves its block free). */
-    public static Map<UUID, NodeSettings.Binding> liveBindings(@Nullable Sheet blueprint, NodeSettings.CopySettings copy) {
+    /** An instance's bindings for the slots its blueprint still has (one taken out leaves its block free). */
+    public static Map<UUID, NodeSettings.Binding> liveBindings(@Nullable Sheet blueprint, NodeSettings.InstanceSettings instance) {
         Map<UUID, NodeSettings.Binding> out = new HashMap<>();
         if (blueprint != null) {
-            copy.bindings().forEach((slot, binding) -> {
+            instance.bindings().forEach((slot, binding) -> {
                 if (blueprint.node(slot) != null) {
                     out.put(slot, binding);
                 }

@@ -466,7 +466,7 @@ public final class Network {
     }
 
     /**
-     * Where a device lives: the sheet with its device node, or with the blueprint copy one of whose slots it fills (in
+     * Where a device lives: the sheet with its device node, or with the blueprint instance one of whose slots it fills (in
      * the tree; blueprints themselves don't count), and that node. Null when it has none. {@code except} is a node to
      * leave out (the one being edited).
      */
@@ -484,8 +484,8 @@ public final class Network {
                         && settings.device().equals(device)) {
                     return new Home(sheet, node);
                 }
-                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.CopySettings copy) {
-                    for (var binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(sheet(copy.sheet()), copy).values()) {
+                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance) {
+                    for (var binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(sheet(instance.sheet()), instance).values()) {
                         if (binding.device().equals(device)) {
                             return new Home(sheet, node);
                         }

@@ -1470,7 +1470,7 @@ public final class EngineTests {
 
     /** A blueprint holding "input -> filter (ingots) -> output", used between a barrel and another barrel. */
     @GameTest(template = "empty")
-    public static void blueprintCopyIsPastedIn(GameTestHelper helper) {
+    public static void blueprintInstanceIsPastedIn(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.IRON_INGOT, 5));
         rig.container(0).setItem(1, new ItemStack(Items.DIRT, 5));
@@ -1484,7 +1484,7 @@ public final class EngineTests {
         template.connect(Wire.of(filter, out));
         rig.network().sheets().add(template);
 
-        Node sub = rig.node(new NodeSettings.CopySettings(template.id()));
+        Node sub = rig.node(new NodeSettings.InstanceSettings(template.id()));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), sub);
         rig.wire(sub, rig.sink(1, ResourceKind.ITEM, List.of()));
         helper.succeedWhen(() -> {
@@ -1505,32 +1505,32 @@ public final class EngineTests {
         return new Node[] {a, b};
     }
 
-    /** A copy moves between the blocks filling its slots, not the ones the blueprint was laid out on. */
+    /** An instance moves between the blocks filling its slots, not the ones the blueprint was laid out on. */
     @GameTest(template = "empty")
-    public static void copyMovesBetweenTheBlocksFillingItsSlots(GameTestHelper helper) {
+    public static void instanceMovesBetweenTheBlocksFillingItsSlots(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.DIRT, 5));
         rig.container(2).setItem(0, new ItemStack(Items.IRON_INGOT, 5));
         Sheet blueprint = new Sheet(UUID.randomUUID(), "pair");
         Node[] slots = barrelBlueprint(rig, blueprint);
-        rig.node(new NodeSettings.CopySettings(blueprint.id(), Map.of(
+        rig.node(new NodeSettings.InstanceSettings(blueprint.id(), Map.of(
                 slots[0].id(), new NodeSettings.Binding(rig.device(2), 0),
                 slots[1].id(), new NodeSettings.Binding(rig.device(3), 0))));
         check(helper, NodeSettings.Binding.turn(FaceKey.NORTH, 1) == FaceKey.EAST && NodeSettings.Binding.turn(FaceKey.UP, 1) == FaceKey.UP
                 && NodeSettings.Binding.turn(FaceKey.WEST, -1) == FaceKey.SOUTH, "faces don't turn right");
         helper.succeedWhen(() -> {
-            check(helper, rig.count(3, Items.IRON_INGOT) == 5, "the copy didn't move between its filled slots");
-            check(helper, rig.count(0, Items.DIRT) == 5, "the copy moved from the block the blueprint was laid out on");
+            check(helper, rig.count(3, Items.IRON_INGOT) == 5, "the instance didn't move between its filled slots");
+            check(helper, rig.count(0, Items.DIRT) == 5, "the instance moved from the block the blueprint was laid out on");
         });
     }
 
     @GameTest(template = "empty")
-    public static void copyWithAnEmptySlotIsReported(GameTestHelper helper) {
+    public static void instanceWithAnEmptySlotIsReported(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
         rig.container(2).setItem(0, new ItemStack(Items.IRON_INGOT, 5));
         Sheet blueprint = new Sheet(UUID.randomUUID(), "pair");
         Node[] slots = barrelBlueprint(rig, blueprint);
-        rig.node(new NodeSettings.CopySettings(blueprint.id(), Map.of(slots[0].id(), new NodeSettings.Binding(rig.device(2), 0))));
+        rig.node(new NodeSettings.InstanceSettings(blueprint.id(), Map.of(slots[0].id(), new NodeSettings.Binding(rig.device(2), 0))));
         helper.startSequence()
                 .thenExecuteAfter(30, () -> {
                     check(helper, rig.compiled().errors().stream().anyMatch(e -> e.message().contains("has no block yet")),

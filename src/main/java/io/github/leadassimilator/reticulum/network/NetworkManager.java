@@ -132,14 +132,14 @@ public final class NetworkManager {
     }
 
     /**
-     * Whether any sheet uses the device (a node on it, a node reading it, or a blueprint copy's slot it fills): such a
+     * Whether any sheet uses the device (a node on it, a node reading it, or a blueprint instance's slot it fills): such a
      * record is kept when the block goes, so its flows can be moved onto the block that replaces it.
      */
     static boolean usedBySheets(Network network, GlobalPos pos) {
         for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
-                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.CopySettings copy
-                        && copy.bindings().values().stream().anyMatch(b -> pos.equals(b.device()))) {
+                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance
+                        && instance.bindings().values().stream().anyMatch(b -> pos.equals(b.device()))) {
                     return true;
                 }
                 GlobalPos used = switch (node.settings()) {
@@ -214,11 +214,11 @@ public final class NetworkManager {
                             new io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneInSettings(to, r.faces(), r.comparator());
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneOutSettings r when r.device().equals(from) ->
                             new io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneOutSettings(to, r.faces(), r.whileOff());
-                    // A copy whose slot the device filled: the new block fills it, turned the same.
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.CopySettings c when c.bindings().values().stream().anyMatch(b -> from.equals(b.device())) -> {
+                    // An instance whose slot the device filled: the new block fills it, turned the same.
+                    case io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings c when c.bindings().values().stream().anyMatch(b -> from.equals(b.device())) -> {
                         java.util.Map<UUID, io.github.leadassimilator.reticulum.graph.NodeSettings.Binding> bindings = new java.util.LinkedHashMap<>();
                         c.bindings().forEach((slot, b) -> bindings.put(slot, from.equals(b.device()) ? new io.github.leadassimilator.reticulum.graph.NodeSettings.Binding(to, b.turns()) : b));
-                        yield new io.github.leadassimilator.reticulum.graph.NodeSettings.CopySettings(c.sheet(), bindings);
+                        yield new io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings(c.sheet(), bindings);
                     }
                     default -> null;
                 };

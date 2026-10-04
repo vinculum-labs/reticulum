@@ -16,7 +16,7 @@ export interface NodeData extends Record<string, unknown> {
   fiveMinutes: number;
   /** Why it moved nothing on its last attempt. */
   status?: string;
-  /** For a sheet or copy node: the sheet it holds (or copies) and its pins, in order. */
+  /** For a sheet or instance node: the sheet it holds (or instances) and its pins, in order. */
   holder?: { sheet?: Sheet; inputs: HolderPin[]; outputs: HolderPin[]; problems: number };
   /** For a signal node: its output as last reported. */
   signal?: number;
@@ -30,11 +30,11 @@ export interface NodeData extends Record<string, unknown> {
    */
   frame?: { width: number; height: number; pins: Record<string, number> };
   /**
-   * A blueprint's slot: the kind of block it takes; when a copy is open, whether a block fills it ({@code device}
+   * A blueprint's slot: the kind of block it takes; when an instance is open, whether a block fills it ({@code device}
    * is then that block) and how far it is turned.
    */
   slot?: { block?: string; filled?: boolean; turns?: number };
-  /** A Level sensor on a blueprint reading a slot: that slot (with a copy open, {@code device} is the block filling it). */
+  /** A Level sensor on a blueprint reading a slot: that slot (with an instance open, {@code device} is the block filling it). */
   reads?: { name: string; block?: string };
 }
 
@@ -138,7 +138,7 @@ export interface FlowView {
   sheetFrame?: { x: number; y: number; width: number; height: number };
 }
 
-/** One pin of a sheet or copy node: its name, the slot wires attach by, and what it carries (none: anything). */
+/** One pin of a sheet or instance node: its name, the slot wires attach by, and what it carries (none: anything). */
 export interface HolderPin {
   name: string;
   slot: number;
@@ -232,7 +232,7 @@ export function resources(sheet: Sheet, sheets: Sheet[] = []): { wires: Map<stri
       nodes.set(n.id, brought);
       emit(n.id, brought);
     }
-    if (s.kind === "sheet" || s.kind === "copy") {
+    if (s.kind === "sheet" || s.kind === "instance") {
       const held = sheets.find((x) => x.id === s.sheet);
       for (const pin of holderPins(held, false)) if (flows(pin.resource)) emit(n.id, pin.resource, pin.slot);
     }
@@ -269,13 +269,13 @@ export function pinCarries(sheet: Sheet, pin: GraphNode, sheets: Sheet[] = []): 
 }
 
 /**
- * What a pin carries: a device node's input or output; a sheet or copy node's pin by slot (from the sheet it
+ * What a pin carries: a device node's input or output; a sheet or instance node's pin by slot (from the sheet it
  * holds, in {@code sheets}); a Sheet input's output or Sheet output's input. Null when it isn't fixed.
  */
 export function pinResource(node: GraphNode | undefined, direction: "in" | "out", index: number, sheets: Sheet[] = []): Resource | null {
   const s = node?.settings;
   if (s?.kind === "device") return (direction === "in" ? s.inputs?.[index]?.resource : s.outputs?.[index]?.resource) ?? null;
-  if (s?.kind === "sheet" || s?.kind === "copy") {
+  if (s?.kind === "sheet" || s?.kind === "instance") {
     const held = sheets.find((x) => x.id === s.sheet);
     return holderPins(held, direction === "in").find((p) => p.slot === index)?.resource ?? null;
   }
@@ -286,7 +286,7 @@ export function pinResource(node: GraphNode | undefined, direction: "in" | "out"
 /** Kinds whose inputs and outputs are numbered pins ("in:0", "out:1"); a sheet node's numbers are its pins' slots. */
 function numbered(node: GraphNode | undefined): boolean {
   const kind = node?.settings.kind;
-  return kind === "device" || kind === "sheet" || kind === "copy" || isSignal(kind);
+  return kind === "device" || kind === "sheet" || kind === "instance" || isSignal(kind);
 }
 
 export function sourceHandle(node: GraphNode | undefined, output: number): string {
@@ -326,7 +326,7 @@ function problemsInside(sheets: Sheet[], sheet: Sheet): number {
 /**
  * Builds the canvas for a sheet. Sheet nodes listed in {@code open} show their sheet in place, as a frame with its
  * nodes and wires inside (and the frames open in those); {@code sizes} are the cards' measured sizes, for sizing frames.
- * {@code bindings}: a copy is open, the sheet being its blueprint; its slots show the blocks filling them.
+ * {@code bindings}: an instance is open, the sheet being its blueprint; its slots show the blocks filling them.
  */
 export function toFlow(
   sheet: Sheet,
@@ -430,7 +430,7 @@ export function toFlow(
 
 /**
  * A blueprint's device nodes are slots: they show the kind of block they take, not the block they were laid out on.
- * With a copy open ({@code bindings}), each shows the block filling it, or that none does.
+ * With an instance open ({@code bindings}), each shows the block filling it, or that none does.
  */
 function markSlots(nodes: Node<NodeData>[], bindings: Record<string, Binding> | undefined, byKey: Map<string, Device>) {
   for (const n of nodes) {
@@ -518,7 +518,7 @@ function sheetFlow(
     const s = n.settings;
     const device = "device" in s ? byKey.get(posKey(s.device)) : undefined;
     let holder: NodeData["holder"];
-    if (s.kind === "copy" || s.kind === "sheet") {
+    if (s.kind === "instance" || s.kind === "sheet") {
       const used = sheets.find((x) => x.id === s.sheet);
       holder = {
         sheet: used,

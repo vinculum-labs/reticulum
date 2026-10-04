@@ -30,7 +30,7 @@ export const KIND_ICON: Record<NodeKind, Component<{ size?: number | string; cla
   splitter: Split,
   kit: Package,
   sheet: AppWindow,
-  copy: Layers,
+  instance: Layers,
   sheet_input: LogIn,
   sheet_output: LogOut,
   level: Gauge,

@@ -56,7 +56,7 @@ named after the network, and a sheet inside another shows there as a node. A she
 **pins** on its edges, inputs left and outputs right, the same pins its node shows; each carries one kind of thing (or
 anything), so flows and signals run between sheets through wires. Add pins with **● input** / **○ output** on the
 frame, the **+** in the sheet's panel, or by dragging a wire past the edge. The sidebar shows the tree, with each
-sheet's status and switch, and the blueprint copies on each sheet; **+** on its heading adds a sheet, and dragging a
+sheet's status and switch, and the blueprints placed on each sheet; **+** on its heading adds a sheet, and dragging a
 sheet onto another moves it.
 
 Open a sheet node in place with the arrow on its header: it becomes a frame with the sheet inside, to edit right there.
@@ -74,12 +74,13 @@ says where it lives.
 ### Blueprints
 
 A **blueprint** is a set to build again and again: a sheet whose device nodes are **slots** for a kind of block. Make
-one from a sheet (the sheet stays as its first copy and keeps running), or start one with **+** and add slots by
-dropping devices on it or picking any block from the game's list (**Slot** in its toolbar). Place **copies** of it on
-any sheet; they show in the tree under that sheet. A new copy takes the blocks its blueprint was made from where they
-are still free; otherwise open it and drop a device on one slot, and the rest fill by layout from it (blocks of the same
-kind at the same places, turned if need be). A change to the blueprint reaches every copy; a copy can be turned back
-into a normal sheet.
+one from a sheet (it is placed where the sheet was and keeps running), or start one with **+** and add slots by
+dropping devices on it or picking any block from the game's list (**Slot** in its toolbar). **Place** it on any sheet,
+as often as you like; each place shows in the tree under its sheet and fills the slots with its own blocks: nothing else
+about it can differ. A newly placed blueprint takes the blocks it was made from where they are still free; otherwise open
+it and drop a device on one slot, and the rest fill by layout from it (blocks of the same kind at the same places, turned
+if need be). A change to the blueprint reaches every place it is placed; a placed one can be turned into a normal
+sheet.
 
 **Copy as JSON** in a sheet's or blueprint's panel, and the import icon on the Sheets or Blueprints heading, move them
 between worlds. Devices are matched by position; ones that don't exist show as offline until you pick local ones for
@@ -103,7 +104,7 @@ what each of its inputs and outputs is moving, and its graph can show the whole 
 | **Kit** | Moves a set of items all together or not at all (a recipe's worth, for example). |
 | **Level sensor** | How much of a resource a device holds. |
 | **Compare, Logic, Timer, Pulse, Latch, Counter, Delay** | Redstone-style logic on signals of 0–15. |
-| **Sheet, Blueprint** | A sheet inside this one, or a copy of a blueprint, as one node with the sheet's pins. |
+| **Sheet, Blueprint** | A sheet inside this one, or a blueprint placed here, as one node with its pins. |
 
 ### Filters
 

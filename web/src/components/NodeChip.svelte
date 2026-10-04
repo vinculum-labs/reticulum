@@ -8,7 +8,7 @@
 
   /**
    * A node as its card's header shows it, small: its icon spanning two lines, its name over what it is (a device's
-   * kind of block, a slot, a copy's blueprint, else the kind of node). For naming a node in a message.
+   * kind of block, a slot, an instance's blueprint, else the kind of node). For naming a node in a message.
    */
   let { node }: { node: GraphNode } = $props();
 
@@ -21,8 +21,8 @@
       ? "Slot"
       : s.kind === "device"
         ? blockName(device?.block)
-        : s.kind === "copy"
-          ? `Copy of ${app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "a missing blueprint"}`
+        : s.kind === "instance"
+          ? `Blueprint “${app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "missing"}”`
           : KIND_LABEL[s.kind],
   );
   const KindIcon = $derived(KIND_ICON[s.kind]);

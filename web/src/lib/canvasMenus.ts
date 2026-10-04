@@ -16,15 +16,15 @@ import { isPin, type NodeData } from "./graph";
 import { KIND_ICON, SparklesIcon, ZapIcon } from "./icons";
 import { KIND_LABEL, PIN_CARRIES, SIGNAL_KINDS, defaultSettings } from "./kinds";
 import { identifyItem, openMenu, type MenuItem } from "./menu.svelte";
-import { app, deviceAt, edit, openCopyFrom, openDevice, openSheet, pinChanged, setSheetEnabled, updateNodeEdit, uuid } from "./state.svelte";
+import { app, deviceAt, edit, openInstanceFrom, openDevice, openSheet, pinChanged, setSheetEnabled, updateNodeEdit, uuid } from "./state.svelte";
 import { posKey, type Device, type GraphNode, type NodeKind, type Resource, type Sheet, type Wire } from "./types";
 
 /** What the menus need of the canvas showing them. */
 export interface Canvas {
-  /** Whether what is shown can be changed (not when only viewing, or in an open copy). */
+  /** Whether what is shown can be changed (not when only viewing, or in an open instance). */
   readonly editable: boolean;
-  /** A blueprint copy is open: only its slots can be filled. */
-  readonly inCopy: boolean;
+  /** A blueprint instance is open: only its slots can be filled. */
+  readonly inInstance: boolean;
   readonly tidying: boolean;
   /** The open sheet. */
   readonly sheet: Sheet | null;
@@ -52,7 +52,7 @@ function cardAt(place: { x: number; y: number }) {
 export function paneMenu(canvas: Canvas, event: MouseEvent) {
   const fit: MenuItem = { label: "Fit to view", icon: Maximize, run: () => canvas.fit() };
   const place = canvas.sheetAt(event.clientX, event.clientY);
-  if (!place || canvas.inCopy) return openMenu(event, [fit]);
+  if (!place || canvas.inInstance) return openMenu(event, [fit]);
   const at = cardAt(place);
   const add = (kind: NodeKind, blueprintId?: string): MenuItem => ({
     label: KIND_LABEL[kind],
@@ -75,8 +75,8 @@ export function paneMenu(canvas: Canvas, event: MouseEvent) {
         !place.sheet.blueprint && add("sheet"),
         others.length > 0 && {
           label: "Blueprint",
-          icon: KIND_ICON.copy,
-          items: others.map((b) => ({ label: b.name, icon: KIND_ICON.copy, run: () => canvas.addNode("copy", at, null, place.sheet, b.id) })),
+          icon: KIND_ICON.instance,
+          items: others.map((b) => ({ label: b.name, icon: KIND_ICON.instance, run: () => canvas.addNode("instance", at, null, place.sheet, b.id) })),
         },
       ],
     },
@@ -113,13 +113,13 @@ export function nodeMenu(canvas: Canvas, node: Node<NodeData>, event: MouseEvent
     ]);
   }
   const device = s.kind === "device" && !on.blueprint ? deviceAt(posKey(s.device)) : undefined;
-  const held = s.kind === "sheet" || s.kind === "copy" ? app.snapshot?.sheets.find((x) => x.id === s.sheet) : undefined;
+  const held = s.kind === "sheet" || s.kind === "instance" ? app.snapshot?.sheets.find((x) => x.id === s.sheet) : undefined;
   const enabled = s.kind === "sheet" ? held?.enabled !== false : graphNode.enabled !== false;
   openMenu(event, [
     held && {
       label: "Open",
       icon: ExternalLink,
-      run: () => (s.kind === "copy" ? openCopyFrom(on, node.id) : openSheet(held.id)),
+      run: () => (s.kind === "instance" ? openInstanceFrom(on, node.id) : openSheet(held.id)),
     },
     rename,
     editable && { label: enabled ? "Turn off" : "Turn on", icon: enabled ? PowerOff : Power, run: () => switchNode(on, graphNode, held, !enabled) },

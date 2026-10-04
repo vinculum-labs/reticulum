@@ -17,18 +17,18 @@
     app,
     copySheetJson,
     createSheet,
-    deleteCopy,
+    deleteInstance,
     deleteSheet,
     duplicateBlueprint,
     edit,
     importSheet,
     moveSheet,
-    openCopy,
+    openInstance,
     openSheet,
     setSheetEnabled,
     updateNodeEdit,
   } from "../../lib/state.svelte";
-  import { copyStatus, treeStatus } from "../../lib/status";
+  import { instanceStatus, treeStatus } from "../../lib/status";
   import { childSheets, descendants, offReason, rootSheet } from "../../lib/tree";
   import type { GraphNode, Sheet } from "../../lib/types";
   import AddButton from "../controls/AddButton.svelte";
@@ -37,7 +37,7 @@
   import StatusMark from "../StatusMark.svelte";
 
   /**
-   * The network's sheets as a tree (with the blueprint copies placed on them), then the blueprints. A row opens its
+   * The network's sheets as a tree (with the blueprint instances placed on them), then the blueprints. A row opens its
    * sheet; double-click renames, drag moves a sheet inside another, right-click has the rest.
    */
 
@@ -46,7 +46,7 @@
   const power = $derived(app.power ?? snapshot.power);
   const unpowered = $derived(!!power?.enabled && !power.powered);
 
-  /** The sheet, blueprint or copy whose row shows a name box. */
+  /** The sheet, blueprint or instance whose row shows a name box. */
   let renaming = $state<string | null>(null);
 
   /** Where a new sheet goes: inside the open sheet (the root while a blueprint is open). */
@@ -81,35 +81,35 @@
     edit([{ type: "updateSheet", sheet: sheet.id, name }], [{ type: "updateSheet", sheet: sheet.id, name: sheet.name }], "rename sheet");
   }
 
-  /** A copy's own name (its node's label); blank goes back to its blueprint's. */
-  function renameCopy(holder: Sheet, node: GraphNode, name: string) {
-    updateNodeEdit(holder.id, node, { ...node, label: name || undefined }, "rename copy");
+  /** An instance's own name (its node's label); blank goes back to its blueprint's. */
+  function renameInstance(holder: Sheet, node: GraphNode, name: string) {
+    updateNodeEdit(holder.id, node, { ...node, label: name || undefined }, "rename");
   }
 
-  /** A copy's own switch (its node's), as one undoable change. */
-  function setCopyEnabled(holder: Sheet, node: GraphNode, on: boolean) {
-    updateNodeEdit(holder.id, node, { ...node, enabled: on }, "copy on/off");
+  /** An instance's own switch (its node's), as one undoable change. */
+  function setInstanceEnabled(holder: Sheet, node: GraphNode, on: boolean) {
+    updateNodeEdit(holder.id, node, { ...node, enabled: on }, "on/off");
   }
 
-  /** A row of the tree: a sheet, or a blueprint copy placed on one (it runs there, so it shows there). */
+  /** A row of the tree: a sheet, or a blueprint instance placed on one (it runs there, so it shows there). */
   type Row =
     | { kind: "sheet"; sheet: Sheet; depth: number; children: number }
-    | { kind: "copy"; holder: Sheet; node: GraphNode; depth: number };
+    | { kind: "instance"; holder: Sheet; node: GraphNode; depth: number };
 
   let collapsed = $state(new Set<string>());
 
-  /** The tree as an indented list: the root, then each sheet followed by the ones inside it, then its copies (by name). */
+  /** The tree as an indented list: the root, then each sheet followed by the ones inside it, then its instances (by name). */
   const rows = $derived.by(() => {
     const out: Row[] = [];
     const root = rootSheet(snapshot);
     if (!root) return out;
     const add = (sheet: Sheet, depth: number) => {
       const children = childSheets(snapshot, sheet.id);
-      const copies = (sheet.nodes ?? []).filter((n) => n.settings.kind === "copy").sort((a, b) => copyName(a).localeCompare(copyName(b)));
-      out.push({ kind: "sheet", sheet, depth, children: children.length + copies.length });
+      const instances = (sheet.nodes ?? []).filter((n) => n.settings.kind === "instance").sort((a, b) => instanceName(a).localeCompare(instanceName(b)));
+      out.push({ kind: "sheet", sheet, depth, children: children.length + instances.length });
       if (collapsed.has(sheet.id) || depth >= 32) return;
       for (const child of children) add(child, depth + 1);
-      for (const node of copies) out.push({ kind: "copy", holder: sheet, node, depth: depth + 1 });
+      for (const node of instances) out.push({ kind: "instance", holder: sheet, node, depth: depth + 1 });
     };
     add(root, 0);
     return out;
@@ -118,13 +118,13 @@
   const blueprints = $derived(snapshot.sheets.filter((s) => s.blueprint).sort((a, b) => a.name.localeCompare(b.name)));
 
   function blueprintOf(node: GraphNode): Sheet | undefined {
-    const id = node.settings.kind === "copy" ? node.settings.sheet : undefined;
+    const id = node.settings.kind === "instance" ? node.settings.sheet : undefined;
     return snapshot.sheets.find((s) => s.id === id);
   }
 
-  /** A copy's name in the tree: its label, else its blueprint's. */
-  function copyName(node: GraphNode): string {
-    return node.label || blueprintOf(node)?.name || "Copy";
+  /** An instance's name in the tree: its label, else its blueprint's. */
+  function instanceName(node: GraphNode): string {
+    return node.label || blueprintOf(node)?.name || "Blueprint";
   }
 
   function toggleCollapsed(id: string) {
@@ -164,13 +164,13 @@
     ]);
   }
 
-  function copyMenu(e: MouseEvent, holder: Sheet, node: GraphNode) {
+  function instanceMenu(e: MouseEvent, holder: Sheet, node: GraphNode) {
     openMenu(e, [
-      { label: "Open", icon: ExternalLink, run: () => openCopy(holder.id, node.id) },
+      { label: "Open", icon: ExternalLink, run: () => openInstance(holder.id, node.id) },
       canEdit && { label: "Rename", icon: Pencil, run: () => (renaming = node.id) },
-      canEdit && { label: node.enabled !== false ? "Turn off" : "Turn on", icon: node.enabled !== false ? PowerOff : Power, run: () => setCopyEnabled(holder, node, node.enabled === false) },
+      canEdit && { label: node.enabled !== false ? "Turn off" : "Turn on", icon: node.enabled !== false ? PowerOff : Power, run: () => setInstanceEnabled(holder, node, node.enabled === false) },
       canEdit && "-",
-      canEdit && { label: "Delete", icon: Trash, danger: true, shortcut: "Del", run: () => deleteCopy(holder, node) },
+      canEdit && { label: "Remove", icon: Trash, danger: true, shortcut: "Del", run: () => deleteInstance(holder, node) },
     ]);
   }
 
@@ -200,27 +200,27 @@
   </div>
   <ul class="flex flex-col gap-0.5">
     {#each rows as row (row.kind === "sheet" ? row.sheet.id : row.node.id)}
-      {#if row.kind === "copy"}
+      {#if row.kind === "instance"}
         {@const holderOff = offReason(snapshot, row.holder, app.sheetsOff)}
-        {@const status = copyStatus(row.node, row.holder, holderOff, snapshot.running, snapshot.enabled, unpowered)}
-        <!-- Lit while it is open, or a copy inside it is (opened from within it). -->
-        {@const open = app.copy?.node === row.node.id || app.copy?.outer?.[0]?.node === row.node.id}
-        {@const name = copyName(row.node)}
-        <!-- A copy: opens its blueprint with its blocks. No chevron (nothing goes inside a copy), not dragged (moved as a node). -->
+        {@const status = instanceStatus(row.node, row.holder, holderOff, snapshot.running, snapshot.enabled, unpowered)}
+        <!-- Lit while it is open, or an instance inside it is (opened from within it). -->
+        {@const open = app.instance?.node === row.node.id || app.instance?.outer?.[0]?.node === row.node.id}
+        {@const name = instanceName(row.node)}
+        <!-- An instance: opens its blueprint with its blocks. No chevron (nothing goes inside an instance), not dragged (moved as a node). -->
         <li class="group flex items-center gap-1.5 rounded-md py-1 pr-2" style="padding-left: {row.depth * 8 + 4}px; {open ? 'background: var(--panel-2)' : ''}">
           <span class="w-4 shrink-0"></span>
           <StatusMark {status} />
           {#if renaming === row.node.id}
-            <TextField class="min-w-0 flex-1" value={row.node.label} placeholder={blueprintOf(row.node)?.name} autofocus oncommit={(v) => renameCopy(row.holder, row.node, v)} onfinish={() => (renaming = null)} />
+            <TextField class="min-w-0 flex-1" value={row.node.label} placeholder={blueprintOf(row.node)?.name} autofocus oncommit={(v) => renameInstance(row.holder, row.node, v)} onfinish={() => (renaming = null)} />
           {:else}
             <button
               class="flex min-w-0 flex-1 items-center gap-1 text-left"
               class:muted={status.color === "var(--muted)"}
-              onclick={() => openCopy(row.holder.id, row.node.id)}
-              oncontextmenu={(e) => copyMenu(e, row.holder, row.node)}
-              onkeydown={(e) => e.key === "Delete" && canEdit && (e.preventDefault(), deleteCopy(row.holder, row.node))}
+              onclick={() => openInstance(row.holder.id, row.node.id)}
+              oncontextmenu={(e) => instanceMenu(e, row.holder, row.node)}
+              onkeydown={(e) => e.key === "Delete" && canEdit && (e.preventDefault(), deleteInstance(row.holder, row.node))}
               ondblclick={() => canEdit && (renaming = row.node.id)}
-              title={`A copy of the blueprint “${blueprintOf(row.node)?.name ?? "?"}”: open it to fill its slots. Double-click to rename.`}
+              title={`The blueprint “${blueprintOf(row.node)?.name ?? "?"}”, placed here: open it to fill its slots. Double-click to rename.`}
             >
               <span class="trim-text truncate">{name}</span>
             </button>
@@ -228,10 +228,10 @@
           <Switch
             hideLabel
             small
-            label={`Copy ${name} on/off`}
+            label={`${name} (placed blueprint) on/off`}
             checked={row.node.enabled !== false}
             disabled={!canEdit}
-            onchange={(on) => setCopyEnabled(row.holder, row.node, on)}
+            onchange={(on) => setInstanceEnabled(row.holder, row.node, on)}
           />
         </li>
       {:else}
@@ -241,7 +241,7 @@
         <li
           class="group flex items-center gap-1.5 rounded-md py-1 pr-2"
           class:drop-target={dropOn === sheet.id}
-          style="padding-left: {row.depth * 8 + 4}px; {sheet.id === app.sheetId && !app.copy ? 'background: var(--panel-2)' : ''}"
+          style="padding-left: {row.depth * 8 + 4}px; {sheet.id === app.sheetId && !app.instance ? 'background: var(--panel-2)' : ''}"
           draggable={canEdit && !sheet.root}
           ondragstart={(e) => {
             dragged = sheet.id;
@@ -316,8 +316,8 @@
   </div>
   <ul class="flex flex-col gap-0.5">
     {#each blueprints as sheet (sheet.id)}
-      <!-- Lit while the blueprint itself is open, not while one of its copies is (that one's row in the tree lights). -->
-      <li class="group flex items-center gap-1.5 rounded-md py-1 pr-2 pl-2" style={sheet.id === app.sheetId && !app.copy ? "background: var(--panel-2)" : ""}>
+      <!-- Lit while the blueprint itself is open, not while one of its instances is (that one's row in the tree lights). -->
+      <li class="group flex items-center gap-1.5 rounded-md py-1 pr-2 pl-2" style={sheet.id === app.sheetId && !app.instance ? "background: var(--panel-2)" : ""}>
         {#if renaming === sheet.id}
           <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
         {:else}
@@ -327,7 +327,7 @@
             oncontextmenu={(e) => blueprintMenu(e, sheet)}
             onkeydown={(e) => e.key === "Delete" && canEdit && (e.preventDefault(), deleteSheet(sheet))}
             ondblclick={() => canEdit && (renaming = sheet.id)}
-            title="Runs only as its copies. Double-click to rename."
+            title="Runs only where it's placed. Double-click to rename."
           >
             <Layers size={14} class="shrink-0 muted" /><span class="trim-text truncate">{sheet.name}</span>
             {#if sheet.errors?.length}<span class="shrink-0 text-bad" title={sheet.errors.map((e) => e.message).join("\n")}><TriangleAlert size={12} /></span>{/if}
@@ -335,7 +335,7 @@
         {/if}
       </li>
     {:else}
-      <li class="text-xs muted">None yet. A blueprint is a set to build again and again: make one from a sheet (in its settings), then place copies of it and fill their slots with blocks.</li>
+      <li class="text-xs muted">None yet. A blueprint is a set to build again and again: make one from a sheet (in its settings), then place it on sheets and fill its slots with blocks.</li>
     {/each}
   </ul>
 </section>

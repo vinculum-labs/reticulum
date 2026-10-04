@@ -20,7 +20,7 @@
     signalInputs,
     summary,
   } from "../../lib/kinds";
-  import { app, copyRun, deviceName, toggleFrame } from "../../lib/state.svelte";
+  import { app, instanceRun, deviceName, toggleFrame } from "../../lib/state.svelte";
   import { blockName, liveKey } from "../../lib/blueprints";
   import DeviceIcon from "../DeviceIcon.svelte";
   import { KIND_ICON } from "../../lib/icons";
@@ -46,7 +46,7 @@
           ? RESOURCE_VAR[data.resource]
           : "var(--muted)",
   );
-  const holds = $derived(kind === "sheet" || kind === "copy");
+  const holds = $derived(kind === "sheet" || kind === "instance");
   /** A Level sensor reads a device: titled as a sensor, the device it reads named below. */
   const sensor = $derived(kind === "level");
   // A sheet node goes by its sheet's name and a device node by its device's (renamed with them); a slot or any
@@ -126,7 +126,7 @@
    * can show: tied to it always, every card would redraw once a second on an idle network.
    */
   let hovered = $state(false);
-  const moved = $derived(hovered ? app.ticksSinceMoved[liveKey(id, copyRun() ?? undefined)] : undefined);
+  const moved = $derived(hovered ? app.ticksSinceMoved[liveKey(id, instanceRun() ?? undefined)] : undefined);
   const idleTitle = $derived(
     [
       data.fiveMinutes > 0 ? `Average over 5 min: ${formatAverage(data.fiveMinutes, data.resource, app.rateUnit)}` : "Nothing moved in the last 5 min",
@@ -139,8 +139,8 @@
 
   /** A pin's label, with its live value for redstone ("redstone 15") and ME ("ME 1 ch · 4/8") pins. */
   function pinLabel(side: { resource: import("../../lib/types").Resource; faces?: string[] }, key: string): string {
-    if (side.resource === "redstone") return `${shortLabel(side)} ${app.signals[liveKey(key, copyRun() ?? undefined)] ?? 0}`;
-    if (side.resource === "me") return `${shortLabel(side)} ${meUsageLabel(app.me[liveKey(key, copyRun() ?? undefined)])}`;
+    if (side.resource === "redstone") return `${shortLabel(side)} ${app.signals[liveKey(key, instanceRun() ?? undefined)] ?? 0}`;
+    if (side.resource === "me") return `${shortLabel(side)} ${meUsageLabel(app.me[liveKey(key, instanceRun() ?? undefined)])}`;
     return shortLabel(side);
   }
 
@@ -186,7 +186,7 @@
     ? 'var(--accent)'
     : data.problem
       ? 'var(--bad)'
-      : 'var(--line)'}; border-style: {kind === 'copy' ? 'double' : 'solid'}; border-width: {kind === 'copy' ? 3 : kind === 'sheet' ? 2 : 1}px; box-shadow: {selected
+      : 'var(--line)'}; border-style: {kind === 'instance' ? 'double' : 'solid'}; border-width: {kind === 'instance' ? 3 : kind === 'sheet' ? 2 : 1}px; box-shadow: {selected
     ? '0 0 0 1px var(--accent)'
     : data.problem
       ? '0 0 0 1px var(--bad)'

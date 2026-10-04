@@ -154,14 +154,14 @@ public final class SafetyTests {
     @GameTest(template = "empty")
     public static void errorsNameTheNodeTheEditorShows(GameTestHelper helper) {
         Network network = NetworkManager.create(helper.getLevel().getServer(), null);
-        // A blueprint with a broken node inside: the error points at the copy node placed on the main sheet.
+        // A blueprint with a broken node inside: the error points at the instance node placed on the main sheet.
         Sheet inner = new Sheet(UUID.randomUUID(), "inner");
         inner.setBlueprint(true);
-        inner.add(Node.of(new NodeSettings.CopySettings(UUID.randomUUID())));
+        inner.add(Node.of(new NodeSettings.InstanceSettings(UUID.randomUUID())));
         network.sheets().add(inner);
         Sheet main = new Sheet(UUID.randomUUID(), "main");
-        Node missing = Node.of(new NodeSettings.CopySettings(UUID.randomUUID()));
-        Node placed = Node.of(new NodeSettings.CopySettings(inner.id()));
+        Node missing = Node.of(new NodeSettings.InstanceSettings(UUID.randomUUID()));
+        Node placed = Node.of(new NodeSettings.InstanceSettings(inner.id()));
         main.add(missing);
         main.add(placed);
         network.sheets().add(main);
@@ -174,9 +174,9 @@ public final class SafetyTests {
     }
 
     @GameTest(template = "empty")
-    public static void blueprintCopiesThatExpandTooFarAreRefused(GameTestHelper helper) {
+    public static void blueprintInstancesThatExpandTooFarAreRefused(GameTestHelper helper) {
         Network network = NetworkManager.create(helper.getLevel().getServer(), null);
-        // A leaf blueprint of 10 nodes, then three levels each using the one below 10 times: 10^4 copies of the leaf.
+        // A leaf blueprint of 10 nodes, then three levels each using the one below 10 times: 10^4 instances of the leaf.
         Sheet below = new Sheet(UUID.randomUUID(), "leaf");
         below.setBlueprint(true);
         for (int i = 0; i < 10; i++) {
@@ -187,14 +187,14 @@ public final class SafetyTests {
             Sheet sheet = new Sheet(UUID.randomUUID(), "level " + level);
             sheet.setBlueprint(true);
             for (int i = 0; i < 10; i++) {
-                sheet.add(Node.of(new NodeSettings.CopySettings(below.id())));
+                sheet.add(Node.of(new NodeSettings.InstanceSettings(below.id())));
             }
             network.sheets().add(sheet);
             below = sheet;
         }
         Sheet main = new Sheet(UUID.randomUUID(), "main");
         for (int i = 0; i < 10; i++) {
-            main.add(Node.of(new NodeSettings.CopySettings(below.id())));
+            main.add(Node.of(new NodeSettings.InstanceSettings(below.id())));
         }
         network.sheets().add(main);
         long start = System.nanoTime();
@@ -312,9 +312,9 @@ public final class SafetyTests {
         helper.succeed();
     }
 
-    /** Make blueprint: the sheet's devices become slots, and the sheet's node becomes a copy filled with its blocks. */
+    /** Make blueprint: the sheet's devices become slots, and the sheet's node becomes an instance filled with its blocks. */
     @GameTest(template = "empty")
-    public static void makeBlueprintKeepsTheSheetAsItsFirstCopy(GameTestHelper helper) {
+    public static void makeBlueprintKeepsTheSheetAsItsFirstInstance(GameTestHelper helper) {
         ServerPlayer owner = player(helper, "owner");
         Network network = rig(helper, owner);
         var barrel = network.devices().iterator().next().pos();
@@ -328,10 +328,10 @@ public final class SafetyTests {
         Node slot = blueprint.nodes().getFirst();
         check(helper, slot.settings() instanceof NodeSettings.DeviceSettings d && d.block().isPresent() && !slot.id().equals(device.id()),
                 "the slot has no block type, or kept the old id");
-        Node copy = network.root().node(holder);
-        check(helper, copy != null && copy.settings() instanceof NodeSettings.CopySettings c && c.sheet().equals(blueprint.id())
-                && barrel.equals(c.bindings().get(slot.id()).device()), "the sheet's node isn't a copy filled with its block");
-        // The barrel lives in the copy now: a device node for it elsewhere is refused.
+        Node instance = network.root().node(holder);
+        check(helper, instance != null && instance.settings() instanceof NodeSettings.InstanceSettings c && c.sheet().equals(blueprint.id())
+                && barrel.equals(c.bindings().get(slot.id()).device()), "the sheet's node isn't an instance filled with its block");
+        // The barrel lives in the instance now: a device node for it elsewhere is refused.
         String node = "{\"type\":\"addNode\",\"sheet\":\"%s\",\"node\":{\"id\":\"%s\",\"settings\":{\"kind\":\"device\",\"device\":"
                 + GlobalPos.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, barrel).getOrThrow() + "}}}";
         String refused = edit(owner, network, node.formatted(network.root().id(), UUID.randomUUID()));

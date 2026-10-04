@@ -132,8 +132,8 @@
   <Field
     label="Kind of block"
     hint={from || !placeless(settings.device)
-      ? "Copies fill this slot with this kind of block. Fill the rest by layout measures from where the device it came from sits."
-      : "Copies fill this slot with this kind of block. Picked from the catalog, it has no place in a layout: fill it on each copy."}
+      ? "Wherever the blueprint is placed, a block of this kind fills this slot. Fill the rest by layout measures from where the device it came from sits."
+      : "Wherever the blueprint is placed, a block of this kind fills this slot. Picked from the catalog, it has no place in a layout: fill it in each place."}
   >
     <BlockPicker {devices} block={settings.block} {from} {disabled} onchange={(pick) => repick(pick.device ?? { block: pick.block })} />
   </Field>

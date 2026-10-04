@@ -21,7 +21,7 @@
     app.panel = null;
   }
 
-  const KindIcon = $derived(KIND_ICON[data.blueprint ? "copy" : "sheet"]);
+  const KindIcon = $derived(KIND_ICON[data.blueprint ? "instance" : "sheet"]);
 
   function add(input: boolean) {
     const sheet = app.snapshot?.sheets.find((s) => s.id === data.sheetId);
@@ -41,7 +41,7 @@
     title="Show this sheet's settings"
     onclick={select}
   >
-    <!-- A sheet's or a blueprint's icon (an open copy shows its blueprint), as on their cards and in the toolbar. -->
+    <!-- A sheet's or a blueprint's icon (an open instance shows its blueprint), as on their cards and in the toolbar. -->
     <span class="shrink-0"><KindIcon size={14} /></span>
     <span class="trim-text min-w-0 flex-1 truncate font-medium">{data.name}</span>
     {#if data.canAdd}
