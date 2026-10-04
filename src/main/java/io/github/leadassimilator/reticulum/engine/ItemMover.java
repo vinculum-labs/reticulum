@@ -41,7 +41,8 @@ final class ItemMover {
             return;
         }
         // Kits can gather their parts from several sources, so kit routes are grouped per kit across the sheet.
-        Map<UUID, List<CompiledSheet.Route>> kits = new HashMap<>();
+        Map<UUID, List<CompiledSheet.Route>> kits = new java.util.LinkedHashMap<>();
+        List<Map.Entry<CompiledSheet.Source, List<CompiledSheet.Route>>> plain = new ArrayList<>();
         for (CompiledSheet.Source source : sheet.sources()) {
             if (source.resource() != ResourceKind.ITEM || !ctx.runtime().active(source)) {
                 continue;
@@ -58,33 +59,55 @@ final class ItemMover {
                     kits.computeIfAbsent(route.kit().id(), k -> new ArrayList<>()).add(route);
                 }
             }
-            int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.intervalOf(source.node().id());
-            UUID id = source.node().id();
-            if (!direct.isEmpty() && (due(ctx, id, (long) interval * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, direct))) {
-                if (!ctx.runtime().canAffordOperation()) {
-                    ctx.runtime().status(sheet.owner(id), Status.NO_POWER);
-                    continue;
-                }
-                boolean moved = operate(ctx, sheet, source, ctx.runtime().ordered(direct)) > 0;
-                if (moved) {
-                    ctx.runtime().chargeOperation();
-                }
-                ctx.runtime().recordOperation(id, moved);
+            if (!direct.isEmpty()) {
+                plain.add(Map.entry(source, direct));
             }
         }
-        for (Map.Entry<UUID, List<CompiledSheet.Route>> kit : kits.entrySet()) {
-            UUID id = kit.getKey();
-            if (due(ctx, id, (long) sheet.intervalOf(id) * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, kit.getValue())) {
-                if (!ctx.runtime().canAffordOperation()) {
-                    ctx.runtime().status(sheet.owner(id), Status.NO_POWER);
-                    continue;
-                }
-                boolean moved = KitMover.operate(ctx, sheet, kit.getValue().getFirst().kit(), ctx.runtime().ordered(kit.getValue()));
-                if (moved) {
-                    ctx.runtime().chargeOperation();
-                }
-                ctx.runtime().recordOperation(id, moved);
+        // Sheets with a higher priority move first, kits included: each kit runs before the sources of its sheet's
+        // priority and below (sharing a chest with a plain source of the same priority, it gets its parts first).
+        List<Map.Entry<UUID, List<CompiledSheet.Route>>> byPriority = new ArrayList<>(kits.entrySet());
+        byPriority.sort((a, b) -> Integer.compare(sheet.priorityOf(b.getKey()), sheet.priorityOf(a.getKey())));
+        int nextKit = 0;
+        for (Map.Entry<CompiledSheet.Source, List<CompiledSheet.Route>> entry : plain) {
+            int priority = sheet.priorityOf(entry.getKey().node().id());
+            while (nextKit < byPriority.size() && sheet.priorityOf(byPriority.get(nextKit).getKey()) >= priority) {
+                runKit(ctx, sheet, byPriority.get(nextKit++));
             }
+            runSource(ctx, sheet, entry.getKey(), entry.getValue());
+        }
+        while (nextKit < byPriority.size()) {
+            runKit(ctx, sheet, byPriority.get(nextKit++));
+        }
+    }
+
+    private static void runSource(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, List<CompiledSheet.Route> direct) {
+        int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.intervalOf(source.node().id());
+        UUID id = source.node().id();
+        if (due(ctx, id, (long) interval * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, direct)) {
+            if (!ctx.runtime().canAffordOperation()) {
+                ctx.runtime().status(sheet.owner(id), Status.NO_POWER);
+                return;
+            }
+            boolean moved = operate(ctx, sheet, source, ctx.runtime().ordered(direct)) > 0;
+            if (moved) {
+                ctx.runtime().chargeOperation();
+            }
+            ctx.runtime().recordOperation(id, moved);
+        }
+    }
+
+    private static void runKit(NetworkRuntime.Context ctx, CompiledSheet sheet, Map.Entry<UUID, List<CompiledSheet.Route>> kit) {
+        UUID id = kit.getKey();
+        if (due(ctx, id, (long) sheet.intervalOf(id) * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, kit.getValue())) {
+            if (!ctx.runtime().canAffordOperation()) {
+                ctx.runtime().status(sheet.owner(id), Status.NO_POWER);
+                return;
+            }
+            boolean moved = KitMover.operate(ctx, sheet, kit.getValue().getFirst().kit(), ctx.runtime().ordered(kit.getValue()));
+            if (moved) {
+                ctx.runtime().chargeOperation();
+            }
+            ctx.runtime().recordOperation(id, moved);
         }
     }
 
@@ -110,8 +133,16 @@ final class ItemMover {
         long total = 0;
         Filters.Context plain = Filters.Context.of(level);
 
+        // Round robin and weighted splitters turn after each delivery: the next slot goes by the turned order, so an
+        // operation moving several stacks spreads them as the splitters say (not all down the first route).
+        List<CompiledSheet.Route> order = routes;
+        boolean turned = false;
         for (IItemHandler handler : from.handlers) {
             for (int slot = 0; slot < handler.getSlots() && budget > 0; slot++) {
+                if (turned) {
+                    order = ctx.runtime().ordered(routes);
+                    turned = false;
+                }
                 if (!from.inRange(slot)) {
                     continue;
                 }
@@ -125,7 +156,7 @@ final class ItemMover {
                 if (available <= 0) {
                     why = Status.furthest(why, Status.KEEP_RULE);
                 }
-                for (CompiledSheet.Route route : routes) {
+                for (CompiledSheet.Route route : order) {
                     if (available <= 0) {
                         break;
                     }
@@ -161,6 +192,7 @@ final class ItemMover {
                         budget -= moved;
                         ctx.runtime().delivered(route, moved);
                         ctx.runtime().advance(route);
+                        turned = true;
                         stack = handler.getStackInSlot(slot);
                         if (stack.isEmpty()) {
                             break;

@@ -198,14 +198,6 @@ public final class NetworkRuntime {
         List<CompiledSheet> sheets = new ArrayList<>(List.of(compiled(network.root(), network)));
         Context context = new Context(server, network, this);
         signals.evaluate(context, sheets, List.of());
-        if (meLinker != null) {
-            List<CompiledSheet.MeLink> links = new ArrayList<>();
-            sheets.forEach(sheet -> links.addAll(sheet.meLinks()));
-            meLinker.update(server, network, links, id -> reach(id) != Reach.OUT_OF_RANGE);
-            if (ticks % 20 == 0) {
-                meUsage = links.isEmpty() ? Map.of() : meLinker.usage(server, network, links);
-            }
-        }
         for (CompiledSheet sheet : sheets) {
             if (sheet.switchable()) {
                 signals.switchNodes(sheet);
@@ -217,6 +209,15 @@ public final class NetworkRuntime {
             }
             signals.noteAsleep(sheet);
             noteSheetsOff(sheet);
+        }
+        // AE2 links, once switching is worked out: one whose node or sheet is switched or gated off comes apart.
+        if (meLinker != null) {
+            List<CompiledSheet.MeLink> links = new ArrayList<>();
+            sheets.forEach(sheet -> sheet.meLinks().stream().filter(link -> disjoint(link.controls(), signals.off())).forEach(links::add));
+            meLinker.update(server, network, links, id -> reach(id) != Reach.OUT_OF_RANGE);
+            if (ticks % 20 == 0) {
+                meUsage = links.isEmpty() ? Map.of() : meLinker.usage(server, network, links);
+            }
         }
         refillTokens(sheets);
         sheets.sort(Comparator.comparingInt((CompiledSheet c) -> c.sheet().priority()).reversed());
@@ -670,6 +671,12 @@ public final class NetworkRuntime {
                     credit[i] += branch.weights()[i];
                 }
                 credit[branch.index()] -= branch.totalWeight();
+                // An output passed over because it was full (or took a fallback's share) would pile up credit without
+                // end, then take everything for as long once it had room again: held to one round's worth either way.
+                double bound = Math.max(1, branch.totalWeight());
+                for (int i = 0; i < credit.length; i++) {
+                    credit[i] = Math.max(-bound, Math.min(bound, credit[i]));
+                }
             }
         }
     }

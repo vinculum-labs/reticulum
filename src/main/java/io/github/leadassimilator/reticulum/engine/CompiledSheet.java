@@ -406,7 +406,8 @@ public final class CompiledSheet {
     // ---------------------------------------------------------------- ME links
 
     /** An ME link wire between two ME pins (connector sides); {@code pinA}/{@code pinB} name the pins ("node/out/0"). */
-    public record MeLink(String pinA, UUID connectorA, Direction sideA, String pinB, UUID connectorB, Direction sideB) {
+    /** {@code controls}: both ends' nodes and everything holding them; switched off (or gated off), the link goes. */
+    public record MeLink(String pinA, UUID connectorA, Direction sideA, String pinB, UUID connectorB, Direction sideB, Set<UUID> controls) {
     }
 
     private final List<MeLink> meLinks = new ArrayList<>();
@@ -433,7 +434,7 @@ public final class CompiledSheet {
             NodeSettings.MePortSettings b = ports.get(wire.to());
             if (a != null && b != null) {
                 meLinks.add(new MeLink(pinKeys.getOrDefault(wire.from(), wire.from().toString()), a.connector(), a.side(),
-                        pinKeys.getOrDefault(wire.to(), wire.to().toString()), b.connector(), b.side()));
+                        pinKeys.getOrDefault(wire.to(), wire.to().toString()), b.connector(), b.side(), controls(List.of(wire.from(), wire.to()))));
             } else if ((a != null || b != null) && wire.input() != Wire.GATE) {
                 Node other = byId.get(a != null ? wire.to() : wire.from());
                 error(other, (other == null ? "A node" : describe(other)) + ": ME pins only link to other ME pins");

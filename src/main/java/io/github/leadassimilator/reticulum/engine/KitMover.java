@@ -61,13 +61,14 @@ final class KitMover {
         for (NodeSettings.KitLine line : kit.lines()) {
             lineFilters.add(sheet.itemFilter(line.filter()));
         }
-        // Sinks in splitter order, each with the routes that reach it from the kit's sources.
-        Map<UUID, List<CompiledSheet.Route>> bySink = new LinkedHashMap<>();
-        for (CompiledSheet.Route route : routes) {
-            bySink.computeIfAbsent(route.sink().id(), k -> new ArrayList<>()).add(route);
-        }
         boolean any = false;
         for (int done = 0; done < Math.max(1, kit.maxKits()); done++) {
+            // Sinks in splitter order, each with the routes that reach it from the kit's sources: worked out for each
+            // kit, as round robin and weighted splitters turn after every one delivered.
+            Map<UUID, List<CompiledSheet.Route>> bySink = new LinkedHashMap<>();
+            for (CompiledSheet.Route route : ctx.runtime().ordered(routes)) {
+                bySink.computeIfAbsent(route.sink().id(), k -> new ArrayList<>()).add(route);
+            }
             boolean delivered = false;
             for (List<CompiledSheet.Route> sinkRoutes : bySink.values()) {
                 if (moveOne(ctx, sheet, kit, lineFilters, sinkRoutes)) {
