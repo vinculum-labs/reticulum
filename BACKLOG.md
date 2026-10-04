@@ -7,7 +7,6 @@ or decided against.
 
 - Switches in a blueprint placed twice: flipping one placed blueprint's switch (dashboard or card) leaves the other's
   alone.
-- A Display set to Gauge, fed by a Level sensor.
 
 ## Next
 
