@@ -4,8 +4,8 @@
   import type { NodeData } from "../../lib/graph";
   import { PIN_DOT, PIN_H, PIN_KNOB, PIN_W } from "../../lib/graph";
   import { RESOURCE_LABEL, RESOURCE_VAR } from "../../lib/kinds";
-  import { pinName } from "../../lib/types";
-  import { app, type Layer } from "../../lib/state.svelte";
+  import { pinName, sheetPins } from "../../lib/types";
+  import { app, sheetHolding, type Layer } from "../../lib/state.svelte";
 
   /**
    * A sheet's pin, anchored on its frame's edge: the dot sits on the border (inputs left, outputs right) and its name
@@ -19,7 +19,11 @@
   const input = $derived(s.kind === "sheet_input");
   // Untyped: the color of what it is wired to (worked out with the sheet's resources).
   const resource = $derived((s.kind === "sheet_input" || s.kind === "sheet_output" ? s.resource : undefined) ?? data.resource ?? undefined);
-  const name = $derived(pinName(data.node));
+  // Numbered by its place when unnamed ("in 2"), as its sheet's node and the pin list show it.
+  const name = $derived.by(() => {
+    const sheet = sheetHolding(data.node.id);
+    return pinName(data.node, sheet ? sheetPins(sheet, input).findIndex((p) => p.id === data.node.id) : undefined);
+  });
   const color = $derived(resource ? RESOURCE_VAR[resource] : "var(--muted)");
   /** On a dimmed or hidden layer, the whole pin (tag and knob) is faint, like the card pins of that layer. */
   const faint = $derived(!!resource && (app.layers[resource as Layer] === "dim" || app.layers[resource as Layer] === "hide"));
