@@ -254,12 +254,20 @@ public final class WebApi {
                 if (node == null || !(node.settings() instanceof NodeSettings.SwitchSettings toggle)) {
                     throw new RequestException("That switch is gone");
                 }
-                long value = request.has("value") ? request.get("value").getAsLong() : 0;
+                JsonElement v = request.get("value");
+                if (v != null && !(v.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber())) {
+                    throw new RequestException("A switch is set to a number");
+                }
+                long value = v == null ? 0 : v.getAsLong();
                 if (!toggle.allows(value)) {
                     throw new RequestException("That switch can't be set to " + value);
                 }
                 // Which one: on its sheet, or in one blueprint instance (by the id it runs under there).
-                String run = request.has("run") && !request.get("run").isJsonNull() ? request.get("run").getAsString() : node.id().toString();
+                JsonElement r = request.get("run");
+                if (r != null && !r.isJsonNull() && !(r.isJsonPrimitive() && r.getAsJsonPrimitive().isString())) {
+                    throw new RequestException("Which switch: an id");
+                }
+                String run = r != null && !r.isJsonNull() ? r.getAsString() : node.id().toString();
                 if (!Edits.running(network, sheet, node).contains(run)) {
                     throw new RequestException("That switch isn't placed there");
                 }
@@ -509,8 +517,14 @@ public final class WebApi {
                         }
                         sheet.add(node);
                     } else {
-                        if (sheet.node(node.id()) == null) {
+                        Node old = sheet.node(node.id());
+                        if (old == null) {
                             throw new RequestException("No such node");
+                        }
+                        // Another kind under the same id: what the old one remembered (a counter's count) goes, or a
+                        // Switch could come up "on" from it.
+                        if (old.kind() != node.kind()) {
+                            forgetNode(network, sheet, old);
                         }
                         sheet.replace(node);
                     }

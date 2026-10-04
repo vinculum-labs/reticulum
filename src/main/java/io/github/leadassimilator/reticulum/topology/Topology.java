@@ -258,8 +258,11 @@ public final class Topology {
             return;
         }
         be.setRegistered();
+        // Placed by a machine (a Deployer, a schematic, a command) rather than a player or moved in by a contraption:
+        // nobody's access to check, so it may only go into networks open to anyone (public, or with no owner).
+        boolean machine = player == null && !be.arrivedFromElsewhere();
 
-        UUID own = be instanceof ControllerBlockEntity controller ? claimControllerNetwork(level, pos, controller, player) : null;
+        UUID own = be instanceof ControllerBlockEntity controller ? claimControllerNetwork(level, pos, controller, player, machine) : null;
         UUID bound = be instanceof ConnectorBlockEntity connector ? connector.takeItemNetworkId() : null;
 
         // The component behind each neighbor, as it was before this block arrived.
@@ -279,6 +282,9 @@ public final class Topology {
                     player.displayClientMessage(Component.translatable("message.reticulum.no_access", network.name()), true);
                     continue;
                 }
+            } else if (net != null && machine && !openToMachines(NetworkManager.network(level.getServer(), net))) {
+                disconnectAutomatically(be, neighbor, dir);
+                continue;
             }
             sides.put(dir, comp);
         }
@@ -303,7 +309,7 @@ public final class Topology {
             Network network = NetworkManager.network(level.getServer(), bound);
             if (network == null) {
                 message(player, Component.translatable("message.reticulum.network_gone_bound"));
-            } else if (player != null && !Security.canUse(network, player)) {
+            } else if (player != null ? !Security.canUse(network, player) : machine && !openToMachines(network)) {
                 message(player, Component.translatable("message.reticulum.no_access", network.name()));
             } else {
                 primary = network.id();
@@ -399,13 +405,19 @@ public final class Topology {
                 || from != null && to.owner().equals(from.owner());
     }
 
+    /** Whether a machine may put a block into the network (nobody's access to ask): only when it is open to anyone. */
+    private static boolean openToMachines(@Nullable Network network) {
+        return network == null || network.owner() == null || network.accessMode() == io.github.leadassimilator.reticulum.security.AccessMode.PUBLIC;
+    }
+
     private static void disconnectAutomatically(NetworkBlockEntity be, NetworkBlockEntity neighbor, Direction dir) {
         be.setAutoDisconnected(dir, true);
         neighbor.setAutoDisconnected(dir.getOpposite(), true);
     }
 
     /** Finds or creates the controller's network. Returns its id. */
-    private static UUID claimControllerNetwork(ServerLevel level, BlockPos pos, ControllerBlockEntity controller, @Nullable ServerPlayer player) {
+    private static UUID claimControllerNetwork(ServerLevel level, BlockPos pos, ControllerBlockEntity controller, @Nullable ServerPlayer player,
+            boolean machine) {
         GlobalPos here = Devices.global(level, pos);
         UUID wanted = controller.takeItemNetworkId();
         if (wanted == null) {
@@ -418,7 +430,7 @@ public final class Topology {
             if (existing != null && !existing.equals(here) && controllerStillThere(level, existing, network.id())) {
                 message(player, Component.translatable("message.reticulum.controller_exists", network.name()));
                 network = null;
-            } else if (player != null && !Security.canAdmin(network, player)) {
+            } else if (player != null ? !Security.canAdmin(network, player) : machine && !openToMachines(network)) {
                 message(player, Component.translatable("message.reticulum.no_access", network.name()));
                 network = null;
             }
@@ -426,7 +438,7 @@ public final class Topology {
             message(player, Component.translatable("message.reticulum.network_gone"));
         }
         if (network == null) {
-            network = orphanedNeighbor(level, pos, player);
+            network = orphanedNeighbor(level, pos, player, machine);
             if (network != null) {
                 message(player, Component.translatable("message.reticulum.controller_reconnected", network.name()));
             }
@@ -445,7 +457,7 @@ public final class Topology {
      * that the player may administer. A new controller takes it over rather than starting a fresh network.
      */
     @Nullable
-    private static Network orphanedNeighbor(ServerLevel level, BlockPos pos, @Nullable ServerPlayer player) {
+    private static Network orphanedNeighbor(ServerLevel level, BlockPos pos, @Nullable ServerPlayer player, boolean machine) {
         Set<Network> found = new LinkedHashSet<>();
         for (Direction dir : Direction.values()) {
             BlockPos next = pos.relative(dir);
@@ -454,7 +466,7 @@ public final class Topology {
                 continue;
             }
             Network network = NetworkManager.network(level.getServer(), component(level, next, pos).network());
-            if (network == null || player != null && !Security.canAdmin(network, player)) {
+            if (network == null || (player != null ? !Security.canAdmin(network, player) : machine && !openToMachines(network))) {
                 continue;
             }
             GlobalPos controller = network.controller();
@@ -471,7 +483,7 @@ public final class Topology {
      */
     public static UUID reclaimController(ServerLevel level, BlockPos pos, @Nullable ServerPlayer player) {
         ControllerBlockEntity controller = (ControllerBlockEntity) blockEntity(level, pos);
-        UUID id = claimControllerNetwork(level, pos, controller, player);
+        UUID id = claimControllerNetwork(level, pos, controller, player, player == null);
         Section comp = component(level, pos, null);
         Set<BlockPos> unowned = new HashSet<>();
         for (BlockPos block : comp.blocks()) {

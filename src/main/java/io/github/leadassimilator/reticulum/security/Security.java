@@ -30,6 +30,15 @@ public final class Security {
     private static final long BYPASS_LOG_INTERVAL_MS = 10 * 60_000L;
     private static final java.util.Map<String, Long> BYPASS_LOGGED = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /**
+     * Whether the player may act with the role (theirs, or an operator's bypass), without logging a bypass: for showing
+     * what they could do (a snapshot's canEdit), not for doing it.
+     */
+    public static boolean could(Network network, Player player, Role needed) {
+        return role(network, player).map(r -> r.atLeast(needed)).orElse(false)
+                || ReticulumConfig.OPERATOR_BYPASS.getAsBoolean() && player.hasPermissions(2);
+    }
+
     public static boolean has(Network network, Player player, Role needed) {
         if (role(network, player).map(r -> r.atLeast(needed)).orElse(false)) {
             return true;

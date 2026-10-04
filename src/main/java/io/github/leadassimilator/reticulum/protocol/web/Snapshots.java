@@ -82,12 +82,13 @@ final class Snapshots {
     static JsonObject full(MinecraftServer server, Network network, net.minecraft.world.entity.player.Player player) {
         JsonObject out = summary(server, network, io.github.leadassimilator.reticulum.security.Security.role(network, player));
         out.addProperty("revision", network.revision());
-        // As the server decides edits (an operator's bypass included), so the editor offers what it will accept.
-        out.addProperty("canEdit", io.github.leadassimilator.reticulum.security.Security.canEdit(network, player));
-        boolean canAdmin = io.github.leadassimilator.reticulum.security.Security.canAdmin(network, player);
+        // As the server decides edits (an operator's bypass included), so the editor offers what it will accept; not
+        // logged as a bypass, since showing isn't doing.
+        out.addProperty("canEdit", io.github.leadassimilator.reticulum.security.Security.could(network, player, Role.EDITOR));
+        boolean canAdmin = io.github.leadassimilator.reticulum.security.Security.could(network, player, Role.ADMIN);
         out.addProperty("canAdmin", canAdmin);
         // Deleting takes the owner (or an operator's bypass), as the server checks it.
-        out.addProperty("canDelete", io.github.leadassimilator.reticulum.security.Security.has(network, player, Role.OWNER));
+        out.addProperty("canDelete", io.github.leadassimilator.reticulum.security.Security.could(network, player, Role.OWNER));
         out.addProperty("hasPassword", network.passwordHash() != null);
         out.addProperty("root", network.root().id().toString());
         out.addProperty("redstone", network.switches().redstone().getSerializedName());

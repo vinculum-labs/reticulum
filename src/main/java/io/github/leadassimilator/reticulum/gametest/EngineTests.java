@@ -345,6 +345,23 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /** An on/off switch whose value is raised while on gives the new value at once (not the value it was flipped at). */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void raisingAnOnSwitchsValueTakesAtOnce(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+        Node toggle = rig.node(new NodeSettings.SwitchSettings(9, false, java.util.Optional.empty()));
+        rig.signal(toggle, rig.redstoneTo(rig.device(0)), 0);
+        var network = rig.network();
+        network.signalMemory().put(toggle.id().toString(), 9L);
+        java.util.function.Supplier<Long> out = () -> io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(network.id()).signalValues()
+                .getOrDefault(toggle.id(), 0L);
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, out.get() == 9, "the switch on gave " + out.get()))
+                .thenExecute(() -> rig.sheet().replace(rig.sheet().node(toggle.id()).with(new NodeSettings.SwitchSettings(15, false, java.util.Optional.empty()))))
+                .thenWaitUntil(() -> check(helper, out.get() == 15, "after raising its value to 15 it gave " + out.get()))
+                .thenSucceed();
+    }
+
     /** A connector cut off from its controller (no antenna) stops giving redstone: its lamp goes dark. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void aCutOffConnectorGivesNoRedstone(GameTestHelper helper) {

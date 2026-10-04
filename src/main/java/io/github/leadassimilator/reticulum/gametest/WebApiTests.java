@@ -126,7 +126,6 @@ public final class WebApiTests {
         });
     }
 
-    /** A batch of edits is all or nothing: one refused undoes the ones before it (a new sheet, a template, a node). */
     /** Placed blueprints get numbered names ("bp #1", "bp #2"), the lowest free number; a name typed in is kept. */
     @GameTest(template = "empty")
     public static void placedBlueprintsGetNumberedNames(GameTestHelper helper) {
@@ -159,6 +158,26 @@ public final class WebApiTests {
         String c = placeOne.apply(null);
         if (!nameOf.apply(c).equals("bp #1") || !nameOf.apply(b).equals("bp #2")) {
             helper.fail("After removing #1: " + nameOf.apply(c) + ", " + nameOf.apply(b));
+        }
+        helper.succeed();
+    }
+
+    /** A cable a fake player (a Deployer) places against a private network stays out of it: nobody's access to check. */
+    @GameTest(template = "empty")
+    public static void aFakePlayersCableStaysOutOfAPrivateNetwork(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.setOwner(UUID.randomUUID(), "someone");
+        network.setAccessMode(AccessMode.PRIVATE);
+        ServerPlayer fake = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "[Deployer]"));
+        BlockPos at = new BlockPos(2, 1, 1);
+        helper.setBlock(at, ModBlocks.CABLE.get());
+        ModBlocks.CABLE.get().setPlacedBy(helper.getLevel(), helper.absolutePos(at), helper.getBlockState(at), fake, new ItemStack(ModBlocks.CABLE.get()));
+        UUID joined = Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(at)));
+        if (network.id().equals(joined)) {
+            helper.fail("A Deployer's cable joined a private network");
         }
         helper.succeed();
     }
@@ -239,6 +258,7 @@ public final class WebApiTests {
         helper.succeed();
     }
 
+    /** A batch of edits is all or nothing: one refused undoes the ones before it (a new sheet, a template, a node). */
     @GameTest(template = "empty")
     public static void aRefusedEditUndoesItsBatch(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
