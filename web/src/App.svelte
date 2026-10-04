@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { SvelteFlowProvider } from "@xyflow/svelte";
-  import { app, start, undo, redo } from "./lib/state.svelte";
+  import { app, overCanvas, start, undo, redo } from "./lib/state.svelte";
   import TopBar from "./components/TopBar.svelte";
   import Sidebar from "./components/Sidebar.svelte";
   import Canvas from "./components/Canvas.svelte";
   import Inspector from "./components/Inspector.svelte";
   import ChartsPanel from "./components/inspector/ChartsPanel.svelte";
+  import Dashboard from "./components/inspector/Dashboard.svelte";
   import Toasts from "./components/Toasts.svelte";
   import Tooltips from "./components/Tooltips.svelte";
   import ContextMenu from "./components/ContextMenu.svelte";
@@ -64,10 +65,10 @@
       <Sidebar />
       <main class="relative min-w-0 flex-1">
         <Canvas />
-        {#if app.panel === "charts"}<ChartsPanel />{/if}
+        {#if app.panel === "charts"}<ChartsPanel />{:else if app.panel === "dashboard"}<Dashboard />{/if}
       </main>
-      <!-- Charts take the inspector's room as well. -->
-      {#if app.panel !== "charts"}<Inspector />{/if}
+      <!-- Charts and the dashboard take the inspector's room as well. -->
+      {#if !overCanvas()}<Inspector />{/if}
     </div>
     </SvelteFlowProvider>
   {/if}

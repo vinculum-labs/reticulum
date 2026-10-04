@@ -43,6 +43,7 @@
     onPlaceDevice,
     fillSlot,
     homeCheck,
+    overCanvas,
   } from "../../lib/state.svelte";
   import { instancesOf, instanceActivity, nowhere, ownBlocks, slotsOf } from "../../lib/blueprints";
   import { confirmDialog } from "../../lib/dialog.svelte";
@@ -1105,7 +1106,7 @@
     {nodeTypes}
     minZoom={0.2}
     maxZoom={2}
-    deleteKey={editable && modals.open === 0 && app.panel !== "charts" ? ["Delete", "Backspace"] : null}
+    deleteKey={editable && modals.open === 0 && !overCanvas() ? ["Delete", "Backspace"] : null}
     nodesDraggable={editable}
     nodesConnectable={editable}
     elementsSelectable={true}

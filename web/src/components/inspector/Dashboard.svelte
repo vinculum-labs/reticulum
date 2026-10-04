@@ -2,7 +2,9 @@
   import Help from "./Help.svelte";
   import { app, nodeTitle, openSheet } from "../../lib/state.svelte";
   import { offReason, sheetPath } from "../../lib/tree";
-  import InspectorPanel from "./InspectorPanel.svelte";
+  import { onDestroy } from "svelte";
+  import X from "@lucide/svelte/icons/x";
+  import { onEscape } from "../../lib/escape";
   import { STATUS_LABEL, formatRate } from "../../lib/kinds";
   import type { Alarm, GraphNode, Sheet } from "../../lib/types";
   import Siren from "@lucide/svelte/icons/siren";
@@ -10,7 +12,13 @@
   import { controls } from "../../lib/dashboard";
   import ControlWidget from "./ControlWidget.svelte";
 
+  /**
+   * The network at a glance, over the canvas: its switches and displays (by sheet, and by placed blueprint), what is going
+   * off, and how it runs.
+   */
   const snapshot = $derived(app.snapshot!);
+  // Esc goes back to the sheet (inside the game, rather than closing the editor).
+  onDestroy(onEscape(() => (app.panel = null)));
   const alarms = $derived(app.networks.find((n) => n.id === snapshot.id)?.alarms ?? []);
   /** Ticks over so "for 3 min" keeps up. */
   let now = $state(Date.now());
@@ -34,8 +42,11 @@
     return [...by.entries()];
   });
 
+  /** Goes to a node or sheet on the canvas (leaving the dashboard for it). */
   function openAlarm(alarm: Alarm) {
-    if (alarm.sheet) openSheet(alarm.sheet, alarm.node ? [alarm.node] : [], true);
+    if (!alarm.sheet) return;
+    app.panel = null;
+    openSheet(alarm.sheet, alarm.node ? [alarm.node] : [], true);
   }
 
   /** Every node on every sheet, with its sheet. */
@@ -44,6 +55,7 @@
   );
 
   function open(sheet: Sheet, node?: GraphNode) {
+    app.panel = null;
     openSheet(sheet.id, node ? [node.id] : [], true);
   }
 
@@ -76,87 +88,119 @@
   ]);
 </script>
 
-<InspectorPanel title="Dashboard" onclose={() => (app.panel = null)}>
-<div class="flex flex-col gap-4 text-sm">
-  {#if groups.length}
-    <section class="flex flex-col gap-2">
-      <h3 class="panel-title">Controls</h3>
-      {#each groups as [place, list] (place)}
-        <div class="flex flex-col gap-1.5">
-          <div class="truncate text-xs muted" title={place}>{place}</div>
-          {#each list as c (c.run)}
-            <ControlWidget control={c} label={nodeTitle(c.node)} canEdit={snapshot.canEdit} />
+<!-- Over the canvas (which stays as it was underneath): room for many switches and displays. -->
+<div class="absolute inset-0 z-10 flex flex-col overflow-hidden" style="background: var(--canvas)">
+  <div class="flex items-center gap-3 border-b border-line bg-panel px-4 py-2">
+    <h2 class="text-base font-semibold">Dashboard</h2>
+    <span class="muted text-sm">{snapshot.name}</span>
+    <div class="flex-1"></div>
+    <button class="btn px-2" title="Back to the sheet" aria-label="Close the dashboard" onclick={() => (app.panel = null)}><X size={16} /></button>
+  </div>
+  <div class="flex min-h-0 flex-1 text-sm">
+    <div class="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+      <section class="card">
+        <h3 class="panel-title">Alarms ({alarms.length})</h3>
+        {#each alarms as alarm (alarm.key)}
+          {@const sheet = alarm.sheet ? snapshot.sheets.find((s) => s.id === alarm.sheet) : undefined}
+          <button class="list-row flex items-center gap-2 rounded px-1 text-left" disabled={!alarm.sheet} onclick={() => openAlarm(alarm)}>
+            <span class="trim-text flex shrink-0" style="color: {severityColor(alarm.severity)}" title={alarm.severity === "critical" ? "Critical" : "Warning"}><Siren size={14} /></span>
+            <span class="min-w-0 flex-1 truncate">{alarm.message}{#if sheet}<span class="muted"> · {sheetPath(snapshot, sheet)}</span>{/if}</span>
+            <span class="shrink-0 tabular-nums muted" title={new Date(alarm.since).toLocaleString()}>{age(alarm.since)}</span>
+          </button>
+        {:else}
+          <p class="muted">Nothing is going off.</p>
+        {/each}
+      </section>
+      {#if groups.length}
+        <div class="controls-grid">
+          {#each groups as [place, list] (place)}
+            <section class="card">
+              <h3 class="truncate font-medium" title={place}>{place}</h3>
+              {#each list as c (c.run)}
+                <ControlWidget control={c} label={nodeTitle(c.node)} canEdit={snapshot.canEdit} />
+              {/each}
+            </section>
           {/each}
         </div>
-      {/each}
-    </section>
-  {/if}
+      {:else}
+        <p class="muted">
+          No switches or displays yet. Add a Switch (to turn things on and off from here) or a Display (to show a value) from
+          the Redstone menu on a sheet.
+        </p>
+      {/if}
+    </div>
+    <aside class="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-l border-line bg-panel p-3">
+      <section class="flex flex-col gap-1">
+        <h3 class="panel-title">Tick cost</h3>
+        {#if app.tick}
+          <div class="tabular-nums" class:text-warn={app.tick.average > 1}>
+            {app.tick.average.toFixed(3)} ms average, {app.tick.longest.toFixed(3)} ms longest
+          </div>
+          <Help>Over the last 200 ticks. A tick has 50 ms for everything on the server.</Help>
+        {:else}
+          <p class="muted">Not running.</p>
+        {/if}
+      </section>
 
-  <section class="flex flex-col gap-1">
-    <h3 class="panel-title">Alarms ({alarms.length})</h3>
-    {#each alarms as alarm (alarm.key)}
-      {@const sheet = alarm.sheet ? snapshot.sheets.find((s) => s.id === alarm.sheet) : undefined}
-      <button class="list-row flex items-center gap-2 rounded px-1 text-left" disabled={!alarm.sheet} onclick={() => openAlarm(alarm)}>
-        <span class="trim-text flex shrink-0" style="color: {severityColor(alarm.severity)}" title={alarm.severity === "critical" ? "Critical" : "Warning"}><Siren size={14} /></span>
-        <span class="min-w-0 flex-1 truncate">{alarm.message}{#if sheet}<span class="muted"> · {sheetPath(snapshot, sheet)}</span>{/if}</span>
-        <span class="shrink-0 tabular-nums muted" title={new Date(alarm.since).toLocaleString()}>{age(alarm.since)}</span>
-      </button>
-    {:else}
-      <p class="muted">Nothing is going off.</p>
-    {/each}
-  </section>
+      <section class="flex flex-col gap-1">
+        <h3 class="panel-title">Busiest</h3>
+        {#each top as x (x.node.id)}
+          <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
+            <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {sheetPath(snapshot, x.sheet)}</span></span>
+            <span class="tabular-nums">{formatRate(app.rates[x.node.id] ?? 0, null, app.rateUnit)}</span>
+          </button>
+        {:else}
+          <p class="muted">Nothing is moving.</p>
+        {/each}
+      </section>
 
-  <section class="flex flex-col gap-1">
-    <h3 class="panel-title">Tick cost</h3>
-    {#if app.tick}
-      <div class="tabular-nums" class:text-warn={app.tick.average > 1}>
-        {app.tick.average.toFixed(3)} ms average, {app.tick.longest.toFixed(3)} ms longest
-      </div>
-      <Help>Over the last 200 ticks. A tick has 50 ms for everything on the server.</Help>
-    {:else}
-      <p class="muted">Not running.</p>
-    {/if}
-  </section>
+      <section class="flex flex-col gap-1">
+        <h3 class="panel-title">Waiting ({blocked.length})</h3>
+        {#each blocked as x (x.node.id)}
+          <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
+            <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {sheetPath(snapshot, x.sheet)}</span></span>
+            <span class="text-warn">{STATUS_LABEL[app.status[x.node.id]] ?? app.status[x.node.id]}</span>
+          </button>
+        {:else}
+          <p class="muted">Nothing is waiting.</p>
+        {/each}
+      </section>
 
-  <section class="flex flex-col gap-1">
-    <h3 class="panel-title">Busiest</h3>
-    {#each top as x (x.node.id)}
-      <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
-        <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {sheetPath(snapshot, x.sheet)}</span></span>
-        <span class="tabular-nums">{formatRate(app.rates[x.node.id] ?? 0, null, app.rateUnit)}</span>
-      </button>
-    {:else}
-      <p class="muted">Nothing is moving.</p>
-    {/each}
-  </section>
+      <section class="flex flex-col gap-1">
+        <h3 class="panel-title">Switched off ({off.length})</h3>
+        {#each off as x}
+          <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
+            <span class="truncate">{x.node ? nodeTitle(x.node) : sheetPath(snapshot, x.sheet)}{#if x.node}<span class="muted"> · {sheetPath(snapshot, x.sheet)}</span>{/if}</span>
+            <span class="muted">{x.why}</span>
+          </button>
+        {:else}
+          <p class="muted">Everything is on.</p>
+        {/each}
+      </section>
 
-  <section class="flex flex-col gap-1">
-    <h3 class="panel-title">Waiting ({blocked.length})</h3>
-    {#each blocked as x (x.node.id)}
-      <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
-        <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {sheetPath(snapshot, x.sheet)}</span></span>
-        <span class="text-warn">{STATUS_LABEL[app.status[x.node.id]] ?? app.status[x.node.id]}</span>
-      </button>
-    {:else}
-      <p class="muted">Nothing is waiting.</p>
-    {/each}
-  </section>
-
-  <section class="flex flex-col gap-1">
-    <h3 class="panel-title">Switched off ({off.length})</h3>
-    {#each off as x}
-      <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
-        <span class="truncate">{x.node ? nodeTitle(x.node) : sheetPath(snapshot, x.sheet)}{#if x.node}<span class="muted"> · {sheetPath(snapshot, x.sheet)}</span>{/if}</span>
-        <span class="muted">{x.why}</span>
-      </button>
-    {:else}
-      <p class="muted">Everything is on.</p>
-    {/each}
-  </section>
-
-  <section class="flex flex-col gap-1">
-    <h3 class="panel-title">Overflow buffer</h3>
-    {#each overflow as line}<div>{line}</div>{:else}<p class="muted">Empty.</p>{/each}
-  </section>
+      <section class="flex flex-col gap-1">
+        <h3 class="panel-title">Overflow buffer</h3>
+        {#each overflow as line}<div>{line}</div>{:else}<p class="muted">Empty.</p>{/each}
+      </section>
+    </aside>
+  </div>
 </div>
-</InspectorPanel>
+
+<style>
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    min-width: 0;
+  }
+</style>

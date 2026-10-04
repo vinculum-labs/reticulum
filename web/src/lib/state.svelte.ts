@@ -830,6 +830,11 @@ export function openInstance(sheetId: string, node: string, outer: { sheet: stri
 const openRun = $derived(app.instance ? (openInstanceNode()?.run ?? null) : null);
 
 /** The id the open instance runs under (null when none is open, or it doesn't run itself): see openInstanceNode. */
+/** A view over the whole canvas (Charts, the dashboard): the canvas and inspector are out of sight, and out of reach of keys. */
+export function overCanvas(): boolean {
+  return app.panel === "charts" || app.panel === "dashboard";
+}
+
 export function instanceRun(): string | null {
   return openRun;
 }

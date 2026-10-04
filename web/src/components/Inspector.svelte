@@ -9,7 +9,6 @@
   import SheetInspector from "./inspector/SheetInspector.svelte";
   import NetworkSettings from "./inspector/NetworkSettings.svelte";
   import IdentifiedPanel from "./inspector/IdentifiedPanel.svelte";
-  import Dashboard from "./inspector/Dashboard.svelte";
   import EmptyState from "./EmptyState.svelte";
 
   const sheet = $derived(currentSheet());
@@ -29,8 +28,6 @@
     <NetworkSettings />
   {:else if app.panel === "identified" && app.snapshot}
     <IdentifiedPanel />
-  {:else if app.panel === "dashboard" && app.snapshot}
-    <Dashboard />
   {:else if device}
     {#key app.selectedDevice}
       <DeviceInspector {device} />
