@@ -110,7 +110,9 @@ final class ItemPort {
             }
             long present = switch (limit.scope()) {
                 case PER_TYPE -> count(s -> ItemStack.isSameItemSameComponents(s, stack));
-                case TOTAL, FILTER -> count(s -> filter.test(s, context));
+                // In total: everything in the port, whatever the rule's filter (which only says what it applies to).
+                case TOTAL -> count(s -> true);
+                case FILTER -> count(s -> filter.test(s, context));
             };
             long room = keep ? present - limit.amount() : limit.amount() - present;
             allowed = Math.min(allowed, Math.max(0, room));

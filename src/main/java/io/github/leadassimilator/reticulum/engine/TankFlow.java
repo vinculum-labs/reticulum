@@ -224,7 +224,11 @@ final class TankFlow {
             }
             long[] present = {0};
             tank.forEachStored(view, (held, amount) -> {
-                boolean counted = limit.scope() == NodeSettings.Scope.PER_TYPE ? tank.sameKind(held, kind) : tank.matches(sheet, limit, held, context);
+                boolean counted = switch (limit.scope()) {
+                    case PER_TYPE -> tank.sameKind(held, kind);
+                    case TOTAL -> true;
+                    case FILTER -> tank.matches(sheet, limit, held, context);
+                };
                 if (counted) {
                     present[0] = saturatedAdd(present[0], amount);
                 }

@@ -180,9 +180,11 @@ final class KitMover {
             }
             long planned = 0;
             for (Take take : takes) {
-                boolean counted = rule.scope() == NodeSettings.Scope.PER_TYPE
-                        ? ItemStack.isSameItemSameComponents(take.stack, stack)
-                        : filter.test(take.stack, context);
+                boolean counted = switch (rule.scope()) {
+                    case PER_TYPE -> ItemStack.isSameItemSameComponents(take.stack, stack);
+                    case TOTAL -> true;
+                    case FILTER -> filter.test(take.stack, context);
+                };
                 if (counted && take.route.sourceSettings().port().equals(source.port())) {
                     planned += take.stack.getCount();
                 }
@@ -217,9 +219,11 @@ final class KitMover {
                 }
                 long incoming = 0;
                 for (Take other : takes) {
-                    boolean counted = cap.scope() == NodeSettings.Scope.PER_TYPE
-                            ? ItemStack.isSameItemSameComponents(other.stack, take.stack)
-                            : filter.test(other.stack, context);
+                    boolean counted = switch (cap.scope()) {
+                        case PER_TYPE -> ItemStack.isSameItemSameComponents(other.stack, take.stack);
+                        case TOTAL -> true;
+                        case FILTER -> filter.test(other.stack, context);
+                    };
                     if (counted) {
                         incoming += other.stack.getCount();
                     }

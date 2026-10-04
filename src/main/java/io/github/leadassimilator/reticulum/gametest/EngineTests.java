@@ -232,6 +232,21 @@ public final class EngineTests {
         });
     }
 
+    /** "In total" counts everything in the sink, not only what the cap's filter picks out (that is "matching, together"). */
+    @GameTest(template = "empty")
+    public static void totalCapCountsEverything(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.IRON_INGOT, 32));
+        rig.container(1).setItem(5, new ItemStack(Items.COBBLESTONE, 60));
+        // Applies to iron; at most 64 items in the sink in total: 60 cobblestone leaves room for 4 iron.
+        List<NodeSettings.Limit> caps = List.of(new NodeSettings.Limit(NodeSettings.Scope.TOTAL, 64, "minecraft:iron_ingot"));
+        rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, caps));
+        helper.runAfterDelay(30, () -> {
+            check(helper, rig.count(1, Items.IRON_INGOT) == 4, "sink should take 4 iron (64 in total), has " + rig.count(1, Items.IRON_INGOT));
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = "empty")
     public static void rateLimitSlowsItems(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
