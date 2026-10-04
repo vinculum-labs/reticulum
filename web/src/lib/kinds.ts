@@ -43,7 +43,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   latch: "Set turns it on, reset turns it off — it remembers in between.",
   counter: "Counts each time its input turns on — reset sets it back to 0.",
   delay: "Its input, some ticks later.",
-  alarm: "Goes off when its input passes a test — listed on the dashboard, and gives 15 while going off to drive a siren or lamp.",
+  alarm: "Goes off when its input passes a test — listed on the dashboard, and gives 15 (critical) or 7 (warning) while going off.",
 };
 
 /** Redstone (signal) nodes, in the order of the toolbar's Redstone menu. */

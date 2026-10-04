@@ -1,20 +1,22 @@
 package io.github.leadassimilator.reticulum.block.entity;
 
 import java.util.Set;
-import java.util.UUID;
 
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.block.StatusBeaconBlock;
 import io.github.leadassimilator.reticulum.engine.Alarms;
+import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity;
+import io.github.leadassimilator.reticulum.network.DeviceRecord;
+import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
-import io.github.leadassimilator.reticulum.registry.ModDataComponents;
+import io.github.leadassimilator.reticulum.util.LowercaseName;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
@@ -26,8 +28,9 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Watches one network's alarms and shows the worst going off (in its block state, so it lights up and changes
- * color), with a beam, a glow and a sound as set for each severity.
+ * Shows an alarm as gray, yellow or red (in its block state, so it lights up and changes color), with a beam, a glow
+ * and a sound as set for each severity. In Network mode it shows the worst going off on the network of the connector
+ * it is attached to; in Redstone mode, the signal it gets (1 to 7 a warning, 8 to 15 critical).
  */
 public class StatusBeaconBlockEntity extends BlockEntity {
     /** Per severity, what the beacon does while one of that severity is going off. */
@@ -40,11 +43,17 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     public static final int SOUND = 16;
     public static final int ALL = BEAM | BEAM_THROUGH | GLOW | GLOW_THROUGH | SOUND;
 
+    public enum Mode implements LowercaseName {
+        /** The worst alarm going off on the network of the connector it is attached to. */
+        NETWORK,
+        /** The redstone signal it gets: 1 to 7 a warning, 8 to 15 critical. */
+        REDSTONE
+    }
+
     /** Loaded beacons on the client, for the glow and the sound (drawn and played each frame and tick). */
     public static final Set<StatusBeaconBlockEntity> CLIENT_LOADED = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
-    @Nullable
-    private UUID networkId;
+    private Mode mode = Mode.NETWORK;
     private int warning = BEAM | GLOW;
     private int critical = ALL;
     /** Client: how far the beam reaches up and down from the block, worked out now and then (not every frame). */
@@ -55,25 +64,13 @@ public class StatusBeaconBlockEntity extends BlockEntity {
         super(ModBlockEntities.STATUS_BEACON.get(), pos, state);
     }
 
-    @Nullable
-    public UUID networkId() {
-        return networkId;
-    }
-
-    public void setNetworkId(@Nullable UUID networkId) {
-        this.networkId = networkId;
-        changed();
+    public Mode mode() {
+        return mode;
     }
 
     /** What the beacon does for a severity: a mask of {@link #BEAM} and the rest. */
     public int style(AlarmSeverity severity) {
         return severity == AlarmSeverity.CRITICAL ? critical : warning;
-    }
-
-    public void setStyles(int warning, int critical) {
-        this.warning = warning & ALL;
-        this.critical = critical & ALL;
-        changed();
     }
 
     public int warningStyle() {
@@ -82,6 +79,20 @@ public class StatusBeaconBlockEntity extends BlockEntity {
 
     public int criticalStyle() {
         return critical;
+    }
+
+    public void setSettings(Mode mode, int warning, int critical) {
+        boolean modeChanged = this.mode != mode;
+        this.mode = mode;
+        this.warning = warning & ALL;
+        this.critical = critical & ALL;
+        setChanged();
+        if (level instanceof ServerLevel server) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+            if (modeChanged) {
+                update(server, worldPosition, getBlockState(), this);
+            }
+        }
     }
 
     /** The severity shown, from the block state (null: nothing going off). */
@@ -98,22 +109,55 @@ public class StatusBeaconBlockEntity extends BlockEntity {
         return beamDown;
     }
 
-    private void changed() {
-        setChanged();
-        if (level != null && !level.isClientSide) {
-            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+    // ---------------------------------------------------------------- what it watches
+
+    /**
+     * The network a beacon is a device of (through the connector it is attached to), and whether that connector reaches
+     * the controller. With several, one it reaches is preferred.
+     */
+    public record Watch(@Nullable Network network, boolean reachable) {
+    }
+
+    public Watch watch(ServerLevel level) {
+        GlobalPos at = Devices.global(level, worldPosition);
+        Network best = null;
+        boolean reached = false;
+        for (Network network : NetworkManager.networksWith(level.getServer(), at)) {
+            DeviceRecord record = network.device(at);
+            if (record == null || record.state() != DeviceRecord.State.ACTIVE) {
+                continue;
+            }
+            boolean reachable = NetworkTicker.isRunning(level.getServer(), network) && !NetworkTicker.runtime(network.id()).outOfRange(at);
+            if (best == null || reachable && !reached) {
+                best = network;
+                reached = reachable;
+            }
         }
+        return new Watch(best, reached);
+    }
+
+    /** What it should show now: the network's worst alarm (if its connector reaches it), or what the signal says. */
+    @Nullable
+    public AlarmSeverity wanted(ServerLevel level) {
+        if (mode == Mode.REDSTONE) {
+            int signal = level.getBestNeighborSignal(worldPosition);
+            return signal >= 8 ? AlarmSeverity.CRITICAL : signal > 0 ? AlarmSeverity.WARNING : null;
+        }
+        Watch watch = watch(level);
+        return watch.network() == null || !watch.reachable() ? null : Alarms.worst(Alarms.cached(level.getServer(), watch.network()));
     }
 
     // ---------------------------------------------------------------- ticking
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, StatusBeaconBlockEntity beacon) {
-        if (!(level instanceof ServerLevel server) || (level.getGameTime() + pos.asLong()) % 20 != 0) {
-            return;
+        // Redstone is caught as it changes (the block hears its neighbors); this is for the network, and a fallback.
+        if (level instanceof ServerLevel server && (level.getGameTime() + pos.asLong()) % 20 == 0) {
+            update(server, pos, state, beacon);
         }
-        Network network = beacon.networkId == null ? null : NetworkManager.network(server.getServer(), beacon.networkId);
-        AlarmSeverity worst = network == null ? null : Alarms.worst(Alarms.cached(server.getServer(), network));
-        StatusBeaconBlock.Shown shown = StatusBeaconBlock.Shown.of(worst);
+    }
+
+    public static void update(ServerLevel level, BlockPos pos, BlockState state, StatusBeaconBlockEntity beacon) {
+        StatusBeaconBlock.Shown shown = StatusBeaconBlock.Shown.of(beacon.wanted(level));
         if (state.getValue(StatusBeaconBlock.ALARM) != shown) {
             level.setBlock(pos, state.setValue(StatusBeaconBlock.ALARM, shown), Block.UPDATE_ALL);
         }
@@ -171,9 +215,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
-        if (networkId != null) {
-            tag.putUUID("network", networkId);
-        }
+        tag.putString("mode", mode.getSerializedName());
         tag.putInt("warning", warning);
         tag.putInt("critical", critical);
     }
@@ -181,7 +223,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        networkId = tag.hasUUID("network") ? tag.getUUID("network") : null;
+        mode = "redstone".equals(tag.getString("mode")) ? Mode.REDSTONE : Mode.NETWORK;
         if (tag.contains("warning")) {
             warning = tag.getInt("warning") & ALL;
         }
@@ -193,38 +235,12 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
-        tag.putInt("warning", warning);
-        tag.putInt("critical", critical);
+        saveAdditional(tag, registries);
         return tag;
     }
 
     @Override
     public Packet<ClientGamePacketListener> getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
-    }
-
-    /** A beacon item from a bound stack (or one broken off a network) watches that network. */
-    @Override
-    protected void applyImplicitComponents(DataComponentInput input) {
-        super.applyImplicitComponents(input);
-        UUID bound = input.get(ModDataComponents.NETWORK_ID.get());
-        if (bound != null) {
-            networkId = bound;
-        }
-    }
-
-    @Override
-    protected void collectImplicitComponents(DataComponentMap.Builder components) {
-        super.collectImplicitComponents(components);
-        if (networkId != null) {
-            components.set(ModDataComponents.NETWORK_ID.get(), networkId);
-        }
-    }
-
-    @Override
-    @SuppressWarnings("deprecation")
-    public void removeComponentsFromTag(CompoundTag tag) {
-        super.removeComponentsFromTag(tag);
-        tag.remove("network");
     }
 }

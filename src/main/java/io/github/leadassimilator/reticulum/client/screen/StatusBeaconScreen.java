@@ -1,18 +1,17 @@
 package io.github.leadassimilator.reticulum.client.screen;
 
-import java.util.Optional;
-
 import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * A Status Beacon: the network it watches (and a button to pick another), what is going off, and per severity what it
+ * A Status Beacon: its mode (its network's alarms, or a redstone signal), what it shows now, and per severity what it
  * does — beam, beam through blocks, glow, glow through walls, sound.
  */
 public class StatusBeaconScreen extends QuickScreen {
@@ -41,15 +40,24 @@ public class StatusBeaconScreen extends QuickScreen {
         return view.pos();
     }
 
+    private String modeName() {
+        return view.mode() == 1 ? "redstone" : "network";
+    }
+
     @Override
     protected void init() {
         left = (width - WIDTH) / 2;
-        int height = 64 + Math.max(1, view.alarms().size()) * 11 + 18 + OPTIONS.length * ROW;
+        int lines = view.mode() == 0 ? Math.max(1, view.alarms().size()) : 0;
+        int height = 76 + lines * 11 + 18 + OPTIONS.length * ROW;
         top = Math.max(8, (this.height - height) / 2);
-        addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.pick_network"),
-                        b -> PacketDistributor.sendToServer(new Payloads.RequestNetworkPicker(Optional.of(view.pos()))))
-                .bounds(left + WIDTH - 80, top + 18, 80, 20).build());
-        gridTop = top + 48 + Math.max(1, view.alarms().size()) * 11 + 18;
+        Button mode = Button.builder(Component.translatable("screen.reticulum.beacon_mode_" + modeName()),
+                        b -> send(view.mode() == 1 ? 0 : 1))
+                .bounds(left, top + 14, WIDTH, 20)
+                .tooltip(Tooltip.create(Component.translatable("screen.reticulum.beacon_mode_hint_" + modeName())))
+                .build();
+        mode.active = view.canEdit();
+        addRenderableWidget(mode);
+        gridTop = top + 56 + lines * 11 + 18;
         for (int row = 0; row < OPTIONS.length; row++) {
             int bit = OPTIONS[row];
             for (int column = 0; column < 2; column++) {
@@ -71,27 +79,29 @@ public class StatusBeaconScreen extends QuickScreen {
         } else {
             warning = on ? warning | bit : warning & ~bit;
         }
-        PacketDistributor.sendToServer(new Payloads.BeaconStyle(view.pos(), warning, critical));
+        send(view.mode());
+    }
+
+    /** Sends the settings; the server sends the screen back (a new mode shows something else). */
+    private void send(int mode) {
+        PacketDistributor.sendToServer(new Payloads.BeaconStyle(view.pos(), mode, warning, critical));
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawString(font, title, left, top, 0xFFFFFF);
-        Component watching = view.network()
-                .map(name -> (Component) Component.translatable("screen.reticulum.beacon_watching", name))
-                .orElse(Component.translatable("screen.reticulum.beacon_watching_none"));
-        graphics.drawString(font, watching, left, top + 24, 0xC0C0C0);
-        int y = top + 48;
-        if (view.alarms().isEmpty()) {
-            graphics.drawString(font, Component.translatable(view.network().isPresent() ? "screen.reticulum.beacon_quiet" : "screen.reticulum.beacon_unbound"),
-                    left, y, 0x80C080);
-            y += 11;
-        }
-        for (String alarm : view.alarms()) {
-            boolean critical = alarm.startsWith("!");
-            graphics.drawString(font, font.plainSubstrByWidth(alarm.substring(1), WIDTH), left, y, critical ? 0xFF5050 : 0xFFC040);
-            y += 11;
+        graphics.drawString(font, view.status(), left, top + 40, 0xC0C0C0);
+        if (view.mode() == 0) {
+            int y = top + 56;
+            if (view.alarms().isEmpty()) {
+                graphics.drawString(font, Component.translatable("screen.reticulum.beacon_quiet"), left, y, 0x80C080);
+            }
+            for (String alarm : view.alarms()) {
+                boolean critical = alarm.startsWith("!");
+                graphics.drawString(font, font.plainSubstrByWidth(alarm.substring(1), WIDTH), left, y, critical ? 0xFF5050 : 0xFFC040);
+                y += 11;
+            }
         }
         graphics.drawString(font, Component.translatable("screen.reticulum.beacon_warning"), left + 146, gridTop - 14, 0xFFC040);
         graphics.drawString(font, Component.translatable("screen.reticulum.beacon_critical"), left + 202, gridTop - 14, 0xFF5050);

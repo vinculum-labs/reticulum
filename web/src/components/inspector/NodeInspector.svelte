@@ -403,7 +403,7 @@
     <Field label="For (seconds)" hint="Goes off only once that has held this long, so a dip that recovers at once raises nothing.">
       <NumberField value={s.delay ?? 0} min={0} max={86_400} width="md" disabled={!canEdit} oncommit={(v) => settings({ delay: v ?? 0 })} />
     </Field>
-    <Help>While going off it gives 15: wire it to a device's redstone input (a siren, a lamp). Switch the node off to mute it.</Help>
+    <Help>While going off it gives 15 if critical, 7 if a warning: wire it to a device's redstone input — a siren, a lamp, or a Status Beacon in Redstone mode, which shows that severity. Switch the node off to mute it.</Help>
   {:else if s.kind === "latch" || s.kind === "counter"}
     <Help>It remembers its value across restarts. Its output follows one tick after its inputs.</Help>
   {/if}

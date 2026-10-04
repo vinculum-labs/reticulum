@@ -370,17 +370,14 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
-    /** A Status Beacon watching a network shows its worst alarm in its block state, and goes back to quiet after. */
+    /** A Status Beacon on a connector shows its network's worst alarm in its block state, and goes back to quiet after. */
     @GameTest(template = "empty", timeoutTicks = 200)
-    public static void statusBeaconShowsTheWorstAlarm(GameTestHelper helper) {
-        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+    public static void statusBeaconShowsItsNetworksWorstAlarm(GameTestHelper helper) {
+        Rig rig = rig(helper, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
         Node level = rig.node(new NodeSettings.ConstantSettings(1));
         Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL, "Meltdown", java.util.Optional.empty(), 0, 0));
         rig.signal(level, alarm, 0);
-        BlockPos at = new BlockPos(6, 1, 6);
-        helper.setBlock(at, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
-        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at);
-        beacon.setNetworkId(rig.network().id());
+        BlockPos at = rig.devices().get(0);
         var shown = io.github.leadassimilator.reticulum.block.StatusBeaconBlock.ALARM;
         helper.startSequence()
                 .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.Shown.CRITICAL,
@@ -388,6 +385,32 @@ public final class EngineTests {
                 .thenExecute(() -> rig.sheet().replace(rig.sheet().node(level.id()).with(new NodeSettings.ConstantSettings(0))))
                 .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.Shown.NONE,
                         "the beacon kept showing an alarm that stopped"))
+                .thenSucceed();
+    }
+
+    /** A Status Beacon in Redstone mode shows 1 to 7 as a warning and 8 to 15 as critical; an Alarm node drives it by its severity. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void statusBeaconInRedstoneModeFollowsTheSignal(GameTestHelper helper) {
+        Rig rig = rig(helper, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
+        BlockPos at = rig.devices().get(0);
+        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at);
+        beacon.setSettings(io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.REDSTONE, 0, 0);
+        Node input = rig.node(new NodeSettings.ConstantSettings(1));
+        Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.WARNING, "Low", java.util.Optional.empty(), 0, 0));
+        rig.signal(input, alarm, 0);
+        rig.signal(alarm, rig.redstoneTo(rig.device(0)), 0);
+        var shown = io.github.leadassimilator.reticulum.block.StatusBeaconBlock.ALARM;
+        var states = io.github.leadassimilator.reticulum.block.StatusBeaconBlock.Shown.class;
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.Shown.WARNING,
+                        "a warning alarm's 7 didn't show as a warning"))
+                .thenExecute(() -> rig.sheet().replace(rig.sheet().node(alarm.id()).with(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL,
+                        "Low", java.util.Optional.empty(), 0, 0))))
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.Shown.CRITICAL,
+                        "a critical alarm's 15 didn't show as critical"))
+                .thenExecute(() -> rig.sheet().replace(rig.sheet().node(input.id()).with(new NodeSettings.ConstantSettings(0))))
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.Shown.NONE,
+                        "kept showing with no signal" + states.getSimpleName()))
                 .thenSucceed();
     }
 

@@ -4,21 +4,16 @@ import javax.annotation.Nullable;
 
 import com.mojang.serialization.MapCodec;
 
-import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity;
 import io.github.leadassimilator.reticulum.protocol.Screens;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
-import io.github.leadassimilator.reticulum.topology.Topology;
 import io.github.leadassimilator.reticulum.util.LowercaseName;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
@@ -31,7 +26,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-/** Shows what is going off on the network it watches: gray, yellow (a warning) or red (critical). */
+/** Shows an alarm: gray, yellow (a warning) or red (critical) — its network's, or what a redstone signal says. */
 public class StatusBeaconBlock extends BaseEntityBlock {
     public static final MapCodec<StatusBeaconBlock> CODEC = simpleCodec(StatusBeaconBlock::new);
 
@@ -50,9 +45,6 @@ public class StatusBeaconBlock extends BaseEntityBlock {
     }
 
     public static final EnumProperty<Shown> ALARM = EnumProperty.create("alarm", Shown.class);
-
-    /** The network the block it was placed against is on, for a beacon from an unbound stack. */
-    private static final ThreadLocal<BlockPos> PLACED_AGAINST = new ThreadLocal<>();
 
     public StatusBeaconBlock(Properties properties) {
         super(properties);
@@ -87,22 +79,13 @@ public class StatusBeaconBlock extends BaseEntityBlock {
                 level.isClientSide ? StatusBeaconBlockEntity::clientTick : StatusBeaconBlockEntity::serverTick);
     }
 
-    @Nullable
+    /** In Redstone mode it follows the signal as it changes. */
     @Override
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        PLACED_AGAINST.set(context.replacingClickedOnBlock() ? null : context.getClickedPos().relative(context.getClickedFace().getOpposite()));
-        return defaultBlockState();
-    }
-
-    @Override
-    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
-        super.setPlacedBy(level, pos, state, placer, stack);
-        BlockPos against = PLACED_AGAINST.get();
-        PLACED_AGAINST.remove();
-        // An unbound beacon placed against a cable, connector or controller watches that network.
-        if (level instanceof ServerLevel server && against != null && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon
-                && beacon.networkId() == null && Topology.blockEntity(server, against) instanceof NetworkBlockEntity be) {
-            beacon.setNetworkId(Topology.networkOf(server, be));
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos from, boolean moving) {
+        super.neighborChanged(state, level, pos, neighbor, from, moving);
+        if (level instanceof ServerLevel server && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon
+                && beacon.mode() == StatusBeaconBlockEntity.Mode.REDSTONE) {
+            StatusBeaconBlockEntity.update(server, pos, state, beacon);
         }
     }
 

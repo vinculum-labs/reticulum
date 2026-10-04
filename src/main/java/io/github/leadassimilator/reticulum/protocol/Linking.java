@@ -80,20 +80,6 @@ public final class Linking {
             NetworkManager.changed(player.server, network);
             player.displayClientMessage(Component.translatable("command.reticulum.joined", network.name()), false);
         }
-        if (payload.connector().isPresent()
-                && player.serverLevel().getBlockEntity(payload.connector().get()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon) {
-            if (Access.inReach(player, payload.connector().get())) {
-                Network watched = beacon.networkId() == null ? null : NetworkManager.network(player.server, beacon.networkId());
-                if (watched != null && watched != network && !Security.canUse(watched, player)) {
-                    player.displayClientMessage(Component.translatable("message.reticulum.no_access", watched.name()), true);
-                    return;
-                }
-                beacon.setNetworkId(network.id());
-                player.displayClientMessage(Component.translatable("message.reticulum.beacon_bound", network.name()), true);
-                Screens.openBeacon(player, payload.connector().get());
-            }
-            return;
-        }
         if (payload.connector().isPresent()) {
             BlockPos pos = payload.connector().get();
             if (canReachConnector(player, pos)) {
@@ -130,9 +116,6 @@ public final class Linking {
 
     /** A cable or connector the player can reach (its network can be picked from its screen). */
     private static boolean canReachConnector(ServerPlayer player, BlockPos pos) {
-        if (Access.inReach(player, pos) && player.serverLevel().getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) {
-            return true;
-        }
         return Access.reach(player, pos) instanceof io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity be
                 && !(be instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity);
     }

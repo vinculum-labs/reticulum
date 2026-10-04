@@ -64,17 +64,20 @@ public final class Screens {
     }
 
     /** Opens a network block's screen for the player. */
-    /** A Status Beacon's screen, for a player in reach. Anyone may look; changing it takes use of its network. */
+    /**
+     * A Status Beacon's screen, for a player in reach. Anyone may look; changing it takes use of the network it is a
+     * device of (any player, on none).
+     */
     public static void openBeacon(ServerPlayer player, BlockPos pos) {
         if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, pos)
                 || !(player.serverLevel().getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
             return;
         }
-        io.github.leadassimilator.reticulum.network.Network network = beacon.networkId() == null ? null
-                : io.github.leadassimilator.reticulum.network.NetworkManager.network(player.server, beacon.networkId());
+        var watch = beacon.watch(player.serverLevel());
+        io.github.leadassimilator.reticulum.network.Network network = watch.network();
         boolean canView = network != null && io.github.leadassimilator.reticulum.security.Security.canView(network, player);
         java.util.List<String> alarms = new java.util.ArrayList<>();
-        if (canView) {
+        if (beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.NETWORK && canView && watch.reachable()) {
             for (var alarm : io.github.leadassimilator.reticulum.engine.Alarms.cached(player.server, network)) {
                 if (alarms.size() < 8) {
                     alarms.add((alarm.severity() == io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity.CRITICAL ? "!" : "?") + alarm.message());
@@ -82,9 +85,23 @@ public final class Screens {
             }
         }
         boolean canEdit = network == null || io.github.leadassimilator.reticulum.security.Security.canUse(network, player);
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new Payloads.OpenBeaconScreen(pos,
-                network == null ? java.util.Optional.empty() : java.util.Optional.of(canView ? network.name() : "?"),
-                beacon.warningStyle(), beacon.criticalStyle(), alarms, canEdit));
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new Payloads.OpenBeaconScreen(pos, beacon.mode().ordinal(),
+                beaconStatus(player, beacon, watch), beacon.warningStyle(), beacon.criticalStyle(), alarms, canEdit));
+    }
+
+    /** One line on what a beacon shows: the network it watches and whether it reaches it, or the signal it gets. */
+    public static net.minecraft.network.chat.Component beaconStatus(ServerPlayer player,
+            io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon,
+            io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Watch watch) {
+        if (beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.REDSTONE) {
+            return net.minecraft.network.chat.Component.translatable("lookat.reticulum.beacon_signal",
+                    player.serverLevel().getBestNeighborSignal(beacon.getBlockPos()));
+        }
+        if (watch.network() == null) {
+            return net.minecraft.network.chat.Component.translatable("lookat.reticulum.beacon_no_connector");
+        }
+        String name = io.github.leadassimilator.reticulum.security.Security.canView(watch.network(), player) ? watch.network().name() : "?";
+        return net.minecraft.network.chat.Component.translatable(watch.reachable() ? "lookat.reticulum.beacon_watching" : "lookat.reticulum.beacon_unreachable", name);
     }
 
     static void setBeaconStyle(ServerPlayer player, Payloads.BeaconStyle payload) {
@@ -92,13 +109,14 @@ public final class Screens {
                 || !(player.serverLevel().getBlockEntity(payload.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
             return;
         }
-        io.github.leadassimilator.reticulum.network.Network network = beacon.networkId() == null ? null
-                : io.github.leadassimilator.reticulum.network.NetworkManager.network(player.server, beacon.networkId());
+        io.github.leadassimilator.reticulum.network.Network network = beacon.watch(player.serverLevel()).network();
         if (network != null && !io.github.leadassimilator.reticulum.security.Security.canUse(network, player)) {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.no_access", network.name()), true);
             return;
         }
-        beacon.setStyles(payload.warning(), payload.critical());
+        var modes = io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.values();
+        beacon.setSettings(modes[Math.floorMod(payload.mode(), modes.length)], payload.warning(), payload.critical());
+        openBeacon(player, payload.pos());
     }
 
     public static void open(ServerPlayer player, BlockPos pos) {

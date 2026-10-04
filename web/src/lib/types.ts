@@ -196,7 +196,7 @@ export interface DelaySettings {
 
 export type AlarmSeverity = "warning" | "critical";
 
-/** Goes off while its input passes the test (no op: above 0) for {@code delay} seconds; gives 15 while going off. */
+/** Goes off while its input passes the test (no op: above 0) for {@code delay} seconds; gives 15 (critical) or 7 (warning) while going off. */
 export interface AlarmSettings {
   kind: "alarm";
   severity?: AlarmSeverity;

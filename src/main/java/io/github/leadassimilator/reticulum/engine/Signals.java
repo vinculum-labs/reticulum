@@ -223,7 +223,7 @@ final class Signals {
     /** Alarm nodes in sleeping sheets this tick. */
     private final Set<UUID> asleepNow = new HashSet<>();
 
-    /** An alarm node: 15 while going off (its test passing for its delay), else 0; notes when it went off. */
+    /** An alarm node: while going off (its test passing for its delay) 15 if critical, 7 a warning, else 0; notes when it went off. */
     private long alarm(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.SignalNode node, NodeSettings.AlarmSettings alarm) {
         UUID id = node.node().id();
         if (node.input(0).isEmpty() || !alarm.holds(in(node, 0))) {
@@ -237,7 +237,7 @@ final class Signals {
         }
         Raised before = raised.get(id);
         raised.put(id, new Raised(sheet, node, alarm, before == null ? System.currentTimeMillis() : before.at()));
-        return ON;
+        return alarm.severity() == NodeSettings.AlarmSeverity.CRITICAL ? ON : 7;
     }
 
     private long in(CompiledSheet.SignalNode node, int input) {

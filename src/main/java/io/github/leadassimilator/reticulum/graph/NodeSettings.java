@@ -614,7 +614,8 @@ public sealed interface NodeSettings {
 
     /**
      * Raises an alarm while its input passes the test ({@code op} against {@code threshold}; with no test, while it is
-     * above 0) and has for {@code delay} seconds; gives 15 while raised, so it can drive a device (a siren, a lamp).
+     * above 0) and has for {@code delay} seconds; while raised gives 15 if critical, 7 a warning, so it can drive a
+     * device (a siren, a lamp, a Status Beacon in Redstone mode, which shows 1 to 7 as a warning and 8 to 15 critical).
      * Unwired, it never goes off; switched off, it is muted.
      */
     record AlarmSettings(AlarmSeverity severity, String message, Optional<CompareOp> op, long threshold, int delay) implements NodeSettings {

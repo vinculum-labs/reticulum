@@ -293,15 +293,31 @@ public final class Payloads {
 
     // ---------------------------------------------------------------- registration
 
-    /** Opens a Status Beacon's screen: the network it watches (if any, by name), its settings, what is going off. */
-    public record OpenBeaconScreen(BlockPos pos, java.util.Optional<String> network, int warning, int critical, java.util.List<String> alarms, boolean canEdit)
-            implements CustomPacketPayload {
+    /**
+     * Opens a Status Beacon's screen: its mode (0 Network, 1 Redstone), a line on what it shows (its network and reach,
+     * or the signal), what is going off, and its settings.
+     */
+    public record OpenBeaconScreen(BlockPos pos, int mode, net.minecraft.network.chat.Component status, int styles,
+            java.util.List<String> alarms, boolean canEdit) implements CustomPacketPayload {
+        public OpenBeaconScreen(BlockPos pos, int mode, net.minecraft.network.chat.Component status, int warning, int critical,
+                java.util.List<String> alarms, boolean canEdit) {
+            this(pos, mode, status, warning | critical << 8, alarms, canEdit);
+        }
+
+        public int warning() {
+            return styles & 0xFF;
+        }
+
+        public int critical() {
+            return styles >> 8 & 0xFF;
+        }
+
         public static final Type<OpenBeaconScreen> TYPE = payloadType("open_beacon_screen");
         public static final StreamCodec<RegistryFriendlyByteBuf, OpenBeaconScreen> STREAM_CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, OpenBeaconScreen::pos,
-                ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8), OpenBeaconScreen::network,
-                ByteBufCodecs.VAR_INT, OpenBeaconScreen::warning,
-                ByteBufCodecs.VAR_INT, OpenBeaconScreen::critical,
+                ByteBufCodecs.VAR_INT, OpenBeaconScreen::mode,
+                net.minecraft.network.chat.ComponentSerialization.STREAM_CODEC, OpenBeaconScreen::status,
+                ByteBufCodecs.VAR_INT, OpenBeaconScreen::styles,
                 ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(64)), OpenBeaconScreen::alarms,
                 ByteBufCodecs.BOOL, OpenBeaconScreen::canEdit,
                 OpenBeaconScreen::new);
@@ -312,11 +328,12 @@ public final class Payloads {
         }
     }
 
-    /** A Status Beacon's settings, from its screen: per severity, a mask of what it does. */
-    public record BeaconStyle(BlockPos pos, int warning, int critical) implements CustomPacketPayload {
+    /** A Status Beacon's settings, from its screen: its mode, and per severity a mask of what it does. */
+    public record BeaconStyle(BlockPos pos, int mode, int warning, int critical) implements CustomPacketPayload {
         public static final Type<BeaconStyle> TYPE = payloadType("beacon_style");
         public static final StreamCodec<RegistryFriendlyByteBuf, BeaconStyle> STREAM_CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, BeaconStyle::pos,
+                ByteBufCodecs.VAR_INT, BeaconStyle::mode,
                 ByteBufCodecs.VAR_INT, BeaconStyle::warning,
                 ByteBufCodecs.VAR_INT, BeaconStyle::critical,
                 BeaconStyle::new);
