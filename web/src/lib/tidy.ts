@@ -59,7 +59,8 @@ const PIN_SPACING = PIN_H + 8;
 function spreadPins(sheet: Sheet, positions: { id: string; x: number; y: number }[]) {
   for (const kind of ["sheet_input", "sheet_output"]) {
     const ids = new Set((sheet.nodes ?? []).filter((n) => n.settings.kind === kind).map((n) => n.id));
-    const pins = positions.filter((p) => ids.has(p.id)).sort((a, b) => a.y - b.y);
+    // Ties as the pins' order has them (sheetPins): by x, then id.
+    const pins = positions.filter((p) => ids.has(p.id)).sort((a, b) => a.y - b.y || a.x - b.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     for (let i = 1; i < pins.length; i++) pins[i].y = Math.max(pins[i].y, pins[i - 1].y + PIN_SPACING);
   }
 }

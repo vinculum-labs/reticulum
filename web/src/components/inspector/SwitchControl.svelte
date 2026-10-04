@@ -40,7 +40,7 @@
         min="0"
         {max}
         value={dragging ?? value}
-        style="--fill: {(Math.max(0, Math.min(max, dragging ?? value)) / max) * 100}%"
+        style="--fill: {max > 0 ? (Math.max(0, Math.min(max, dragging ?? value)) / max) * 100 : 0}%"
         disabled={!usable}
         aria-label={label}
         onpointerdown={() => (dragging = value)}

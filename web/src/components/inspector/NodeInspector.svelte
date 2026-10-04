@@ -151,11 +151,6 @@
     edit(edits, undo, "remove track");
   }
 
-  /** A Display's messages in the order they apply: by the value each starts from. */
-  function sortedMessages<T extends { from?: number }>(messages: T[]): T[] {
-    return [...messages].sort((a, b) => (a.from ?? 0) - (b.from ?? 0));
-  }
-
   /**
    * Places another blueprint here (its slots start empty). A numbered name the old blueprint gave it ("Smelter #2") goes,
    * so the game numbers it for the new one; a name typed in stays.
@@ -509,7 +504,7 @@
                 max={1_000_000_000_000}
                 width="sm"
                 disabled={!canEdit}
-                oncommit={(v) => settings({ messages: sortedMessages(messages.map((x, j) => (j === i ? { ...x, from: v ?? 0 } : x))) })}
+                oncommit={(v) => settings({ messages: messages.map((x, j) => (j === i ? { ...x, from: v ?? 0 } : x)) })}
               />
               <TextField
                 class="min-w-0 flex-1"
@@ -528,7 +523,7 @@
             </div>
           {/each}
           {#if canEdit && messages.length < 16}
-            {@const next = messages.length ? (messages[messages.length - 1].from ?? 0) + 1 : 0}
+            {@const next = messages.length ? Math.max(...messages.map((m) => m.from ?? 0)) + 1 : 0}
             <button class="btn self-start text-xs" onclick={() => settings({ messages: [...messages, { from: next, text: "" }] })}>Add message</button>
           {/if}
         </div>

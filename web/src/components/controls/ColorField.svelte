@@ -37,7 +37,8 @@
     </button>
   {/each}
   <label class="swatch custom" class:on={custom} title="Another color" style={custom ? `background: ${value}` : ""}>
-    <input type="color" class="sr-only" value={custom ? value : "#ffffff"} {disabled} onchange={(e) => onchange(e.currentTarget.value)} aria-label="Another color" />
+    <!-- Starting from an odd gray, so picking pure white (or black) still counts as a change. -->
+    <input type="color" class="sr-only" value={custom ? value : "#7f7f80"} {disabled} onchange={(e) => onchange(e.currentTarget.value)} aria-label="Another color" />
     {#if custom}<Check size={12} strokeWidth={3} />{:else}+{/if}
   </label>
 </div>
