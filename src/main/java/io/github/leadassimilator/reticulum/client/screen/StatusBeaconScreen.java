@@ -25,7 +25,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public class StatusBeaconScreen extends QuickScreen {
     private static final int WIDTH = 300;
     private static final int CELL = 16;
-    private static final int SWATCH = 12;
+    private static final int SWATCH = 11;
+    /** Alarms listed under the status line, at most. */
+    private static final int ALARM_LINES = 2;
 
     private Payloads.OpenBeaconScreen view;
     private CompoundTag settings;
@@ -36,6 +38,8 @@ public class StatusBeaconScreen extends QuickScreen {
     private int top;
     private int pickerTop;
     private int editorTop;
+    /** Where the color row is. */
+    private int colorTop;
     private EditBox hex;
     private EditBox label;
     private EditBox pitch;
@@ -131,25 +135,28 @@ public class StatusBeaconScreen extends QuickScreen {
     @Override
     protected void init() {
         left = (width - WIDTH) / 2;
-        int alarms = redstone() ? 0 : Math.min(3, Math.max(1, view.alarms().size()));
-        int height = 270 + alarms * 11;
-        top = Math.max(6, (this.height - height) / 2);
+        // Tight, so it fits at large GUI scales: about 225 high at most.
+        int alarms = redstone() ? 0 : Math.min(ALARM_LINES, Math.max(1, view.alarms().size()));
+        top = Math.max(4, (this.height - 225) / 2);
         String mode = redstone() ? "redstone" : "network";
         Button modeButton = Button.builder(Component.translatable("screen.reticulum.beacon_mode_" + mode), b -> {
                     settings.putString("mode", redstone() ? "network" : "redstone");
                     send();
                 })
-                .bounds(left, top + 12, WIDTH, 20)
+                .bounds(left, top + 11, WIDTH, 18)
                 .tooltip(Tooltip.create(Component.translatable("screen.reticulum.beacon_mode_hint_" + mode)))
                 .build();
         modeButton.active = view.canEdit();
         addRenderableWidget(modeButton);
-        pickerTop = top + 50 + alarms * 11;
-        if (!redstone()) {
+        if (redstone()) {
+            pickerTop = top + 46;
+            editorTop = pickerTop + CELL + 12;
+        } else {
+            pickerTop = top + 44 + alarms * 10 + 2;
             addState(StatusBeaconStatePicker.WARNING_LABEL, StatusBeaconBlock.WARNING, left);
             addState(StatusBeaconStatePicker.CRITICAL_LABEL, StatusBeaconBlock.CRITICAL, left + 76);
+            editorTop = pickerTop + 20;
         }
-        editorTop = pickerTop + 28;
         int y = editorTop;
         if (redstone()) {
             boolean ownLook = own(selected) != null;
@@ -158,35 +165,42 @@ public class StatusBeaconScreen extends QuickScreen {
                     .pos(left, y).selected(ownLook).onValueChange((box, on) -> setOwn(selected, on)).build();
             ownBox.active = view.canEdit();
             addRenderableWidget(ownBox);
-            y += 24;
+            y += 20;
         }
+        colorTop = y;
         CompoundTag look = own(selected);
         if (look == null) {
             return;
         }
         BeaconLook current = BeaconLook.load(look, BeaconLook.WARNING);
-        // Color: swatches are drawn and clicked by hand (see render and mouseClicked); the hex box is here.
-        hex = kept("hex", new SeeThroughTextBox(font, left + WIDTH - 64, y, 64, 14, Component.translatable("screen.reticulum.beacon_color")));
+        // Color: one row of swatches (drawn and clicked by hand, see render and mouseClicked) and the hex box.
+        hex = kept("hex", new SeeThroughTextBox(font, left + WIDTH - 52, y, 52, 14, Component.translatable("screen.reticulum.beacon_color")));
         hex.setMaxLength(7);
         hex.setValue(String.format(Locale.ROOT, "#%06X", current.color()));
         hex.setEditable(view.canEdit());
         addRenderableWidget(hex);
-        y += 22;
-        y = flagRow(y, current, new int[] {BeaconLook.BEAM, BeaconLook.BEAM_THROUGH}, new String[] {"beam", "beam_through"});
-        y = flagRow(y, current, new int[] {BeaconLook.GLOW, BeaconLook.GLOW_THROUGH}, new String[] {"glow", "glow_through"});
-        y = flagRow(y, current, new int[] {BeaconLook.TEXT, BeaconLook.TEXT_THROUGH}, new String[] {"text", "text_through"});
-        label = kept("label", new SeeThroughTextBox(font, left, y - 2, WIDTH, 14, Component.translatable("screen.reticulum.beacon_label")));
+        y += 18;
+        // The effects: two rows of four switches (green on, gray off).
+        int quarter = (WIDTH - 6) / 4;
+        int[][] flags = {{BeaconLook.BEAM, BeaconLook.BEAM_THROUGH, BeaconLook.GLOW, BeaconLook.GLOW_THROUGH},
+                {BeaconLook.TEXT, BeaconLook.TEXT_THROUGH, BeaconLook.SOUND, BeaconLook.TWO_TONE}};
+        String[][] labels = {{"beam", "beam_through", "glow", "glow_through"}, {"text", "text_through", "sound", "two_tone"}};
+        for (int row = 0; row < 2; row++) {
+            for (int i = 0; i < 4; i++) {
+                toggle(left + i * (quarter + 2), y, quarter, current, flags[row][i], labels[row][i]);
+            }
+            y += 18;
+        }
+        y += 2;
+        label = kept("label", new SeeThroughTextBox(font, left, y, WIDTH, 14, Component.translatable("screen.reticulum.beacon_label")));
         label.setMaxLength(BeaconLook.LABEL_LIMIT);
         label.setValue(current.label());
         label.setHint(Component.translatable(redstone() ? "screen.reticulum.beacon_label_hint_redstone" : "screen.reticulum.beacon_label_hint_network"));
         label.setEditable(view.canEdit());
         addRenderableWidget(label);
         y += 18;
-        y = flagRow(y, current, new int[] {BeaconLook.SOUND, BeaconLook.TWO_TONE}, new String[] {"sound", "two_tone"});
-        addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.beacon_preview"), b -> preview())
-                .bounds(left + WIDTH - 20, y - 22, 20, 18).build());
         String chosen = current.sound().toString();
-        EditBox searchBox = kept("search", SoundSearch.box(font, left, y, WIDTH));
+        EditBox searchBox = kept("search", SoundSearch.box(font, left, y, WIDTH - 22));
         searchBox.setValue(search.isEmpty() ? chosen : search);
         searchBox.setEditable(view.canEdit());
         searchBox.setResponder(text -> {
@@ -198,6 +212,8 @@ public class StatusBeaconScreen extends QuickScreen {
             }
         });
         addRenderableWidget(searchBox);
+        addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.beacon_preview"), b -> preview())
+                .bounds(left + WIDTH - 20, y - 1, 20, 18).build());
         if (!search.isBlank()) {
             List<String> found = SoundSearch.matches(search);
             if (!found.isEmpty()) {
@@ -208,11 +224,23 @@ public class StatusBeaconScreen extends QuickScreen {
                 }));
             }
         }
-        y += 22;
+        y += 20;
         int third = (WIDTH - 8) / 3;
         pitch = number("pitch", left, y + 10, third, String.format(Locale.ROOT, "%.2f", current.pitch()));
         interval = number("interval", left + third + 4, y + 10, third, Integer.toString(current.interval()));
         range = number("range", left + 2 * (third + 4), y + 10, third, Integer.toString(current.range()));
+    }
+
+    /** One effect's switch: its name in green while on, gray while off. */
+    private void toggle(int x, int y, int width, BeaconLook look, int flag, String labelKey) {
+        boolean on = look.has(flag);
+        Button button = Button.builder(Component.translatable("screen.reticulum.beacon_" + labelKey).withColor(on ? 0x80FF80 : 0x808080),
+                b -> {
+                    change(t -> t.putInt("flags", on ? t.getInt("flags") & ~flag : t.getInt("flags") | flag));
+                    rebuildKeepingInput();
+                }).bounds(x, y, width, 16).build();
+        button.active = view.canEdit();
+        addRenderableWidget(button);
     }
 
     private void addState(String label, int state, int x) {
@@ -220,22 +248,9 @@ public class StatusBeaconScreen extends QuickScreen {
             commit();
             selected = state;
             rebuildWidgets();
-        }).bounds(x, pickerTop, 72, 20).build();
+        }).bounds(x, pickerTop, 72, 16).build();
         button.active = selected != state;
         addRenderableWidget(button);
-    }
-
-    private int flagRow(int y, BeaconLook look, int[] flags, String[] labels) {
-        for (int i = 0; i < flags.length; i++) {
-            int flag = flags[i];
-            Checkbox box = Checkbox.builder(Component.translatable("screen.reticulum.beacon_" + labels[i]), font)
-                    .pos(left + i * 120, y).selected(look.has(flag))
-                    .onValueChange((checkbox, on) -> change(t -> t.putInt("flags", on ? t.getInt("flags") | flag : t.getInt("flags") & ~flag)))
-                    .build();
-            box.active = view.canEdit();
-            addRenderableWidget(box);
-        }
-        return y + 22;
     }
 
     private EditBox number(String key, int x, int y, int width, String value) {
@@ -304,11 +319,11 @@ public class StatusBeaconScreen extends QuickScreen {
     }
 
     private int swatchX(int i) {
-        return left + 40 + (i % 8) * (SWATCH + 2);
+        return left + 34 + i * (SWATCH + 2);
     }
 
     private int swatchY(int i) {
-        return editorTop + (redstone() ? 24 : 0) - 2 + (i / 8) * (SWATCH + 2) - 6;
+        return colorTop + 1;
     }
 
     @Override
@@ -343,16 +358,16 @@ public class StatusBeaconScreen extends QuickScreen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawString(font, title, left, top, 0xFFFFFF);
-        graphics.drawString(font, view.status(), left, top + 37, 0xC0C0C0);
+        graphics.drawString(font, view.status(), left, top + 33, 0xC0C0C0);
         if (!redstone()) {
-            int y = top + 48;
+            int y = top + 44;
             if (view.alarms().isEmpty()) {
                 graphics.drawString(font, Component.translatable("screen.reticulum.beacon_quiet"), left, y, 0x80C080);
             }
-            for (String alarm : view.alarms().subList(0, Math.min(3, view.alarms().size()))) {
+            for (String alarm : view.alarms().subList(0, Math.min(ALARM_LINES, view.alarms().size()))) {
                 boolean critical = alarm.startsWith("!");
                 graphics.drawString(font, font.plainSubstrByWidth(alarm.substring(1), WIDTH), left, y, critical ? 0xFF5050 : 0xFFC040);
-                y += 11;
+                y += 10;
             }
         } else {
             // The strip: each level in the color it shows (dark where nothing), the edited one framed, the live one marked.
@@ -378,14 +393,13 @@ public class StatusBeaconScreen extends QuickScreen {
         if (redstone() && look == null) {
             CompoundTag below = selected > 0 ? shownAt(selected - 1) : null;
             graphics.drawString(font, below == null ? Component.translatable("screen.reticulum.beacon_shows_nothing")
-                    : Component.translatable("screen.reticulum.beacon_same_as", selected - 1), left, editorTop + 26, 0xA0A0A0);
+                    : Component.translatable("screen.reticulum.beacon_same_as", selected - 1), left, colorTop + 4, 0xA0A0A0);
             return;
         }
         if (look == null) {
             return;
         }
-        int colorRow = editorTop + (redstone() ? 24 : 0);
-        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_color"), left, colorRow + 3, 0xE0E0E0);
+        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_color"), left, colorTop + 3, 0xE0E0E0);
         DyeColor[] dyes = DyeColor.values();
         for (int i = 0; i < dyes.length; i++) {
             int x = swatchX(i);
@@ -402,7 +416,7 @@ public class StatusBeaconScreen extends QuickScreen {
             graphics.drawString(font, Component.translatable("screen.reticulum.beacon_range"), range.getX(), range.getY() - 10, 0xE0E0E0);
         }
         if (!view.canEdit()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_read_only"), left, pitch.getY() + 20, 0xA0A0A0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_read_only"), left, pitch.getY() + 18, 0xA0A0A0);
         }
     }
 

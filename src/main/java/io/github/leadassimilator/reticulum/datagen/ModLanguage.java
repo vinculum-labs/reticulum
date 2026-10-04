@@ -40,13 +40,13 @@ public class ModLanguage extends LanguageProvider {
         add("lookat.reticulum.beacon_critical", "Showing a critical alarm");
         add("screen.reticulum.beacon_warning", "Warning");
         add("screen.reticulum.beacon_beam", "Beam");
-        add("screen.reticulum.beacon_beam_through", "through blocks");
+        add("screen.reticulum.beacon_beam_through", "Through blocks");
         add("screen.reticulum.beacon_glow", "Glow");
-        add("screen.reticulum.beacon_glow_through", "through walls");
+        add("screen.reticulum.beacon_glow_through", "Through walls");
         add("screen.reticulum.beacon_sound", "Sound");
         add("screen.reticulum.beacon_two_tone", "Two-tone");
         add("screen.reticulum.beacon_text", "Text");
-        add("screen.reticulum.beacon_text_through", "through walls");
+        add("screen.reticulum.beacon_text_through", "Through walls");
         add("screen.reticulum.beacon_label", "Text");
         add("screen.reticulum.beacon_label_hint_network", "Its text (blank: the alarms' messages)");
         add("screen.reticulum.beacon_label_hint_redstone", "Its text, shown above the beacon");
