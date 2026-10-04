@@ -94,6 +94,31 @@ public final class TopologyTests {
         });
     }
 
+    /** A connector bound elsewhere, placed against a controller and then picked onto that controller's network, joins it. */
+    @GameTest(template = "empty")
+    public static void connectorRebindToTheControllerBesideItJoinsIt(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(5, 1, 5), ModBlocks.CONTROLLER.get(), null);
+        Network a = network(helper, new BlockPos(1, 1, 1));
+        Network b = network(helper, new BlockPos(5, 1, 5));
+        BlockPos at = new BlockPos(2, 1, 1);
+        helper.setBlock(at, ModBlocks.CONNECTOR.get());
+        net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(ModBlocks.CONNECTOR.get());
+        stack.set(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get(), b.id());
+        be(helper, at).applyComponentsFromItemStack(stack);
+        Topology.onPlaced(helper.getLevel(), helper.absolutePos(at), Direction.WEST, null);
+        check(helper, b.id().equals(net(helper, at)), "the bound connector didn't stay on its own network");
+
+        Topology.rebind(helper.getLevel(), helper.absolutePos(at), a, null);
+        check(helper, a.id().equals(net(helper, at)), "the connector didn't move to the controller's network");
+        check(helper, Topology.connected(helper.getLevel(), helper.absolutePos(at), Direction.WEST),
+                "joint is " + Topology.jointState(helper.getLevel(), helper.absolutePos(at), Direction.WEST));
+        var controllerA = Devices.global(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)));
+        check(helper, a.connectors().stream().noneMatch(c -> c.devices().contains(controllerA)), "its own controller is one of its devices");
+        check(helper, b.connectors().isEmpty(), "the old network kept the connector");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void cablesAndConnectorJoinController(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);

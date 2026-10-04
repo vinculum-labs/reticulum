@@ -653,6 +653,7 @@ public final class Topology {
             return Component.translatable("message.reticulum.already_bound", network.name());
         }
         assign(level, piece, network.id());
+        rejoin(level, piece.blocks());
         refreshAround(level, piece.blocks());
         return Component.translatable("message.reticulum.piece_moved", old == null ? "" : old.name(), network.name());
     }
@@ -678,8 +679,45 @@ public final class Topology {
             return Component.translatable("message.reticulum.no_edit_access");
         }
         move(level, pos, connector, old, network.id());
+        rejoin(level, Set.of(pos));
         refreshAround(level, Set.of(pos));
         return Component.translatable("message.reticulum.bound", network.name());
+    }
+
+    /**
+     * After blocks were picked onto another network: joints that were only disconnected because the two sides were on
+     * different networks (never ones disconnected by hand) connect where the neighbor is now on the same network — a
+     * connector placed against a controller and then picked onto its network is cabled to it.
+     */
+    private static void rejoin(ServerLevel level, Set<BlockPos> blocks) {
+        boolean changed = false;
+        for (BlockPos pos : blocks) {
+            NetworkBlockEntity be = blockEntity(level, pos);
+            if (be == null) {
+                continue;
+            }
+            for (Direction dir : Direction.values()) {
+                BlockPos next = pos.relative(dir);
+                NetworkBlockEntity neighbor = blocks.contains(next) ? null : blockEntity(level, next);
+                if (neighbor == null || be.isManuallyDisconnected(dir) || neighbor.isManuallyDisconnected(dir.getOpposite())
+                        || !be.isDisconnected(dir) || !java.util.Objects.equals(networkOf(level, be), networkOf(level, neighbor))) {
+                    continue;
+                }
+                be.setAutoDisconnected(dir, false);
+                neighbor.setAutoDisconnected(dir.getOpposite(), false);
+                touch(networkOf(level, be));
+                changed = true;
+            }
+        }
+        if (!changed) {
+            return;
+        }
+        // Cabled now, a controller beside a connector is no longer one of its devices.
+        for (BlockPos pos : blocks) {
+            if (blockEntity(level, pos) instanceof ConnectorBlockEntity) {
+                rescanConnector(level, pos);
+            }
+        }
     }
 
     // ---------------------------------------------------------------- connectors
