@@ -49,6 +49,8 @@
     const shape = lines.map((l) => `${l.label}|${l.color}|${l.shade ?? 0}|${!!l.dashed}`).join(";") + `|${step}`;
     if (plot && shape === builtFor) {
       plot.setData(data);
+      // With the cursor away, the legend's "Now" values follow the new data.
+      if (plot.cursor.idx == null) plot.setLegend({ idx: null as unknown as number });
       return;
     }
     plot?.destroy();
@@ -63,7 +65,20 @@
         scales: { x: { time: true }, y: { range: (_u, _min, max) => [0, Math.max(1, max * 1.1)] } },
         axes: [axis, { ...axis, size: 52 }],
         // The time under the cursor as the axis shows it (no date): seconds in the 5-minute view.
-        series: [{ value: (_u: uPlot, t: number | null) => (t == null ? "–" : clock(t)) }, ...lines.map((l) => ({ label: l.label, stroke: css(l.color, l.shade), width: 1.5, dash: l.dashed ? [5, 4] : undefined, value: (_u: uPlot, v: number | null) => (v == null ? "–" : format(v)) }))],
+        // The legend: the values under the cursor, or with it away the latest ("Now").
+        series: [
+          { value: (_u: uPlot, t: number | null, _s: number, idx: number | null) => (idx == null ? "Now" : t == null ? "–" : clock(t)) },
+          ...lines.map((l) => ({
+            label: l.label,
+            stroke: css(l.color, l.shade),
+            width: 1.5,
+            dash: l.dashed ? [5, 4] : undefined,
+            value: (u: uPlot, v: number | null, s: number, idx: number | null) => {
+              const shown = idx == null ? (u.data[s] as number[])[u.data[s].length - 1] : v;
+              return shown == null ? "–" : format(shown);
+            },
+          })),
+        ],
       },
       data,
       host,
