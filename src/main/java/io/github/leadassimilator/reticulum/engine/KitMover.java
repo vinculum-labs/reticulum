@@ -354,14 +354,14 @@ final class KitMover {
                 return false;
             }
         }
-        Map<CompiledSheet.Route, Long> perRoute = new LinkedHashMap<>();
+        // Each item for its own chart (and the route's totals), then each route on once.
+        java.util.Set<CompiledSheet.Route> moved = new java.util.LinkedHashSet<>();
         for (Take take : takes) {
-            perRoute.merge(take.route, (long) take.stack.getCount(), Long::sum);
+            ctx.runtime().delivered(take.route, take.stack.getCount(),
+                    "item:" + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(take.stack.getItem()));
+            moved.add(take.route);
         }
-        perRoute.forEach((route, count) -> {
-            ctx.runtime().delivered(route, count);
-            ctx.runtime().advance(route);
-        });
+        moved.forEach(route -> ctx.runtime().advance(route));
         return true;
     }
 

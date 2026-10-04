@@ -494,6 +494,38 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /**
+     * Charts: moving iron counts in the items total and in iron's own chart (charted), not in dirt's (not charted); a
+     * charted device's level is sampled each second.
+     */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void chartsRecordTotalsChartedItemsAndLevels(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.IRON_INGOT, 64));
+        rig.container(0).setItem(1, new ItemStack(Items.DIRT, 64));
+        var iron = new io.github.leadassimilator.reticulum.network.ChartSeries(io.github.leadassimilator.reticulum.network.ChartSeries.Kind.ITEM,
+                Optional.of(net.minecraft.resources.ResourceLocation.withDefaultNamespace("iron_ingot")), Optional.empty(), Optional.empty());
+        var level = new io.github.leadassimilator.reticulum.network.ChartSeries(io.github.leadassimilator.reticulum.network.ChartSeries.Kind.LEVEL,
+                Optional.empty(), Optional.of(rig.device(1)), Optional.of(ResourceKind.ITEM));
+        rig.network().charts().add(iron);
+        rig.network().charts().add(level);
+        rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
+        java.util.function.ToLongFunction<UUID> sum = id -> java.util.Arrays.stream(rig.runtime().metrics().history(id, false)).sum();
+        java.util.function.ToLongFunction<UUID> last = id -> {
+            long[] values = rig.runtime().metrics().history(id, false);
+            return values[values.length - 1];
+        };
+        helper.succeedWhen(() -> {
+            check(helper, rig.count(1, Items.IRON_INGOT) == 64 && rig.count(1, Items.DIRT) == 64, "not everything moved yet");
+            long total = sum.applyAsLong(io.github.leadassimilator.reticulum.network.ChartSeries.totalId(ResourceKind.ITEM));
+            check(helper, total == 128, "the items total isn't 128: " + total);
+            check(helper, sum.applyAsLong(iron.seriesId()) == 64, "iron's chart isn't 64: " + sum.applyAsLong(iron.seriesId()));
+            UUID dirt = io.github.leadassimilator.reticulum.network.ChartSeries.idOf("item:minecraft:dirt");
+            check(helper, sum.applyAsLong(dirt) == 0, "dirt was recorded without being charted");
+            check(helper, last.applyAsLong(level.seriesId()) == 128, "the barrel's level isn't 128: " + last.applyAsLong(level.seriesId()));
+        });
+    }
+
     /** A Constant with its "on" input wired gives its value only while that input is above 0. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void constantFollowsItsOnInput(GameTestHelper helper) {

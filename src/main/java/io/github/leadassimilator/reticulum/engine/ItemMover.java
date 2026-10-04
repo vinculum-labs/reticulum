@@ -179,6 +179,7 @@ final class ItemMover {
                         continue;
                     }
                     int stackSize = stack.getMaxStackSize();
+                    String what = "item:" + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
                     int moved = transfer(ctx, handler, slot, (int) Math.min(amount, Integer.MAX_VALUE), to);
                     if (moved <= 0) {
                         why = Status.furthest(why, Status.TARGET_FULL);
@@ -190,7 +191,7 @@ final class ItemMover {
                         total += moved;
                         available -= moved;
                         budget -= moved;
-                        ctx.runtime().delivered(route, moved);
+                        ctx.runtime().delivered(route, moved, what);
                         ctx.runtime().advance(route);
                         turned = true;
                         stack = handler.getStackInSlot(slot);

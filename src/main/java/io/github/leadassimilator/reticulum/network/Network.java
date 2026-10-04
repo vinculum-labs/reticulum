@@ -43,8 +43,16 @@ public final class Network {
             Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("filters", Map.of()).forGetter(n -> n.filters),
             OverflowBuffer.CODEC.optionalFieldOf("overflow").forGetter(n -> Optional.of(n.overflow)),
             Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("signal_memory", Map.of()).forGetter(n -> n.signalMemory),
-            Ids.lenientList(Identify.CODEC, "identify").optionalFieldOf("identified", List.of()).forGetter(n -> List.copyOf(n.identified))
+            Lists.CODEC.forGetter(n -> new Lists(List.copyOf(n.identified), List.copyOf(n.charts)))
     ).apply(i, Network::new));
+
+    /** The identified list and the charts, saved as fields of the network like the rest. */
+    private record Lists(List<Identify> identified, List<ChartSeries> charts) {
+        static final com.mojang.serialization.MapCodec<Lists> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Ids.lenientList(Identify.CODEC, "identify").optionalFieldOf("identified", List.of()).forGetter(Lists::identified),
+                Ids.lenientList(ChartSeries.CODEC, "chart").optionalFieldOf("charts", List.of()).forGetter(Lists::charts)
+        ).apply(i, Lists::new));
+    }
 
     private final UUID id;
     private String name;
@@ -69,6 +77,8 @@ public final class Network {
     private final Map<String, Long> signalMemory = new LinkedHashMap<>();
     /** What is lit up to be found, shared with everyone who can view the network. */
     private final List<Identify> identified = new ArrayList<>();
+    /** What players chose to chart beyond the totals (items, fluids, chemicals moved; devices' levels). */
+    private final List<ChartSeries> charts = new ArrayList<>();
     /** Bumped on every change; not saved. The web protocol sends a new snapshot when it moves. */
     private int revision;
 
@@ -83,7 +93,7 @@ public final class Network {
     private Network(UUID id, String name, Optional<UUID> owner, String ownerName, AccessMode accessMode, Optional<String> passwordHash,
             List<Member> members, Optional<GlobalPos> controller, List<ConnectorRecord> connectors, List<DeviceRecord> devices,
             Optional<Switches> switches, List<Sheet> sheets, Map<String, String> filters, Optional<OverflowBuffer> overflow, Map<String, Long> signalMemory,
-            List<Identify> identified) {
+            Lists lists) {
         this(id, name, owner.orElse(null), ownerName, accessMode);
         this.passwordHash = passwordHash.orElse(null);
         members.forEach(m -> this.members.put(m.id(), m));
@@ -95,7 +105,8 @@ public final class Network {
         this.filters.putAll(filters);
         this.overflow = overflow.orElseGet(OverflowBuffer::new);
         this.signalMemory.putAll(signalMemory);
-        this.identified.addAll(identified);
+        this.identified.addAll(lists.identified());
+        lists.charts().stream().filter(ChartSeries::valid).limit(Limits.CHARTS).forEach(this.charts::add);
         ensureTree();
     }
 
@@ -202,6 +213,10 @@ public final class Network {
 
     public Switches switches() {
         return switches;
+    }
+
+    public List<ChartSeries> charts() {
+        return charts;
     }
 
     public List<Identify> identified() {

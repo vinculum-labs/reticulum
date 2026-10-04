@@ -184,6 +184,21 @@ final class Snapshots {
         out.addProperty("antenna", antennaTier(server, network));
         out.add("power", WebApi.powerJson(runtime.powerState(server, network)));
         out.add("devices", devices);
+        JsonArray charts = new JsonArray();
+        for (io.github.leadassimilator.reticulum.network.ChartSeries chart : network.charts()) {
+            JsonObject json = encode(server, io.github.leadassimilator.reticulum.network.ChartSeries.CODEC, chart).getAsJsonObject();
+            json.addProperty("key", chart.key());
+            json.addProperty("series", chart.seriesId().toString());
+            charts.add(json);
+        }
+        out.add("charts", charts);
+        JsonObject totals = new JsonObject();
+        for (io.github.leadassimilator.reticulum.graph.ResourceKind kind : io.github.leadassimilator.reticulum.graph.ResourceKind.values()) {
+            if (kind != io.github.leadassimilator.reticulum.graph.ResourceKind.REDSTONE && kind != io.github.leadassimilator.reticulum.graph.ResourceKind.ME) {
+                totals.addProperty(kind.getSerializedName(), io.github.leadassimilator.reticulum.network.ChartSeries.totalId(kind).toString());
+            }
+        }
+        out.add("chartTotals", totals);
 
         JsonArray connectors = new JsonArray();
         for (ConnectorRecord connector : network.connectors()) {

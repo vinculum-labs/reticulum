@@ -452,6 +452,11 @@ final class Signals {
         }
     }
 
+    /** How much of a resource a device of the network holds (items, mB or FE), all of it: for charts. */
+    static long amount(NetworkRuntime.Context ctx, CompiledSheet sheet, io.github.leadassimilator.reticulum.graph.ResourceKind resource, GlobalPos device) {
+        return count(ctx, sheet, new NodeSettings.LevelSettings(resource, device, List.of(), ""));
+    }
+
     /** How much of a resource a device holds (items, mB or FE), counting only what matches the node's filter. */
     private static long count(NetworkRuntime.Context ctx, CompiledSheet sheet, NodeSettings.LevelSettings level) {
         NodeSettings.Port port = new NodeSettings.Port(level.resource(), level.device(), level.faces(), Optional.empty());
@@ -460,6 +465,7 @@ final class Signals {
             return 0;
         }
         Filters.Context context = Filters.Context.of(world);
+        // No filter: all of it.
         String expression = level.filter();
         boolean comparator = level.output() == NodeSettings.LevelOutput.COMPARATOR;
         boolean[] any = {false};
@@ -467,7 +473,7 @@ final class Signals {
         long amount = 0;
         switch (level.resource()) {
             case ITEM -> {
-                Filters.ItemFilter filter = sheet.itemFilter(expression);
+                Filters.ItemFilter filter = expression.isBlank() ? (stack, c) -> true : sheet.itemFilter(expression);
                 ItemPort items = ctx.runtime().itemPort(ctx.server(), ctx.network(), port);
                 amount = items.count(stack -> filter.test(stack, context));
                 if (comparator) {
@@ -475,7 +481,7 @@ final class Signals {
                 }
             }
             case FLUID -> {
-                Filters.FluidFilter filter = sheet.fluidFilter(expression);
+                Filters.FluidFilter filter = expression.isBlank() ? (fluid, c) -> true : sheet.fluidFilter(expression);
                 double shares = 0;
                 int tanks = 0;
                 for (IFluidHandler handler : ctx.runtime().fluidView(ctx.server(), ctx.network(), port)) {
@@ -503,7 +509,7 @@ final class Signals {
             case REDSTONE, ME -> {
             }
             case CHEMICAL -> {
-                amount = Mods.MEKANISM ? ChemicalMover.count(ctx, port, sheet.chemicalFilter(expression), context) : 0;
+                amount = Mods.MEKANISM ? ChemicalMover.count(ctx, port, expression.isBlank() ? (chemical, c) -> true : sheet.chemicalFilter(expression), context) : 0;
                 // Fullness isn't worked out for chemicals: like a comparator, that is just "any or not".
                 any[0] = amount > 0;
             }

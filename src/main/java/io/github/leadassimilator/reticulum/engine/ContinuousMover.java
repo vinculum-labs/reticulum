@@ -177,6 +177,11 @@ final class ContinuousMover {
         }
 
         @Override
+        public String chartKey(FluidStack kind) {
+            return "fluid:" + net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(kind.getFluid());
+        }
+
+        @Override
         public boolean sameKind(FluidStack a, FluidStack b) {
             return FluidStack.isSameFluidSameComponents(a, b);
         }

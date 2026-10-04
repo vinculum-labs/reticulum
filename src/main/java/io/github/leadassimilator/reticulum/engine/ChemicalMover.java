@@ -77,6 +77,11 @@ final class ChemicalMover {
         }
 
         @Override
+        public String chartKey(ChemicalStack kind) {
+            return "chemical:" + io.github.leadassimilator.reticulum.integration.mekanism.MekanismChemicals.id(kind);
+        }
+
+        @Override
         public boolean sameKind(ChemicalStack a, ChemicalStack b) {
             return ChemicalStack.isSameChemical(a, b);
         }

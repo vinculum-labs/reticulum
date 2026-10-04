@@ -65,6 +65,26 @@ public final class Metrics {
         }
     }
 
+    /** Adds to one series by its id (a chart's: a resource's total, or an item, fluid or chemical charted). */
+    void recordId(UUID id, long amount, long tick) {
+        if (amount <= 0) {
+            return;
+        }
+        Series s = series.computeIfAbsent(id, k -> new Series());
+        s.current += amount;
+        s.lastMovedTick = tick;
+    }
+
+    /** Sets a level series for this second (a device's contents): a minute's value is then the sum of 60 samples. */
+    void sample(UUID id, long value) {
+        series.computeIfAbsent(id, k -> new Series()).current = value;
+    }
+
+    /** Forgets series no longer charted. */
+    void forget(UUID id) {
+        series.remove(id);
+    }
+
     /** Total moved over the last 5 minutes, per id. */
     public Map<UUID, Long> lastFiveMinutes() {
         Map<UUID, Long> out = new HashMap<>();

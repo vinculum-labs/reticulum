@@ -64,7 +64,7 @@ public final class WebApi {
     private static int nextMessage;
     /** Edits only taken alone in a batch: what they change can't be put back if a later edit is refused. */
     private static final java.util.Set<String> ALONE = java.util.Set.of("relinkDevice", "deleteOrphan", "setAccess", "setPassword", "setMember",
-            "removeMember");
+            "removeMember", "addChart", "removeChart");
 
     private WebApi() {
     }
@@ -560,6 +560,27 @@ public final class WebApi {
                     if (!NetworkManager.deleteOrphan(server, network, pos)) {
                         throw new RequestException("Only orphaned or missing devices can be deleted");
                     }
+                }
+                case "addChart" -> {
+                    io.github.leadassimilator.reticulum.network.ChartSeries chart = decode(server, io.github.leadassimilator.reticulum.network.ChartSeries.CODEC,
+                            edit.get("chart"), "chart");
+                    if (!chart.valid()) {
+                        throw new RequestException("A chart needs an item, fluid or chemical, or a device and what it holds");
+                    }
+                    if (chart.device().isPresent() && network.device(chart.device().get()) == null) {
+                        throw new RequestException("That block is not a device of this network");
+                    }
+                    if (network.charts().stream().anyMatch(c -> c.key().equals(chart.key()))) {
+                        throw new RequestException("That is charted already");
+                    }
+                    if (network.charts().size() >= io.github.leadassimilator.reticulum.network.Limits.CHARTS) {
+                        throw new RequestException("A network can chart at most " + io.github.leadassimilator.reticulum.network.Limits.CHARTS + " things");
+                    }
+                    network.charts().add(chart);
+                }
+                case "removeChart" -> {
+                    String key = string(edit, "key");
+                    network.charts().removeIf(c -> c.key().equals(key));
                 }
                 case "setFilter" -> {
                     String name = Limits.name(string(edit, "name"));

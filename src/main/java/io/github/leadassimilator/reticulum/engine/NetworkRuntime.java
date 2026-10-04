@@ -179,6 +179,7 @@ public final class NetworkRuntime {
 
     public void tick(MinecraftServer server, Network network) {
         ticks++;
+        takeCharted(network);
         // Edits put the tree right themselves; this catches anything else that changed the network.
         if (network.revision() != treeRevision) {
             if (network.ensureTree()) {
@@ -233,6 +234,7 @@ public final class NetworkRuntime {
         if (ticks % 20 == 0) {
             Overflow.retry(context, sheets);
         }
+        chart(server, network);
         metrics.tick(ticks);
     }
 
@@ -622,8 +624,51 @@ public final class NetworkRuntime {
 
     /** Records a delivery for metrics and charges the route's rate limits. */
     public void delivered(CompiledSheet.Route route, long amount) {
+        delivered(route, amount, null);
+    }
+
+    /**
+     * Records a delivery of {@code what} ("item:minecraft:iron_ingot", as {@link io.github.leadassimilator.reticulum.network.ChartSeries#key})
+     * for metrics, its resource's total and its own chart if charted, and charges the route's rate limits.
+     */
+    public void delivered(CompiledSheet.Route route, long amount, @Nullable String what) {
         consume(route.rateLimits(), amount);
         metrics.record(route, amount, ticks);
+        metrics.recordId(io.github.leadassimilator.reticulum.network.ChartSeries.totalId(route.sourceSettings().port().resource()), amount, ticks);
+        if (what != null && charted.contains(what)) {
+            metrics.recordId(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(what), amount, ticks);
+        }
+    }
+
+    /** The keys of what the network charts, as of this tick. */
+    private Set<String> charted = Set.of();
+
+    /** What is charted, taken in before anything moves each tick; series no longer charted forgotten. */
+    private void takeCharted(Network network) {
+        Set<String> now = new java.util.HashSet<>();
+        for (var series : network.charts()) {
+            now.add(series.key());
+        }
+        for (String gone : charted) {
+            if (!now.contains(gone)) {
+                metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone));
+            }
+        }
+        charted = now;
+    }
+
+    /** Charted levels, sampled once a second. */
+    private void chart(MinecraftServer server, Network network) {
+        if (ticks % 20 != 0) {
+            return;
+        }
+        Context context = new Context(server, network, this);
+        CompiledSheet root = compiled(network.root(), network);
+        for (var series : network.charts()) {
+            if (series.kind() == io.github.leadassimilator.reticulum.network.ChartSeries.Kind.LEVEL) {
+                metrics.sample(series.seriesId(), Signals.amount(context, root, series.resource().orElseThrow(), series.device().orElseThrow()));
+            }
+        }
     }
 
     public void consume(List<Node> rateLimits, long amount) {

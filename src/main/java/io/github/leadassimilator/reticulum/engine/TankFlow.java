@@ -67,6 +67,11 @@ final class TankFlow {
 
         /** Keeps what neither the sink nor the source would take, so nothing is lost. */
         void overflow(NetworkRuntime.Context ctx, S kind, long amount);
+
+        /** What a delivery of this kind is charted as ("fluid:minecraft:water"), or null (energy: only its total). */
+        default String chartKey(S kind) {
+            return null;
+        }
     }
 
     @FunctionalInterface
@@ -166,7 +171,7 @@ final class TankFlow {
             long moved = move(ctx, tank, from, sinks.get(i), kind, share[i]);
             if (moved > 0) {
                 total += moved;
-                ctx.runtime().delivered(routes.get(i), moved);
+                ctx.runtime().delivered(routes.get(i), moved, tank.chartKey(kind));
                 ctx.runtime().advance(routes.get(i));
             }
         }

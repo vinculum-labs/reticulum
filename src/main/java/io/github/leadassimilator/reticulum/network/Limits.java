@@ -21,6 +21,8 @@ public final class Limits {
     public static final int NODES_PER_SHEET = 1024;
     public static final int WIRES_PER_SHEET = 4096;
     public static final int FILTER_TEMPLATES = 256;
+    /** Things charted beyond the totals, per network. */
+    public static final int CHARTS = 16;
     public static final int IDENTIFIES = 256;
     public static final int MEMBERS = 256;
     public static final int KIT_LINES = 64;
