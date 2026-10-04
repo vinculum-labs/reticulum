@@ -302,14 +302,19 @@ public final class Topology {
         UUID chosen = primary;
         ordered.sort(java.util.Comparator.comparing((Map.Entry<Direction, Section> e) -> chosen == null || !chosen.equals(e.getValue().network())));
         boolean controllerJoined = own != null;
+        // The controllers already joined: a block touching the same section on two faces (closing a loop) joins it
+        // on both, as it is one section and one controller.
+        Set<BlockPos> joinedControllers = new HashSet<>();
         for (Map.Entry<Direction, Section> side : ordered) {
             Section comp = side.getValue();
             UUID net = comp.network();
             boolean connect = primary != null ? net == null || net.equals(primary) : net == null;
-            if (connect && !comp.controllers().isEmpty()) {
+            if (connect && !comp.controllers().isEmpty() && !joinedControllers.containsAll(comp.controllers())) {
                 // One controller per section, even when the other's network was deleted.
                 if (controllerJoined) {
                     connect = false;
+                } else {
+                    joinedControllers.addAll(comp.controllers());
                 }
                 controllerJoined = true;
             }
@@ -618,6 +623,12 @@ public final class Topology {
                 return toggleDevice(level, pos, connector, side, player);
             }
             return Component.translatable("message.reticulum.nothing_to_connect");
+        }
+        // Another network's controller beside a connector is a device it gives redstone to: attached or detached,
+        // not joined (two controllers can't share a network).
+        if (a instanceof ConnectorBlockEntity connector && b instanceof ControllerBlockEntity && !connected(level, pos, side)
+                && reachesDevice(level, pos, side)) {
+            return toggleDevice(level, pos, connector, side, player);
         }
         Network netA = NetworkManager.network(level.getServer(), networkOf(level, a));
         Network netB = NetworkManager.network(level.getServer(), networkOf(level, b));

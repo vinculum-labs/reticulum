@@ -51,7 +51,8 @@ public final class Linking {
             }
         }
         choices.sort(Comparator.comparing(Payloads.NetworkChoice::name, String.CASE_INSENSITIVE_ORDER));
-        PacketDistributor.sendToPlayer(player, new Payloads.OpenNetworkPicker(connector, choices));
+        // The packet holds at most 4096 (more would disconnect the player): the rest aren't offered.
+        PacketDistributor.sendToPlayer(player, new Payloads.OpenNetworkPicker(connector, choices.size() > 4096 ? List.copyOf(choices.subList(0, 4096)) : choices));
     }
 
     /** The network tool in hand forgets its network. */

@@ -127,7 +127,11 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     @Override
     protected void collectImplicitComponents(DataComponentMap.Builder components) {
         super.collectImplicitComponents(components);
-        if (networkId() != null) {
+        // The network it remembers, unless that is gone (an empty one is deleted as the block comes out, before the
+        // drop is made): then it drops as a fresh controller.
+        boolean gone = level instanceof net.minecraft.server.level.ServerLevel server && networkId() != null
+                && io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId()) == null;
+        if (networkId() != null && !gone) {
             components.set(ModDataComponents.NETWORK_ID.get(), networkId());
         }
         if (antennaTier > 0) {

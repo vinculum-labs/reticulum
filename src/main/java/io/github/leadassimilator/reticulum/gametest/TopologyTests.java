@@ -111,6 +111,20 @@ public final class TopologyTests {
         helper.succeed();
     }
 
+    /** A block closing a loop touches its own network's section twice: both joints connect (neither is cut off). */
+    @GameTest(template = "empty")
+    public static void closingALoopConnectsBothJoints(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(2, 1, 2), ModBlocks.CABLE.get(), Direction.NORTH);
+        // The square's last corner: next to the controller (north) and the cable before it (east).
+        place(helper, new BlockPos(1, 1, 2), ModBlocks.CABLE.get(), Direction.EAST);
+        BlockPos corner = helper.absolutePos(new BlockPos(1, 1, 2));
+        check(helper, Topology.connected(helper.getLevel(), corner, Direction.NORTH), "the corner isn't joined to the controller");
+        check(helper, Topology.connected(helper.getLevel(), corner, Direction.EAST), "the corner isn't joined to the cable it was placed against");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void differentNetworksDoNotJoin(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);

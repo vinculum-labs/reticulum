@@ -202,7 +202,10 @@ public final class Screens {
 
     private static Views.SideView sideView(ServerLevel level, BlockPos pos, NetworkBlockEntity be, Direction dir, @Nullable Network network) {
         BlockPos next = pos.relative(dir);
-        Topology.JointState joint = Topology.jointState(level, pos, dir);
+        // A connector facing another network's controller: a device it gives redstone to (attach or detach), not a joint.
+        boolean controllerDevice = be instanceof ConnectorBlockEntity && level.getBlockEntity(next) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity
+                && !Topology.connected(level, pos, dir) && Topology.reachesDevice(level, pos, dir);
+        Topology.JointState joint = controllerDevice ? null : Topology.jointState(level, pos, dir);
         if (joint != null) {
             Views.JointView view = switch (joint) {
                 case CONNECTED -> Views.JointView.CONNECTED;
@@ -212,7 +215,7 @@ public final class Screens {
             return new Views.SideView(dir, Views.SideKind.JOINT, view, true, Devices.icon(level, next),
                     level.getBlockState(next).getBlock().getName().getString(), "", List.of(), 0);
         }
-        if (be instanceof ConnectorBlockEntity connector && Devices.isDevice(level, next, dir.getOpposite())) {
+        if (be instanceof ConnectorBlockEntity connector && (controllerDevice || Devices.isDevice(level, next, dir.getOpposite()))) {
             DeviceRecord record = network == null ? null : network.device(Devices.global(level, next));
             List<String> faces = new ArrayList<>();
             for (FaceKey face : FaceKey.values()) {
