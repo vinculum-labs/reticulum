@@ -206,7 +206,8 @@ public final class NetworkManager {
     public static boolean relinkDevice(MinecraftServer server, Network network, GlobalPos from, GlobalPos to) {
         DeviceRecord old = network.device(from);
         DeviceRecord target = network.device(to);
-        if (old == null || target == null || from.equals(to) || old.state() == DeviceRecord.State.ACTIVE) {
+        // Not onto a device something already uses (a node, a slot, a chart): it would end up with two.
+        if (old == null || target == null || from.equals(to) || old.state() == DeviceRecord.State.ACTIVE || inUse(network, to)) {
             return false;
         }
         if (old.name() != null) {

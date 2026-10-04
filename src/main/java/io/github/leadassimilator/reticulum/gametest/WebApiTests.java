@@ -126,6 +126,36 @@ public final class WebApiTests {
         });
     }
 
+    /** A blueprint can't be placed inside itself (directly or through another), and positions must be finite numbers. */
+    @GameTest(template = "empty")
+    public static void blueprintLoopsAndBadPositionsAreRefused(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.setOwner(player.getUUID(), "web-test");
+        String id = network.id().toString();
+        java.util.function.Function<String, String> make = name -> call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id
+                + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"" + name + "\",\"blueprint\":true}]}").getAsJsonArray("results").get(0).getAsString();
+        String a = make.apply("a");
+        String b = make.apply("b");
+        java.util.function.BiFunction<String, String, String> placeIn = (on, used) -> "{\"op\":\"edit\",\"network\":\"" + id
+                + "\",\"edits\":[{\"type\":\"addNode\",\"sheet\":\"" + on + "\",\"node\":{\"id\":\"" + UUID.randomUUID()
+                + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + used + "\"}}}]}";
+        call(helper, player, placeIn.apply(b, a));
+        for (String[] refused : new String[][] {{placeIn.apply(a, a), "a blueprint inside itself"}, {placeIn.apply(a, b), "a loop through another blueprint"},
+                {"{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"n\",\"x\":\"NaN\"}]}", "a NaN position"}}) {
+            try {
+                WebApi.handle(player, JsonParser.parseString(refused[0]).getAsJsonObject(), "t");
+                helper.fail("Accepted " + refused[1]);
+            } catch (WebApi.RequestException expected) {
+                // expected
+            }
+        }
+        helper.succeed();
+    }
+
     /** Placed blueprints get numbered names ("bp #1", "bp #2"), the lowest free number; a name typed in is kept. */
     @GameTest(template = "empty")
     public static void placedBlueprintsGetNumberedNames(GameTestHelper helper) {

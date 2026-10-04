@@ -58,6 +58,9 @@ public final class Limits {
         if (node.label().isPresent() && node.label().get().length() > NAME) {
             return "A node's label can be at most " + NAME + " characters";
         }
+        if (!Float.isFinite(node.x()) || !Float.isFinite(node.y())) {
+            return "A node's position must be a number";
+        }
         if (node.note().isPresent() && node.note().get().length() > NOTE) {
             return "A node's note can be at most " + NOTE + " characters";
         }

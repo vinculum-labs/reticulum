@@ -79,7 +79,8 @@ public final class WebApi {
             send(player, error(null, "Malformed request"));
             return;
         }
-        String id = request.has("id") ? request.get("id").getAsString() : null;
+        JsonElement rawId = request.get("id");
+        String id = rawId != null && rawId.isJsonPrimitive() ? rawId.getAsString() : null;
         if (!allowance(player)) {
             send(player, error(id, "Too many requests — slow down"));
             return;
@@ -88,6 +89,10 @@ public final class WebApi {
             send(player, handle(player, request, id));
         } catch (RequestException e) {
             send(player, error(id, e.getMessage()));
+        } catch (IllegalStateException | UnsupportedOperationException | ClassCastException | NumberFormatException | JsonParseException e) {
+            // A field of the wrong type (an object where a number goes, say): the request's fault, not the server's, so
+            // no stack trace in the log for each one.
+            send(player, error(id, "Malformed request: " + e.getMessage()));
         } catch (RuntimeException | StackOverflowError | LinkageError e) {
             io.github.leadassimilator.reticulum.Reticulum.LOGGER.error("Web request failed: {}", json, e);
             send(player, error(id, "Internal error: " + e.getMessage()));
@@ -434,8 +439,8 @@ public final class WebApi {
                             throw new RequestException("A sheet can have at most " + Limits.NODES_PER_SHEET + " nodes");
                         }
                         placement.parent().remove(placement.node().id());
-                        float x = edit.has("x") ? edit.get("x").getAsFloat() : placement.node().x();
-                        float y = edit.has("y") ? edit.get("y").getAsFloat() : placement.node().y();
+                        float x = edit.has("x") ? coord(edit, "x") : placement.node().x();
+                        float y = edit.has("y") ? coord(edit, "y") : placement.node().y();
                         parent.add(placement.node().at(x, y));
                     }
                 }
@@ -506,10 +511,12 @@ public final class WebApi {
                     checkPorts(network, sheet, node);
                     checkSlotRead(sheet, node);
                     checkSheetNode(network, sheet, node, type.equals("addNode"));
+                    checkInstance(network, sheet, node);
                     checkHome(network, sheet, node, type.equals("updateNode") ? sheet.node(node.id()) : null);
                     check(Limits.check(node));
                     if (type.equals("addNode")) {
-                        if (sheet.node(node.id()) != null) {
+                        // Sheets compile into one graph: a node id must be unique across the network.
+                        if (network.sheets().stream().anyMatch(s -> s.node(node.id()) != null)) {
                             throw new RequestException("A node with that id already exists");
                         }
                         if (sheet.nodes().size() >= Limits.NODES_PER_SHEET) {
@@ -525,6 +532,8 @@ public final class WebApi {
                         // Switch could come up "on" from it.
                         if (old.kind() != node.kind()) {
                             forgetNode(network, sheet, old);
+                            // A pin no longer that pin: the wires on its sheet's node(s) go, as when it is removed.
+                            dropHolderWires(network, sheet, old);
                         }
                         sheet.replace(node);
                     }
@@ -550,7 +559,7 @@ public final class WebApi {
                         JsonObject p = element.getAsJsonObject();
                         Node node = sheet.node(uuid(p, "id"));
                         if (node != null) {
-                            sheet.replace(node.at(p.get("x").getAsFloat(), p.get("y").getAsFloat()));
+                            sheet.replace(node.at(coord(p, "x"), coord(p, "y")));
                         }
                     }
                 }
@@ -562,6 +571,10 @@ public final class WebApi {
                     }
                     if (wire.from().equals(wire.to())) {
                         throw new RequestException("A wire can't go from a node back into itself");
+                    }
+                    // Sheets compile into one graph: ids must be unique across the network, not only on a sheet.
+                    if (network.sheets().stream().anyMatch(s -> s.wires().stream().anyMatch(w -> w.id().equals(wire.id())))) {
+                        throw new RequestException("A wire with that id already exists");
                     }
                     if (sheet.wires().stream().anyMatch(w -> w.from().equals(wire.from()) && w.output() == wire.output() && w.to().equals(wire.to())
                             && w.input() == wire.input())) {
@@ -789,8 +802,13 @@ public final class WebApi {
          * another blueprint, one per instance of that blueprint.
          */
         private static List<String> instances(Network network, UUID blueprint, int depth) {
+            return instances(network, blueprint, depth, new java.util.HashSet<>());
+        }
+
+        /** {@code path}: the blueprints this one is reached through, so a loop (saved before loops were refused) ends. */
+        private static List<String> instances(Network network, UUID blueprint, int depth, java.util.Set<UUID> path) {
             List<String> out = new ArrayList<>();
-            if (depth >= NESTING) {
+            if (depth >= NESTING || !path.add(blueprint)) {
                 return out;
             }
             for (Sheet sheet : network.sheets()) {
@@ -799,13 +817,14 @@ public final class WebApi {
                         if (!sheet.blueprint()) {
                             out.add(node.id().toString());
                         } else {
-                            for (String outer : instances(network, sheet.id(), depth + 1)) {
+                            for (String outer : instances(network, sheet.id(), depth + 1, path)) {
                                 out.add(inInstance(outer, node.id()));
                             }
                         }
                     }
                 }
             }
+            path.remove(blueprint);
             return out;
         }
 
@@ -902,8 +921,8 @@ public final class WebApi {
             if (parent.nodes().size() >= Limits.NODES_PER_SHEET) {
                 throw new RequestException("A sheet can have at most " + Limits.NODES_PER_SHEET + " nodes");
             }
-            float x = edit.has("x") ? edit.get("x").getAsFloat() : 40;
-            float y = edit.has("y") ? edit.get("y").getAsFloat() : 40;
+            float x = edit.has("x") ? coord(edit, "x") : 40;
+            float y = edit.has("y") ? coord(edit, "y") : 40;
             parent.add(Node.of(new NodeSettings.SheetSettings(sheet.id())).at(x, y));
         }
 
@@ -928,6 +947,45 @@ public final class WebApi {
          * Sheet nodes come and go with their sheets (New sheet, Delete): one can't be added for a sheet already placed,
          * and an existing one can't be pointed at another sheet. Sheets can't go inside blueprints.
          */
+        /**
+         * A placed blueprint must place a blueprint, and never one that holds (in itself, or in blueprints placed in it)
+         * the sheet it goes on: the engine refuses such loops, and walking them blows up.
+         */
+        private static void checkInstance(Network network, Sheet sheet, Node node) throws RequestException {
+            if (!(node.settings() instanceof NodeSettings.InstanceSettings instance)) {
+                return;
+            }
+            Sheet used = network.sheet(instance.sheet());
+            if (used == null || !used.blueprint()) {
+                throw new RequestException("A placed blueprint has to place a blueprint");
+            }
+            java.util.Set<UUID> seen = new java.util.HashSet<>();
+            java.util.ArrayDeque<Sheet> todo = new java.util.ArrayDeque<>(List.of(used));
+            while (!todo.isEmpty()) {
+                Sheet at = todo.pop();
+                if (at.id().equals(sheet.id())) {
+                    throw new RequestException("Blueprint '" + used.name() + "' would end up inside itself");
+                }
+                if (!seen.add(at.id())) {
+                    continue;
+                }
+                for (Node inner : at.nodes()) {
+                    if (inner.settings() instanceof NodeSettings.InstanceSettings nested && network.sheet(nested.sheet()) instanceof Sheet held) {
+                        todo.push(held);
+                    }
+                }
+            }
+        }
+
+        /** A position from the editor: a finite number (NaN or infinity would break every snapshot of the network). */
+        private static float coord(JsonObject object, String key) throws RequestException {
+            JsonElement e = object.get(key);
+            if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber() || !Float.isFinite(e.getAsFloat())) {
+                throw new RequestException("A position must be a number");
+            }
+            return e.getAsFloat();
+        }
+
         private static void checkSheetNode(Network network, Sheet sheet, Node node, boolean adding) throws RequestException {
             Node existing = sheet.node(node.id());
             if (!adding && existing != null && existing.settings() instanceof NodeSettings.SheetSettings
