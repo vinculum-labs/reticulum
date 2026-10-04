@@ -106,7 +106,7 @@
         >
           <img src={iconUrl(kind, entry.id)} alt="" width="16" height="16" class="shrink-0" style="image-rendering: pixelated" />
           <span class="min-w-0 flex-1 truncate">{entry.name}</span>
-          <span class="min-w-0 max-w-[45%] truncate text-xs muted">{entry.id}</span>
+          <span class="tail min-w-0 max-w-[45%] truncate text-xs muted" title={entry.id}>&lrm;{entry.id}&lrm;</span>
         </button>
       {:else}
         <p class="px-2 py-1 muted">Nothing matches.</p>
@@ -117,7 +117,7 @@
       {#if picked}
         <img src={iconUrl(kind, picked.id)} alt="" width="16" height="16" class="shrink-0" style="image-rendering: pixelated" />
         <span class="min-w-0 flex-1 truncate">{picked.name}</span>
-        <span class="min-w-0 max-w-[45%] truncate text-xs muted">{picked.id}</span>
+        <span class="tail min-w-0 max-w-[45%] truncate text-xs muted" title={picked.id}>&lrm;{picked.id}&lrm;</span>
       {:else}
         <span class="min-w-0 flex-1 truncate muted">{placeholder}</span>
       {/if}
@@ -133,6 +133,12 @@
     border: 1px solid var(--line);
     border-radius: 6px;
     padding: 3px 7px;
+  }
+  /* An id cut from its start ("…:polished_andesite_stairs"): what it is matters more than its mod. Laid out right to
+     left so the ellipsis goes first; the marks round it keep its ":" in place. */
+  .tail {
+    direction: rtl;
+    text-align: left;
   }
   .select:disabled {
     opacity: 0.5;
