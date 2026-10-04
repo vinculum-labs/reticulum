@@ -149,7 +149,7 @@
    * can show: tied to it always, every card would redraw once a second on an idle network.
    */
   let hovered = $state(false);
-  /** A Switch's sheet, and the id it runs under here: its own, or this open placed copy's; none on a blueprint itself. */
+  /** A Switch's sheet, and the id it runs under here: its own, or the one for this open placed blueprint; none on a blueprint itself. */
   const holdingSheet = $derived(kind === "switch" ? sheetHolding(id) : undefined);
   const switchRun = $derived(kind !== "switch" ? null : instanceRun() ? liveKey(id, instanceRun()!) : holdingSheet?.blueprint ? null : id);
   const moved = $derived(hovered ? app.ticksSinceMoved[liveKey(id, instanceRun() ?? undefined)] : undefined);
@@ -348,7 +348,7 @@ ${idleTitle}` : idleTitle}
           control={{ node: data.node, sheet: holdingSheet, run: switchRun ?? id }}
           label={title}
           canEdit={app.snapshot?.canEdit ?? false}
-          why={switchRun ? undefined : "A blueprint doesn't run on its own — open one of its placed copies to flip it there"}
+          why={switchRun ? undefined : "A blueprint doesn't run on its own — open it where it's placed to flip it there"}
           sliderClass="w-24"
         />
       </div>

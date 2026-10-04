@@ -477,7 +477,7 @@
         <ControlWidget control={{ node, sheet, run: activityId }} label={nodeTitle(node)} canEdit={app.snapshot?.canEdit ?? false} />
       </Field>
     {/if}
-    <Help>Flip it here or on the dashboard (anyone who can edit the network can). It keeps where it stands across restarts — in a blueprint, each placed copy on its own.</Help>
+    <Help>Flip it here or on the dashboard (anyone who can edit the network can). It keeps where it stands across restarts — in a blueprint, separately for each place it's placed.</Help>
   {:else if s.kind === "display"}
     <Field label="Shows as">
       <Segmented
