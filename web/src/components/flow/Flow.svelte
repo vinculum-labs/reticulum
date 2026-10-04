@@ -489,7 +489,7 @@
     const p = flow.screenToFlowPosition({ x: point.clientX, y: point.clientY });
     // The innermost frame under the pointer, not one being dragged (or inside one being dragged).
     const dragged = new Set(moved.map((n) => n.id));
-    let target: { sheet: Sheet; frame?: (typeof view.frames extends Map<string, infer F> ? F : never); area: number } = { sheet, area: Infinity };
+    let target: { sheet: Sheet; frame?: (typeof view.frames extends Map<string, infer F> ? F : never); frameId?: string; area: number } = { sheet, area: Infinity };
     for (const [frameId, frame] of view.frames) {
       if (dragged.has(frameId) || framesAround(frameId).some((id) => dragged.has(id))) continue;
       const internal = flow.getInternalNode(frameId);
@@ -498,7 +498,7 @@
       const height = internal?.measured.height ?? 0;
       const held = app.snapshot.sheets.find((x) => x.id === frame.sheet);
       if (!at || !held || p.x < at.x || p.y < at.y || p.x > at.x + width || p.y > at.y + height) continue;
-      if (width * height < target.area) target = { sheet: held, frame, area: width * height };
+      if (width * height < target.area) target = { sheet: held, frame, frameId, area: width * height };
     }
     // Onto a closed sheet node (no frame): into its sheet, to the right of what is already there.
     let intoClosed: { x: number; y: number } | null = null;
@@ -530,6 +530,12 @@
       target = { sheet: parent, area: Infinity };
       // Beside this sheet's node there, on the side it was dropped.
       intoParent = { x: (holder?.x ?? 0) + (p.x < box.x ? -260 : 260), y: holder?.y ?? 0 };
+    }
+    // Without Alt a card stays in its frame, which grows to keep it (past its left or top edge the pointer is off the
+    // frame, but that isn't a drop outside it): only into a frame or sheet node, never out to one around it.
+    const around = framesAround(cards[0].id);
+    if (!event.altKey && around.length && !intoClosed && (target.sheet === sheet || (target.frameId && around.slice(1).includes(target.frameId)))) {
+      return false;
     }
     if (!from || from.id === target.sheet.id) return false;
     const nodesMoved = cards.map((n) => nodeOf(n.id)).filter((n): n is GraphNode => !!n);
