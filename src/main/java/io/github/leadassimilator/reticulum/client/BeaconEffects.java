@@ -77,6 +77,66 @@ public final class BeaconEffects {
         pose.popPose();
     }
 
+    /** How long each alarm's message shows before the next. */
+    private static final long CYCLE_MS = 3000;
+
+    /** Beacons' text: their look's label, or (Network mode) the alarms going off, taking turns. Through walls if set. */
+    public static void drawTexts(RenderLevelStageEvent event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || mc.level == null
+                || StatusBeaconBlockEntity.CLIENT_LOADED.isEmpty()) {
+            return;
+        }
+        Vec3 camera = event.getCamera().getPosition();
+        double distance = mc.options.getEffectiveRenderDistance() * 16.0;
+        PoseStack pose = event.getPoseStack();
+        pose.pushPose();
+        pose.translate(-camera.x, -camera.y, -camera.z);
+        MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
+        long turn = System.currentTimeMillis() / CYCLE_MS;
+        // Text hidden by walls first, then the text seen through them (drawn with depth testing off).
+        for (boolean pass : new boolean[] {false, true}) {
+            boolean any = false;
+            for (StatusBeaconBlockEntity beacon : StatusBeaconBlockEntity.CLIENT_LOADED) {
+                BeaconLook look = beacon.look();
+                if (look == null || beacon.getLevel() != mc.level || beacon.isRemoved() || !look.has(BeaconLook.TEXT)
+                        || camera.distanceToSqr(Vec3.atCenterOf(beacon.getBlockPos())) > distance * distance) {
+                    continue;
+                }
+                boolean through = look.has(BeaconLook.TEXT_THROUGH)
+                        && !(beacon.mode() == StatusBeaconBlockEntity.Mode.REDSTONE && ReticulumClientConfig.HIDE_REDSTONE_BEACON_GLOW.getAsBoolean());
+                if (through != pass) {
+                    continue;
+                }
+                String text;
+                int color;
+                java.util.List<String> alarms = beacon.alarmTexts();
+                if (!look.label().isBlank()) {
+                    text = look.label();
+                    color = look.color();
+                } else if (beacon.mode() == StatusBeaconBlockEntity.Mode.NETWORK && !alarms.isEmpty()) {
+                    int index = (int) (turn % alarms.size());
+                    String alarm = alarms.get(index);
+                    boolean critical = alarm.startsWith("!");
+                    text = "⚠ " + alarm.substring(1) + (alarms.size() > 1 ? " (" + (index + 1) + "/" + alarms.size() + ")" : "");
+                    color = critical ? StatusBeaconRenderer.CRITICAL_COLOR : StatusBeaconRenderer.WARNING_COLOR;
+                } else {
+                    continue;
+                }
+                WorldLabel.draw(pose, event.getCamera(), buffers, mc.font, Vec3.atCenterOf(beacon.getBlockPos()).add(0, 0.9, 0), text, color, through);
+                any = true;
+            }
+            if (any) {
+                if (pass) {
+                    WorldLabel.endThroughWalls(buffers);
+                } else {
+                    buffers.endBatch();
+                }
+            }
+        }
+        pose.popPose();
+    }
+
     private static void fillBox(Matrix4f m, VertexConsumer buffer, AABB box, float r, float g, float b, float a) {
         float x0 = (float) box.minX, y0 = (float) box.minY, z0 = (float) box.minZ;
         float x1 = (float) box.maxX, y1 = (float) box.maxY, z1 = (float) box.maxZ;

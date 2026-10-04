@@ -44,6 +44,7 @@ public class ReticulumClient {
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::onRenderLevel);
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.StatusBeaconRenderer::register);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::onRenderLevel);
+        NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::drawTexts);
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::registerColors);
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::registerItemColors);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::onClientTick);

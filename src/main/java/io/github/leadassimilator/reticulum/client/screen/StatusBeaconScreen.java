@@ -37,6 +37,7 @@ public class StatusBeaconScreen extends QuickScreen {
     private int pickerTop;
     private int editorTop;
     private EditBox hex;
+    private EditBox label;
     private EditBox pitch;
     private EditBox interval;
     private EditBox range;
@@ -131,7 +132,7 @@ public class StatusBeaconScreen extends QuickScreen {
     protected void init() {
         left = (width - WIDTH) / 2;
         int alarms = redstone() ? 0 : Math.min(3, Math.max(1, view.alarms().size()));
-        int height = 230 + alarms * 11;
+        int height = 270 + alarms * 11;
         top = Math.max(6, (this.height - height) / 2);
         String mode = redstone() ? "redstone" : "network";
         Button modeButton = Button.builder(Component.translatable("screen.reticulum.beacon_mode_" + mode), b -> {
@@ -173,6 +174,14 @@ public class StatusBeaconScreen extends QuickScreen {
         y += 22;
         y = flagRow(y, current, new int[] {BeaconLook.BEAM, BeaconLook.BEAM_THROUGH}, new String[] {"beam", "beam_through"});
         y = flagRow(y, current, new int[] {BeaconLook.GLOW, BeaconLook.GLOW_THROUGH}, new String[] {"glow", "glow_through"});
+        y = flagRow(y, current, new int[] {BeaconLook.TEXT, BeaconLook.TEXT_THROUGH}, new String[] {"text", "text_through"});
+        label = kept("label", new SeeThroughTextBox(font, left, y - 2, WIDTH, 14, Component.translatable("screen.reticulum.beacon_label")));
+        label.setMaxLength(BeaconLook.LABEL_LIMIT);
+        label.setValue(current.label());
+        label.setHint(Component.translatable(redstone() ? "screen.reticulum.beacon_label_hint_redstone" : "screen.reticulum.beacon_label_hint_network"));
+        label.setEditable(view.canEdit());
+        addRenderableWidget(label);
+        y += 18;
         y = flagRow(y, current, new int[] {BeaconLook.SOUND, BeaconLook.TWO_TONE}, new String[] {"sound", "two_tone"});
         addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.beacon_preview"), b -> preview())
                 .bounds(left + WIDTH - 20, y - 22, 20, 18).build());
@@ -277,6 +286,11 @@ public class StatusBeaconScreen extends QuickScreen {
             changed |= value != look.getInt("range");
             look.putInt("range", value);
         } catch (NumberFormatException ignored) {
+        }
+        String text = label.getValue().strip();
+        if (!text.equals(look.getString("label"))) {
+            look.putString("label", text);
+            changed = true;
         }
         if (changed) {
             send();

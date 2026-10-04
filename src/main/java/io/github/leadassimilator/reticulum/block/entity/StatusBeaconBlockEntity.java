@@ -1,5 +1,6 @@
 package io.github.leadassimilator.reticulum.block.entity;
 
+import java.util.List;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -48,6 +49,11 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     private BeaconLook critical = BeaconLook.CRITICAL;
     /** Redstone mode: the look of each level (0 to 15), or null for the same as the level below (level 0: nothing shown). */
     private final BeaconLook[] levels = new BeaconLook[16];
+    /**
+     * The alarms going off on its network, each "!" (critical) or "?" (a warning) and its message, for its text: sent to
+     * clients only while a look shows text in Network mode.
+     */
+    private List<String> alarmTexts = List.of();
     /** Client: how far the beam reaches up and down from the block, worked out now and then (not every frame). */
     private int beamUp;
     private int beamDown;
@@ -79,6 +85,10 @@ public class StatusBeaconBlockEntity extends BlockEntity {
         int shown = getBlockState().getValue(StatusBeaconBlock.SHOWN);
         return shown == StatusBeaconBlock.WARNING ? warning : shown == StatusBeaconBlock.CRITICAL ? critical
                 : shown == StatusBeaconBlock.LEVEL_ZERO ? levelLook(0) : shown >= 1 && shown <= 15 ? levelLook(shown) : null;
+    }
+
+    public List<String> alarmTexts() {
+        return alarmTexts;
     }
 
     public int beamUp() {
@@ -145,7 +155,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     }
 
     private static BeaconLook recolor(BeaconLook look, int color) {
-        return new BeaconLook(color, look.flags(), look.sound(), look.pitch(), look.interval(), look.range());
+        return new BeaconLook(color, look.flags(), look.sound(), look.pitch(), look.interval(), look.range(), look.label());
     }
 
     /** New settings from the screen: saved, sent to clients, and shown at once. */
@@ -210,6 +220,19 @@ public class StatusBeaconBlockEntity extends BlockEntity {
         if (state.getValue(StatusBeaconBlock.SHOWN) != shown) {
             level.setBlock(pos, state.setValue(StatusBeaconBlock.SHOWN, shown), Block.UPDATE_ALL);
         }
+        // The alarms' messages, for clients to show above it (only while a look wants them).
+        List<String> texts = List.of();
+        if (beacon.mode == Mode.NETWORK && (beacon.warning.has(BeaconLook.TEXT) || beacon.critical.has(BeaconLook.TEXT))) {
+            Watch watch = beacon.watch(level);
+            if (watch.network() != null && watch.reachable()) {
+                texts = Alarms.cached(level.getServer(), watch.network()).stream().limit(10)
+                        .map(a -> (a.severity() == AlarmSeverity.CRITICAL ? "!" : "?") + a.message()).toList();
+            }
+        }
+        if (!texts.equals(beacon.alarmTexts)) {
+            beacon.alarmTexts = texts;
+            level.sendBlockUpdated(pos, level.getBlockState(pos), level.getBlockState(pos), Block.UPDATE_CLIENTS);
+        }
     }
 
     public static void clientTick(Level level, BlockPos pos, BlockState state, StatusBeaconBlockEntity beacon) {
@@ -272,6 +295,11 @@ public class StatusBeaconBlockEntity extends BlockEntity {
         if (tag.contains("settings")) {
             readSettings(tag.getCompound("settings"));
         }
+        if (tag.contains("alarm_texts")) {
+            List<String> texts = new java.util.ArrayList<>();
+            tag.getList("alarm_texts", net.minecraft.nbt.Tag.TAG_STRING).forEach(t -> texts.add(t.getAsString()));
+            alarmTexts = List.copyOf(texts);
+        }
         // New looks on the client: the lens is tinted by the look, so its chunk is drawn again.
         if (level != null && level.isClientSide) {
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_IMMEDIATE);
@@ -282,6 +310,9 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         tag.put("settings", settings());
+        net.minecraft.nbt.ListTag texts = new net.minecraft.nbt.ListTag();
+        alarmTexts.forEach(text -> texts.add(net.minecraft.nbt.StringTag.valueOf(text)));
+        tag.put("alarm_texts", texts);
         return tag;
     }
 

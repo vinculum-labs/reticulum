@@ -45,6 +45,11 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.beacon_glow_through", "through walls");
         add("screen.reticulum.beacon_sound", "Sound");
         add("screen.reticulum.beacon_two_tone", "Two-tone");
+        add("screen.reticulum.beacon_text", "Text");
+        add("screen.reticulum.beacon_text_through", "through walls");
+        add("screen.reticulum.beacon_label", "Text");
+        add("screen.reticulum.beacon_label_hint_network", "Its text (blank: the alarms' messages)");
+        add("screen.reticulum.beacon_label_hint_redstone", "Its text, shown above the beacon");
         add("screen.reticulum.beacon_color", "Color");
         add("screen.reticulum.beacon_pitch", "Pitch");
         add("screen.reticulum.beacon_interval", "Every (ticks)");

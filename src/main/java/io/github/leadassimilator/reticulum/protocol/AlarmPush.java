@@ -109,7 +109,10 @@ public final class AlarmPush {
                             && level.getBlockEntity(device.pos().pos()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon
                             && beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.NETWORK) {
                         var watch = beacon.watch(level);
-                        if (watch.network() == network && watch.reachable()) {
+                        var shownLook = beacon.look();
+                        boolean showsText = shownLook != null && shownLook.has(io.github.leadassimilator.reticulum.block.entity.BeaconLook.TEXT)
+                                && shownLook.label().isBlank();
+                        if (watch.network() == network && watch.reachable() && !showsText) {
                             for (Alarms.Alarm alarm : alarms.subList(0, Math.min(10, alarms.size()))) {
                                 add(player, markers, marked, device.pos(), alarm.severity() == AlarmSeverity.CRITICAL ? 1 : 0, alarm.message());
                             }
