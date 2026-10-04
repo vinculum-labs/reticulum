@@ -16,7 +16,7 @@ import { isPin, type NodeData } from "./graph";
 import { KIND_ICON, SparklesIcon, ZapIcon } from "./icons";
 import { KIND_LABEL, PIN_CARRIES, SIGNAL_KINDS, defaultSettings } from "./kinds";
 import { identifyItem, openMenu, type MenuItem } from "./menu.svelte";
-import { app, deviceAt, edit, openCopy, openDevice, openSheet, pinChanged, setSheetEnabled, updateNodeEdit, uuid } from "./state.svelte";
+import { app, deviceAt, edit, openCopyFrom, openDevice, openSheet, pinChanged, setSheetEnabled, updateNodeEdit, uuid } from "./state.svelte";
 import { posKey, type Device, type GraphNode, type NodeKind, type Resource, type Sheet, type Wire } from "./types";
 
 /** What the menus need of the canvas showing them. */
@@ -119,7 +119,7 @@ export function nodeMenu(canvas: Canvas, node: Node<NodeData>, event: MouseEvent
     held && {
       label: "Open",
       icon: ExternalLink,
-      run: () => (s.kind === "copy" && !on.blueprint ? openCopy(on.id, node.id) : openSheet(held.id)),
+      run: () => (s.kind === "copy" ? openCopyFrom(on, node.id) : openSheet(held.id)),
     },
     rename,
     editable && { label: enabled ? "Turn off" : "Turn on", icon: enabled ? PowerOff : Power, run: () => switchNode(on, graphNode, held, !enabled) },

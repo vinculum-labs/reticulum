@@ -144,8 +144,6 @@ export function inCopy(copyNode: string, id: string): string {
  * them in this copy "<copy node>/<blueprint node>" (as a name UUID), and keeps their activity under those names.
  * Statuses aren't moved: the server puts those on the copy node.
  */
-// XXX: a copy inside a blueprint runs once per copy of that blueprint, under inCopy(inCopy(outer, nested), inner);
-// opened on its own (from the blueprint's Copies) its activity is looked up as inCopy(nested, inner) and never found.
 export function copyActivity(activity: Activity, copyNode: string, blueprint: Sheet): Activity {
   const ids = [...(blueprint.nodes ?? []).map((n) => n.id), ...(blueprint.wires ?? []).map((w) => w.id)];
   // The copy's name for each blueprint id. A pin's value is under "<id>/out/<n>" or "<id>/in/<n>": moved with it.

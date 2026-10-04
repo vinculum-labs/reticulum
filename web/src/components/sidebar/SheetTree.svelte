@@ -203,7 +203,8 @@
       {#if row.kind === "copy"}
         {@const holderOff = offReason(snapshot, row.holder, app.sheetsOff)}
         {@const status = copyStatus(row.node, row.holder, holderOff, snapshot.running, snapshot.enabled, unpowered)}
-        {@const open = app.copy?.node === row.node.id}
+        <!-- Lit while it is open, or a copy inside it is (opened from within it). -->
+        {@const open = app.copy?.node === row.node.id || app.copy?.outer?.[0]?.node === row.node.id}
         {@const name = copyName(row.node)}
         <!-- A copy: opens its blueprint with its blocks. No chevron (nothing goes inside a copy), not dragged (moved as a node). -->
         <li class="group flex items-center gap-1.5 rounded-md py-1 pr-2" style="padding-left: {row.depth * 8 + 4}px; {open ? 'background: var(--panel-2)' : ''}">

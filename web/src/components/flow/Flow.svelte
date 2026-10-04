@@ -31,7 +31,7 @@
     deviceAt,
     edit,
     nodeTitle,
-    openCopy,
+    openCopyFrom,
     openCopyNode,
     openSheet,
     resync,
@@ -160,7 +160,8 @@
       me: app.me,
     };
     // An open copy shows its blueprint's nodes: their activity is kept under this copy's names for them.
-    const activity = copy && s ? copyActivity(live, copy.node.id, s) : live;
+    // A copy that doesn't run itself (one inside a blueprint, opened on its own) shows no activity.
+    const activity = copy && s ? (copy.run ? copyActivity(live, copy.run, s) : { ...live, rates: {}, fiveMinutes: {}, signals: {}, me: {} }) : live;
     // The selection is carried into the rebuilt nodes but isn't a reason to rebuild: the canvas already shows it.
     const selected = untrack(() => new Set([...app.selectedNodes, ...app.selectedEdges]));
     const unit = app.rateUnit;
@@ -1042,7 +1043,7 @@
     if (!(event instanceof MouseEvent) || event.detail !== 2 || (s.kind !== "copy" && s.kind !== "sheet")) return;
     if (!app.snapshot?.sheets.some((x) => x.id === s.sheet)) return;
     const on = sheetOf(node.id);
-    if (s.kind === "copy" && on && !on.blueprint) openCopy(on.id, node.id);
+    if (s.kind === "copy" && on) openCopyFrom(on, node.id);
     else openSheet(s.sheet);
   }
 
@@ -1144,7 +1145,7 @@
     {/if}
     {#if sheet && app.snapshot && (!sheet.root || sheet.blueprint)}
       <Panel position="top-right">
-        <Breadcrumbs {sheet} snapshot={app.snapshot} copy={copy ? { sheet: copy.sheet, node: copy.node } : null} />
+        <Breadcrumbs {sheet} snapshot={app.snapshot} copy={copy ? { sheet: copy.sheet, node: copy.node, outer: app.copy?.outer ?? [] } : null} />
       </Panel>
     {/if}
     {#if sheet && app.snapshot}

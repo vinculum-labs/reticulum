@@ -8,7 +8,7 @@ import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
 import { descendants, rootSheet, sheetPath } from "./tree";
 import { confirmDialog, promptDialog } from "./dialog.svelte";
-import { copiesOf, fillOne, slotName } from "./blueprints";
+import { copiesOf, fillOne, inCopy, slotName } from "./blueprints";
 
 export interface Toast {
   id: number;
@@ -138,9 +138,11 @@ export const app = $state({
   sheetId: null as string | null,
   /**
    * A blueprint copy open on the canvas: the sheet its node is on, and that node. The canvas shows its blueprint
-   * ({@code sheetId}), read-only but for filling its slots.
+   * ({@code sheetId}), read-only but for filling its slots. A copy inside a blueprint, opened from within a copy of
+   * that blueprint, keeps the copies it was opened through ({@code outer}, from the one placed on a sheet down): it
+   * runs once per copy of the blueprint holding it, and they say which run is shown.
    */
-  copy: null as { sheet: string; node: string } | null,
+  copy: null as { sheet: string; node: string; outer?: { sheet: string; node: string }[] } | null,
   /** Amount moved in the last second, per node and wire id. */
   rates: {} as Record<string, number>,
   /** Amount moved over the last 5 minutes, per node and wire id. */
@@ -380,7 +382,7 @@ function setSnapshot(snapshot: Snapshot): void {
     // One now using another blueprint: that one opens.
     const open = openCopyNode();
     if (!open) openSheet(snapshot.sheets.some((s) => s.id === app.copy!.sheet) ? app.copy.sheet : (rootSheet(snapshot)?.id ?? ""));
-    else if (open.blueprint.id !== app.sheetId) openCopy(open.sheet.id, open.node.id);
+    else if (open.blueprint.id !== app.sheetId) openCopy(open.sheet.id, open.node.id, app.copy.outer);
   } else if (!snapshot.sheets.some((s) => s.id === app.sheetId)) openSheet(rootSheet(snapshot)?.id ?? snapshot.sheets[0]?.id ?? "");
   // A network that stopped gets no more metrics: what it last moved isn't shown as moving.
   if (!snapshot.running) {
@@ -765,22 +767,59 @@ export function openSheet(id: string, select: string[] = [], focus = false): voi
   app.panel = null;
 }
 
-/** Opens a blueprint copy: its blueprint on the canvas, with the blocks filling its slots. */
-export function openCopy(sheetId: string, node: string): void {
+/** Opens a blueprint copy: its blueprint on the canvas, with the blocks filling its slots ({@code outer}: see app.copy). */
+export function openCopy(sheetId: string, node: string, outer: { sheet: string; node: string }[] = []): void {
   const held = app.snapshot?.sheets.find((s) => s.id === sheetId)?.nodes?.find((n) => n.id === node);
   if (held?.settings.kind !== "copy") return;
   openSheet(held.settings.sheet);
-  app.copy = { sheet: sheetId, node };
+  app.copy = { sheet: sheetId, node, ...(outer.length ? { outer } : {}) };
 }
 
-/** The copy open on the canvas: the sheet it is on, its node and its blueprint (null when none, or it is gone). */
-export function openCopyNode(): { sheet: Sheet; node: GraphNode & { settings: CopySettings }; blueprint: Sheet } | null {
+const openRun = $derived(app.copy ? (openCopyNode()?.run ?? null) : null);
+
+/** The id the open copy runs under (null when none is open, or it doesn't run itself): see openCopyNode. */
+export function copyRun(): string | null {
+  return openRun;
+}
+
+/**
+ * Opens the copy node {@code node} on {@code on}: from within the copy open now when {@code on} is its blueprint (so
+ * the copy inside is shown as it runs in that one), else on its own.
+ */
+export function openCopyFrom(on: Sheet, node: string): void {
+  const open = app.copy && on.blueprint ? openCopyNode() : null;
+  const outer = open && open.blueprint.id === on.id ? [...(app.copy!.outer ?? []), { sheet: app.copy!.sheet, node: app.copy!.node }] : [];
+  openCopy(on.id, node, outer);
+}
+
+/**
+ * The copy open on the canvas: the sheet it is on, its node and its blueprint (null when none, or it is gone), and
+ * {@code run}: the id it runs under, which its nodes' activity is kept by. Null when it doesn't run itself: a copy
+ * inside a blueprint opened on its own (it runs once per copy of that blueprint), or one whose way in is gone.
+ */
+export function openCopyNode(): { sheet: Sheet; node: GraphNode & { settings: CopySettings }; blueprint: Sheet; run: string | null } | null {
   const at = app.copy;
-  const sheet = at && app.snapshot?.sheets.find((s) => s.id === at.sheet);
+  const sheets = app.snapshot?.sheets ?? [];
+  const sheet = at && sheets.find((s) => s.id === at.sheet);
   const node = sheet?.nodes?.find((n) => n.id === at!.node);
   if (!sheet || node?.settings.kind !== "copy") return null;
-  const blueprint = app.snapshot?.sheets.find((s) => s.id === (node.settings as CopySettings).sheet);
-  return blueprint ? { sheet, node: node as GraphNode & { settings: CopySettings }, blueprint } : null;
+  const blueprint = sheets.find((s) => s.id === (node.settings as CopySettings).sheet);
+  if (!blueprint) return null;
+  // The way in, outside in: each copy must sit on the blueprint of the one before it, the first on a sheet that runs.
+  const chain = [...(at!.outer ?? []), { sheet: at!.sheet, node: at!.node }];
+  let run: string | null = null;
+  let expected: string | undefined;
+  for (const [i, step] of chain.entries()) {
+    const on = sheets.find((s) => s.id === step.sheet);
+    const copy = on?.nodes?.find((n) => n.id === step.node);
+    if (!on || copy?.settings.kind !== "copy" || (i === 0 ? on.blueprint : on.id !== expected)) {
+      run = null;
+      break;
+    }
+    run = i === 0 ? copy.id : inCopy(run!, copy.id);
+    expected = copy.settings.sheet;
+  }
+  return { sheet, node: node as GraphNode & { settings: CopySettings }, blueprint, run };
 }
 
 /**

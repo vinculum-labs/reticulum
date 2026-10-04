@@ -42,7 +42,7 @@
       {/key}
     {:else if node}
       {#key node.id}
-        <NodeInspector {node} sheet={copy.blueprint} inCopyAs={inCopy(copy.node.id, node.id)} />
+        <NodeInspector {node} sheet={copy.blueprint} inCopyAs={copy.run ? inCopy(copy.run, node.id) : node.id} />
       {/key}
     {:else}
       <CopyPanel sheet={copy.sheet} copy={copy.node} blueprint={copy.blueprint} />

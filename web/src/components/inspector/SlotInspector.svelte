@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, deviceAt, deviceName, fillSlot, homeCheck, setBindings, toast } from "../../lib/state.svelte";
+  import { app, copyRun, deviceAt, deviceName, fillSlot, homeCheck, setBindings, toast } from "../../lib/state.svelte";
   import { blockName, fillByLayout, inCopy, slotName, slotsOf } from "../../lib/blueprints";
   import { RESOURCE_UNIT } from "../../lib/kinds";
   import { posKey, type CopySettings, type Device, type GraphNode, type Sheet } from "../../lib/types";
@@ -94,7 +94,8 @@
   {/if}
   <!-- What the block filling it is moving (kept under the copy's name for this slot), and its graph. -->
   {#if binding}
-    <ThroughputSummary id={inCopy(copy.id, slot.id)} />
-    <Chart item={inCopy(copy.id, slot.id)} unit={unit} />
+    {@const run = copyRun()}
+    <ThroughputSummary id={run ? inCopy(run, slot.id) : slot.id} />
+    <Chart item={run ? inCopy(run, slot.id) : slot.id} unit={unit} />
   {/if}
 </InspectorPanel>

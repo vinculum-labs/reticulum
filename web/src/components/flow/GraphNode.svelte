@@ -20,7 +20,7 @@
     signalInputs,
     summary,
   } from "../../lib/kinds";
-  import { app, deviceName, toggleFrame } from "../../lib/state.svelte";
+  import { app, copyRun, deviceName, toggleFrame } from "../../lib/state.svelte";
   import { blockName, liveKey } from "../../lib/blueprints";
   import DeviceIcon from "../DeviceIcon.svelte";
   import { KIND_ICON } from "../../lib/icons";
@@ -126,7 +126,7 @@
    * can show: tied to it always, every card would redraw once a second on an idle network.
    */
   let hovered = $state(false);
-  const moved = $derived(hovered ? app.ticksSinceMoved[liveKey(id, app.copy?.node)] : undefined);
+  const moved = $derived(hovered ? app.ticksSinceMoved[liveKey(id, copyRun() ?? undefined)] : undefined);
   const idleTitle = $derived(
     [
       data.fiveMinutes > 0 ? `Average over 5 min: ${formatAverage(data.fiveMinutes, data.resource, app.rateUnit)}` : "Nothing moved in the last 5 min",
@@ -139,8 +139,8 @@
 
   /** A pin's label, with its live value for redstone ("redstone 15") and ME ("ME 1 ch · 4/8") pins. */
   function pinLabel(side: { resource: import("../../lib/types").Resource; faces?: string[] }, key: string): string {
-    if (side.resource === "redstone") return `${shortLabel(side)} ${app.signals[liveKey(key, app.copy?.node)] ?? 0}`;
-    if (side.resource === "me") return `${shortLabel(side)} ${meUsageLabel(app.me[liveKey(key, app.copy?.node)])}`;
+    if (side.resource === "redstone") return `${shortLabel(side)} ${app.signals[liveKey(key, copyRun() ?? undefined)] ?? 0}`;
+    if (side.resource === "me") return `${shortLabel(side)} ${meUsageLabel(app.me[liveKey(key, copyRun() ?? undefined)])}`;
     return shortLabel(side);
   }
 
