@@ -174,8 +174,12 @@
   }
   /** The card's border: thicker for a sheet or placed blueprint. */
   const BORDER = $derived(kind === "instance" ? 3 : kind === "sheet" ? 2 : 1);
-  /** The header's corners: the card's (rounded-md, 6px) less its border, so its colored edge follows the border's curve. */
-  const INNER_RADIUS = $derived(Math.max(0, 6 - BORDER));
+  /**
+   * The header's corners, the same on every card (so its colored edge sweeps the same), and the card's: those plus its
+   * border, so the header fits the border's curve however thick it is.
+   */
+  const INNER_RADIUS = 5;
+  const RADIUS = $derived(INNER_RADIUS + BORDER);
   const inPin = (c: string) => `background: var(--panel); border: 2px solid ${c}`;
   const outPin = (c: string) => `background: ${c}; border: 2px solid ${c}`;
   /** An open frame's handle is the outer half of its pin's dot: just outside the border, the pin inside makes the rest. */
@@ -209,11 +213,11 @@
 
 <div
   bind:this={card}
-  class="rounded-md border text-left text-xs"
+  class="border text-left text-xs"
   class:frame={!!data.frame}
   style="{data.frame
     ? `width: ${width ?? data.frame.width}px; height: ${height ?? data.frame.height}px`
-    : `width: max-content; min-width: ${pinned ? 140 : 110}px; max-width: ${pinned ? 220 : 180}px`}; background: var(--panel); border-color: {selected
+    : `width: max-content; min-width: ${pinned ? 140 : 110}px; max-width: ${pinned ? 220 : 180}px`}; background: var(--panel); border-radius: {RADIUS}px; border-color: {selected
     ? 'var(--accent)'
     : data.problem
       ? 'var(--bad)'
