@@ -38,7 +38,7 @@
     {/if}
     <span class="flex min-w-0 flex-col">
       <span class="trim-text truncate">{label}</span>
-      {#if control.node.note}<span class="truncate text-xs muted" title={control.node.note}>{control.node.note}</span>{/if}
+      {#if control.node.note}<span class="note truncate text-xs muted" title={control.node.note}>{control.node.note}</span>{/if}
     </span>
   </span>
 {/snippet}
@@ -86,8 +86,8 @@
   {:else if s.style === "message"}
     <!-- The last message whose start the value has reached; below the first, the number. -->
     {@const shown = [...(s.messages ?? [])].sort((a, b) => (a.from ?? 0) - (b.from ?? 0)).filter((m) => value >= (m.from ?? 0)).at(-1)}
-    <!-- A short message beside the name; a long one (that would crowd the name) wraps to lines of its own below. -->
-    <div class="message-row flex flex-wrap items-center gap-x-2 gap-y-0.5">
+    <!-- The message beside the name, on one line: the dashboard's card grows to fit it (to a point, past which it wraps). -->
+    <div class="message-row flex items-center gap-2">
       {@render name()}
       {#if shown}
         {@const text = (shown.text ?? "").replaceAll("{value}", format(value))}
@@ -116,12 +116,17 @@
 {/if}
 
 <style>
-  /* The name keeps at least about half the row before a message beside it wraps below. */
+  /* A note widens the dashboard's card for itself only so far: a longer one is cut short with "…" (its tooltip has it all). */
+  .note {
+    max-width: 20rem;
+  }
+  /* The card grows to fit the name and message side by side; once it can't, the name keeps its width and the message
+     wraps. */
   .message-row > :global(:first-child) {
-    min-width: min(100%, 9rem);
+    flex: 1 0 auto;
   }
   .message {
-    max-width: 100%;
+    min-width: 0;
     text-align: right;
     overflow-wrap: anywhere;
   }

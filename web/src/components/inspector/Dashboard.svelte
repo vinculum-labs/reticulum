@@ -184,11 +184,17 @@
 </div>
 
 <style>
+  /* Cards as wide as what they show needs (a long message beside its name), wrapping onto more rows. */
   .controls-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 12px;
-    align-items: start;
+    align-items: flex-start;
+  }
+  .controls-grid > .card {
+    width: max-content;
+    min-width: 260px;
+    max-width: min(100%, 720px);
   }
   .card {
     display: flex;
