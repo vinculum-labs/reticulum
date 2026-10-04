@@ -29,8 +29,10 @@
     edit([{ type: "renameFace", device: device.pos, face, name: value }], [{ type: "renameFace", device: device.pos, face, name: before }], "rename face");
   }
 
+  // Each takes the device's position first: changing the selection closes this panel, and its props with it.
   async function relink(target: Device) {
     const network = app.current;
+    const from = device.pos;
     const ok = await confirmDialog({
       title: `Move “${deviceName(device)}” onto “${deviceName(target)}”?`,
       message: "Its names and every flow that uses it move to the other device.",
@@ -38,11 +40,12 @@
     });
     if (!ok || app.current !== network) return;
     app.selectedDevice = posKey(target.pos);
-    edit([{ type: "relinkDevice", from: device.pos, to: target.pos }]);
+    edit([{ type: "relinkDevice", from, to: target.pos }]);
   }
 
   async function deleteOrphan() {
     const network = app.current;
+    const pos = device.pos;
     const ok = await confirmDialog({
       title: `Forget “${deviceName(device)}”?`,
       message: "Its name and face names are lost.",
@@ -51,7 +54,7 @@
     });
     if (ok && app.current === network) {
       app.selectedDevice = null;
-      edit([{ type: "deleteOrphan", device: device.pos }]);
+      edit([{ type: "deleteOrphan", device: pos }]);
     }
   }
 </script>
