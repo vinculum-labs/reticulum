@@ -507,8 +507,11 @@ public final class EngineTests {
                 Optional.of(net.minecraft.resources.ResourceLocation.withDefaultNamespace("iron_ingot")), Optional.empty(), Optional.empty());
         var level = new io.github.leadassimilator.reticulum.network.ChartSeries(io.github.leadassimilator.reticulum.network.ChartSeries.Kind.LEVEL,
                 Optional.empty(), Optional.of(rig.device(1)), Optional.of(ResourceKind.ITEM));
+        var through = new io.github.leadassimilator.reticulum.network.ChartSeries(io.github.leadassimilator.reticulum.network.ChartSeries.Kind.THROUGH,
+                Optional.empty(), Optional.of(rig.device(1)), Optional.of(ResourceKind.ITEM));
         rig.network().charts().add(iron);
         rig.network().charts().add(level);
+        rig.network().charts().add(through);
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
         java.util.function.ToLongFunction<UUID> sum = id -> java.util.Arrays.stream(rig.runtime().metrics().history(id, false)).sum();
         java.util.function.ToLongFunction<UUID> last = id -> {
@@ -523,6 +526,8 @@ public final class EngineTests {
             UUID dirt = io.github.leadassimilator.reticulum.network.ChartSeries.idOf("item:minecraft:dirt");
             check(helper, sum.applyAsLong(dirt) == 0, "dirt was recorded without being charted");
             check(helper, last.applyAsLong(level.seriesId()) == 128, "the barrel's level isn't 128: " + last.applyAsLong(level.seriesId()));
+            check(helper, sum.applyAsLong(through.seriesId(true)) == 128 && sum.applyAsLong(through.seriesId(false)) == 0,
+                    "into the barrel isn't 128 (or something came out): " + sum.applyAsLong(through.seriesId(true)) + "/" + sum.applyAsLong(through.seriesId(false)));
         });
     }
 

@@ -189,6 +189,10 @@ final class Snapshots {
             JsonObject json = encode(server, io.github.leadassimilator.reticulum.network.ChartSeries.CODEC, chart).getAsJsonObject();
             json.addProperty("key", chart.key());
             json.addProperty("series", chart.seriesId().toString());
+            if (chart.kind() == io.github.leadassimilator.reticulum.network.ChartSeries.Kind.THROUGH) {
+                json.addProperty("seriesIn", chart.seriesId(true).toString());
+                json.addProperty("seriesOut", chart.seriesId(false).toString());
+            }
             charts.add(json);
         }
         out.add("charts", charts);

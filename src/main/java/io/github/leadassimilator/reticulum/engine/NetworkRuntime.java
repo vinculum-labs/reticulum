@@ -638,7 +638,22 @@ public final class NetworkRuntime {
         if (what != null && charted.contains(what)) {
             metrics.recordId(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(what), amount, ticks);
         }
+        // Into the sink's device and out of the source's, where a device is charted for what passes through it.
+        if (chartsThrough) {
+            var resource = route.sourceSettings().port().resource();
+            String into = io.github.leadassimilator.reticulum.network.ChartSeries.throughKey(resource, route.sinkSettings().port().device());
+            if (charted.contains(into)) {
+                metrics.recordId(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(into + "/in"), amount, ticks);
+            }
+            String outOf = io.github.leadassimilator.reticulum.network.ChartSeries.throughKey(resource, route.sourceSettings().port().device());
+            if (charted.contains(outOf)) {
+                metrics.recordId(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(outOf + "/out"), amount, ticks);
+            }
+        }
     }
+
+    /** Whether any device is charted for what passes through it (only then are deliveries' ends checked). */
+    private boolean chartsThrough;
 
     /** The keys of what the network charts, as of this tick. */
     private Set<String> charted = Set.of();
@@ -652,9 +667,12 @@ public final class NetworkRuntime {
         for (String gone : charted) {
             if (!now.contains(gone)) {
                 metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone));
+                metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone + "/in"));
+                metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone + "/out"));
             }
         }
         charted = now;
+        chartsThrough = network.charts().stream().anyMatch(c -> c.kind() == io.github.leadassimilator.reticulum.network.ChartSeries.Kind.THROUGH);
     }
 
     /** Charted levels, sampled once a second. */

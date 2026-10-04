@@ -24,7 +24,9 @@ public record ChartSeries(Kind kind, Optional<ResourceLocation> id, Optional<Glo
         FLUID,
         CHEMICAL,
         /** What one device holds of a resource (FE, mB or items), sampled each second. */
-        LEVEL;
+        LEVEL,
+        /** How much of a resource the network's flows move into one device and out of it (two series). */
+        THROUGH;
 
         public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(Kind::values);
     }
@@ -38,7 +40,7 @@ public record ChartSeries(Kind kind, Optional<ResourceLocation> id, Optional<Glo
 
     /** Whether it names what it needs: an id for a throughput, a device and a resource that is held for a level. */
     public boolean valid() {
-        return kind == Kind.LEVEL
+        return kind == Kind.LEVEL || kind == Kind.THROUGH
                 ? device.isPresent() && resource.isPresent() && resource.get() != ResourceKind.REDSTONE && resource.get() != ResourceKind.ME
                 : id.isPresent();
     }
@@ -49,12 +51,24 @@ public record ChartSeries(Kind kind, Optional<ResourceLocation> id, Optional<Glo
             case ITEM -> "item:" + id.orElseThrow();
             case FLUID -> "fluid:" + id.orElseThrow();
             case CHEMICAL -> "chemical:" + id.orElseThrow();
-            case LEVEL -> {
-                GlobalPos at = device.orElseThrow();
-                yield "level:" + resource.orElseThrow().getSerializedName() + "@" + at.dimension().location() + ":" + at.pos().getX() + ","
-                        + at.pos().getY() + "," + at.pos().getZ();
-            }
+            case LEVEL -> "level:" + at(resource.orElseThrow(), device.orElseThrow());
+            case THROUGH -> throughKey(resource.orElseThrow(), device.orElseThrow());
         };
+    }
+
+    private static String at(ResourceKind resource, GlobalPos device) {
+        return resource.getSerializedName() + "@" + device.dimension().location() + ":" + device.pos().getX() + "," + device.pos().getY() + ","
+                + device.pos().getZ();
+    }
+
+    /** A THROUGH chart's key, for a resource and a device: the movers check deliveries' ends against it. */
+    public static String throughKey(ResourceKind resource, GlobalPos device) {
+        return "through:" + at(resource, device);
+    }
+
+    /** A THROUGH chart's series of what goes into its device (or, {@code in} false, comes out of it). */
+    public UUID seriesId(boolean in) {
+        return idOf(key() + (in ? "/in" : "/out"));
     }
 
     /** The metrics series it is recorded in. */
