@@ -38,7 +38,7 @@ function storedRateUnit(): RateUnit {
 /** The canvas's layers: one per kind of wire (signal wires are "redstone"). */
 export type Layer = "item" | "fluid" | "energy" | "chemical" | "redstone" | "me";
 export const LAYERS: Layer[] = ["item", "fluid", "energy", "chemical", "redstone", "me"];
-/** Shown; drawn faint (still clickable); or hidden (its pins dimmed, marked where a wire is hidden). */
+/** Shown; drawn faint (still clickable); or hidden (out of sight and reach, its pins dimmed). */
 export type LayerMode = "show" | "dim" | "hide";
 
 function storedLayers(): Record<Layer, LayerMode> {

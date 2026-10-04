@@ -6,8 +6,8 @@
   import Segmented from "../controls/Segmented.svelte";
 
   /**
-   * The canvas's layers: per kind of wire, shown, dimmed (faint, still clickable) or hidden (its pins dimmed and marked
-   * where a wire is hidden). A view of the sheet, remembered in this browser.
+   * The canvas's layers: per kind of wire, shown, dimmed (faint, still clickable) or hidden (out of sight and reach, its
+   * pins dimmed). A view of the sheet, remembered in this browser.
    */
   let open = $state(false);
   let button: HTMLButtonElement | undefined = $state();

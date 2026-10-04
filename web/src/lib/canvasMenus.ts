@@ -15,10 +15,13 @@ import Unplug from "@lucide/svelte/icons/unplug";
 import type { Edge, Node } from "@xyflow/svelte";
 import { isPin, type NodeData } from "./graph";
 import { KIND_ICON, SparklesIcon, ZapIcon } from "./icons";
-import { KIND_LABEL, PIN_CARRIES, RESOURCE_LABEL, SIGNAL_KINDS, defaultSettings } from "./kinds";
+import { KIND_LABEL, PIN_CARRIES, SIGNAL_KINDS, defaultSettings } from "./kinds";
 import { identifyItem, openMenu, type MenuItem } from "./menu.svelte";
 import { app, deviceAt, edit, focusLayer, LAYERS, openInstanceFrom, openDevice, openSheet, pinChanged, setSheetEnabled, updateNodeEdit, uuid, type Layer } from "./state.svelte";
 import { posKey, type Device, type GraphNode, type NodeKind, type Resource, type Sheet, type Wire } from "./types";
+
+/** A layer's wires, as a menu names them ("Show only item wires"). */
+const LAYER_NOUN: Record<Layer, string> = { item: "item", fluid: "fluid", energy: "energy", chemical: "chemical", redstone: "redstone", me: "ME" };
 
 /** What the menus need of the canvas showing them. */
 export interface Canvas {
@@ -146,7 +149,7 @@ export function edgeMenu(canvas: Canvas, edge: Edge, event: MouseEvent) {
   const insert = (kind: NodeKind): MenuItem => ({ label: KIND_LABEL[kind], icon: KIND_ICON[kind], run: () => insertOnWire(canvas, on, wire, kind, at) });
   const layer = (edge.data as { layer?: Layer | null } | undefined)?.layer;
   openMenu(event, [
-    layer && { label: `Show only ${RESOURCE_LABEL[layer].toLowerCase()} wires`, icon: Layers, run: () => focusLayer(layer) },
+    layer && { label: `Show only ${LAYER_NOUN[layer]} wires`, icon: Layers, run: () => focusLayer(layer) },
     LAYERS.some((l) => app.layers[l] !== "show") && { label: "Show all wires", icon: Layers, run: () => focusLayer(null) },
     "-",
     canvas.editable && !(edge.data as { signal?: boolean } | undefined)?.signal && {

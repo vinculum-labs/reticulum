@@ -581,18 +581,25 @@ function sheetFlow(
     const layer: Layer | null = signal ? "redstone" : pin === "me" ? "me" : resource;
     const mode = (layer && layers.modes[layer]) || "show";
     const faint = mode === "dim" ? "; opacity: 0.18" : "";
+    const hidden = mode === "hide";
     return {
-      class: mode === "hide" ? "layer-hidden" : undefined,
+      class: hidden ? "layer-hidden" : undefined,
+      // Hidden means out of reach too: not taken by a box round its cards (and so not deleted unseen).
+      selectable: !hidden,
       id: w.id,
       source: w.from,
       target: w.to,
       sourceHandle: sourceHandle(byId.get(w.from), w.output ?? 0),
       targetHandle: targetHandle(byId.get(w.to), w.input ?? 0),
       type: wireStyle,
-      selected: selected.has(w.id),
+      selected: !hidden && selected.has(w.id),
       animated: rate > 0,
       data: { signal, layer },
-      label: [branchNumber.get(w.id), rate > 0 ? formatRate(rate, resource, unit) : undefined].filter((x) => x !== undefined).join(" · ") || undefined,
+      // Labels are drawn apart from their wires (over the canvas), so they hide and dim with them here.
+      label: hidden
+        ? undefined
+        : [branchNumber.get(w.id), rate > 0 ? formatRate(rate, resource, unit) : undefined].filter((x) => x !== undefined).join(" · ") || undefined,
+      labelStyle: mode === "dim" ? "opacity: 0.18" : undefined,
       style: (signal
         ? `stroke: ${color}; stroke-width: ${on ? 2.5 : 1.5}px; stroke-dasharray: ${on ? "none" : "4 3"}; opacity: ${on ? 1 : 0.7}`
         : `stroke: ${fromNode?.settings.kind === "filter" && w.output === 1 ? "var(--bad)" : color}; stroke-width: ${rate > 0 ? 2.5 : 1.5}px`) + faint,
