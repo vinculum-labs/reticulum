@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 
@@ -16,7 +15,6 @@ import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
@@ -179,20 +177,10 @@ public final class AlarmClient {
             if (critical ? !criticals : !warnings) {
                 continue;
             }
-            Vec3 at = Vec3.atCenterOf(marker.pos()).add(0, 0.9, 0);
-            double distance = Math.sqrt(camera.distanceToSqr(at));
-            float scale = 0.025f * (float) Math.max(1, distance / 10);
-            pose.pushPose();
-            pose.translate(at.x, at.y, at.z);
-            pose.mulPose(event.getCamera().rotation());
-            pose.scale(scale, -scale, scale);
-            Matrix4f matrix = pose.last().pose();
-            String label = "⚠ " + marker.label();
             int color = critical ? StatusBeaconRenderer.CRITICAL_COLOR : StatusBeaconRenderer.WARNING_COLOR;
-            font.drawInBatch(label, -font.width(label) / 2f, 0, color, false, matrix, buffers, Font.DisplayMode.SEE_THROUGH, 0x60000000, LightTexture.FULL_BRIGHT);
-            pose.popPose();
+            WorldLabel.draw(pose, event.getCamera(), buffers, font, Vec3.atCenterOf(marker.pos()).add(0, 0.9, 0), "⚠ " + marker.label(), color, true);
         }
-        buffers.endBatch();
+        WorldLabel.endThroughWalls(buffers);
         pose.popPose();
     }
 }

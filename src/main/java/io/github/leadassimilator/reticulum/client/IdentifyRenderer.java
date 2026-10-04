@@ -5,7 +5,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.OptionalDouble;
 
-import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -22,7 +21,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
@@ -153,21 +151,14 @@ public final class IdentifyRenderer {
             if (!marker.pos().dimension().equals(mc.level.dimension())) {
                 continue;
             }
-            Vec3 at = Vec3.atCenterOf(marker.pos().pos()).add(0, 0.9, 0);
-            double distance = Math.sqrt(camera.distanceToSqr(at));
-            float scale = 0.025f * (float) Math.max(1, distance / 10);
-            pose.pushPose();
-            pose.translate(at.x, at.y, at.z);
-            pose.mulPose(event.getCamera().rotation());
-            pose.scale(scale, -scale, scale);
-            Matrix4f matrix = pose.last().pose();
-            String label = marker.label();
-            float x = -font.width(label) / 2f;
-            font.drawInBatch(label, x, 0, 0xFF000000 | marker.color(), false, matrix, buffers,
-                    throughWalls ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL, 0x60000000, LightTexture.FULL_BRIGHT);
-            pose.popPose();
+            WorldLabel.draw(pose, event.getCamera(), buffers, font, Vec3.atCenterOf(marker.pos().pos()).add(0, 0.9, 0), marker.label(),
+                    marker.color(), throughWalls);
         }
-        buffers.endBatch();
+        if (throughWalls) {
+            WorldLabel.endThroughWalls(buffers);
+        } else {
+            buffers.endBatch();
+        }
         pose.popPose();
     }
 
