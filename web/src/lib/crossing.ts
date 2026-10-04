@@ -71,8 +71,7 @@ export function crossWire(
     return (sheet.wires ?? []).filter((w) => w.from === node && (w.output ?? 0) === output).every(only);
   };
   const connect = (sheet: Sheet, wire: Omit<Wire, "id" | "order">) => {
-    // XXX: a splitter branch rebuilt here gets a new wire id, so a weighted splitter's weight for it (kept by wire id)
-    // is lost and counts 1 again.
+    // A new id: a splitter branch rebuilt here (moveAcross) has its weight moved to it there.
     const id = uuid();
     edits.push({ type: "connect", sheet: sheet.id, wire: { ...wire, id, order: nextOrder(sheet, wire.from, wire.output ?? 0) } });
     undo.unshift({ type: "disconnect", sheet: sheet.id, wire: id });

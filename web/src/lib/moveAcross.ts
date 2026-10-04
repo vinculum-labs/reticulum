@@ -78,6 +78,8 @@ export function moveAcross(
 
   /** A wire that would have nothing left on one end (a pin nothing is wired to inside): then nothing moves. */
   let lost = false;
+  /** Splitter weights to move from a rebuilt branch's old wire to its new one. */
+  const renames: { node: string; from: string; to: string; weight: number }[] = [];
   const undoCrossings: Edit[][] = [];
   for (const w of outside) {
     const out = ids.has(w.from);
@@ -88,6 +90,10 @@ export function moveAcross(
         const sourceNode = s.sheet.nodes!.find((n) => n.id === s.node);
         const crossing = crossWire(view, s, t, sourceNode ? title(sourceNode) : "pin", uuid);
         if (!crossing) return null;
+        // A splitter's branch rebuilt: its weight (kept by wire id) goes to the new wire leaving it.
+        const weight = s.node === w.from && sourceNode?.settings.kind === "splitter" ? sourceNode.settings.weights?.[w.id] : undefined;
+        const fresh = weight === undefined ? undefined : crossing.edits.find((e) => e.type === "connect" && e.sheet === s.sheet.id && (e.wire as Wire).from === w.from);
+        if (weight !== undefined && fresh) renames.push({ node: w.from, from: w.id, to: (fresh.wire as Wire).id, weight });
         edits.push(...crossing.edits);
         undoCrossings.push(crossing.undo);
         // Later wires see the pins and wires this one made.
@@ -101,8 +107,30 @@ export function moveAcross(
     }
   }
   if (lost) return null;
+  // The weights: on a splitter that moved, in the node it is added as; on one that stayed, as a change to it.
+  const weightUndo: Edit[] = [];
+  for (const id of new Set(renames.map((r) => r.node))) {
+    const mine = renames.filter((r) => r.node === id);
+    const reweigh = (node: GraphNode): GraphNode => {
+      if (node.settings.kind !== "splitter") return node;
+      const weights = { ...(node.settings.weights ?? {}) };
+      for (const r of mine) delete weights[r.from];
+      for (const r of mine) weights[r.to] = r.weight;
+      return { ...node, settings: { ...node.settings, weights } };
+    };
+    const added = edits.find((e) => e.type === "addNode" && (e.node as GraphNode).id === id);
+    if (added) {
+      added.node = reweigh(added.node as GraphNode);
+    } else {
+      const node = (from.nodes ?? []).find((n) => n.id === id);
+      if (!node) continue;
+      edits.push({ type: "updateNode", sheet: from.id, node: reweigh(node) });
+      weightUndo.push({ type: "updateNode", sheet: from.id, node });
+    }
+  }
   // Undone in reverse: the rebuilt wires and their pins, then the cards back where they were, with their wires.
   const undo: Edit[] = [
+    ...weightUndo,
     ...undoCrossings.reverse().flat(),
     ...moving.map((m) => ({ type: "removeNode", sheet: to.id, node: m.node.id }) as Edit),
     ...moving.map((m) => ({ type: "addNode", sheet: from.id, node: m.node }) as Edit),

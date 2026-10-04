@@ -33,10 +33,13 @@
       {#if why.kind === "network"}The network is switched off, so nothing on this sheet runs.
       {:else if why.kind === "self"}This sheet is switched off.
       {:else if why.kind === "parent"}This sheet is off: the sheet “{why.sheet.name}” above it is switched off.
+      {:else if why.kind === "controller"}Redstone at the controller has stopped the network (its redstone setting is in Network settings).
       {:else if why.sheet.id === sheet.id}A signal into this sheet's node's gate holds it off.
       {:else}This sheet is off: a signal into the gate of “{why.sheet.name}” above it holds that sheet off.{/if}
     </span>
-    {#if why.kind === "gate"}
+    {#if why.kind === "controller"}
+      <!-- Nothing to switch here: it follows the controller's redstone. -->
+    {:else if why.kind === "gate"}
       {#if why.sheet.parent}<button class="btn shrink-0 text-xs" onclick={showGate}>Show its node</button>{/if}
     {:else if canEdit}
       <button class="btn shrink-0 text-xs" onclick={switchOn}>Switch on</button>

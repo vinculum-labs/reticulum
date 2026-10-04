@@ -43,7 +43,7 @@ export function treeStatus(sheet: Sheet, off: OffReason | null, running: boolean
   const badges: TreeStatus["badges"] = [];
   const lines: string[] = [];
   let color = "var(--ink)";
-  if (!enabled || (off && off.kind !== "gate")) {
+  if (!enabled || (off && off.kind !== "gate" && off.kind !== "controller")) {
     color = "var(--muted)";
     lines.push(
       !enabled || off?.kind === "network" ? "Off: the network is off"
@@ -59,6 +59,10 @@ export function treeStatus(sheet: Sheet, off: OffReason | null, running: boolean
         ? "No power: the controller has too little FE for this network, so only energy flows run"
         : "Not running: the controller's chunk isn't loaded",
     );
+  } else if (off?.kind === "controller") {
+    color = "var(--muted)";
+    badges.push({ icon: Zap, color: "var(--c-signal)", corner: "bottom" });
+    lines.push("Off: redstone at the controller has stopped the network");
   } else if (off?.kind === "gate") {
     color = "var(--muted)";
     badges.push({ icon: Zap, color: "var(--c-signal)", corner: "bottom" });

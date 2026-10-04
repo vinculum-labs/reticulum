@@ -64,7 +64,9 @@ export type OffReason =
   | { kind: "self" }
   | { kind: "parent"; sheet: Sheet }
   /** Held off by a signal into the gate of {@code sheet}'s node: this sheet's, or one above it. */
-  | { kind: "gate"; sheet: Sheet };
+  | { kind: "gate"; sheet: Sheet }
+  /** Redstone at the controller has stopped the whole network (the network's redstone setting). */
+  | { kind: "controller" };
 
 export function offReason(snapshot: Snapshot, sheet: Sheet, sheetsOff: string[]): OffReason | null {
   if (sheet.blueprint) return null;
@@ -75,6 +77,8 @@ export function offReason(snapshot: Snapshot, sheet: Sheet, sheetsOff: string[])
   if (sheetsOff.includes(sheet.id)) {
     // The sheets inside a gated one are listed off too: the gate is on the highest one listed.
     const gated = [...ancestors(snapshot, sheet), sheet].find((s) => sheetsOff.includes(s.id)) ?? sheet;
+    // The top sheet has no gate: listed off, it is the controller's redstone stopping the network.
+    if (gated.root) return { kind: "controller" };
     return { kind: "gate", sheet: gated };
   }
   return null;
