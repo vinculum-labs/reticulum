@@ -32,3 +32,15 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
 - A cable placed by a command or machine between blocks of a private network stays cut off from it, silently (no player
   to tell); someone with access can connect its joints by hand.
 
+- A contraption moving part of a network across unloaded chunks: the part left behind and the part moved may not
+  reconcile until both are loaded.
+- Joints cut by hand survive a merge of two networks (`/reticulum merge`): they stay cut on the merged one.
+- Server bookkeeping: finding whether a block is reached scans linearly, and the version and alias maps are never
+  pruned. Fine at today's sizes.
+- Cut joints aren't rotated with a block: a rotated contraption or a rotated paste keeps the cuts on the old faces.
+- Deleting an orphaned device record while nodes still use it leaves those nodes pointing at nothing (they show as
+  missing).
+- Importing a sheet skips some of the checks a hand edit gets (unique ids across the network, blueprint loops).
+- Latch and counter memory inside a blueprint is lost on "make blueprint" or "detach".
+- Filter names aren't checked (length, blanks) the way node names are.
+- Adding a member by name looks the profile up on the server thread, which can stall it briefly for an unknown name.
