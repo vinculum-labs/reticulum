@@ -185,14 +185,30 @@ public class StatusBeaconScreen extends QuickScreen {
         y = flagRow(y, current, new int[] {BeaconLook.SOUND, BeaconLook.TWO_TONE}, new String[] {"sound", "two_tone"});
         addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.beacon_preview"), b -> preview())
                 .bounds(left + WIDTH - 20, y - 22, 20, 18).build());
-        EditBox searchBox = kept("search", new SeeThroughTextBox(font, left, y, WIDTH, 16, Component.translatable("screen.reticulum.beacon_search")));
+        // Shows the sound chosen; clicked into, all of it is selected, so typing replaces it and an arrow key keeps it
+        // to edit (a long shared prefix needn't be typed again).
+        String chosen = current.sound().toString();
+        EditBox searchBox = kept("search", new SeeThroughTextBox(font, left, y, WIDTH, 16, Component.translatable("screen.reticulum.beacon_search")) {
+            @Override
+            public boolean mouseClicked(double mouseX, double mouseY, int button) {
+                boolean wasFocused = isFocused();
+                boolean used = super.mouseClicked(mouseX, mouseY, button);
+                if (used && !wasFocused) {
+                    moveCursorToEnd(false);
+                    setHighlightPos(0);
+                }
+                return used;
+            }
+        });
         searchBox.setMaxLength(100);
-        searchBox.setValue(search);
-        searchBox.setHint(Component.literal(current.sound().toString()));
+        searchBox.setValue(search.isEmpty() ? chosen : search);
+        searchBox.setHint(Component.translatable("screen.reticulum.beacon_search"));
         searchBox.setEditable(view.canEdit());
         searchBox.setResponder(text -> {
-            if (!text.equals(search)) {
-                search = text;
+            // The chosen sound itself isn't a search: no list under it.
+            String next = text.equals(chosen) ? "" : text;
+            if (!next.equals(search)) {
+                search = next;
                 rebuildKeepingInput();
             }
         });
