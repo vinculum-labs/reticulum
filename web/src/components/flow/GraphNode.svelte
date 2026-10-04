@@ -174,11 +174,6 @@
   }
   /** The card's border: thicker for a sheet or placed blueprint. */
   const BORDER = $derived(kind === "instance" ? 3 : kind === "sheet" ? 2 : 1);
-  /**
-   * How far a thicker border moves the rows down from where pins are placed (for a 1px border): the pins move with
-   * them, or their labels sat below them.
-   */
-  const SHIFT = $derived(data.frame ? 0 : BORDER - 1);
   const inPin = (c: string) => `background: var(--panel); border: 2px solid ${c}`;
   const outPin = (c: string) => `background: ${c}; border: 2px solid ${c}`;
   /** An open frame's handle is the outer half of its pin's dot: just outside the border, the pin inside makes the rest. */
@@ -226,7 +221,20 @@
       ? '0 0 0 1px var(--bad)'
       : '0 1px 3px rgb(0 0 0 / 0.25)'}; opacity: {disabled ? 0.5 : data.faded ? 0.4 : 1}"
 >
-  <div data-card-header class="group flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
+  <div data-card-header class="group relative flex items-center gap-1.5 rounded-t-md px-1.5" style="height: {HEADER}px; border-bottom: 1px solid var(--line); border-left: 3px solid {color}">
+    {#if gated(kind)}
+      <!-- A signal wire into the gate switches the node on (above 0) and off. On the left, centered on the header
+           (inside it, past its colored edge and the card's border): wires come in from the left like every other
+           input, yet it stays apart from the data pins below. -->
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="gate"
+        class={`gate-pin${data.gateWired ? " wired" : ""}${pulseGate ? " pulse" : ""}`}
+        title={pulseGate ? "Gate: one operation each time a signal here turns on" : "Gate: a signal here switches this node on and off"}
+        style="top: 50%; left: {-BORDER - 3}px; {inPin('var(--c-signal)')}{layerPin('redstone')}"
+      />
+    {/if}
     {#if sensor && !data.device && data.reads?.block}
       <!-- A sensor reading a slot: the kind of block the slot takes, faded as the slot's own is. -->
       {@const SensorIcon = KIND_ICON.level}
@@ -302,25 +310,42 @@ ${idleTitle}` : idleTitle}
     <!-- An open frame: its pins sit on its edges, inside it, so no rows here. -->
   {:else if pinned}
     <div class="grid grid-cols-2 gap-2" style="height: {rows * ROW}px; font-size: 10px">
+      <!-- Each pin inside its row, centered on it: level with its label whatever the border or display scale. -->
       <div class="flex flex-col">
-        {#each leftRows as row}
-          <div class="truncate pl-2" style="height: {ROW}px; line-height: {ROW}px" title={row.title}>{row.label}</div>
+        {#each leftRows as row (row.handle)}
+          <div class="relative" style="height: {ROW}px">
+            <div class="truncate pl-2" style="line-height: {ROW}px" title={row.title}>{row.label}</div>
+            <Handle type="target" position={Position.Left} id={row.handle} title={row.title}
+              style="top: 50%; left: {-BORDER}px; {inPin(row.color)}{layerPin(row.layer)}" />
+          </div>
         {/each}
       </div>
       <div class="flex flex-col text-right">
-        {#each rightRows as row}
-          <div class="truncate pr-2" style="height: {ROW}px; line-height: {ROW}px" title={row.title}>{row.label}</div>
+        {#each rightRows as row (row.handle)}
+          <div class="relative" style="height: {ROW}px">
+            <div class="truncate pr-2" style="line-height: {ROW}px" title={row.title}>{row.label}</div>
+            <Handle type="source" position={Position.Right} id={row.handle} title={row.title}
+              style="top: 50%; right: {-BORDER}px; {outPin(row.color)}{layerPin(row.layer)}" />
+          </div>
         {/each}
       </div>
     </div>
   {:else}
     <div class="grid grid-cols-2 gap-2" style="height: {flowRows * ROW}px; font-size: 10px">
       <div class="flex flex-col">
-        {#if flowIn}<div class="pl-2" style="height: {ROW}px; line-height: {ROW}px">in</div>{/if}
+        {#if flowIn}
+          <div class="relative pl-2" style="height: {ROW}px; line-height: {ROW}px">
+            in
+            <Handle type="target" position={Position.Left} id="in" style="top: 50%; left: {-BORDER}px; {inPin(color)}" />
+          </div>
+        {/if}
       </div>
       <div class="flex flex-col text-right">
         {#each flowOuts as out (out.id)}
-          <div class="pr-2" style="height: {ROW}px; line-height: {ROW}px; color: {out.color}">{out.label}</div>
+          <div class="relative pr-2" style="height: {ROW}px; line-height: {ROW}px; color: {out.color}">
+            {out.label}
+            <Handle type="source" position={Position.Right} id={out.id} style="top: 50%; right: {-BORDER}px; {outPin(out.color)}" />
+          </div>
         {/each}
       </div>
     </div>
@@ -339,35 +364,15 @@ ${idleTitle}` : idleTitle}
   <span class="problem-badge warn" title={why} role="img" aria-label={`Warning: ${why}`}><TriangleAlert size={12} /></span>
 {/if}
 
-{#if gated(kind)}
-  <!-- A signal wire into the gate switches the node on (above 0) and off. -->
-  <!-- On the left, centered on the header: wires come in from the left like every other input (a pin on top had
-       square wires drop into it through whatever sat above), yet it stays apart from the data pins below. -->
-  <Handle
-    type="target"
-    position={Position.Left}
-    id="gate"
-    class={`gate-pin${data.gateWired ? " wired" : ""}${pulseGate ? " pulse" : ""}`}
-    title={pulseGate ? "Gate: one operation each time a signal here turns on" : "Gate: a signal here switches this node on and off"}
-    style="top: {HEADER / 2 + SHIFT}px; {inPin('var(--c-signal)')}{layerPin('redstone')}"
-  />
-{/if}
-{#if pinned}
-  <!-- An open frame's handles sit on its edges, level with its pins inside; a card's beside their rows. -->
-  {#each leftRows as row, i (row.handle)}
+{#if data.frame}
+  <!-- An open frame's handles sit on its edges, level with its sheet's pins inside (a card's are in its rows). -->
+  {#each leftRows as row (row.handle)}
     <Handle type="target" position={Position.Left} id={row.handle} title={row.title}
-      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2 + SHIFT}px; {inPin(row.color)}{data.frame ? outerHalf(true) : ''}{layerPin(row.layer)}" />
+      style="top: {data.frame.pins[row.handle] ?? 0}px; {inPin(row.color)}{outerHalf(true)}{layerPin(row.layer)}" />
   {/each}
-  {#each rightRows as row, i (row.handle)}
+  {#each rightRows as row (row.handle)}
     <Handle type="source" position={Position.Right} id={row.handle} title={row.title}
-      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2 + SHIFT}px; {outPin(row.color)}{data.frame ? outerHalf(false) : ''}{layerPin(row.layer)}" />
-  {/each}
-{:else}
-  {#if flowIn}
-    <Handle type="target" position={Position.Left} id="in" style="top: {HEADER + ROW / 2}px; {inPin(color)}{data.faded ? '; opacity: 0.4' : ''}" />
-  {/if}
-  {#each flowOuts as out, i (out.id)}
-    <Handle type="source" position={Position.Right} id={out.id} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(out.color)}{data.faded ? '; opacity: 0.4' : ''}" />
+      style="top: {data.frame.pins[row.handle] ?? 0}px; {outPin(row.color)}{outerHalf(false)}{layerPin(row.layer)}" />
   {/each}
 {/if}
 
