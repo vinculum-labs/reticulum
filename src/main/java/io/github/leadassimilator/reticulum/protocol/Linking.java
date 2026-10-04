@@ -83,7 +83,7 @@ public final class Linking {
         if (payload.connector().isPresent()) {
             BlockPos pos = payload.connector().get();
             if (canReachConnector(player, pos)) {
-                player.displayClientMessage(Topology.bindWireless(player.serverLevel(), pos, network, player), true);
+                player.displayClientMessage(Topology.rebind(player.serverLevel(), pos, network, player), true);
                 Screens.open(player, pos);
             }
             return;
@@ -114,8 +114,10 @@ public final class Linking {
         return NetworkToolItem.held(player);
     }
 
+    /** A cable or connector the player can reach (its network can be picked from its screen). */
     private static boolean canReachConnector(ServerPlayer player, BlockPos pos) {
-        return Access.reach(player, pos) instanceof ConnectorBlockEntity;
+        return Access.reach(player, pos) instanceof io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity be
+                && !(be instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity);
     }
 
     /** For the connector screen: whether the player may pick a network for it (no cable decides it). */

@@ -580,6 +580,63 @@ public final class Topology {
         return false;
     }
 
+    /** What picking another network for a cable or connector does (shown before it is picked). */
+    public static Component rebindHint(ServerLevel level, BlockPos pos) {
+        NetworkBlockEntity be = blockEntity(level, pos);
+        if (be instanceof ConnectorBlockEntity && !isWired(level, pos)) {
+            return Component.translatable("screen.reticulum.rebind_wireless");
+        }
+        Section piece = component(level, pos, null);
+        if (piece.controllers().isEmpty()) {
+            return Component.translatable("screen.reticulum.rebind_piece", piece.blocks().size());
+        }
+        return Component.translatable(be instanceof ConnectorBlockEntity ? "screen.reticulum.rebind_unwire" : "screen.reticulum.rebind_controller");
+    }
+
+    /**
+     * Puts a cable or connector on another network, picked from its screen: a wireless connector is bound; a piece of
+     * cable (with its connectors) that reaches no controller moves whole; a connector whose cable leads to a
+     * controller is unwired and bound on its own; a cable that does can't move (that would split its network).
+     */
+    public static Component rebind(ServerLevel level, BlockPos pos, Network network, @Nullable ServerPlayer player) {
+        NetworkBlockEntity be = blockEntity(level, pos);
+        if (be == null || be instanceof ControllerBlockEntity) {
+            return Component.translatable("message.reticulum.nothing_to_connect");
+        }
+        if (be instanceof ConnectorBlockEntity && !isWired(level, pos)) {
+            return bindWireless(level, pos, network, player);
+        }
+        Section piece = component(level, pos, null);
+        Network old = NetworkManager.network(level.getServer(), piece.network());
+        if (!piece.controllers().isEmpty()) {
+            if (!(be instanceof ConnectorBlockEntity)) {
+                return Component.translatable("message.reticulum.leads_to_controller", old == null ? "" : old.name());
+            }
+            if (player != null && old != null && !Security.canEdit(old, player)) {
+                return Component.translatable("message.reticulum.no_edit_access");
+            }
+            // Unwired (its device sides stay attached), then bound on its own.
+            for (Direction dir : Direction.values()) {
+                if (connected(level, pos, dir)) {
+                    toggle(level, pos, dir, player);
+                }
+            }
+            return bindWireless(level, pos, network, player);
+        }
+        if (player != null && !Security.canUse(network, player)) {
+            return Component.translatable("message.reticulum.no_access", network.name());
+        }
+        if (player != null && old != null && !Security.canEdit(old, player)) {
+            return Component.translatable("message.reticulum.no_edit_access");
+        }
+        if (network.id().equals(piece.network())) {
+            return Component.translatable("message.reticulum.already_bound", network.name());
+        }
+        assign(level, piece, network.id());
+        refreshAround(level, piece.blocks());
+        return Component.translatable("message.reticulum.piece_moved", old == null ? "" : old.name(), network.name());
+    }
+
     /** Binds a connector that no cable joins to a network, moving it off any network it was on. */
     public static Component bindWireless(ServerLevel level, BlockPos pos, Network network, @Nullable ServerPlayer player) {
         if (!(blockEntity(level, pos) instanceof ConnectorBlockEntity connector)) {

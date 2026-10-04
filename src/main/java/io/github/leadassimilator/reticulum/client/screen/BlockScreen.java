@@ -77,12 +77,12 @@ public class BlockScreen extends QuickScreen {
             addRow(side, y);
             y += ROW;
         }
-        if (view.bindable()) {
-            // No cable decides this connector's network, so it is picked here (a wireless connector).
+        if (view.pickHint().isPresent()) {
+            // Another network for it: what that does (bind, move its piece, unwire it, or why not) is the tooltip.
             addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.pick_network"), b -> {
                 sendRenames();
                 PacketDistributor.sendToServer(new Payloads.RequestNetworkPicker(java.util.Optional.of(view.pos())));
-            }).bounds(width / 2 - 154, y + 8, 150, 20).build());
+            }).bounds(width / 2 - 154, y + 8, 150, 20).tooltip(net.minecraft.client.gui.components.Tooltip.create(view.pickHint().get())).build());
             addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
                     .bounds(width / 2 + 4, y + 8, 150, 20).build());
         } else {

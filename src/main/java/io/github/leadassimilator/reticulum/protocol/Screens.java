@@ -197,7 +197,7 @@ public final class Screens {
         boolean identified = network != null && be instanceof ConnectorBlockEntity c2
                 && Identifies.isOn(network, Identify.connector(c2.connectorId(), 0));
         return new Views.BlockView(pos, connector, network == null ? "" : network.name(), defaultName, customName, sides, canEdit,
-                connector && !Topology.isWired(level, pos), identified);
+                java.util.Optional.of(Topology.rebindHint(level, pos)), identified);
     }
 
     private static Views.SideView sideView(ServerLevel level, BlockPos pos, NetworkBlockEntity be, Direction dir, @Nullable Network network) {

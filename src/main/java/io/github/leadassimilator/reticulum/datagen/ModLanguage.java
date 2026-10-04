@@ -202,6 +202,11 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.antenna_none_installed", "This controller has no antenna");
         add("message.reticulum.antenna_installed", "Antenna installed. %s");
         add("screen.reticulum.pick_network", "Network…");
+        add("screen.reticulum.rebind_wireless", "Binds it to the network you pick");
+        add("screen.reticulum.rebind_piece", "Moves this piece of cable (%s blocks) and its connectors to the network you pick");
+        add("screen.reticulum.rebind_unwire", "Disconnects its cable and binds it on its own to the network you pick");
+        add("screen.reticulum.rebind_controller", "Its cable leads to a controller — connect it to the other network's cable instead");
+        add("message.reticulum.leads_to_controller", "Its cable leads to %s's controller — connect it to the other network's cable instead");
         add("screen.reticulum.pick_network_tool", "Link the network tool to…");
         add("screen.reticulum.pick_network_connector", "Bind this connector to…");
         add("screen.reticulum.password_for", "Password for %s");

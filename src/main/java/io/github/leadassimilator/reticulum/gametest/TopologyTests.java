@@ -168,6 +168,31 @@ public final class TopologyTests {
         helper.succeed();
     }
 
+    /** Picking another network on a cable or connector: a cut-off piece moves whole, a wired connector is unwired and bound, a cable to a controller stays. */
+    @GameTest(template = "empty")
+    public static void pickingANetworkOnACableOrConnector(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
+        place(helper, new BlockPos(5, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(6, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(1, 1, 5), ModBlocks.CONTROLLER.get(), null);
+        UUID a = net(helper, new BlockPos(1, 1, 1));
+        Network b = network(helper, new BlockPos(1, 1, 5));
+        // 5-6 is cut off from A's controller (nothing at 4): on A, or no network, either way it moves whole.
+        Topology.rebind(helper.getLevel(), helper.absolutePos(new BlockPos(5, 1, 1)), b, null);
+        check(helper, b.id().equals(net(helper, new BlockPos(5, 1, 1))) && b.id().equals(net(helper, new BlockPos(6, 1, 1))), "the piece didn't move to B");
+        // A cable whose cable leads to A's controller stays A's.
+        Topology.rebind(helper.getLevel(), helper.absolutePos(new BlockPos(2, 1, 1)), b, null);
+        check(helper, a.equals(net(helper, new BlockPos(2, 1, 1))), "a cable on A's controller's cable moved");
+        // A connector on it is unwired and bound on its own to B.
+        Topology.rebind(helper.getLevel(), helper.absolutePos(new BlockPos(3, 1, 1)), b, null);
+        check(helper, b.id().equals(net(helper, new BlockPos(3, 1, 1))), "the connector wasn't bound to B");
+        check(helper, !Topology.isWired(helper.getLevel(), helper.absolutePos(new BlockPos(3, 1, 1))), "the connector is still wired");
+        check(helper, a.equals(net(helper, new BlockPos(2, 1, 1))), "A's cable changed network");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void differentNetworksDoNotJoin(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
