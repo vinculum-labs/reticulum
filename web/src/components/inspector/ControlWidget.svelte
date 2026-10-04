@@ -13,7 +13,10 @@
 
   const s = $derived(control.node.settings);
   const value = $derived(app.signals[control.run] ?? 0);
-  /** A level switch's slider, while it is dragged (sent when let go). */
+  /**
+   * A level switch's slider while held (from the press, so values coming in meanwhile don't move it under the pointer):
+   * sent when let go.
+   */
   let dragging = $state<number | null>(null);
 
   function set(to: number) {
@@ -57,6 +60,9 @@
         style="--fill: {(Math.max(0, Math.min(max, dragging ?? value)) / max) * 100}%"
         disabled={!canEdit}
         aria-label={label}
+        onpointerdown={() => (dragging = value)}
+        onpointerup={(e) => Number(e.currentTarget.value) === value && (dragging = null)}
+        onpointercancel={() => (dragging = null)}
         oninput={(e) => (dragging = Number(e.currentTarget.value))}
         onchange={(e) => {
           set(Number(e.currentTarget.value));

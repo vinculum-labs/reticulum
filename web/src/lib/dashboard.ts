@@ -1,6 +1,6 @@
 // The dashboard's controls: every Switch and Display that runs, on its sheet or in each blueprint instance.
 
-import { app, request } from "./state.svelte";
+import { app, pendingSignals, request } from "./state.svelte";
 import { inInstance } from "./blueprints";
 import { sheetPath } from "./tree";
 import type { GraphNode, Sheet, Snapshot } from "./types";
@@ -45,10 +45,13 @@ export function controls(snapshot: Snapshot): Control[] {
 /** Sets a switch where it runs; shown at once, and confirmed by the next values from the game. */
 export async function setSwitch(control: Pick<Control, "node" | "sheet" | "run">, value: number): Promise<void> {
   const before = app.signals[control.run];
+  // Shown until the game reports it (a report from before it applied this would put the old value back meanwhile).
+  pendingSignals.set(control.run, { value, until: Date.now() + 3000 });
   app.signals = { ...app.signals, [control.run]: value };
   try {
     await request("setSwitch", { sheet: control.sheet.id, node: control.node.id, run: control.run, value });
   } catch (e) {
+    pendingSignals.delete(control.run);
     app.signals = { ...app.signals, [control.run]: before ?? 0 };
     throw e;
   }

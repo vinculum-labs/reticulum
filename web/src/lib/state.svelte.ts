@@ -301,13 +301,30 @@ function changed(current: unknown, next: unknown): boolean {
   return current !== next && JSON.stringify(current) !== JSON.stringify(next);
 }
 
+/**
+ * Signal values just set from here (a dashboard switch), by key: shown over what the game reports until it reports
+ * them too, or until {@code until} (ms) — a report from before the game applied one would otherwise put it back.
+ */
+export const pendingSignals = new Map<string, { value: number; until: number }>();
+
+function withPending(signals: Record<string, number>): Record<string, number> {
+  if (!pendingSignals.size) return signals;
+  const now = Date.now();
+  const out = { ...signals };
+  for (const [key, p] of pendingSignals) {
+    if ((signals[key] ?? 0) === p.value || now > p.until) pendingSignals.delete(key);
+    else out[key] = p.value;
+  }
+  return out;
+}
+
 function applyMetrics(m: any) {
   const next = {
     rates: m.perSecond ?? {},
     fiveMinutes: m.fiveMinutes ?? {},
     ticksSinceMoved: m.ticksSinceMoved ?? {},
     status: m.status ?? {},
-    signals: m.signals ?? {},
+    signals: withPending(m.signals ?? {}),
     sheetsOff: m.sheetsOff ?? [],
     me: m.me ?? {},
     power: m.power ?? null,
