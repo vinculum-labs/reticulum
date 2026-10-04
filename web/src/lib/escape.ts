@@ -29,6 +29,15 @@ export const embedded = (() => {
 })();
 
 export function installEscape(closeEditor: () => void, toggleFullscreen: () => void) {
+  // Hidden (back to the game), a clicked button or switch lets go of focus: shown again, the page would hand it back, and
+  // after the Esc that left it the browser draws that as keyboard focus — a ring round whatever was last clicked. A text
+  // box keeps it, to go on typing.
+  document.addEventListener("visibilitychange", () => {
+    const active = document.activeElement;
+    if (document.visibilityState === "hidden" && active instanceof HTMLElement && !active.matches("input, textarea, select, [contenteditable]")) {
+      active.blur();
+    }
+  });
   window.addEventListener("keydown", (e) => {
     // Inside the game the page has the keyboard, so the game's own F11 (fullscreen) is passed on.
     if (e.key === "F11" && embedded) {
