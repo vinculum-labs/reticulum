@@ -453,6 +453,11 @@ public final class NetworkRuntime {
         };
     }
 
+    /** The controller's antenna tier as of the last reach check (-1 before the network has run). */
+    public int antennaTier() {
+        return reachTier;
+    }
+
     /** How a connector reaches the controller, as of the last check (null before the network has run). */
     @Nullable
     public Reach reach(UUID connector) {

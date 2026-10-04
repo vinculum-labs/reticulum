@@ -69,13 +69,12 @@ public final class LookAt {
             lines.add(Component.translatable("lookat.reticulum.devices", record == null ? 0 : record.devices().size())
                     .withStyle(ChatFormatting.GRAY));
             if (network.controller() == null) {
-                lines.add(Component.translatable("lookat.reticulum.no_controller").withStyle(ChatFormatting.RED));
+                lines.add(reachLine("lookat.reticulum.reach.no_controller", ChatFormatting.RED));
             } else {
                 NetworkRuntime runtime = NetworkTicker.runtime(network.id());
                 NetworkRuntime.Reach reach = runtime == null ? null : runtime.reach(connector.connectorId());
-                if (reach != null) {
-                    lines.add(Component.translatable("lookat.reticulum.reach." + reach.key())
-                            .withStyle(reach == NetworkRuntime.Reach.OUT_OF_RANGE ? ChatFormatting.RED : ChatFormatting.GRAY));
+                if (reach != null && record != null) {
+                    lines.add(reachLine(reach, runtime.antennaTier(), network.controller(), record.pos()));
                 }
             }
             List<String> given = new ArrayList<>();
@@ -113,10 +112,10 @@ public final class LookAt {
             lines.add(networkLine(network));
             // A cable joins things by cable only: cut off from its controller, it says so.
             if (network.controller() == null) {
-                lines.add(Component.translatable("lookat.reticulum.no_controller").withStyle(ChatFormatting.RED));
+                lines.add(reachLine("lookat.reticulum.reach.no_controller", ChatFormatting.RED));
             } else if (!Topology.component(level, be.getBlockPos(), null).controllers().contains(network.controller().pos())
                     || !network.controller().dimension().equals(level.dimension())) {
-                lines.add(Component.translatable("lookat.reticulum.cable_cut_off").withStyle(ChatFormatting.RED));
+                lines.add(reachLine("lookat.reticulum.reach.unreachable", ChatFormatting.RED));
             }
         }
     }
@@ -143,7 +142,7 @@ public final class LookAt {
             }
             NetworkRuntime runtime = NetworkTicker.runtime(network.id());
             if (runtime != null && runtime.outOfRange(global)) {
-                lines.add(Component.translatable("lookat.reticulum.device_out_of_range").withStyle(ChatFormatting.RED));
+                lines.add(Component.translatable("lookat.reticulum.device_unreachable").withStyle(ChatFormatting.RED));
             }
             int given = givenRedstone(level, pos);
             if (given > 0) {
@@ -185,6 +184,28 @@ public final class LookAt {
             }
         }
         return best;
+    }
+
+    /**
+     * A connector's "Reach:" line. Wireless ones say how far they are from the controller (and how far the antenna goes,
+     * when out of it); with no antenna, there is only cable, so just that it can't be reached.
+     */
+    private static Component reachLine(NetworkRuntime.Reach reach, int tier, GlobalPos controller, GlobalPos at) {
+        boolean sameDimension = controller.dimension().equals(at.dimension());
+        long distance = sameDimension ? Math.round(Math.sqrt(controller.pos().distSqr(at.pos()))) : -1;
+        return switch (reach) {
+            case WIRED -> reachLine("lookat.reticulum.reach.wired", ChatFormatting.GRAY);
+            case WIRELESS -> sameDimension
+                    ? reachLine("lookat.reticulum.reach.wireless", ChatFormatting.GRAY, distance)
+                    : reachLine("lookat.reticulum.reach.wireless_other_dimension", ChatFormatting.GRAY);
+            case OUT_OF_RANGE -> tier <= 0 ? reachLine("lookat.reticulum.reach.unreachable", ChatFormatting.RED)
+                    : !sameDimension ? reachLine("lookat.reticulum.reach.out_of_range_other_dimension", ChatFormatting.RED)
+                    : reachLine("lookat.reticulum.reach.out_of_range", ChatFormatting.RED, distance, ReticulumConfig.ANTENNA_RANGE.getAsInt());
+        };
+    }
+
+    private static Component reachLine(String key, ChatFormatting color, Object... args) {
+        return Component.translatable("lookat.reticulum.reach", Component.translatable(key, args)).withStyle(color);
     }
 
     private static Component antennaLine(int tier) {
