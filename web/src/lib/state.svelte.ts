@@ -410,6 +410,9 @@ function setSnapshot(snapshot: Snapshot): void {
   if (merged !== app.snapshot) app.snapshot = merged;
   const summary = app.networks.find((n) => n.id === snapshot.id);
   if (summary) Object.assign(summary, { name: snapshot.name, running: snapshot.running, enabled: snapshot.enabled });
+  // Falling back to another sheet (the one open is gone, or this is another network) keeps the top bar's tab open:
+  // the dashboard, charts, identified or settings follow to the network shown.
+  const panel = app.panel;
   if (app.instance) {
     // An open instance that is gone (deleted, turned into a sheet, its blueprint deleted): back to the sheet holding it.
     // One now using another blueprint: that one opens.
@@ -420,6 +423,7 @@ function setSnapshot(snapshot: Snapshot): void {
     else if (!open) openSheet(snapshot.sheets.some((s) => s.id === app.instance!.sheet) ? app.instance.sheet : (rootSheet(snapshot)?.id ?? ""));
     else if (open.blueprint.id !== app.sheetId) openInstance(open.sheet.id, open.node.id, app.instance.outer);
   } else if (!snapshot.sheets.some((s) => s.id === app.sheetId)) openSheet(rootSheet(snapshot)?.id ?? snapshot.sheets[0]?.id ?? "");
+  app.panel = panel;
   // A network that stopped gets no more metrics: what it last moved isn't shown as moving.
   if (!snapshot.running) {
     clearMetrics();
