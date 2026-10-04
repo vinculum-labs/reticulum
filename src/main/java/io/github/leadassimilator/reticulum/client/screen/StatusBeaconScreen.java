@@ -233,10 +233,12 @@ public class StatusBeaconScreen extends QuickScreen {
         range = number("range", left + 3 * (quarterBox + 4), y + 10, quarterBox, Integer.toString(current.range()));
     }
 
-    /** One effect's switch: its name in green while on, gray while off. */
+    /** One effect's switch: ● and green while on, ○ and light gray while off. */
     private void toggle(int x, int y, int width, BeaconLook look, int flag, String labelKey) {
         boolean on = look.has(flag);
-        Button button = Button.builder(Component.translatable("screen.reticulum.beacon_" + labelKey).withColor(on ? 0x80FF80 : 0x808080),
+        // A mark as well as a color: dim text on the gray button was hard to read.
+        Button button = Button.builder(Component.literal(on ? "● " : "○ ").append(Component.translatable("screen.reticulum.beacon_" + labelKey))
+                        .withColor(on ? 0x80FF80 : 0xD8D8D8),
                 b -> {
                     change(t -> t.putInt("flags", on ? t.getInt("flags") & ~flag : t.getInt("flags") | flag));
                     rebuildKeepingInput();
