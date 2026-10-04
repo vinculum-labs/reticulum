@@ -62,12 +62,20 @@
         legend: { show: true, live: true },
         scales: { x: { time: true }, y: { range: (_u, _min, max) => [0, Math.max(1, max * 1.1)] } },
         axes: [axis, { ...axis, size: 52 }],
-        series: [{}, ...lines.map((l) => ({ label: l.label, stroke: css(l.color, l.shade), width: 1.5, dash: l.dashed ? [5, 4] : undefined, value: (_u: uPlot, v: number | null) => (v == null ? "–" : format(v)) }))],
+        // The time under the cursor as the axis shows it (no date): seconds in the 5-minute view.
+        series: [{ value: (_u: uPlot, t: number | null) => (t == null ? "–" : clock(t)) }, ...lines.map((l) => ({ label: l.label, stroke: css(l.color, l.shade), width: 1.5, dash: l.dashed ? [5, 4] : undefined, value: (_u: uPlot, v: number | null) => (v == null ? "–" : format(v)) }))],
       },
       data,
       host,
     );
   });
+
+  function clock(seconds: number): string {
+    const d = new Date(seconds * 1000);
+    return step >= 60
+      ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+      : d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  }
 
   function format(v: number): string {
     if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
@@ -97,5 +105,38 @@
   }
   .chart :global(.u-legend .u-series) {
     padding: 0 4px;
+  }
+  /*
+   * Name and value centered on their letters (like .trim-text), in cells padded alike above and below (the value
+   * cell's own padding set it a pixel off its name); their usual space apart at the sides.
+   */
+  .chart :global(.u-legend th),
+  .chart :global(.u-legend td) {
+    padding: 0 4px;
+    vertical-align: middle;
+  }
+  .chart :global(.u-legend .u-label),
+  .chart :global(.u-legend .u-value) {
+    text-box: trim-both cap alphabetic;
+    padding-block: 4px;
+  }
+  /*
+   * The marker and name in a flex row: as inline blocks their line box made the name's cell taller than the value's,
+   * so the name sat lower than its value.
+   */
+  .chart :global(.u-legend th) {
+    display: inline-flex;
+    align-items: center;
+  }
+  /* Values a set width, in even-width digits: entries don't shift as values come and go under the cursor. */
+  .chart :global(.u-legend .u-value) {
+    width: 7ch;
+    min-width: 7ch;
+    text-align: left;
+    font-variant-numeric: tabular-nums;
+  }
+  .chart :global(.u-legend .u-series:first-child .u-value) {
+    width: 11ch;
+    min-width: 11ch;
   }
 </style>
