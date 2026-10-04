@@ -29,6 +29,13 @@ public class AlarmSettingsScreen extends QuickScreen {
     private final String[] search = {"", ""};
     /** Where each severity's sound section starts. */
     private final int[] sectionTop = new int[2];
+    /** Labels beside boxes, placed with them. */
+    private final java.util.List<Label> labels = new java.util.ArrayList<>();
+    private static final int LABEL_GAP = 6;
+    private static final int GROUP_GAP = 14;
+
+    private record Label(Component text, int x, int y) {
+    }
 
     public AlarmSettingsScreen() {
         super(Component.translatable("screen.reticulum.alarm_settings"));
@@ -60,6 +67,7 @@ public class AlarmSettingsScreen extends QuickScreen {
 
     @Override
     protected void init() {
+        labels.clear();
         left = (width - WIDTH) / 2;
         top = Math.max(6, (height - (210 + LABELS.length * ROW)) / 2);
         for (int row = 0; row < LABELS.length; row++) {
@@ -116,21 +124,30 @@ public class AlarmSettingsScreen extends QuickScreen {
             }
         }
         y += 20;
-        pitchBox("pitch_" + index, left + 40, y, pitch(critical));
+        // Left to right, each label the same gap before its box: Pitch [ ]  2nd pitch [ ]  Two-tone.
+        int x = labeled("screen.reticulum.beacon_pitch", left, y);
+        pitchBox("pitch_" + index, x, y, pitch(critical));
+        x = labeled("screen.reticulum.beacon_pitch2", x + 40 + GROUP_GAP, y);
+        pitchBox("pitch2_" + index, x, y, pitch2(critical));
         addRenderableWidget(Checkbox.builder(Component.translatable("screen.reticulum.beacon_two_tone"), font)
-                .pos(left + 100, y - 2).selected(twoTone(critical).getAsBoolean())
+                .pos(x + 40 + GROUP_GAP, y - 1).selected(twoTone(critical).getAsBoolean())
                 .onValueChange((checkbox, on) -> {
                     twoTone(critical).set(on);
                     twoTone(critical).save();
                 })
                 .build());
-        pitchBox("pitch2_" + index, left + WIDTH - 40, y, pitch2(critical));
         return y + 26;
     }
 
+    /** A label for a 16-high box on the row at {@code y}, centered on it; returns where the box goes. */
+    private int labeled(String key, int x, int y) {
+        Component name = Component.translatable(key);
+        labels.add(new Label(name, x, y + 4));
+        return x + font.width(name) + LABEL_GAP;
+    }
+
     private void pitchBox(String key, int x, int y, ModConfigSpec.DoubleValue value) {
-        EditBox box = kept(key, new SeeThroughTextBox(font, x, y, 40, 16, Component.translatable(key.startsWith("pitch2")
-                ? "screen.reticulum.beacon_pitch2" : "screen.reticulum.beacon_pitch")));
+        EditBox box = kept(key, new SeeThroughTextBox(font, x, y, 40, 16, Component.translatable("screen.reticulum.beacon_pitch")));
         box.setMaxLength(5);
         box.setValue(String.format(Locale.ROOT, "%.2f", value.get()));
         box.setResponder(text -> {
@@ -182,14 +199,8 @@ public class AlarmSettingsScreen extends QuickScreen {
             graphics.drawString(font, Component.translatable(i == 1 ? "screen.reticulum.alarm_sound_critical" : "screen.reticulum.alarm_sound_warning"),
                     left, sectionTop[i], i == 1 ? 0xFF5050 : 0xFFC040);
         }
-        // The pitch boxes' labels, beside them.
-        for (var child : children()) {
-            if (child instanceof EditBox box && box.getMessage().equals(Component.translatable("screen.reticulum.beacon_pitch"))) {
-                graphics.drawString(font, Component.translatable("screen.reticulum.beacon_pitch"), left, box.getY() + 4, 0xE0E0E0);
-            } else if (child instanceof EditBox box && box.getMessage().equals(Component.translatable("screen.reticulum.beacon_pitch2"))) {
-                Component name = Component.translatable("screen.reticulum.beacon_pitch2");
-                graphics.drawString(font, name, box.getX() - font.width(name) - 4, box.getY() + 4, 0xE0E0E0);
-            }
+        for (Label label : labels) {
+            graphics.drawString(font, label.text(), label.x(), label.y(), 0xE0E0E0);
         }
     }
 }
