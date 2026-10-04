@@ -37,6 +37,7 @@
   import DeviceNodeEditor from "./DeviceNodeEditor.svelte";
   import SequencerGrid from "./SequencerGrid.svelte";
   import ControlWidget from "./ControlWidget.svelte";
+  import IconPicker from "./IconPicker.svelte";
   import Chart from "./Chart.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
   import ThroughputSummary from "./ThroughputSummary.svelte";
@@ -434,6 +435,9 @@
         onchange={(v) => settings({ level: v === "level" })}
       />
     </Field>
+    <Field label="Icon" hint="Shown beside it on the dashboard.">
+      <IconPicker value={s.icon} disabled={!canEdit} onchange={(icon) => settings({ icon })} />
+    </Field>
     {#if activityId}
       <Field label="Now">
         <ControlWidget control={{ node, sheet, run: activityId }} label={nodeTitle(node)} canEdit={app.snapshot?.canEdit ?? false} />
@@ -454,6 +458,9 @@
         ]}
         onchange={(style) => settings({ style })}
       />
+    </Field>
+    <Field label="Icon" hint="Shown beside it on the dashboard.">
+      <IconPicker value={s.icon} disabled={!canEdit} onchange={(icon) => settings({ icon })} />
     </Field>
     {#if (s.style ?? "number") !== "light"}
       <Field label="Unit" hint="After the number: items, mB, %…">

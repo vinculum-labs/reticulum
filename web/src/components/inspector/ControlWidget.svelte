@@ -2,6 +2,8 @@
   import { app, toast } from "../../lib/state.svelte";
   import { setSwitch, type Control } from "../../lib/dashboard";
   import Switch from "../controls/Switch.svelte";
+  import { iconUrl } from "../../lib/catalog";
+  import { KIND_ICON } from "../../lib/icons";
 
   /**
    * A Switch or Display as the dashboard shows it, where it runs: a switch to flip (or a slider for a level switch), or the
@@ -23,11 +25,26 @@
   }
 </script>
 
+<!-- Its icon (an item chosen for it, else its kind's) and name. -->
+{#snippet name()}
+  <span class="flex min-w-0 flex-1 items-center gap-2">
+    {#if s.kind === "switch" || s.kind === "display"}
+      {#if s.icon}
+        <img src={iconUrl("item", s.icon)} alt="" width="24" height="24" class="shrink-0" style="image-rendering: pixelated" />
+      {:else}
+        {@const Icon = KIND_ICON[s.kind]}
+        <span class="flex h-6 w-6 shrink-0 items-center justify-center muted"><Icon size={16} /></span>
+      {/if}
+    {/if}
+    <span class="trim-text truncate">{label}</span>
+  </span>
+{/snippet}
+
 {#if s.kind === "switch"}
   {@const max = s.value ?? 15}
   {#if s.level}
     <div class="flex items-center gap-2">
-      <span class="min-w-0 flex-1 truncate">{label}</span>
+      {@render name()}
       <input
         type="range"
         class="w-28"
@@ -46,7 +63,7 @@
     </div>
   {:else}
     <div class="flex items-center gap-2">
-      <span class="min-w-0 flex-1 truncate">{label}</span>
+      {@render name()}
       <Switch
         label={label}
         hideLabel
@@ -60,14 +77,14 @@
 {:else if s.kind === "display"}
   {#if s.style === "light"}
     <div class="flex items-center gap-2">
-      <span class="min-w-0 flex-1 truncate">{label}</span>
+      {@render name()}
       <span class="light" class:lit={value > 0} title={value > 0 ? `On (${value})` : "Off"}></span>
     </div>
   {:else if s.style === "gauge"}
     {@const max = s.max ?? 15}
     <div class="flex flex-col gap-1">
       <div class="flex items-center gap-2">
-        <span class="min-w-0 flex-1 truncate">{label}</span>
+        {@render name()}
         <span class="tabular-nums">{format(value)}{s.unit ? ` ${s.unit}` : ""} <span class="muted">/ {format(max)}</span></span>
       </div>
       <div class="gauge" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
@@ -76,7 +93,7 @@
     </div>
   {:else}
     <div class="flex items-center gap-2">
-      <span class="min-w-0 flex-1 truncate">{label}</span>
+      {@render name()}
       <span class="text-base font-semibold tabular-nums">{format(value)}</span>{#if s.unit}<span class="muted">{s.unit}</span>{/if}
     </div>
   {/if}

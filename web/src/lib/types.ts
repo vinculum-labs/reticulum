@@ -221,6 +221,8 @@ export interface SwitchSettings {
   kind: "switch";
   value?: number;
   level?: boolean;
+  /** An item the dashboard shows it with. */
+  icon?: string;
 }
 
 export type DisplayStyle = "number" | "gauge" | "light";
@@ -231,6 +233,8 @@ export interface DisplaySettings {
   style?: DisplayStyle;
   unit?: string;
   max?: number;
+  /** An item the dashboard shows it with. */
+  icon?: string;
 }
 
 export type AlarmSeverity = "warning" | "critical";

@@ -689,12 +689,13 @@ public sealed interface NodeSettings {
     /**
      * A switch flipped from the editor's dashboard (by players who can edit the network): gives {@code value} while on,
      * 0 while off. With {@code level}, it is set to any value from 0 to {@code value} instead. Where it stands is kept
-     * across restarts, per blueprint instance.
+     * across restarts, per blueprint instance. {@code icon} is an item the dashboard shows it with.
      */
-    record SwitchSettings(long value, boolean level) implements NodeSettings {
+    record SwitchSettings(long value, boolean level, Optional<ResourceLocation> icon) implements NodeSettings {
         public static final MapCodec<SwitchSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 Codec.LONG.optionalFieldOf("value", 15L).forGetter(SwitchSettings::value),
-                Codec.BOOL.optionalFieldOf("level", false).forGetter(SwitchSettings::level)
+                Codec.BOOL.optionalFieldOf("level", false).forGetter(SwitchSettings::level),
+                ResourceLocation.CODEC.optionalFieldOf("icon").forGetter(SwitchSettings::icon)
         ).apply(i, SwitchSettings::new));
 
         public SwitchSettings {
@@ -726,14 +727,16 @@ public sealed interface NodeSettings {
 
     /**
      * Shows what is wired into it on the editor's dashboard (the highest of its wires), and passes it on. {@code unit}
-     * follows the number ("items", "%"); {@code max} is a gauge's full mark.
+     * follows the number ("items", "%"); {@code max} is a gauge's full mark; {@code icon} is an item the dashboard shows it
+     * with.
      */
-    record DisplaySettings(DisplayStyle style, String unit, long max) implements NodeSettings {
+    record DisplaySettings(DisplayStyle style, String unit, long max, Optional<ResourceLocation> icon) implements NodeSettings {
         public static final int UNIT_LIMIT = 16;
         public static final MapCodec<DisplaySettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 DisplayStyle.CODEC.optionalFieldOf("style", DisplayStyle.NUMBER).forGetter(DisplaySettings::style),
                 Codec.string(0, UNIT_LIMIT).optionalFieldOf("unit", "").forGetter(DisplaySettings::unit),
-                Codec.LONG.optionalFieldOf("max", 15L).forGetter(DisplaySettings::max)
+                Codec.LONG.optionalFieldOf("max", 15L).forGetter(DisplaySettings::max),
+                ResourceLocation.CODEC.optionalFieldOf("icon").forGetter(DisplaySettings::icon)
         ).apply(i, DisplaySettings::new));
 
         public DisplaySettings {

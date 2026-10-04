@@ -112,7 +112,7 @@
         <div class="controls-grid">
           {#each groups as [place, list] (place)}
             <section class="card">
-              <h3 class="truncate font-medium" title={place}>{place}</h3>
+              <h3 class="truncate text-xs muted" title={place}>{place}</h3>
               {#each list as c (c.run)}
                 <ControlWidget control={c} label={nodeTitle(c.node)} canEdit={snapshot.canEdit} />
               {/each}
