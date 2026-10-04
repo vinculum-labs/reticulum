@@ -29,6 +29,8 @@
   /** Cells being painted, shown at once and saved as one change when the button comes up. */
   let painting = $state<string[] | null>(null);
   let paintValue = 0;
+  /** The row being painted: a stroke stays on it. */
+  let paintTrack = -1;
   const shown = $derived(painting ?? tracks.map((t) => t.cells ?? ""));
 
   function cell(cells: string, step: number): number {
@@ -43,26 +45,38 @@
 
   function start(track: number, step: number, event: PointerEvent) {
     if (!canEdit || event.button !== 0) return;
+    // A touch captures the pointer to the first cell; let it go, so moving on over the row paints.
+    (event.target as Element).releasePointerCapture?.(event.pointerId);
     painting = tracks.map((t) => t.cells ?? "");
+    paintTrack = track;
     // The first cell decides: setting the brush value, or clearing (when it already had it).
     paintValue = cell(painting[track], step) === brush ? 0 : brush;
     paint(track, step);
   }
 
-  function paint(track: number, step: number) {
-    if (!painting) return;
+  function paint(track: number, step: number, event?: PointerEvent) {
+    if (!painting || track !== paintTrack) return;
+    // The button came up somewhere this page didn't hear (outside the window, a cancelled touch): the stroke is over.
+    if (event && event.buttons === 0) {
+      finish();
+      return;
+    }
     painting = painting.map((cells, i) => (i === track ? withCell(cells, step, paintValue) : cells));
   }
 
   function finish() {
     if (!painting) return;
-    const next = tracks.map((t, i) => ({ ...t, cells: painting![i].replace(/0+$/, "") }));
+    const painted = painting[paintTrack];
+    const row = paintTrack;
     painting = null;
-    onchange(next);
+    paintTrack = -1;
+    // Only the painted row changes, by its index now (other tracks may have changed meanwhile).
+    if (painted === undefined || row >= tracks.length) return;
+    onchange(tracks.map((t, i) => (i === row ? { ...t, cells: painted.replace(/0+$/, "") } : t)));
   }
 </script>
 
-<svelte:window onpointerup={finish} />
+<svelte:window onpointerup={finish} onpointercancel={finish} />
 
 <div class="flex flex-col gap-2">
   <div class="flex items-center gap-2 text-xs">
@@ -101,7 +115,7 @@
                 style={value ? `background: color-mix(in srgb, var(--c-signal) ${30 + value * 70 / 15}%, transparent)` : ""}
                 title={`Track ${i + 1}, step ${step + 1}: ${value || "nothing"}`}
                 onpointerdown={(e) => start(i, step, e)}
-                onpointerenter={() => paint(i, step)}
+                onpointerenter={(e) => paint(i, step, e)}
               >{value && value !== 15 ? value.toString(16).toUpperCase() : ""}</td>
             {/each}
             <td>
@@ -137,6 +151,7 @@
     max-width: 90px;
   }
   .cell {
+    touch-action: none;
     width: 14px;
     height: 14px;
     min-width: 14px;

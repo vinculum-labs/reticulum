@@ -480,6 +480,20 @@ public final class EngineTests {
         helper.succeed();
     }
 
+    /** A looping Sequencer cut shorter than the step it is on starts again instead of stopping. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void sequencerCutShortKeepsLooping(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+        var tracks = List.of(new NodeSettings.SequencerTrack("", "f"));
+        Node sequencer = rig.node(new NodeSettings.SequencerSettings(16, 2, true, false, tracks));
+        java.util.function.LongSupplier step = () -> rig.runtime().signalValues().getOrDefault(sequencer.id(), 0L);
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, step.getAsLong() >= 10, "never got to step 10: " + step.getAsLong()))
+                .thenExecute(() -> rig.sheet().replace(rig.sheet().node(sequencer.id()).with(new NodeSettings.SequencerSettings(4, 2, true, false, tracks))))
+                .thenWaitUntil(() -> check(helper, step.getAsLong() >= 1 && step.getAsLong() <= 4, "cut to 4 steps, it shows step " + step.getAsLong()))
+                .thenSucceed();
+    }
+
     /** A Constant with its "on" input wired gives its value only while that input is above 0. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void constantFollowsItsOnInput(GameTestHelper helper) {

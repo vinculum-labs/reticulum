@@ -170,6 +170,7 @@
   "screen.reticulum.alarm_settings": "Alarms — the network tool",
   "screen.reticulum.alarm_sound_critical": "Critical sound",
   "screen.reticulum.alarm_sound_every": "Sound every (seconds)",
+  "screen.reticulum.alarm_sound_every_hint": "A two-tone siren takes 2 seconds, so it repeats every 2 at the most",
   "screen.reticulum.alarm_sound_warning": "Warning sound",
   "screen.reticulum.alarm_tool_color": "Mark on the tool",
   "screen.reticulum.alarm_tool_sound": "Sound from the hotbar",

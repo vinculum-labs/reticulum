@@ -166,6 +166,7 @@ public class AlarmSettingsScreen extends QuickScreen {
     private void every(int x, int y, ModConfigSpec.IntValue value, String key) {
         EditBox box = kept(key, new SeeThroughTextBox(font, x, y, 40, 16, Component.translatable("screen.reticulum.alarm_sound_every")));
         box.setMaxLength(4);
+        box.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("screen.reticulum.alarm_sound_every_hint")));
         box.setValue(Integer.toString(value.getAsInt()));
         box.setResponder(text -> {
             try {

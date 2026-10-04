@@ -2,6 +2,7 @@ package io.github.leadassimilator.reticulum.client;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map;
 import java.util.UUID;
 
 
@@ -35,6 +36,8 @@ public final class AlarmClient {
     /** Per network with something going off: bit 0 critical (else a warning), bit 1 not the player's (only viewable). */
     private static Map<UUID, Integer> states = Map.of();
     private static List<Payloads.StatusMarker> markers = List.of();
+    /** The level the markers are about. */
+    private static net.minecraft.client.multiplayer.ClientLevel markersLevel;
     /** How long each of a block's labels shows before the next. */
     private static final long CYCLE_MS = 3000;
 
@@ -80,16 +83,46 @@ public final class AlarmClient {
         return worst;
     }
 
-    /** The item property: 0 nothing, 0.5 a warning, 1 critical (unless the tool's mark is muted for that severity). */
+    /**
+     * Which severities a tool cares about are going off: [0] a warning, [1] critical (on the network it is linked to,
+     * else on any of the player's own; by each network's worst).
+     */
+    public static boolean[] going(ItemStack tool) {
+        boolean[] out = new boolean[2];
+        UUID linked = tool.get(ModDataComponents.NETWORK_ID.get());
+        for (Map.Entry<UUID, Integer> entry : states.entrySet()) {
+            int state = entry.getValue();
+            if (linked != null ? linked.equals(entry.getKey()) : (state & 2) == 0) {
+                out[state & 1] = true;
+            }
+        }
+        return out;
+    }
+
+    /** The item property: 1 critical, 0.5 a warning, else 0 — each severity only where its mark isn't muted. */
     public static float toolProperty(ItemStack stack) {
-        int severity = severity(stack);
-        if (severity == 1 && ReticulumClientConfig.TOOL_COLOR_CRITICAL.getAsBoolean()) {
+        boolean[] going = going(stack);
+        if (going[1] && ReticulumClientConfig.TOOL_COLOR_CRITICAL.getAsBoolean()) {
             return 1f;
         }
-        if (severity >= 0 && ReticulumClientConfig.TOOL_COLOR_WARNING.getAsBoolean()) {
+        if (going[0] && ReticulumClientConfig.TOOL_COLOR_WARNING.getAsBoolean()) {
             return 0.5f;
         }
         return 0f;
+    }
+
+    /** Which severity the tools in these slots sound: 1 critical, 0 a warning, -1 none (muted or nothing going off). */
+    private static int sounding(List<ItemStack> tools) {
+        boolean[] going = new boolean[2];
+        for (ItemStack stack : tools) {
+            if (stack.getItem() instanceof NetworkToolItem) {
+                boolean[] these = going(stack);
+                going[0] |= these[0];
+                going[1] |= these[1];
+            }
+        }
+        return going[1] && ReticulumClientConfig.TOOL_SOUND_CRITICAL.getAsBoolean() ? 1
+                : going[0] && ReticulumClientConfig.TOOL_SOUND_WARNING.getAsBoolean() ? 0 : -1;
     }
 
     public static void openSettings() {
@@ -105,23 +138,24 @@ public final class AlarmClient {
             return;
         }
         long time = mc.level.getGameTime();
-        // The worst any tool in the hotbar (or the off hand) cares about, for the sound.
-        int worst = -1;
+        // A level left behind (a dimension change): its markers go with it.
+        if (mc.level != markersLevel) {
+            markers = List.of();
+            markersLevel = mc.level;
+        }
+        // What the tools in the hotbar (or the off hand) sound.
+        List<ItemStack> hotbar = new java.util.ArrayList<>();
         for (int slot = 0; slot < 9; slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
-            if (stack.getItem() instanceof NetworkToolItem) {
-                worst = Math.max(worst, severity(stack));
-            }
+            hotbar.add(player.getInventory().getItem(slot));
         }
-        if (player.getOffhandItem().getItem() instanceof NetworkToolItem) {
-            worst = Math.max(worst, severity(player.getOffhandItem()));
-        }
-        if (worst == 1 && ReticulumClientConfig.TOOL_SOUND_CRITICAL.getAsBoolean()) {
+        hotbar.add(player.getOffhandItem());
+        int worst = sounding(hotbar);
+        if (worst == 1) {
             playToolSound(mc, time, ReticulumClientConfig.TOOL_SOUND_ID_CRITICAL.get(), ReticulumClientConfig.TOOL_SOUND_PITCH_CRITICAL.get(),
                     ReticulumClientConfig.TOOL_SOUND_PITCH2_CRITICAL.get(),
                     ReticulumClientConfig.TOOL_SOUND_TWO_TONE_CRITICAL.getAsBoolean(), ReticulumClientConfig.TOOL_SOUND_EVERY_CRITICAL.getAsInt(),
                     SoundEvents.NOTE_BLOCK_PLING.value());
-        } else if (worst >= 0 && ReticulumClientConfig.TOOL_SOUND_WARNING.getAsBoolean()) {
+        } else if (worst == 0) {
             playToolSound(mc, time, ReticulumClientConfig.TOOL_SOUND_ID_WARNING.get(), ReticulumClientConfig.TOOL_SOUND_PITCH_WARNING.get(),
                     ReticulumClientConfig.TOOL_SOUND_PITCH2_WARNING.get(),
                     ReticulumClientConfig.TOOL_SOUND_TWO_TONE_WARNING.getAsBoolean(), ReticulumClientConfig.TOOL_SOUND_EVERY_WARNING.getAsInt(),
@@ -160,8 +194,11 @@ public final class AlarmClient {
         if (player == null || markers.isEmpty() || !holdingStatusTool(player)) {
             return false;
         }
+        // Only markers shown: a severity muted for markers leaves the beacon's own text be.
+        boolean warnings = ReticulumClientConfig.MARKERS_WARNING.getAsBoolean();
+        boolean criticals = ReticulumClientConfig.MARKERS_CRITICAL.getAsBoolean();
         for (Payloads.StatusMarker marker : markers) {
-            if (marker.pos().equals(pos)) {
+            if (marker.pos().equals(pos) && (marker.severity() == 1 ? criticals : warnings)) {
                 return true;
             }
         }
@@ -174,17 +211,7 @@ public final class AlarmClient {
      */
     public static boolean toolSounding() {
         Player player = Minecraft.getInstance().player;
-        if (player == null) {
-            return false;
-        }
-        int worst = -1;
-        for (ItemStack stack : List.of(player.getMainHandItem(), player.getOffhandItem())) {
-            if (stack.getItem() instanceof NetworkToolItem) {
-                worst = Math.max(worst, severity(stack));
-            }
-        }
-        return worst == 1 ? ReticulumClientConfig.TOOL_SOUND_CRITICAL.getAsBoolean()
-                : worst == 0 && ReticulumClientConfig.TOOL_SOUND_WARNING.getAsBoolean();
+        return player != null && sounding(List.of(player.getMainHandItem(), player.getOffhandItem())) >= 0;
     }
 
     private static boolean holdingStatusTool(Player player) {

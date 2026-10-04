@@ -154,6 +154,12 @@ final class Signals {
                     UUID id = node.node().id();
                     if (!sheet.keepRunning().contains(id) && sheet.inside(id, sleeping)) {
                         values.put(id, node.node().settings() instanceof NodeSettings.AlarmSettings ? 0 : whileOff(sheet, node, group == sheets ? emit : dark));
+                        // A sleeping Sequencer's tracks keep their last values, like any switched-off output.
+                        if (node.node().settings() instanceof NodeSettings.SequencerSettings asleepSequencer) {
+                            for (int track = 1; track <= asleepSequencer.tracks().size(); track++) {
+                                worked.add(CompiledSheet.outputKey(id, track));
+                            }
+                        }
                         slept.add(id);
                         asleepNow.add(id);
                     } else if (node.node().settings() instanceof NodeSettings.AlarmSettings alarm) {
@@ -250,7 +256,12 @@ final class Signals {
         long phase = memory.getOrDefault(key + "/phase", 0L);
         boolean primed = memory.getOrDefault(key + "/primed", 0L) > 0;
         boolean fire = false;
-        if (reset) {
+        // Past the end while looping (its steps were cut, or loop turned on after it finished): it starts again.
+        if (!reset && primed && step >= sequencer.steps() && sequencer.loop()) {
+            step = 0;
+            phase = 0;
+            fire = run;
+        } else if (reset) {
             step = 0;
             phase = 0;
             primed = false;

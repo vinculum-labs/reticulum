@@ -12,6 +12,7 @@ import javax.annotation.Nullable;
 import io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Network;
+import io.github.leadassimilator.reticulum.network.NetworkManager;
 import net.minecraft.server.MinecraftServer;
 
 /**
@@ -77,9 +78,18 @@ public final class Alarms {
 
     private static final java.util.Map<UUID, Cached> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** Forgets every network's list (the server stopped). */
+    public static void forgetAll() {
+        CACHE.clear();
+    }
+
     /** {@link #of}, worked out at most once per server tick for each network. */
     public static List<Alarm> cached(MinecraftServer server, Network network) {
         long tick = server.getTickCount();
+        // Lists of deleted networks don't pile up.
+        if (CACHE.size() > NetworkManager.data(server).networks().size() + 16) {
+            CACHE.keySet().retainAll(NetworkManager.data(server).networks().stream().map(Network::id).toList());
+        }
         Cached cached = CACHE.get(network.id());
         if (cached == null || cached.tick() != tick) {
             cached = new Cached(tick, of(server, network));

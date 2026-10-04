@@ -326,6 +326,7 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.alarm_tool_sound", "Sound from the hotbar");
         add("screen.reticulum.alarm_markers", "Markers in Status mode");
         add("screen.reticulum.alarm_sound_every", "Sound every (seconds)");
+        add("screen.reticulum.alarm_sound_every_hint", "A two-tone siren takes 2 seconds, so it repeats every 2 at the most");
         add("screen.reticulum.alarm_sound_warning", "Warning sound");
         add("screen.reticulum.alarm_sound_critical", "Critical sound");
         add("screen.reticulum.alarm_now", "Going off on your networks: %s");

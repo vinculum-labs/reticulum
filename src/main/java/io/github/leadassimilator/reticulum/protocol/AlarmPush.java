@@ -39,6 +39,19 @@ public final class AlarmPush {
     private AlarmPush() {
     }
 
+    /** A player logging in gets the states afresh (their client forgot them on logging out), and markers at once. */
+    public static void onLoggedIn(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+        SENT.remove(event.getEntity().getUUID());
+        LAST_MARKERS.remove(event.getEntity().getUUID());
+    }
+
+    /** A server stopping (in single player, the world closing) forgets everything: the next counts ticks from 0. */
+    public static void onServerStopped(net.neoforged.neoforge.event.server.ServerStoppedEvent event) {
+        SENT.clear();
+        LAST_MARKERS.clear();
+        Alarms.forgetAll();
+    }
+
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
         if (server.getTickCount() % 20 != 7) {

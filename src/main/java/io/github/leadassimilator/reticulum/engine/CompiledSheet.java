@@ -603,7 +603,8 @@ public final class CompiledSheet {
             if (behavior.mode() == NodeSettings.WhileOff.RUN) {
                 java.util.ArrayDeque<UUID> todo = new java.util.ArrayDeque<>(List.of(n.node().id()));
                 while (!todo.isEmpty()) {
-                    SignalNode at = byNode.get(todo.poll());
+                    UUID next = todo.poll();
+                    SignalNode at = byNode.get(keyOwners.getOrDefault(next, next));
                     if (at == null || !keepRunning.add(at.node().id())) {
                         continue;
                     }

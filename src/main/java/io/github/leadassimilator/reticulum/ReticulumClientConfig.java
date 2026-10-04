@@ -101,10 +101,10 @@ public final class ReticulumClientConfig {
             .comment("In Status mode, the network tool marks blocks with a warning (offline devices, what warnings read).")
             .define("markersWarning", true);
     public static final ModConfigSpec.IntValue TOOL_SOUND_EVERY_WARNING = BUILDER
-            .comment("Seconds between the network tool's chimes while a warning is going off.")
+            .comment("Seconds between the network tool's chimes while a warning is going off (a two-tone siren takes 2, so at least that).")
             .defineInRange("toolSoundEveryWarning", 10, 1, 3600);
     public static final ModConfigSpec.IntValue TOOL_SOUND_EVERY_CRITICAL = BUILDER
-            .comment("Seconds between the network tool's sirens while a critical alarm is going off.")
+            .comment("Seconds between the network tool's sirens while a critical alarm is going off (a two-tone siren takes 2, so at least that).")
             .defineInRange("toolSoundEveryCritical", 10, 1, 3600);
     public static final ModConfigSpec.ConfigValue<String> TOOL_SOUND_ID_WARNING = BUILDER
             .comment("The sound the network tool plays for a warning, by id.")
