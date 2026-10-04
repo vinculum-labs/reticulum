@@ -238,7 +238,9 @@ public class StatusBeaconScreen extends QuickScreen {
                 b -> {
                     change(t -> t.putInt("flags", on ? t.getInt("flags") & ~flag : t.getInt("flags") | flag));
                     rebuildKeepingInput();
-                }).bounds(x, y, width, 16).build();
+                }).bounds(x, y, width, 16)
+                .tooltip(Tooltip.create(Component.translatable("screen.reticulum.beacon_" + labelKey + "_hint")))
+                .build();
         button.active = view.canEdit();
         addRenderableWidget(button);
     }
