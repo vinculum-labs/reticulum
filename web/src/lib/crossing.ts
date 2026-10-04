@@ -35,7 +35,10 @@ export function nextOrder(sheet: Sheet, node: string, output: number): number {
 /**
  * The edits (and their undo) that wire {@code from} to {@code to} across the frames between their sheets: up out of
  * the source's sheet through Sheet outputs, down into the target's through Sheet inputs. A pin already carrying the
- * same thing across an edge is used again instead of adding another. Null when the sheets aren't in one tree.
+ * same thing across an edge is used again when sharing it splits nothing differently: a signal (it fans out whole),
+ * or a resource from an output that has no other wires and isn't a splitter's. Otherwise the wire gets a pin of its
+ * own, so it is a branch of its own where its source splits (a splitter's weights, order and nearest-first count it).
+ * Null when the sheets aren't in one tree.
  */
 export function crossWire(
   snapshot: Snapshot,
@@ -61,6 +64,12 @@ export function crossWire(
 
   const edits: Edit[] = [];
   const undo: Edit[] = [];
+  /** Whether a new wire can share the way out of {@code node}'s output that {@code only} already takes. */
+  const shareable = (sheet: Sheet, node: string, output: number, only: (w: Wire) => boolean) => {
+    if (carried === "redstone") return true;
+    if (nodeIn(sheet, node)?.settings.kind === "splitter") return false;
+    return (sheet.wires ?? []).filter((w) => w.from === node && (w.output ?? 0) === output).every(only);
+  };
   const connect = (sheet: Sheet, wire: Omit<Wire, "id" | "order">) => {
     // XXX: a splitter branch rebuilt here gets a new wire id, so a weighted splitter's weight for it (kept by wire id)
     // is lost and counts 1 again.
@@ -92,12 +101,12 @@ export function crossWire(
     const sheet = up[i];
     const parent = up[i - 1];
     if (!sheet.node) return null;
-    // XXX: reuse matches node and output only, so a new branch from a splitter's output joins the branch already
-    // leaving through that pin (splitting it one level up) instead of becoming a branch of its own.
-    const reused = (sheet.wires ?? [])
-      .filter((w) => w.from === at.node && (w.output ?? 0) === at.output)
+    const out = at;
+    const found = (sheet.wires ?? [])
+      .filter((w) => w.from === out.node && (w.output ?? 0) === out.output)
       .map((w) => nodeIn(sheet, w.to))
       .find((n) => n?.settings.kind === "sheet_output");
+    const reused = found && shareable(sheet, out.node, out.output, (w) => w.to === found.id) ? found : undefined;
     let slot: number;
     if (reused) {
       slot = pinSlot(reused, sheetPins(sheet, false).indexOf(reused));
@@ -113,9 +122,10 @@ export function crossWire(
     const parent = down[i - 1];
     const sheet = down[i];
     if (!sheet.node) return null;
-    const existing = (parent.wires ?? []).find((w) => w.from === at.node && (w.output ?? 0) === at.output && w.to === sheet.node && (w.input ?? 0) !== GATE);
-    // XXX: as above, reuse is by the input alone: a new branch into it shares the existing one.
-    const reused = existing && sheetPins(sheet, true).find((pin, k) => pinSlot(pin, k) === (existing.input ?? 0));
+    const here = at;
+    const existing = (parent.wires ?? []).find((w) => w.from === here.node && (w.output ?? 0) === here.output && w.to === sheet.node && (w.input ?? 0) !== GATE);
+    const shared = existing && shareable(parent, here.node, here.output, (w) => w.id === existing.id);
+    const reused = shared && sheetPins(sheet, true).find((pin, k) => pinSlot(pin, k) === (existing.input ?? 0));
     let pinId: string;
     if (reused) {
       pinId = reused.id;
