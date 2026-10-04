@@ -194,6 +194,25 @@ export interface DelaySettings {
   ticks?: number;
 }
 
+/** A Sequencer's row: a name, and a value per step as a hex digit ("0" nothing, "1" to "f"). */
+export interface SequencerTrack {
+  name?: string;
+  cells?: string;
+}
+
+/**
+ * Steps through {@code steps} steps of {@code step_ticks} ticks while "run" is on or unwired; "reset" goes back to the
+ * first. Output 0 is the step playing (1 on); output 1 and on are its tracks, pulsing as each step starts or held.
+ */
+export interface SequencerSettings {
+  kind: "sequencer";
+  steps?: number;
+  step_ticks?: number;
+  loop?: boolean;
+  pulse?: boolean;
+  tracks?: SequencerTrack[];
+}
+
 export type AlarmSeverity = "warning" | "critical";
 
 /** Goes off while its input passes the test (no op: above 0) for {@code delay} seconds; gives 15 (critical) or 7 (warning) while going off. */
@@ -216,7 +235,8 @@ export type SignalNodeSettings =
   | LatchSettings
   | CounterSettings
   | DelaySettings
-  | AlarmSettings;
+  | AlarmSettings
+  | SequencerSettings;
 
 
 export type NodeSettings =

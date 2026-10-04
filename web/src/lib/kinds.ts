@@ -22,6 +22,7 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   counter: "Counter",
   delay: "Delay",
   alarm: "Alarm",
+  sequencer: "Sequencer",
 };
 
 export const KIND_HINT: Record<NodeKind, string> = {
@@ -43,6 +44,7 @@ export const KIND_HINT: Record<NodeKind, string> = {
   latch: "Set turns it on, reset turns it off — it remembers in between.",
   counter: "Counts each time its input turns on — reset sets it back to 0.",
   delay: "Its input, some ticks later.",
+  sequencer: "Steps through a grid of tracks — a song on note blocks, a light show, a door's moves — one output per track.",
   alarm: "Goes off when its input passes a test — listed on the dashboard, and gives 15 (critical) or 7 (warning) while going off.",
 };
 
@@ -57,6 +59,7 @@ export const SIGNAL_KINDS: NodeKind[] = [
   "latch",
   "counter",
   "delay",
+  "sequencer",
   "alarm",
 ];
 
@@ -67,7 +70,7 @@ export function isSignal(kind: NodeKind | undefined): boolean {
 /** Names of a signal node's inputs, top to bottom. */
 /** Signal inputs that count as on while nothing is wired into them (a Timer's run, a Constant's on): their index. */
 export function onWhenUnwired(kind: NodeKind): number | undefined {
-  return kind === "timer" || kind === "constant" ? 0 : undefined;
+  return kind === "timer" || kind === "constant" || kind === "sequencer" ? 0 : undefined;
 }
 
 export function signalInputs(kind: NodeKind): string[] {
@@ -80,6 +83,8 @@ export function signalInputs(kind: NodeKind): string[] {
       return ["count", "reset"];
     case "timer":
       return ["run"];
+    case "sequencer":
+      return ["run", "reset"];
     case "constant":
       return ["on"];
     case "logic":
@@ -188,6 +193,8 @@ export function defaultSettings(
       return { kind, ticks: 1 };
     case "alarm":
       return { kind, severity: "warning", message: "" };
+    case "sequencer":
+      return { kind, steps: 16, step_ticks: 4, loop: true, pulse: true, tracks: [{ name: "", cells: "" }] };
     case "instance":
     case "sheet":
       return { kind, sheet: blueprint ?? "" };
@@ -345,6 +352,10 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
       return "count / reset";
     case "delay":
       return `${s.ticks ?? 1} tick${(s.ticks ?? 1) === 1 ? "" : "s"} late`;
+    case "sequencer": {
+      const tracks = s.tracks?.length ?? 0;
+      return `${tracks} track${tracks === 1 ? "" : "s"} · ${s.steps ?? 16} steps × ${s.step_ticks ?? 4} ticks${s.loop === false ? "" : " · loops"}`;
+    }
     case "alarm": {
       const test = s.op ? `in ${OP_SYMBOL[s.op]} ${s.threshold ?? 0}` : "in on";
       const after = s.delay ? ` for ${s.delay}s` : "";

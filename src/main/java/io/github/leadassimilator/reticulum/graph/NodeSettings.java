@@ -49,6 +49,7 @@ public sealed interface NodeSettings {
         COUNTER(CounterSettings.CODEC, true),
         DELAY(DelaySettings.CODEC, true),
         ALARM(AlarmSettings.CODEC, true),
+        SEQUENCER(SequencerSettings.CODEC, true),
         /** Engine-internal: a device's ME pin, resolved to the connector side it touches. Never saved or sent. */
         ME_PORT(null, false);
 
@@ -680,6 +681,47 @@ public sealed interface NodeSettings {
         @Override
         public Kind kind() {
             return Kind.COUNTER;
+        }
+    }
+
+    /** One row of a Sequencer: a name (for the editor) and a value per step, as a hex digit (0 nothing, 1 to f). */
+    record SequencerTrack(String name, String cells) {
+        public static final int NAME_LIMIT = 32;
+        public static final Codec<SequencerTrack> CODEC = RecordCodecBuilder.create(i -> i.group(
+                Codec.string(0, NAME_LIMIT).optionalFieldOf("name", "").forGetter(SequencerTrack::name),
+                Codec.string(0, SequencerSettings.STEP_LIMIT).optionalFieldOf("cells", "").forGetter(SequencerTrack::cells)
+        ).apply(i, SequencerTrack::new));
+
+        /** The value at a step (0 to 15); steps past the cells are 0. */
+        public int at(int step) {
+            if (step < 0 || step >= cells.length()) {
+                return 0;
+            }
+            int value = Character.digit(cells.charAt(step), 16);
+            return Math.max(0, value);
+        }
+    }
+
+    /**
+     * Steps through {@code steps} steps, {@code stepTicks} ticks each, while its "run" input is on or unwired; "reset"
+     * goes back to the first step. Output 0 is the step playing (1 on, 0 once stopped); output 1 and on are its tracks:
+     * each step's value, for one tick as the step starts ({@code pulse}, so a note block plays each hit) or held for
+     * the step. At the end it starts again ({@code loop}) or stops until reset.
+     */
+    record SequencerSettings(int steps, int stepTicks, boolean loop, boolean pulse, List<SequencerTrack> tracks) implements NodeSettings {
+        public static final int STEP_LIMIT = 256;
+        public static final int TRACK_LIMIT = 16;
+        public static final MapCodec<SequencerSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+                Codec.intRange(1, STEP_LIMIT).optionalFieldOf("steps", 16).forGetter(SequencerSettings::steps),
+                Codec.intRange(1, 1200).optionalFieldOf("step_ticks", 4).forGetter(SequencerSettings::stepTicks),
+                Codec.BOOL.optionalFieldOf("loop", true).forGetter(SequencerSettings::loop),
+                Codec.BOOL.optionalFieldOf("pulse", true).forGetter(SequencerSettings::pulse),
+                SequencerTrack.CODEC.sizeLimitedListOf(TRACK_LIMIT).optionalFieldOf("tracks", List.of()).forGetter(SequencerSettings::tracks)
+        ).apply(i, SequencerSettings::new));
+
+        @Override
+        public Kind kind() {
+            return Kind.SEQUENCER;
         }
     }
 

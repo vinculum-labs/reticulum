@@ -109,9 +109,14 @@
       ? (s.outputs ?? []).map((x, i) => ({ label: pinLabel(x, `${id}/out/${i}`), title: sideLabel(x), color: RESOURCE_VAR[x.resource], handle: `out:${i}` }))
       : holds
         ? (data.holder?.outputs ?? []).map((pin) => holderRow(pin, false))
-        : signal
-          ? [{ label: "out", title: "Output", color, handle: "out:0" }]
-          : [],
+        : s.kind === "sequencer"
+          ? [
+              { label: "step", title: "The step playing (1 on; 0 once stopped)", color, handle: "out:0" },
+              ...(s.tracks ?? []).map((t, i) => ({ label: t.name || `track ${i + 1}`, title: `Track ${i + 1}${t.name ? `: ${t.name}` : ""}`, color, handle: `out:${i + 1}` })),
+            ]
+          : signal
+            ? [{ label: "out", title: "Output", color, handle: "out:0" }]
+            : [],
   );
   const pinned = $derived(kind === "device" || holds || signal);
   /**

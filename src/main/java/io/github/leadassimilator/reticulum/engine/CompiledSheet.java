@@ -479,7 +479,16 @@ public final class CompiledSheet {
 
     /** Latches, counters and delays give what they remembered, so wires into them never make a loop. */
     private static boolean remembers(NodeSettings.Kind kind) {
-        return kind == NodeSettings.Kind.LATCH || kind == NodeSettings.Kind.COUNTER || kind == NodeSettings.Kind.DELAY;
+        return kind == NodeSettings.Kind.LATCH || kind == NodeSettings.Kind.COUNTER || kind == NodeSettings.Kind.DELAY
+                || kind == NodeSettings.Kind.SEQUENCER;
+    }
+
+    /**
+     * The key a signal node's output goes by: output 0 is the node's own id; another (a Sequencer's tracks) has an id of
+     * its own, so wires from different outputs read different values.
+     */
+    public static UUID outputKey(UUID node, int output) {
+        return output <= 0 ? node : UUID.nameUUIDFromBytes((node + "/out/" + output).getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     /**
@@ -514,6 +523,8 @@ public final class CompiledSheet {
             return carriers;
         }
         Map<UUID, List<List<UUID>>> inputs = new LinkedHashMap<>();
+        // Output keys (see outputKey) back to their nodes.
+        Map<UUID, UUID> keyOwners = new java.util.HashMap<>();
         for (Wire wire : wires) {
             if (!carriers.contains(wire.from())) {
                 if (wire.input() == Wire.GATE) {
@@ -524,14 +535,16 @@ public final class CompiledSheet {
             if (!byId.containsKey(wire.from())) {
                 continue;
             }
+            UUID key = outputKey(wire.from(), wire.output());
+            keyOwners.put(key, wire.from());
             if (wire.input() == Wire.GATE) {
-                switchedBy.computeIfAbsent(wire.to(), k -> new ArrayList<>()).add(wire.from());
+                switchedBy.computeIfAbsent(wire.to(), k -> new ArrayList<>()).add(key);
             } else if (carriers.contains(wire.to())) {
                 List<List<UUID>> in = inputs.computeIfAbsent(wire.to(), k -> new ArrayList<>());
                 while (in.size() <= wire.input()) {
                     in.add(new ArrayList<>());
                 }
-                in.get(wire.input()).add(wire.from());
+                in.get(wire.input()).add(key);
             } else if (byId.containsKey(wire.to())) {
                 error(byId.get(wire.to()), describe(byId.get(wire.to())) + ": a signal wire must go into its gate (the diamond pin), not a resource input");
             }
@@ -550,9 +563,10 @@ public final class CompiledSheet {
             int count = 0;
             for (List<UUID> from : in) {
                 for (UUID source : from) {
-                    if (!remembers(byId.get(source).kind())) {
+                    UUID owner = keyOwners.getOrDefault(source, source);
+                    if (!remembers(byId.get(owner).kind())) {
                         count++;
-                        feeds.computeIfAbsent(source, k -> new ArrayList<>()).add(id);
+                        feeds.computeIfAbsent(owner, k -> new ArrayList<>()).add(id);
                     }
                 }
             }

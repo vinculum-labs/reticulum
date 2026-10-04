@@ -158,6 +158,8 @@ final class Signals {
                         asleepNow.add(id);
                     } else if (node.node().settings() instanceof NodeSettings.AlarmSettings alarm) {
                         values.put(id, alarm(ctx, sheet, node, alarm));
+                    } else if (node.node().settings() instanceof NodeSettings.SequencerSettings sequencer) {
+                        values.put(id, sequencer(ctx, node, sequencer, worked));
                     } else {
                         values.put(id, output(ctx, sheet, node, group == sheets ? emit : dark));
                     }
@@ -218,6 +220,61 @@ final class Signals {
             }
         }
         asleep = now;
+    }
+
+    /**
+     * A Sequencer's outputs, from where it is (remembered, so it carries on after a restart): its tracks' values at the
+     * step playing (for one tick as the step starts, when pulsing), and the step (1 on) as its own value.
+     */
+    private long sequencer(NetworkRuntime.Context ctx, CompiledSheet.SignalNode node, NodeSettings.SequencerSettings sequencer, Set<UUID> worked) {
+        UUID id = node.node().id();
+        Map<String, Long> memory = ctx.network().signalMemory();
+        int step = (int) (long) memory.getOrDefault(id + "/step", 0L);
+        boolean fire = memory.getOrDefault(id + "/fire", 0L) > 0;
+        boolean playing = memory.getOrDefault(id + "/primed", 0L) > 0 && step < sequencer.steps();
+        for (int track = 0; track < sequencer.tracks().size(); track++) {
+            int value = playing ? sequencer.tracks().get(track).at(step) : 0;
+            UUID key = CompiledSheet.outputKey(id, track + 1);
+            values.put(key, sequencer.pulse() && !fire ? 0L : value);
+            worked.add(key);
+        }
+        return playing ? step + 1 : 0;
+    }
+
+    /** After the tick: a Sequencer moves on (or starts, stops, or goes back to the first step). */
+    private static void stepSequencer(NetworkRuntime.Context ctx, CompiledSheet.SignalNode node, NodeSettings.SequencerSettings sequencer,
+            boolean run, boolean reset) {
+        String key = node.node().id().toString();
+        Map<String, Long> memory = ctx.network().signalMemory();
+        long step = memory.getOrDefault(key + "/step", 0L);
+        long phase = memory.getOrDefault(key + "/phase", 0L);
+        boolean primed = memory.getOrDefault(key + "/primed", 0L) > 0;
+        boolean fire = false;
+        if (reset) {
+            step = 0;
+            phase = 0;
+            primed = false;
+        } else if (run && !primed) {
+            // Starting: the first step plays now.
+            primed = true;
+            step = 0;
+            phase = 0;
+            fire = true;
+        } else if (run && step < sequencer.steps()) {
+            phase++;
+            if (phase >= sequencer.stepTicks()) {
+                phase = 0;
+                step++;
+                if (step >= sequencer.steps() && sequencer.loop()) {
+                    step = 0;
+                }
+                fire = step < sequencer.steps();
+            }
+        }
+        store(ctx, key + "/step", step);
+        store(ctx, key + "/phase", phase);
+        store(ctx, key + "/primed", primed ? 1 : 0);
+        store(ctx, key + "/fire", fire ? 1 : 0);
     }
 
     /** Alarm nodes in sleeping sheets this tick. */
@@ -356,6 +413,8 @@ final class Signals {
                 long count = memory.getOrDefault(key, 0L);
                 store(ctx, key, in(node, 1) > 0 ? 0 : rising ? count + 1 : count);
             }
+            case NodeSettings.SequencerSettings sequencer ->
+                    stepSequencer(ctx, node, sequencer, node.input(0).isEmpty() || in(node, 0) > 0, in(node, 1) > 0);
             case NodeSettings.DelaySettings delay -> {
                 ArrayDeque<Long> queue = delays.computeIfAbsent(id, k -> new ArrayDeque<>());
                 queue.addLast(in(node, 0));

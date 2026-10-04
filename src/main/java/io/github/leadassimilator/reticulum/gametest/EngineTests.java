@@ -439,6 +439,33 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /**
+     * A Sequencer steps through its tracks, each track an output of its own: two lamps take turns (held values), it
+     * loops, and stopped (not looping) it gives nothing.
+     */
+    @GameTest(template = "empty", timeoutTicks = 300)
+    public static void sequencerStepsThroughItsTracks(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP, Blocks.REDSTONE_LAMP);
+        var tracks = List.of(new NodeSettings.SequencerTrack("A", "f0"), new NodeSettings.SequencerTrack("B", "0f"));
+        Node sequencer = rig.node(new NodeSettings.SequencerSettings(2, 20, true, false, tracks));
+        Node toA = rig.redstoneTo(rig.device(0));
+        Node toB = rig.redstoneTo(rig.device(1));
+        rig.sheet().connect(new Wire(UUID.randomUUID(), sequencer.id(), 1, toA.id(), 0, 0));
+        rig.sheet().connect(new Wire(UUID.randomUUID(), sequencer.id(), 2, toB.id(), 0, 0));
+        BlockPos a = rig.devices().get(0);
+        BlockPos b = rig.devices().get(1);
+        java.util.function.BiPredicate<Boolean, Boolean> lit = (litA, litB) -> helper.getBlockState(a).getValue(RedstoneLampBlock.LIT) == litA
+                && helper.getBlockState(b).getValue(RedstoneLampBlock.LIT) == litB;
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, rig.compiled().errors().isEmpty() && lit.test(true, false), "step 1 didn't light only lamp A: " + rig.compiled().errors()))
+                .thenWaitUntil(() -> check(helper, lit.test(false, true), "step 2 didn't light only lamp B"))
+                .thenWaitUntil(() -> check(helper, lit.test(true, false), "it didn't loop back to step 1"))
+                .thenExecute(() -> rig.sheet().replace(rig.sheet().node(sequencer.id()).with(new NodeSettings.SequencerSettings(2, 20, false, false, tracks))))
+                .thenWaitUntil(() -> check(helper, lit.test(false, false) && rig.runtime().signalValues().getOrDefault(sequencer.id(), 1L) == 0,
+                        "not looping, it didn't stop after the last step"))
+                .thenSucceed();
+    }
+
     /** A Constant with its "on" input wired gives its value only while that input is above 0. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void constantFollowsItsOnInput(GameTestHelper helper) {

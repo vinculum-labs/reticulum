@@ -35,6 +35,7 @@
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import Scissors from "@lucide/svelte/icons/scissors";
   import DeviceNodeEditor from "./DeviceNodeEditor.svelte";
+  import SequencerGrid from "./SequencerGrid.svelte";
   import Chart from "./Chart.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
   import ThroughputSummary from "./ThroughputSummary.svelte";
@@ -135,6 +136,15 @@
 
   function save(next: GraphNode, label = "edit node") {
     updateNodeEdit(sheet.id, node, next, label);
+  }
+
+  /** Removes a Sequencer track: its wire goes, and the wires of the tracks after it move up with them. */
+  function removeTrack(index: number) {
+    if (node.settings.kind !== "sequencer") return;
+    const tracks = (node.settings.tracks ?? []).filter((_, i) => i !== index);
+    const { after, before } = rebase(node, { ...node, settings: { ...node.settings, tracks } });
+    const { edits, undo } = deviceChange(sheet, before, after, { out: [index + 1] });
+    edit(edits, undo, "remove track");
   }
 
   function settings(patch: Partial<NodeSettings>) {
@@ -369,6 +379,43 @@
     <Field label="Ticks" hint="How late the output follows the input. A loop of signal wires must pass a Delay, Latch or Counter.">
       <NumberField value={s.ticks ?? 1} min={1} max={1200} width="md" disabled={!canEdit} oncommit={(v) => settings({ ticks: v })} />
     </Field>
+  {:else if s.kind === "sequencer"}
+    <Field label="Steps" hint="How many steps it goes through (up to 256).">
+      <div class="flex items-center gap-2">
+        <NumberField value={s.steps ?? 16} min={1} max={256} width="md" disabled={!canEdit} oncommit={(v) => settings({ steps: v ?? 16 })} />
+        <span class="muted">×</span>
+        <NumberField value={s.step_ticks ?? 4} min={1} max={1200} width="md" disabled={!canEdit} oncommit={(v) => settings({ step_ticks: v ?? 4 })} />
+        <span class="muted">ticks each ({(20 / (s.step_ticks ?? 4)).toFixed(1)} steps a second)</span>
+      </div>
+    </Field>
+    <Field label="Outputs" hint="Pulse: one tick as each step starts, so a note block plays each hit (two hits in a row need 2+ ticks a step). Hold: the value for the whole step.">
+      <div class="flex items-center gap-3">
+        <Segmented
+          label="Outputs"
+          size="xs"
+          value={s.pulse === false ? "hold" : "pulse"}
+          disabled={!canEdit}
+          options={[
+            { value: "pulse", label: "Pulse" },
+            { value: "hold", label: "Hold" },
+          ]}
+          onchange={(v) => settings({ pulse: v === "pulse" })}
+        />
+        <Switch label="Loop" checked={s.loop !== false} disabled={!canEdit} onchange={(on) => settings({ loop: on })} />
+      </div>
+    </Field>
+    <SequencerGrid
+      tracks={s.tracks ?? []}
+      steps={s.steps ?? 16}
+      playing={app.signals[node.id] ?? 0}
+      {canEdit}
+      onchange={(tracks) => settings({ tracks })}
+      onremove={(i) => removeTrack(i)}
+    />
+    {#if canEdit && (s.tracks?.length ?? 0) < 16}
+      <button class="btn self-start" onclick={() => settings({ tracks: [...(s.tracks ?? []), { name: "", cells: "" }] })}>Add track</button>
+    {/if}
+    <Help>Wire each track to a device's redstone input — a note block per note. "run" (always on while unwired) plays it; "reset" goes back to step 1. The highlighted step updates about once a second.</Help>
   {:else if s.kind === "alarm"}
     <Field label="Severity">
       <Segmented
