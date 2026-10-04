@@ -18,7 +18,8 @@ public final class ConnectorRecord {
             Ids.UUID_CODEC.fieldOf("id").forGetter(r -> r.id),
             GlobalPos.CODEC.fieldOf("pos").forGetter(r -> r.pos),
             Codec.STRING.optionalFieldOf("name").forGetter(r -> Optional.ofNullable(r.name)),
-            GlobalPos.CODEC.listOf().optionalFieldOf("devices", List.of()).forGetter(r -> r.devices)
+            GlobalPos.CODEC.listOf().optionalFieldOf("devices", List.of()).forGetter(r -> r.devices),
+            Codec.BOOL.optionalFieldOf("moving", false).forGetter(r -> r.moving)
     ).apply(i, ConnectorRecord::new));
 
     private final UUID id;
@@ -26,16 +27,19 @@ public final class ConnectorRecord {
     @Nullable
     private String name;
     private final List<GlobalPos> devices = new ArrayList<>();
+    /** Lifted by a piston or a contraption (Create's) and not yet put down: wherever it turns up is it, not a copy. */
+    private boolean moving;
 
     public ConnectorRecord(UUID id, GlobalPos pos) {
-        this(id, pos, Optional.empty(), List.of());
+        this(id, pos, Optional.empty(), List.of(), false);
     }
 
-    private ConnectorRecord(UUID id, GlobalPos pos, Optional<String> name, List<GlobalPos> devices) {
+    private ConnectorRecord(UUID id, GlobalPos pos, Optional<String> name, List<GlobalPos> devices, boolean moving) {
         this.id = id;
         this.pos = pos;
         this.name = name.orElse(null);
         this.devices.addAll(devices);
+        this.moving = moving;
     }
 
     public UUID id() {
@@ -46,8 +50,18 @@ public final class ConnectorRecord {
         return pos;
     }
 
+    /** Where it is now: it has arrived (no longer moving). */
     public void setPos(GlobalPos pos) {
         this.pos = pos;
+        this.moving = false;
+    }
+
+    public boolean moving() {
+        return moving;
+    }
+
+    public void setMoving(boolean moving) {
+        this.moving = moving;
     }
 
     @Nullable

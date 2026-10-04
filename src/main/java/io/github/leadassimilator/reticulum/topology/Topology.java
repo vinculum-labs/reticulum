@@ -128,19 +128,19 @@ public final class Topology {
     }
 
     /**
-     * Where cables and connectors were lifted from by a piston or a contraption (Create's), still to arrive somewhere.
-     * One arriving with its saved position among these moved there: it keeps its network and ids (it isn't a copy).
+     * A connector lifted by a piston or a contraption (Create's), its data going along: its record stays, marked as
+     * moving, so wherever it is put down it is taken for itself (see ConnectorBlockEntity), even after a restart.
      */
-    private static final Set<Long> MOVING = java.util.concurrent.ConcurrentHashMap.newKeySet();
-
-    /** A cable or connector is being moved away from {@code from} (its data goes along). */
-    public static void noteMoving(BlockPos from) {
-        MOVING.add(from.asLong());
-    }
-
-    /** Whether a block saved at {@code from} arrives elsewhere because it was moved (then forgets the note). */
-    public static boolean arrivedFrom(long from) {
-        return MOVING.remove(from);
+    public static void noteMoving(ServerLevel level, NetworkBlockEntity be) {
+        if (!(be instanceof ConnectorBlockEntity connector)) {
+            return;
+        }
+        Network network = NetworkManager.network(level.getServer(), networkOf(level, be));
+        ConnectorRecord record = network == null ? null : network.connector(connector.connectorId());
+        if (record != null) {
+            record.setMoving(true);
+            NetworkManager.data(level.getServer()).setDirty();
+        }
     }
 
     public static Removed capture(NetworkBlockEntity be) {

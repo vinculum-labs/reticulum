@@ -99,8 +99,8 @@ public abstract class NetworkBlock extends BaseEntityBlock {
         Topology.Removed removed = level.getBlockEntity(pos) instanceof NetworkBlockEntity be ? Topology.capture(be) : null;
         // Moved by a piston or contraption (Create), not broken: it comes back elsewhere with its data, so a connector
         // keeps its record (its name, its devices) meanwhile, and arriving it isn't taken for a copy.
-        if (movedByPiston && removed != null && !removed.controller()) {
-            Topology.noteMoving(pos);
+        if (movedByPiston && removed != null && !removed.controller() && level.getBlockEntity(pos) instanceof NetworkBlockEntity moving) {
+            Topology.noteMoving(serverLevel, moving);
             removed = new Topology.Removed(removed.networkId(), false, null);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);

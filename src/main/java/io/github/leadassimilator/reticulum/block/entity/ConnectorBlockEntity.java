@@ -99,10 +99,38 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        if (tag.hasUUID("connector") && !copied) {
+        if (tag.hasUUID("connector") && (!copied || isOriginal(tag.getUUID("connector")))) {
             connectorId = tag.getUUID("connector");
+        } else if (copied) {
+            // A copy (pick-block, /clone, a pasted structure): a new connector, on no network until placed against one.
+            setNetworkId(null);
         }
         disabledDevices = tag.getByte("disabled_devices");
+    }
+
+    /**
+     * Whether this connector, saved under {@code id} somewhere else, is that connector moved here rather than a copy of
+     * it. Its network's record decides: lifted by a piston or contraption, it is marked moving; otherwise the block at
+     * the recorded place still being that connector (or that place not loaded, or no record) makes this a copy. Order,
+     * timing and restarts don't matter, and two live connectors never share an id.
+     */
+    private boolean isOriginal(java.util.UUID id) {
+        if (!(level instanceof net.minecraft.server.level.ServerLevel server)) {
+            return false;
+        }
+        var network = io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId());
+        var record = network == null ? null : network.connector(id);
+        if (record == null) {
+            return false;
+        }
+        if (record.moving()) {
+            return true;
+        }
+        var there = server.getServer().getLevel(record.pos().dimension());
+        if (there == null || !there.isLoaded(record.pos().pos())) {
+            return false;
+        }
+        return !(there.getBlockEntity(record.pos().pos()) instanceof ConnectorBlockEntity other && id.equals(other.connectorId()));
     }
 
     @Override
