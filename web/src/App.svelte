@@ -61,7 +61,8 @@
     <EmptyState fill loading message="Loading…" />
   {:else}
     <SvelteFlowProvider>
-    <div class="flex min-h-0 flex-1">
+    <!-- Out of reach while the network left is shown until the next one's snapshot comes. -->
+    <div class="flex min-h-0 flex-1" inert={app.switching}>
       <Sidebar />
       <main class="relative min-w-0 flex-1">
         <Canvas />

@@ -203,6 +203,8 @@ export const app = $state({
   nameNode: null as string | null,
   /** A panel shown in place of the inspector ("network" = network settings). */
   panel: null as "network" | "identified" | "dashboard" | "charts" | null,
+  /** Switching to a network not seen yet this session: the one left stays shown (out of reach) until its snapshot comes. */
+  switching: false,
   /** How long the network's ticks take, in ms (last 200 ticks). */
   tick: null as { average: number; longest: number } | null,
   busy: 0,
@@ -379,7 +381,10 @@ export async function selectNetwork(id: string, fallback = true): Promise<void> 
     app.undo = stacks.undo;
     app.redo = stacks.redo;
     histories.delete(id);
-    app.snapshot = null;
+    // Not cleared to nothing: the editor would give way to "Loading…" for a moment and be built again (a flash).
+    // The network left stays shown, out of reach, until this one's snapshot comes.
+    app.switching = !lastSnapshots.has(id) && !!app.snapshot;
+    if (!app.switching) app.snapshot = null;
   }
   app.current = id;
   const last = previous !== id ? lastSnapshots.get(id) : undefined;
@@ -397,6 +402,10 @@ export async function selectNetwork(id: string, fallback = true): Promise<void> 
   } catch (e) {
     toast((e as Error).message);
     lastSnapshots.delete(id);
+    if (app.current === id && app.switching) {
+      app.switching = false;
+      app.snapshot = null;
+    }
     if (fallback && previous && previous !== id && app.current === id) await selectNetwork(previous, false);
   }
 }
@@ -418,6 +427,7 @@ function setSnapshot(snapshot: Snapshot): void {
   const merged = app.snapshot && app.snapshot.id === snapshot.id ? share(app.snapshot, snapshot) : snapshot;
   if (merged !== app.snapshot) app.snapshot = merged;
   lastSnapshots.set(snapshot.id, merged);
+  app.switching = false;
   const summary = app.networks.find((n) => n.id === snapshot.id);
   if (summary) Object.assign(summary, { name: snapshot.name, running: snapshot.running, enabled: snapshot.enabled });
   // Falling back to another sheet (the one open is gone, or this is another network) keeps the top bar's tab open:
