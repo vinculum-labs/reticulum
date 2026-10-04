@@ -101,7 +101,7 @@
           {@const sheet = alarm.sheet ? snapshot.sheets.find((s) => s.id === alarm.sheet) : undefined}
           <button class="list-row flex items-center gap-2 rounded px-1 text-left" disabled={!alarm.sheet} onclick={() => openAlarm(alarm)}>
             <span class="trim-text flex shrink-0" style="color: {severityColor(alarm.severity)}" title={alarm.severity === "critical" ? "Critical" : "Warning"}><Siren size={14} /></span>
-            <span class="min-w-0 flex-1 truncate">{alarm.message}{#if sheet}<span class="muted"> · {sheetPath(snapshot, sheet)}</span>{/if}</span>
+            <span class="min-w-0 flex-1 truncate">{alarm.message}{#if sheet}<span class="muted">{" · "}{sheetPath(snapshot, sheet)}</span>{/if}</span>
             <span class="shrink-0 tabular-nums muted" title={new Date(alarm.since).toLocaleString()}>{age(alarm.since)}</span>
           </button>
         {:else}
@@ -167,7 +167,7 @@
         <h3 class="panel-title">Switched off ({off.length})</h3>
         {#each off as x}
           <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
-            <span class="truncate">{x.node ? nodeTitle(x.node) : sheetPath(snapshot, x.sheet)}{#if x.node}<span class="muted"> · {sheetPath(snapshot, x.sheet)}</span>{/if}</span>
+            <span class="truncate">{x.node ? nodeTitle(x.node) : sheetPath(snapshot, x.sheet)}{#if x.node}<span class="muted">{" · "}{sheetPath(snapshot, x.sheet)}</span>{/if}</span>
             <span class="muted">{x.why}</span>
           </button>
         {:else}

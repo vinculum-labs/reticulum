@@ -119,7 +119,7 @@
   >
     <DeviceIcon item={block} size={18} />
     <span class="min-w-0 flex-1 truncate" class:muted={!block}>
-      {block ? blockName(block) : placeholder}{#if from}<span class="muted"> · from {deviceName(from)}</span>{/if}
+      {block ? blockName(block) : placeholder}{#if from}<span class="muted">{" · from "}{deviceName(from)}</span>{/if}
     </span>
     <ChevronDown size={14} class="muted" />
   </button>
