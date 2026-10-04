@@ -4,6 +4,7 @@ import io.github.leadassimilator.reticulum.ReticulumClientConfig;
 import io.github.leadassimilator.reticulum.client.AlarmClient;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Checkbox;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -34,7 +35,7 @@ public class AlarmSettingsScreen extends QuickScreen {
     @Override
     protected void init() {
         left = (width - WIDTH) / 2;
-        top = Math.max(8, (height - (60 + LABELS.length * ROW)) / 2);
+        top = Math.max(8, (height - (90 + LABELS.length * ROW)) / 2);
         for (int row = 0; row < LABELS.length; row++) {
             for (int column = 0; column < 2; column++) {
                 ModConfigSpec.BooleanValue value = value(row, column == 1);
@@ -48,6 +49,27 @@ public class AlarmSettingsScreen extends QuickScreen {
                         .build());
             }
         }
+        // How often the sound plays, per severity, in seconds.
+        int y = top + 48 + LABELS.length * ROW + 4;
+        every(left + 146, y, ReticulumClientConfig.TOOL_SOUND_EVERY_WARNING, "every_warning");
+        every(left + 202, y, ReticulumClientConfig.TOOL_SOUND_EVERY_CRITICAL, "every_critical");
+    }
+
+    private void every(int x, int y, ModConfigSpec.IntValue value, String key) {
+        EditBox box = kept(key, new SeeThroughTextBox(font, x, y, 40, 16, Component.translatable("screen.reticulum.alarm_sound_every")));
+        box.setMaxLength(4);
+        box.setValue(Integer.toString(value.getAsInt()));
+        box.setResponder(text -> {
+            try {
+                int seconds = Integer.parseInt(text.trim());
+                if (seconds >= 1 && seconds <= 3600 && seconds != value.getAsInt()) {
+                    value.set(seconds);
+                    value.save();
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        });
+        addRenderableWidget(box);
     }
 
     @Override
@@ -64,5 +86,6 @@ public class AlarmSettingsScreen extends QuickScreen {
         for (int row = 0; row < LABELS.length; row++) {
             graphics.drawString(font, Component.translatable("screen.reticulum." + LABELS[row]), left, top + 48 + row * ROW + 6, 0xE0E0E0);
         }
+        graphics.drawString(font, Component.translatable("screen.reticulum.alarm_sound_every"), left, top + 48 + LABELS.length * ROW + 8, 0xE0E0E0);
     }
 }

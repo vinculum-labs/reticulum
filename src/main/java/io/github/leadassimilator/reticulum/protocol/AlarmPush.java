@@ -103,6 +103,13 @@ public final class AlarmPush {
             for (Alarms.Source source : Alarms.sources(server, network)) {
                 add(player, markers, marked, source.device(), source.severity() == AlarmSeverity.CRITICAL ? 1 : 0, source.message());
             }
+            // Problems about a device's node (one device with two nodes, say): the device, with what is wrong.
+            for (var problem : runtime.compiled(network.root(), network).errors()) {
+                GlobalPos device = problem.node() == null ? null : deviceOf(network, runtime.compiled(network.root(), network).owner(problem.node()));
+                if (device != null) {
+                    add(player, markers, marked, device, 0, problem.message());
+                }
+            }
             boolean running = NetworkTicker.isRunning(server, network);
             for (DeviceRecord device : network.devices()) {
                 String why = device.state() == DeviceRecord.State.ORPHANED ? "orphaned"
@@ -122,6 +129,22 @@ public final class AlarmPush {
             }
         }
         PacketDistributor.sendToPlayer(player, new Payloads.StatusMarkers(markers));
+    }
+
+    /** The block a node on one of the network's sheets stands for (a device node or a Level sensor's), or null. */
+    @javax.annotation.Nullable
+    private static GlobalPos deviceOf(Network network, UUID node) {
+        for (var sheet : network.sheets()) {
+            var found = sheet.blueprint() ? null : sheet.node(node);
+            if (found != null) {
+                return switch (found.settings()) {
+                    case io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings device -> device.device();
+                    case io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings level -> level.device();
+                    default -> null;
+                };
+            }
+        }
+        return null;
     }
 
     private static void add(ServerPlayer player, List<Payloads.StatusMarker> markers, Set<GlobalPos> marked, GlobalPos pos, int severity, String label) {

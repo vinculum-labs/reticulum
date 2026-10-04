@@ -117,12 +117,13 @@ public final class AlarmClient {
             worst = Math.max(worst, severity(player.getOffhandItem()));
         }
         if (worst == 1 && ReticulumClientConfig.TOOL_SOUND_CRITICAL.getAsBoolean()) {
-            // A short two-tone siren every ten seconds.
-            long phase = time % 200;
+            // A short two-tone siren (four notes over two seconds), every so many seconds.
+            long phase = time % Math.max(40, ReticulumClientConfig.TOOL_SOUND_EVERY_CRITICAL.getAsInt() * 20L);
             if (phase < 40 && phase % 10 == 0) {
                 mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_PLING.value(), (phase / 10) % 2 == 0 ? 1.6f : 1.2f, 0.6f));
             }
-        } else if (worst >= 0 && ReticulumClientConfig.TOOL_SOUND_WARNING.getAsBoolean() && time % 200 == 0) {
+        } else if (worst >= 0 && ReticulumClientConfig.TOOL_SOUND_WARNING.getAsBoolean()
+                && time % (ReticulumClientConfig.TOOL_SOUND_EVERY_WARNING.getAsInt() * 20L) == 0) {
             mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_CHIME.value(), 1.2f, 0.5f));
         }
         // Status mode: where things are wrong, asked for every two seconds while held.

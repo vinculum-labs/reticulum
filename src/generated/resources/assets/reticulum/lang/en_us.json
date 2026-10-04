@@ -168,6 +168,7 @@
   "screen.reticulum.alarm_none": "Nothing is going off on your networks",
   "screen.reticulum.alarm_now": "Going off on your networks: %s",
   "screen.reticulum.alarm_settings": "Alarms — the network tool",
+  "screen.reticulum.alarm_sound_every": "Sound every (seconds)",
   "screen.reticulum.alarm_tool_color": "Mark on the tool",
   "screen.reticulum.alarm_tool_sound": "Sound from the hotbar",
   "screen.reticulum.attached": "Attached",
