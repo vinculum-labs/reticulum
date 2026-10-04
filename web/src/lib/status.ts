@@ -1,7 +1,5 @@
-/** How the network, and each sheet in it, is doing: an icon, its color and what it means (top bar and sheet tree). */
+/** How the network, and each sheet in it, is doing: an icon, its color and what it means (sheet tree and network tabs). */
 import NetworkIcon from "@lucide/svelte/icons/network";
-import Play from "@lucide/svelte/icons/circle-play";
-import Stop from "@lucide/svelte/icons/circle-stop";
 import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
 import Unplug from "@lucide/svelte/icons/unplug";
 import Ban from "@lucide/svelte/icons/ban";
@@ -12,26 +10,6 @@ import { KIND_ICON } from "./icons";
 import type { OffReason } from "./tree";
 import { posKey, type Alarm, type AlarmSeverity, type Device, type GlobalPos, type GraphNode, type Sheet, type Snapshot } from "./types";
 import Siren from "@lucide/svelte/icons/siren";
-
-export interface Status {
-  icon: Component<{ size?: number | string; class?: string }>;
-  color: string;
-  title: string;
-}
-
-/**
- * {@code hasController}: whether the network has a controller at all; without one it can't run, as with one whose
- * chunk isn't loaded, but the fix differs (place one, or load its chunk).
- */
-export function networkStatus(running: boolean, enabled: boolean, unpowered: boolean, hasController = true): Status {
-  if (running && unpowered) {
-    return { icon: ZapOff, color: "var(--bad)", title: "No power: the controller has too little FE for this network, so only energy flows run" };
-  }
-  if (running) return { icon: Play, color: "var(--good)", title: "Running" };
-  if (enabled && !hasController) return { icon: Ban, color: "var(--warn)", title: "No controller: this network has none, so nothing runs — place one" };
-  if (enabled) return { icon: Unplug, color: "var(--warn)", title: "Controller not loaded: its chunk isn't loaded, so nothing runs" };
-  return { icon: Stop, color: "var(--muted)", title: "Off: switched off with the On checkbox" };
-}
 
 /** The color of an alarm's severity. */
 export function severityColor(severity: AlarmSeverity | undefined): string {

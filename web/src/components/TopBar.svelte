@@ -1,6 +1,5 @@
 <script lang="ts">
   import Segmented from "./controls/Segmented.svelte";
-  import Switch from "./controls/Switch.svelte";
   import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
   import ChartLine from "@lucide/svelte/icons/chart-line";
   import Lightbulb from "@lucide/svelte/icons/lightbulb";
@@ -12,7 +11,6 @@
   import Undo from "@lucide/svelte/icons/undo-2";
   import {
     app,
-    edit,
     selectNetwork,
     undo,
     redo,
@@ -22,7 +20,7 @@
     setRateUnit,
   } from "../lib/state.svelte";
   import { confirmDialog } from "../lib/dialog.svelte";
-  import { networkStatus, severityColor, tabStatus } from "../lib/status";
+  import { severityColor, tabStatus } from "../lib/status";
 
   const snapshot = $derived(app.snapshot);
   const alarms = $derived(app.networks.find((n) => n.id === app.current)?.alarms ?? []);
@@ -48,7 +46,6 @@
       toast((e as Error).message);
     }
   }
-  const power = $derived(app.power ?? app.snapshot?.power);
 
   /** The network's state as an icon, a color and a tooltip. */
   /** How long the saving dot stays once lit, so a quick save shows as a calm blip instead of a flicker. */
@@ -85,18 +82,6 @@
     {/each}
   </nav>
   {#if snapshot}
-    <Switch
-      label="On"
-      title="Switch the whole network on or off"
-      checked={snapshot.enabled}
-      disabled={!snapshot.canEdit}
-      onchange={(on) => edit([{ type: "setNetworkEnabled", enabled: on }], [{ type: "setNetworkEnabled", enabled: snapshot.enabled }], "network on/off")}
-    />
-    <!-- One fixed-size icon for the network's state, so nothing beside it shifts when the state changes. -->
-    {@const status = networkStatus(snapshot.running, snapshot.enabled, !!power?.enabled && !power.powered, !!snapshot.controller)}
-    <span class="flex h-5 w-5 shrink-0 items-center justify-center" style="color: {status.color}" title={status.title} role="img" aria-label={status.title}>
-      <status.icon size={16} />
-    </span>
     <button
       class="btn flex items-center gap-1"
       aria-pressed={app.panel === "dashboard"}
