@@ -21,3 +21,9 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
 
 - Undoing "stop charting" brings the chart back with an empty history: the server forgets a removed chart's series.
 - Chart colors don't follow a light/dark switch while Charts is open (reopening fixes it).
+- On a stopped network (and for a moment after switching networks) switches show off, whatever the game remembers:
+  the editor reads them from live values, which a stopped network doesn't send. A flip there shows until the next
+  snapshot.
+- Two placed blueprints can end up with one numbered name (undo of a removal after the number was reused, or a paste
+  keeping its label): the name field warns, nothing renumbers.
+
