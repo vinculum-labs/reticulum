@@ -60,7 +60,8 @@ public class StatusBeaconScreen extends QuickScreen {
 
     /** New contents from the server (after a mode change): the status and alarms; the settings as the server kept them. */
     public void refresh(Payloads.OpenBeaconScreen next) {
-        boolean modeChanged = redstone() != "redstone".equals(next.settings().getString("mode"));
+        // Against what the server had before: the local copy already took the new mode when its button was pressed.
+        boolean modeChanged = !view.settings().getString("mode").equals(next.settings().getString("mode"));
         view = next;
         settings = next.settings().copy();
         if (modeChanged) {
@@ -292,14 +293,18 @@ public class StatusBeaconScreen extends QuickScreen {
         }
         try {
             float value = Float.parseFloat(pitch.getValue().trim());
-            changed |= value != look.getFloat("pitch");
-            look.putFloat("pitch", value);
+            if (Float.isFinite(value)) {
+                changed |= value != look.getFloat("pitch");
+                look.putFloat("pitch", value);
+            }
         } catch (NumberFormatException ignored) {
         }
         try {
             float value = Float.parseFloat(pitch2.getValue().trim());
-            changed |= value != look.getFloat("pitch2");
-            look.putFloat("pitch2", value);
+            if (Float.isFinite(value)) {
+                changed |= value != look.getFloat("pitch2");
+                look.putFloat("pitch2", value);
+            }
         } catch (NumberFormatException ignored) {
         }
         try {
@@ -321,6 +326,7 @@ public class StatusBeaconScreen extends QuickScreen {
         }
         if (changed) {
             send();
+            markSent();
         }
     }
 
@@ -340,6 +346,9 @@ public class StatusBeaconScreen extends QuickScreen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (overlayClicked(mouseX, mouseY, button)) {
+            return true;
+        }
         if (redstone() && mouseY >= pickerTop && mouseY < pickerTop + CELL) {
             for (int level = 0; level <= 15; level++) {
                 if (mouseX >= stripX(level) && mouseX < stripX(level) + CELL) {

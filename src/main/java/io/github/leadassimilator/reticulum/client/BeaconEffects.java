@@ -162,6 +162,8 @@ public final class BeaconEffects {
             return;
         }
         long time = mc.level.getGameTime();
+        // A dimension change replaces the level without unloading its chunks: its beacons go here.
+        StatusBeaconBlockEntity.CLIENT_LOADED.removeIf(beacon -> beacon.getLevel() != mc.level || beacon.isRemoved());
         boolean muteRedstone = ReticulumClientConfig.MUTE_REDSTONE_BEACONS.getAsBoolean();
         // A network tool in hand sounding the alarm takes priority over beacons showing alarms.
         boolean muteNetwork = AlarmClient.toolSounding();

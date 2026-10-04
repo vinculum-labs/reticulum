@@ -77,6 +77,9 @@ public abstract class QuickScreen extends Screen {
         boxes.clear();
         built.clear();
         rebuildWidgets();
+        // What the rebuilt boxes show before what was typed goes back in: that is what they were built with.
+        boxes.forEach((key, box) -> built.put(key, box.getValue()));
+        builtRead = true;
         typed.forEach((key, value) -> {
             EditBox box = boxes.get(key);
             if (box != null && box.isActive()) {
@@ -88,10 +91,14 @@ public abstract class QuickScreen extends Screen {
         }
     }
 
+    /** Whether {@link #built} has been read from the boxes since they were made (they are kept before their value is set). */
+    private boolean builtRead;
+
     @Override
     protected void rebuildWidgets() {
         boxes.clear();
         built.clear();
+        builtRead = false;
         overlay = null;
         pendingOverlay = null;
         super.rebuildWidgets();
@@ -110,6 +117,10 @@ public abstract class QuickScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        if (!builtRead) {
+            boxes.forEach((key, box) -> built.put(key, box.getValue()));
+            builtRead = true;
+        }
         if (pendingOverlay != null) {
             overlay = pendingOverlay;
             pendingOverlay = null;
@@ -120,10 +131,20 @@ public abstract class QuickScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (overlay != null && overlay.mouseClicked(mouseX, mouseY, button)) {
+        if (overlayClicked(mouseX, mouseY, button)) {
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    /** What the boxes show now was sent: it no longer counts as typed, so the server's answer replaces it. */
+    protected void markSent() {
+        boxes.forEach((key, box) -> built.put(key, box.getValue()));
+    }
+
+    /** Hands a click to the overlay; a screen handling clicks itself calls this first, so the overlay stays on top. */
+    protected boolean overlayClicked(double mouseX, double mouseY, int button) {
+        return overlay != null && overlay.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override

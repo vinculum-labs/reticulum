@@ -69,11 +69,17 @@ public record BeaconLook(int color, int flags, ResourceLocation sound, float pit
                 tag.contains("color") ? tag.getInt("color") & 0xFFFFFF : fallback.color(),
                 tag.contains("flags") ? tag.getInt("flags") & ALL : fallback.flags(),
                 sound,
-                tag.contains("pitch") ? Math.max(0.5f, Math.min(2f, tag.getFloat("pitch"))) : fallback.pitch(),
-                tag.contains("pitch2") ? Math.max(0.5f, Math.min(2f, tag.getFloat("pitch2"))) : fallback.pitch2(),
+                pitch(tag, "pitch", fallback.pitch()),
+                pitch(tag, "pitch2", fallback.pitch2()),
                 Math.max(minInterval(), tag.contains("interval") ? Math.min(12_000, tag.getInt("interval")) : fallback.interval()),
                 Math.max(1, Math.min(maxRange(), tag.contains("range") ? tag.getInt("range") : fallback.range())),
                 tag.contains("label") ? clip(tag.getString("label")) : fallback.label());
+    }
+
+    /** A pitch from 0.5 to 2; anything else (NaN, infinite) or missing is the fallback's. */
+    private static float pitch(CompoundTag tag, String key, float fallback) {
+        float value = tag.getFloat(key);
+        return tag.contains(key) && Float.isFinite(value) ? Math.max(0.5f, Math.min(2f, value)) : fallback;
     }
 
     private static String clip(String label) {

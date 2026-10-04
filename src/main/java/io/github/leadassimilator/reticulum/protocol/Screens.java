@@ -106,6 +106,9 @@ public final class Screens {
 
     /** Whether the player may change a beacon: any player, unless it is a device of a network they can't use. */
     public static boolean mayChangeBeacon(ServerPlayer player, io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon) {
+        if (player.isSpectator()) {
+            return false;
+        }
         io.github.leadassimilator.reticulum.network.Network network = beacon.watch(player.serverLevel()).network();
         if (network != null && !io.github.leadassimilator.reticulum.security.Security.canUse(network, player)) {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.no_access", network.name()), true);
@@ -119,17 +122,12 @@ public final class Screens {
                 || !(player.serverLevel().getBlockEntity(payload.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
             return;
         }
-        io.github.leadassimilator.reticulum.network.Network network = beacon.watch(player.serverLevel()).network();
-        if (network != null && !io.github.leadassimilator.reticulum.security.Security.canUse(network, player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.no_access", network.name()), true);
+        if (!mayChangeBeacon(player, beacon)) {
             return;
         }
-        var before = beacon.mode();
         beacon.applySettings(payload.settings());
-        // A new mode shows something else: the screen is sent again (other changes the screen already shows).
-        if (beacon.mode() != before) {
-            openBeacon(player, payload.pos());
-        }
+        // Sent back as kept (within the server's limits), and a new mode shows something else.
+        openBeacon(player, payload.pos());
     }
 
     public static void open(ServerPlayer player, BlockPos pos) {
