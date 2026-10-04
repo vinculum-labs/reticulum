@@ -93,12 +93,30 @@ public final class AlarmPush {
         }
         LAST_MARKERS.put(player.getUUID(), (long) server.getTickCount());
         List<Payloads.StatusMarker> markers = new ArrayList<>();
-        Set<GlobalPos> marked = new HashSet<>();
+        Set<String> marked = new HashSet<>();
         for (Network network : NetworkManager.data(server).networks()) {
             if (!Security.canView(network, player) || markers.size() >= MARKER_LIMIT) {
                 continue;
             }
             NetworkRuntime runtime = NetworkTicker.runtime(network.id());
+            // Beacons showing this network's alarms carry them all (the client cycles through them): alarm nodes have no
+            // place in the world of their own.
+            if (NetworkTicker.isRunning(server, network)) {
+                List<Alarms.Alarm> alarms = Alarms.cached(server, network);
+                for (DeviceRecord device : alarms.isEmpty() ? List.<DeviceRecord>of() : network.devices()) {
+                    var level = server.getLevel(device.pos().dimension());
+                    if (level != null && level.isLoaded(device.pos().pos())
+                            && level.getBlockEntity(device.pos().pos()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon
+                            && beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.NETWORK) {
+                        var watch = beacon.watch(level);
+                        if (watch.network() == network && watch.reachable()) {
+                            for (Alarms.Alarm alarm : alarms.subList(0, Math.min(10, alarms.size()))) {
+                                add(player, markers, marked, device.pos(), alarm.severity() == AlarmSeverity.CRITICAL ? 1 : 0, alarm.message());
+                            }
+                        }
+                    }
+                }
+            }
             // What alarms going off read: the devices behind them, marked in the alarm's color, with its message.
             for (Alarms.Source source : Alarms.sources(server, network)) {
                 add(player, markers, marked, source.device(), source.severity() == AlarmSeverity.CRITICAL ? 1 : 0, source.message());
@@ -147,9 +165,9 @@ public final class AlarmPush {
         return null;
     }
 
-    private static void add(ServerPlayer player, List<Payloads.StatusMarker> markers, Set<GlobalPos> marked, GlobalPos pos, int severity, String label) {
+    private static void add(ServerPlayer player, List<Payloads.StatusMarker> markers, Set<String> marked, GlobalPos pos, int severity, String label) {
         if (markers.size() >= MARKER_LIMIT || !pos.dimension().equals(player.level().dimension())
-                || pos.pos().distSqr(player.blockPosition()) > (double) MARKER_DISTANCE * MARKER_DISTANCE || !marked.add(pos)) {
+                || pos.pos().distSqr(player.blockPosition()) > (double) MARKER_DISTANCE * MARKER_DISTANCE || !marked.add(pos.pos().asLong() + "/" + label)) {
             return;
         }
         markers.add(new Payloads.StatusMarker(pos.pos(), severity, label.length() > 80 ? label.substring(0, 80) : label));

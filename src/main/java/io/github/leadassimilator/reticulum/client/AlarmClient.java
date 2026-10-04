@@ -35,6 +35,8 @@ public final class AlarmClient {
     /** Per network with something going off: bit 0 critical (else a warning), bit 1 not the player's (only viewable). */
     private static Map<UUID, Integer> states = Map.of();
     private static List<Payloads.StatusMarker> markers = List.of();
+    /** How long each of a block's labels shows before the next. */
+    private static final long CYCLE_MS = 3000;
 
     private AlarmClient() {
     }
@@ -159,26 +161,31 @@ public final class AlarmClient {
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         float pulse = 0.65f + 0.35f * Mth.sin((float) (System.currentTimeMillis() % 100_000) / 200f);
         Font font = mc.font;
+        // A block can have several things wrong (a beacon carries every alarm of its network): one outline in the worst
+        // one's color, and the labels taking turns every few seconds.
+        java.util.Map<net.minecraft.core.BlockPos, List<Payloads.StatusMarker>> byBlock = new java.util.LinkedHashMap<>();
         for (Payloads.StatusMarker marker : markers) {
-            boolean critical = marker.severity() == 1;
-            if (critical ? !criticals : !warnings) {
-                continue;
+            if (marker.severity() == 1 ? criticals : warnings) {
+                byBlock.computeIfAbsent(marker.pos(), k -> new java.util.ArrayList<>()).add(marker);
             }
+        }
+        for (var entry : byBlock.entrySet()) {
+            boolean critical = entry.getValue().stream().anyMatch(m -> m.severity() == 1);
             int color = critical ? StatusBeaconRenderer.CRITICAL_COLOR : StatusBeaconRenderer.WARNING_COLOR;
             float r = ((color >> 16) & 0xFF) / 255f;
             float g = ((color >> 8) & 0xFF) / 255f;
             float b = (color & 0xFF) / 255f;
-            LevelRenderer.renderLineBox(pose, buffers.getBuffer(IdentifyRenderer.LINES_THROUGH_WALLS), new AABB(marker.pos()).inflate(0.03), r, g, b, pulse);
+            LevelRenderer.renderLineBox(pose, buffers.getBuffer(IdentifyRenderer.LINES_THROUGH_WALLS), new AABB(entry.getKey()).inflate(0.03), r, g, b, pulse);
         }
         buffers.endBatch(IdentifyRenderer.LINES_THROUGH_WALLS);
         // A warning sign and what is wrong above each block, facing the camera and growing with distance.
-        for (Payloads.StatusMarker marker : markers) {
-            boolean critical = marker.severity() == 1;
-            if (critical ? !criticals : !warnings) {
-                continue;
-            }
-            int color = critical ? StatusBeaconRenderer.CRITICAL_COLOR : StatusBeaconRenderer.WARNING_COLOR;
-            WorldLabel.draw(pose, event.getCamera(), buffers, font, Vec3.atCenterOf(marker.pos()).add(0, 0.9, 0), "⚠ " + marker.label(), color, true);
+        long turn = System.currentTimeMillis() / CYCLE_MS;
+        for (var entry : byBlock.entrySet()) {
+            List<Payloads.StatusMarker> here = entry.getValue();
+            Payloads.StatusMarker marker = here.get((int) (turn % here.size()));
+            String count = here.size() > 1 ? " (" + (here.indexOf(marker) + 1) + "/" + here.size() + ")" : "";
+            int color = marker.severity() == 1 ? StatusBeaconRenderer.CRITICAL_COLOR : StatusBeaconRenderer.WARNING_COLOR;
+            WorldLabel.draw(pose, event.getCamera(), buffers, font, Vec3.atCenterOf(entry.getKey()).add(0, 0.9, 0), "⚠ " + marker.label() + count, color, true);
         }
         WorldLabel.endThroughWalls(buffers);
         pose.popPose();
