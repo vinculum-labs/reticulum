@@ -364,6 +364,12 @@ function historyOf(network: string): { undo: Change[]; redo: Change[] } {
  * Shows another network: its snapshot once subscribed (nothing of the last one meanwhile, so no edit goes to the new
  * network with the old one's ids), and its own undo history. One that can't be opened goes back to the last.
  */
+/**
+ * Each network's last snapshot this session: switching back shows it at once while the game sends a fresh one, rather
+ * than the whole editor giving way to "Loading…" for a moment (a flash).
+ */
+const lastSnapshots = new Map<string, Snapshot>();
+
 export async function selectNetwork(id: string, fallback = true): Promise<void> {
   const previous = app.current;
   if (previous && previous !== id) {
@@ -376,6 +382,8 @@ export async function selectNetwork(id: string, fallback = true): Promise<void> 
     app.snapshot = null;
   }
   app.current = id;
+  const last = previous !== id ? lastSnapshots.get(id) : undefined;
+  if (last) setSnapshot(last);
   history.replaceState(null, "", `#network=${id}`);
   clearMetrics();
   app.power = null;
@@ -388,6 +396,7 @@ export async function selectNetwork(id: string, fallback = true): Promise<void> 
     if (app.current === id) setSnapshot(r.network);
   } catch (e) {
     toast((e as Error).message);
+    lastSnapshots.delete(id);
     if (fallback && previous && previous !== id && app.current === id) await selectNetwork(previous, false);
   }
 }
@@ -408,6 +417,7 @@ function setSnapshot(snapshot: Snapshot): void {
   // Unchanged parts keep their objects, so after an edit only what it changed re-renders.
   const merged = app.snapshot && app.snapshot.id === snapshot.id ? share(app.snapshot, snapshot) : snapshot;
   if (merged !== app.snapshot) app.snapshot = merged;
+  lastSnapshots.set(snapshot.id, merged);
   const summary = app.networks.find((n) => n.id === snapshot.id);
   if (summary) Object.assign(summary, { name: snapshot.name, running: snapshot.running, enabled: snapshot.enabled });
   // Falling back to another sheet (the one open is gone, or this is another network) keeps the top bar's tab open:
