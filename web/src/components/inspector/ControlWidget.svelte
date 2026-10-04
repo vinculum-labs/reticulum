@@ -86,8 +86,9 @@
   {:else if s.style === "message"}
     <!-- The last message whose start the value has reached; below the first, the number. -->
     {@const shown = [...(s.messages ?? [])].sort((a, b) => (a.from ?? 0) - (b.from ?? 0)).filter((m) => value >= (m.from ?? 0)).at(-1)}
-    <!-- The message beside the name, on one line: the dashboard's card grows to fit it (to a point, past which it wraps). -->
-    <div class="message-row flex items-center gap-2">
+    <!-- The message beside the name: the dashboard's card grows to fit it; where there is no room (the inspector, a card
+         at its widest) it goes onto a line of its own below. -->
+    <div class="message-row flex flex-wrap items-center gap-x-2 gap-y-0.5">
       {@render name()}
       {#if shown}
         {@const text = (shown.text ?? "").replaceAll("{value}", format(value))}
@@ -120,13 +121,14 @@
   .note {
     max-width: 20rem;
   }
-  /* The card grows to fit the name and message side by side; once it can't, the name keeps its width and the message
-     wraps. */
+  /* The name keeps its width; the message goes below rather than squeezing it. */
   .message-row > :global(:first-child) {
     flex: 1 0 auto;
+    max-width: 100%;
   }
   .message {
-    min-width: 0;
+    margin-left: auto;
+    max-width: 100%;
     text-align: right;
     overflow-wrap: anywhere;
   }
