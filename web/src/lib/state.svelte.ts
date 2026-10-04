@@ -460,13 +460,19 @@ export function rebase(node: GraphNode, next: GraphNode): { after: GraphNode; be
 
 /**
  * {@code mine} and {@code theirs}, both made from {@code base}: what only one changed is taken from it; where both
- * changed the same thing, mine wins. Objects merge key by key, lists of the same length item by item.
+ * changed the same thing, mine wins. Objects merge key by key, lists of the same length item by item, and a list one
+ * side resized keeps the other side's changes to the items it didn't touch.
  */
 function merged(base: unknown, mine: unknown, theirs: unknown): unknown {
   if (same(mine, base)) return theirs;
   if (same(theirs, base)) return mine;
-  if (Array.isArray(base) && Array.isArray(mine) && Array.isArray(theirs) && base.length === mine.length && base.length === theirs.length) {
-    return mine.map((item, i) => merged(base[i], item, theirs[i]));
+  if (Array.isArray(base) && Array.isArray(mine) && Array.isArray(theirs)) {
+    if (base.length === mine.length && base.length === theirs.length) return mine.map((item, i) => merged(base[i], item, theirs[i]));
+    // One side added or removed items, the other only changed some: the items the first left as they were are
+    // found in the original list, and take the other side's changes to them.
+    if (base.length === theirs.length) return realign(base, mine, (k, item) => (k < 0 ? item : theirs[k]));
+    if (base.length === mine.length) return realign(base, theirs, (k, item) => (k < 0 ? item : merged(base[k], mine[k], item)));
+    return mine;
   }
   if (isRecord(base) && isRecord(mine) && isRecord(theirs)) {
     const out: Record<string, unknown> = {};
@@ -477,6 +483,16 @@ function merged(base: unknown, mine: unknown, theirs: unknown): unknown {
     return out;
   }
   return mine;
+}
+
+/** Each item of {@code changed} with the index of an equal, not yet matched, item of {@code base} (-1: none), mapped. */
+function realign(base: unknown[], changed: unknown[], map: (k: number, item: unknown) => unknown): unknown[] {
+  const used = new Set<number>();
+  return changed.map((item) => {
+    const k = base.findIndex((b, j) => !used.has(j) && same(b, item));
+    if (k >= 0) used.add(k);
+    return map(k, item);
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

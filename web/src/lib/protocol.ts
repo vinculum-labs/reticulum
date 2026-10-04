@@ -4,6 +4,11 @@
 type Listener = (message: any) => void;
 
 const TAB = Math.random().toString(36).slice(2, 8);
+/**
+ * How long a reply may take. Edits are sent one after another, so one never answered would hold up every later one;
+ * past this it counts as failed (the next snapshot shows what the server actually did).
+ */
+const TIMEOUT_MS = 30_000;
 
 export class Connection {
   private socket: WebSocket | null = null;
@@ -53,7 +58,15 @@ export class Connection {
         reject(new Error("Not connected to the game"));
         return;
       }
-      if (request.op !== "hello") this.pending.set(id, { resolve, reject });
+      if (request.op !== "hello") {
+        const timer = setTimeout(() => {
+          if (this.pending.delete(id)) reject(new Error("The game didn't answer in time"));
+        }, TIMEOUT_MS);
+        this.pending.set(id, {
+          resolve: (m) => (clearTimeout(timer), resolve(m)),
+          reject: (e) => (clearTimeout(timer), reject(e)),
+        });
+      }
       this.socket.send(JSON.stringify({ id, ...request }));
       if (request.op === "hello") resolve({});
     });
