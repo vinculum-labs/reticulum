@@ -728,19 +728,22 @@ public sealed interface NodeSettings {
     /**
      * Shows what is wired into it on the editor's dashboard (the highest of its wires), and passes it on. {@code unit}
      * follows the number ("items", "%"); {@code max} is a gauge's full mark; {@code icon} is an item the dashboard shows it
-     * with.
+     * with; {@code color} ("#rrggbb") colors its number, gauge or light.
      */
-    record DisplaySettings(DisplayStyle style, String unit, long max, Optional<ResourceLocation> icon) implements NodeSettings {
+    record DisplaySettings(DisplayStyle style, String unit, long max, Optional<ResourceLocation> icon, Optional<String> color) implements NodeSettings {
         public static final int UNIT_LIMIT = 16;
         public static final MapCodec<DisplaySettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 DisplayStyle.CODEC.optionalFieldOf("style", DisplayStyle.NUMBER).forGetter(DisplaySettings::style),
                 Codec.string(0, UNIT_LIMIT).optionalFieldOf("unit", "").forGetter(DisplaySettings::unit),
                 Codec.LONG.optionalFieldOf("max", 15L).forGetter(DisplaySettings::max),
-                ResourceLocation.CODEC.optionalFieldOf("icon").forGetter(DisplaySettings::icon)
+                ResourceLocation.CODEC.optionalFieldOf("icon").forGetter(DisplaySettings::icon),
+                Codec.STRING.optionalFieldOf("color").forGetter(DisplaySettings::color)
         ).apply(i, DisplaySettings::new));
 
         public DisplaySettings {
             max = Math.max(1, max);
+            // Only a "#rrggbb" color is kept.
+            color = color.filter(c -> c.matches("#[0-9a-fA-F]{6}"));
         }
 
         @Override

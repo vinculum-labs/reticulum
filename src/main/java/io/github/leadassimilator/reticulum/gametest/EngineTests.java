@@ -331,7 +331,7 @@ public final class EngineTests {
     public static void switchThroughADisplayLightsALamp(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
         Node toggle = rig.node(new NodeSettings.SwitchSettings(15, false, java.util.Optional.empty()));
-        Node display = rig.node(new NodeSettings.DisplaySettings(NodeSettings.DisplayStyle.LIGHT, "", 15, java.util.Optional.empty()));
+        Node display = rig.node(new NodeSettings.DisplaySettings(NodeSettings.DisplayStyle.LIGHT, "", 15, java.util.Optional.empty(), java.util.Optional.empty()));
         rig.signal(toggle, display, 0);
         rig.signal(display, rig.redstoneTo(rig.device(0)), 0);
         BlockPos lamp = rig.devices().get(0);

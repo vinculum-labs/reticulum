@@ -235,6 +235,8 @@ export interface DisplaySettings {
   max?: number;
   /** An item the dashboard shows it with. */
   icon?: string;
+  /** "#rrggbb": its number, gauge or light (none: the usual). */
+  color?: string;
 }
 
 export type AlarmSeverity = "warning" | "critical";

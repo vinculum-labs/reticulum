@@ -38,6 +38,7 @@
   import SequencerGrid from "./SequencerGrid.svelte";
   import ControlWidget from "./ControlWidget.svelte";
   import IconPicker from "./IconPicker.svelte";
+  import ColorField from "../controls/ColorField.svelte";
   import Chart from "./Chart.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
   import ThroughputSummary from "./ThroughputSummary.svelte";
@@ -461,6 +462,9 @@
     </Field>
     <Field label="Icon" hint="Shown beside it on the dashboard.">
       <IconPicker value={s.icon} disabled={!canEdit} onchange={(icon) => settings({ icon })} />
+    </Field>
+    <Field label="Color" hint={s.style === "gauge" ? "The gauge's fill." : s.style === "light" ? "The light, lit." : "The number."}>
+      <ColorField value={s.color} disabled={!canEdit} onchange={(color) => settings({ color })} />
     </Field>
     {#if (s.style ?? "number") !== "light"}
       <Field label="Unit" hint="After the number: items, mB, %…">

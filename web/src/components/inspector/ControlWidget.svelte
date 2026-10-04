@@ -78,7 +78,7 @@
   {#if s.style === "light"}
     <div class="flex items-center gap-2">
       {@render name()}
-      <span class="light" class:lit={value > 0} title={value > 0 ? `On (${value})` : "Off"}></span>
+      <span class="light" class:lit={value > 0} style={s.color ? `--lit: ${s.color}` : ""} title={value > 0 ? `On (${value})` : "Off"}></span>
     </div>
   {:else if s.style === "gauge"}
     {@const max = s.max ?? 15}
@@ -88,13 +88,13 @@
         <span class="tabular-nums">{format(value)}{s.unit ? ` ${s.unit}` : ""} <span class="muted">/ {format(max)}</span></span>
       </div>
       <div class="gauge" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
-        <div style="width: {Math.max(0, Math.min(100, (value / max) * 100))}%"></div>
+        <div style="width: {Math.max(0, Math.min(100, (value / max) * 100))}%{s.color ? `; background: ${s.color}` : ''}"></div>
       </div>
     </div>
   {:else}
     <div class="flex items-center gap-2">
       {@render name()}
-      <span class="text-base font-semibold tabular-nums">{format(value)}</span>{#if s.unit}<span class="muted">{s.unit}</span>{/if}
+      <span class="text-base font-semibold tabular-nums" style={s.color ? `color: ${s.color}` : ""}>{format(value)}</span>{#if s.unit}<span class="muted">{s.unit}</span>{/if}
     </div>
   {/if}
 {/if}
@@ -109,9 +109,9 @@
     border: 1px solid var(--line);
   }
   .light.lit {
-    background: var(--good);
-    border-color: var(--good);
-    box-shadow: 0 0 6px var(--good);
+    background: var(--lit, var(--good));
+    border-color: var(--lit, var(--good));
+    box-shadow: 0 0 6px var(--lit, var(--good));
   }
   .gauge {
     height: 8px;
