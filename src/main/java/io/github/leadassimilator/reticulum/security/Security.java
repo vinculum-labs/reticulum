@@ -65,6 +65,17 @@ public final class Security {
         return has(network, player, Role.ADMIN);
     }
 
+    /**
+     * Merging {@code from} into {@code into}: {@code from} is deleted and everything in it changes hands, so it takes
+     * what deleting it takes, being its owner. Not when both have the same owner, or {@code from} has none.
+     */
+    public static boolean mayAbsorb(Network from, Network into, Player player) {
+        if (from.owner() == null || from.owner().equals(into.owner())) {
+            return true;
+        }
+        return has(from, player, Role.OWNER);
+    }
+
     /** Breaking network blocks. Only Private networks restrict it, and only when the config says so. */
     public static boolean canBreak(Network network, Player player) {
         if (network.accessMode() != AccessMode.PRIVATE || !ReticulumConfig.PROTECT_PRIVATE_BLOCKS.getAsBoolean()) {

@@ -80,6 +80,10 @@ public final class WebApi {
             return;
         }
         String id = request.has("id") ? request.get("id").getAsString() : null;
+        if (!allowance(player)) {
+            send(player, error(id, "Too many requests — slow down"));
+            return;
+        }
         try {
             send(player, handle(player, request, id));
         } catch (RequestException e) {
@@ -88,6 +92,24 @@ public final class WebApi {
             io.github.leadassimilator.reticulum.Reticulum.LOGGER.error("Web request failed: {}", json, e);
             send(player, error(id, "Internal error: " + e.getMessage()));
         }
+    }
+
+    /** Requests a player may still make right now, refilled over time: far more than editing needs, but bounded. */
+    private static final Map<UUID, double[]> ALLOWANCE = new HashMap<>();
+    private static final double BURST = 60;
+    private static final double PER_SECOND = 20;
+
+    /** Takes one request from the player's allowance (each subscribe or edit makes the server build and send snapshots). */
+    private static boolean allowance(ServerPlayer player) {
+        long now = System.nanoTime();
+        double[] state = ALLOWANCE.computeIfAbsent(player.getUUID(), k -> new double[] {BURST, now});
+        state[0] = Math.min(BURST, state[0] + (now - state[1]) / 1e9 * PER_SECOND);
+        state[1] = now;
+        if (state[0] < 1) {
+            return false;
+        }
+        state[0]--;
+        return true;
     }
 
     static void send(ServerPlayer player, JsonObject message) {
@@ -155,6 +177,12 @@ public final class WebApi {
                 JsonArray edits = request.getAsJsonArray("edits");
                 if (edits == null) {
                     throw new RequestException("Missing 'edits'");
+                }
+                if (edits.isEmpty()) {
+                    // Nothing to change: no save, no snapshot pushed to every subscriber.
+                    JsonObject none = ok(id);
+                    none.add("results", new JsonArray());
+                    yield none;
                 }
                 JsonObject out = ok(id);
                 JsonArray created = new JsonArray();
@@ -1189,11 +1217,13 @@ public final class WebApi {
 
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         SUBSCRIPTIONS.remove(event.getEntity().getUUID());
+        ALLOWANCE.remove(event.getEntity().getUUID());
         LIST_LISTENERS.remove(event.getEntity().getUUID());
     }
 
     public static void onServerStopped(ServerStoppedEvent event) {
         SUBSCRIPTIONS.clear();
+        ALLOWANCE.clear();
         LIST_LISTENERS.clear();
     }
 

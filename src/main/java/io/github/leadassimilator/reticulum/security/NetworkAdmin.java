@@ -38,6 +38,11 @@ public final class NetworkAdmin {
 
     /** Joins a password network as a user, if the password is right (one guess a second per player). */
     public static void join(Network network, UUID player, String name, String password) throws Refused {
+        // Already a member (a viewer, say): the password doesn't change the role an admin gave.
+        if (network.members().containsKey(player)) {
+            throw new Refused("message.reticulum.already_member_role", "You're already a member of " + network.name() + " — an admin can change your role",
+                    network.name());
+        }
         String hash = network.passwordHash();
         if (network.accessMode() != AccessMode.PASSWORD || hash == null || !Passwords.guess(player, password, hash)) {
             throw new Refused("message.reticulum.wrong_password", "Wrong password for " + network.name(), network.name());

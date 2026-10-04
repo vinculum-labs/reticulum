@@ -131,7 +131,8 @@ public final class ReticulumCommand {
             throw new SimpleCommandExceptionType(Component.translatable("command.reticulum.merge_same")).create();
         }
         ServerPlayer player = ctx.getSource().getPlayer();
-        if (player != null && (!Security.canAdmin(from, player) || !Security.canAdmin(into, player))) {
+        // The merged network is gone and its contents change hands: its owner's call, as deleting it is.
+        if (player != null && (!Security.canAdmin(from, player) || !Security.canAdmin(into, player) || !Security.mayAbsorb(from, into, player))) {
             throw NO_ACCESS.create();
         }
         if (from.controller() != null && io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(ctx.getSource().getServer(), from)) {

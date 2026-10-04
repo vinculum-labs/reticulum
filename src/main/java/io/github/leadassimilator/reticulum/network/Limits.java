@@ -27,6 +27,9 @@ public final class Limits {
     public static final int KITS_PER_OPERATION = 64;
     /** The largest weight of one splitter output. */
     public static final int SPLITTER_WEIGHT = 10_000;
+    /** A device node's inputs and outputs (each), and a side's caps or keep rules. */
+    public static final int DEVICE_SIDES = 32;
+    public static final int SIDE_LIMITS = 32;
 
     private Limits() {
     }
@@ -50,7 +53,18 @@ public final class Limits {
         if (node.label().isPresent() && node.label().get().length() > NAME) {
             return "A node's label can be at most " + NAME + " characters";
         }
+        // Every filter it holds, as long as a template's may be (they are only parsed when the sheet compiles).
+        for (String filter : io.github.leadassimilator.reticulum.filter.FilterRefs.filters(node.settings())) {
+            if (filter.length() > io.github.leadassimilator.reticulum.filter.FilterParser.MAX_LENGTH) {
+                return "A filter can be at most " + io.github.leadassimilator.reticulum.filter.FilterParser.MAX_LENGTH + " characters";
+            }
+        }
         return switch (node.settings()) {
+            case NodeSettings.DeviceSettings s when s.inputs().size() > DEVICE_SIDES || s.outputs().size() > DEVICE_SIDES ->
+                    "A device node can have at most " + DEVICE_SIDES + " inputs and " + DEVICE_SIDES + " outputs";
+            case NodeSettings.DeviceSettings s when s.inputs().stream().anyMatch(x -> x.caps().size() > SIDE_LIMITS)
+                    || s.outputs().stream().anyMatch(x -> x.keep().size() > SIDE_LIMITS) ->
+                    "An input or output can have at most " + SIDE_LIMITS + " caps or keep rules";
             case NodeSettings.SheetPinSettings s when s.name().length() > NAME -> "A pin name can be at most " + NAME + " characters";
             case NodeSettings.KitSettings s when s.lines().size() > KIT_LINES -> "A kit can have at most " + KIT_LINES + " lines";
             case NodeSettings.KitSettings s when s.maxKits() > KITS_PER_OPERATION -> "A kit can move at most " + KITS_PER_OPERATION + " kits at a time";

@@ -667,6 +667,12 @@ public final class Topology {
                 && controllerStillThere(level, absorbedNetwork.controller(), absorbedNetwork.id())) {
             return Component.translatable("message.reticulum.still_has_controller", absorbedNetwork.name());
         }
+        // Merged in, it is gone and its contents change hands: only its owner may.
+        Network targetNetwork = NetworkManager.network(level.getServer(), target);
+        if (player != null && absorbedNetwork != null && targetNetwork != null && absorbedNetwork != targetNetwork
+                && !Security.mayAbsorb(absorbedNetwork, targetNetwork, player)) {
+            return Component.translatable("message.reticulum.merge_needs_owner", absorbedNetwork.name());
+        }
         a.clearDisconnects(side);
         b.clearDisconnects(side.getOpposite());
         assign(level, compA, target);
