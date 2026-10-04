@@ -576,11 +576,10 @@ function sheetFlow(
     const signal = isSignal(fromNode?.settings.kind) || pin === "redstone";
     const on = signal && (activity.signals[isSignal(fromNode?.settings.kind) ? w.from : `${w.from}/out/${w.output ?? 0}`] ?? 0) > 0;
     const color = signal ? "var(--c-signal)" : pin === "me" ? "var(--c-me)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
-    // Its layer: hidden, it still shows faint while a node it joins is selected, and (by its class) while a new wire
-    // is drawn.
+    // Its layer. Hidden means hidden (wires coming and going with the selection looked like missing ones); only while
+    // a new wire is drawn do hidden wires show faint (by their class).
     const layer: Layer | null = signal ? "redstone" : pin === "me" ? "me" : resource;
-    let mode = (layer && layers.modes[layer]) || "show";
-    if (mode === "hide" && (selected.has(w.from) || selected.has(w.to) || selected.has(w.id))) mode = "dim";
+    const mode = (layer && layers.modes[layer]) || "show";
     const faint = mode === "dim" ? "; opacity: 0.18" : "";
     return {
       class: mode === "hide" ? "layer-hidden" : undefined,
