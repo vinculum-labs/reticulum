@@ -252,13 +252,15 @@ async function onMessage(m: any): Promise<void> {
     case "focus":
       // A network the page hasn't seen yet (a new controller): reload the list first so its tab exists.
       if (m.network && !app.networks.some((n) => n.id === m.network)) await loadNetworks(m.network);
-      else if (m.network) await selectNetwork(m.network);
+      // The one already shown: nothing to do (a fresh select would clear the selection for nothing).
+      else if (m.network && (m.network !== app.current || !app.snapshot)) await selectNetwork(m.network);
       break;
     case "snapshot":
       if (m.network.id === app.current) setSnapshot(m.network);
       break;
     case "networks":
       app.networks = m.networks;
+      forgetUnlisted();
       if (app.current && !app.networks.some((n) => n.id === app.current)) {
         app.current = null;
         app.snapshot = null;
@@ -346,7 +348,10 @@ export async function loadNetworks(focus: string | null, resubscribe = false): P
     const r = await connection.send({ op: "networks" });
     app.networks = r.networks;
     app.player = r.player;
-    const target = focus && app.networks.some((n) => n.id === focus) ? focus : app.current ?? app.networks[0]?.id ?? null;
+    forgetUnlisted();
+    // The one asked for, else the one shown if it is still there (not after leaving its world), else the first.
+    const listed = (id: string | null) => !!id && app.networks.some((n) => n.id === id);
+    const target = listed(focus) ? focus : listed(app.current) ? app.current : (app.networks[0]?.id ?? null);
     if (target && (target !== app.current || resubscribe)) await selectNetwork(target);
   } catch (e) {
     toast((e as Error).message);
@@ -358,7 +363,20 @@ const histories = new Map<string, { undo: Change[]; redo: Change[] }>();
 
 /** A network's undo and redo: the shown one's, or the history kept for another (a change finishing after a switch). */
 function stacksOf(network: string): { undo: Change[]; redo: Change[] } {
-  return network === app.current ? app : historyOf(network);
+  return network === historyOwner ? app : historyOf(network);
+}
+
+/**
+ * The network whose undo and redo app.undo and app.redo hold. Kept apart from app.current, which is briefly null when
+ * the shown network goes away: its history is still filed under it, and the next network's brought in.
+ */
+let historyOwner: string | null = null;
+
+/** Forgets what is kept for networks no longer listed (deleted, access lost, another world). */
+function forgetUnlisted(): void {
+  const listed = new Set(app.networks.map((n) => n.id));
+  for (const id of [...lastSnapshots.keys()]) if (!listed.has(id)) lastSnapshots.delete(id);
+  for (const id of [...histories.keys()]) if (!listed.has(id)) histories.delete(id);
 }
 
 /**
@@ -391,13 +409,16 @@ const lastSnapshots = new Map<string, Snapshot>();
  */
 export async function selectNetwork(id: string, fallback = true): Promise<void> {
   const previous = app.current;
-  if (previous && previous !== id) {
-    connection.send({ op: "unsubscribe", network: previous }).catch(() => {});
-    histories.set(previous, { undo: app.undo, redo: app.redo });
+  if (historyOwner !== id) {
+    if (historyOwner) histories.set(historyOwner, { undo: app.undo, redo: app.redo });
     const stacks = historyOf(id);
     app.undo = stacks.undo;
     app.redo = stacks.redo;
     histories.delete(id);
+    historyOwner = id;
+  }
+  if (previous && previous !== id) {
+    connection.send({ op: "unsubscribe", network: previous }).catch(() => {});
     // Not cleared to nothing: the editor would give way to "Loading…" for a moment and be built again (a flash).
     // The network left stays shown, out of reach, until this one's snapshot comes.
     app.switching = !lastSnapshots.has(id) && !!app.snapshot;
@@ -423,11 +444,15 @@ export async function selectNetwork(id: string, fallback = true): Promise<void> 
   } catch (e) {
     toast((e as Error).message);
     lastSnapshots.delete(id);
-    if (app.current === id && app.switching) {
-      app.switching = false;
-      app.snapshot = null;
+    if (app.current !== id) return;
+    // Nothing of it to show (what is shown is the network left, or a stale one): not left up to be edited.
+    app.switching = false;
+    app.snapshot = null;
+    if (fallback && previous && previous !== id) await selectNetwork(previous, false);
+    else {
+      const other = app.networks.find((n) => n.id !== id);
+      if (other) await selectNetwork(other.id, false);
     }
-    if (fallback && previous && previous !== id && app.current === id) await selectNetwork(previous, false);
   }
 }
 
@@ -508,13 +533,14 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
   return serially(async () => {
     try {
       const r = await connection.send({ op: "edit", network, edits });
+      // Made on another network than the one now shown (a confirm answered after switching): its own history. Any
+      // change (one that can't be undone too) leaves nothing to redo: what redo would bring back may be gone.
+      const stacks = stacksOf(network);
       if (undo) {
-        // Made on another network than the one now shown (a confirm answered after switching): its own history.
-        const stacks = stacksOf(network);
         stacks.undo.push({ network, label, redo: edits, undo });
-        if (stacks.undo.length > 100) stacks.undo.shift();
-        stacks.redo = [];
+        if (stacks.undo.length > HISTORY) stacks.undo.shift();
       }
+      stacks.redo = [];
       return r.results as unknown[];
     } catch (e) {
       toast((e as Error).message);
@@ -584,9 +610,19 @@ function same(a: unknown, b: unknown): boolean {
   return a === b || JSON.stringify(a) === JSON.stringify(b);
 }
 
+/** Steps of undo (and of redo) kept per network. */
+const HISTORY = 100;
+
+/** Adds a change to a stack, dropping the oldest past the limit. */
+function pushCapped(stack: Change[], change: Change): void {
+  stack.push(change);
+  if (stack.length > HISTORY) stack.shift();
+}
+
 /**
- * Undo and redo put a change back on its stack when the server refuses it, so it isn't lost. {@code only}: undo that
- * change only if it is still the last one when its turn comes (edits sent before it may land first).
+ * Undo and redo skip a change the server refuses (said in a toast): nothing of it was done, and left on top it would
+ * block every step below it. {@code only}: undo that change only if it is still the last one when its turn comes
+ * (edits sent before it may land first).
  */
 export function undo(only?: (typeof app.undo)[number]): Promise<void> {
   return serially(async () => {
@@ -599,7 +635,7 @@ export function undo(only?: (typeof app.undo)[number]): Promise<void> {
     app.busy++;
     try {
       await connection.send({ op: "edit", network: change.network, edits: change.undo });
-      stacksOf(change.network).redo.push(change);
+      pushCapped(stacksOf(change.network).redo, change);
     } catch (e) {
       // Nothing of it was done (a batch is all or nothing); left on top it would block every step below it.
       toast(`Couldn't undo “${change.label}”: ${(e as Error).message}. Skipped — Undo goes on from the step before.`);
@@ -617,7 +653,7 @@ export function redo(): Promise<void> {
     app.busy++;
     try {
       await connection.send({ op: "edit", network: change.network, edits: change.redo });
-      stacksOf(change.network).undo.push(change);
+      pushCapped(stacksOf(change.network).undo, change);
     } catch (e) {
       toast(`Couldn't redo “${change.label}”: ${(e as Error).message}. Skipped.`);
       resync.count++;
@@ -880,7 +916,6 @@ export function overCanvas(): boolean {
 }
 
 /** The id the open instance runs under (null when none is open, or it doesn't run itself): see openInstanceNode. */
-
 export function instanceRun(): string | null {
   return openRun;
 }
@@ -988,14 +1023,16 @@ export async function deleteSheet(sheet: Sheet) {
     instances > 1 ? `In the ${instances} places it's placed, it stops working and shows an error until removed.` : "",
     "This can't be undone.",
   ].filter(Boolean).join(" ");
+  const network = app.current;
   const ok = await confirmDialog({
     title: `Delete the ${what} “${sheet.name}”?`,
     message,
     confirm: `Delete ${what}`,
     danger: true,
   });
-  if (ok) {
-    edit([{ type: "deleteSheet", sheet: sheet.id }]);
+  // To the network it was asked on, even if another is shown by the time it is answered.
+  if (ok && network) {
+    edit([{ type: "deleteSheet", sheet: sheet.id }], undefined, "delete", network);
   }
 }
 
@@ -1060,6 +1097,7 @@ export function undoThis(): () => void {
 export async function importSheet(what: "sheet" | "blueprint") {
   const snapshot = app.snapshot;
   if (!snapshot) return;
+  const network = snapshot.id;
   const text = await promptDialog({
     title: what === "blueprint" ? "Import blueprint" : "Import sheet",
     message: `Paste a ${what} copied with “Copy as JSON”, from this world or another.`,
@@ -1083,8 +1121,9 @@ export async function importSheet(what: "sheet" | "blueprint") {
   }
   // A name already taken here gets marked, so the import can be told from what it came from.
   if (typeof sheet.name === "string" && snapshot.sheets.some((s) => s.name === sheet!.name)) sheet = { ...sheet, name: `${sheet.name} (imported)` };
-  const results = await edit([{ type: "importSheet", sheet }]);
-  if (!results?.[0]) return;
+  // Into the network it was asked on (its names checked against it), whatever is shown by now.
+  const results = await edit([{ type: "importSheet", sheet }], undefined, "import", network);
+  if (!results?.[0] || app.current !== network) return;
   openSheet(results[0] as string);
   if (sheet.blueprint) {
     toast(
