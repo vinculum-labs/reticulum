@@ -466,6 +466,20 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /** FE a sink refused after saying it would take it (and the source wouldn't take back) goes into the controller's store, up to its capacity. */
+    @GameTest(template = "empty")
+    public static void lostEnergyGoesToTheController(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+        var controller = (io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 1));
+        long before = controller.energy();
+        long caught = NetworkRuntime.catchLostEnergy(helper.getLevel().getServer(), rig.network(), 500);
+        check(helper, caught == 500 && controller.energy() == before + 500, "the controller didn't catch the lost FE: " + caught);
+        long more = NetworkRuntime.catchLostEnergy(helper.getLevel().getServer(), rig.network(), Integer.MAX_VALUE);
+        check(helper, controller.energy() == io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity.capacity(),
+                "the controller went past its capacity: " + controller.energy() + " after " + more);
+        helper.succeed();
+    }
+
     /** A Constant with its "on" input wired gives its value only while that input is above 0. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void constantFollowsItsOnInput(GameTestHelper helper) {

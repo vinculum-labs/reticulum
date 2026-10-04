@@ -460,6 +460,18 @@ public final class NetworkRuntime {
         };
     }
 
+    /**
+     * FE taken from a source that neither its sink nor the source would take: the controller's own store catches it, up
+     * to its capacity (past that it is lost). Returns how much it caught.
+     */
+    public static long catchLostEnergy(MinecraftServer server, Network network, long amount) {
+        var controller = NetworkManager.controller(server, network);
+        if (controller == null || amount <= 0) {
+            return 0;
+        }
+        return controller.energyStorage().receiveEnergy((int) Math.min(amount, Integer.MAX_VALUE), false);
+    }
+
     /** The alarm nodes going off, as of the last tick. */
     java.util.Collection<Signals.Raised> raisedAlarms() {
         return signals.raised();

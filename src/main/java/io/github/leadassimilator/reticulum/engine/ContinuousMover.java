@@ -125,8 +125,8 @@ final class ContinuousMover {
 
         @Override
         public void overflow(NetworkRuntime.Context ctx, Energy kind, long amount) {
-            // FE can't be held in transit; this only happens if a sink takes less than it said it would and the source
-            // takes none back.
+            // Only when a sink takes less than it said it would and the source takes none back.
+            NetworkRuntime.catchLostEnergy(ctx.server(), ctx.network(), amount);
         }
     };
 
