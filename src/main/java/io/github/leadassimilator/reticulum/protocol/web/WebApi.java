@@ -205,7 +205,8 @@ public final class WebApi {
                             }
                             created.add(Edits.apply(player, network, edits.get(i).getAsJsonObject()));
                         } catch (RequestException e) {
-                            throw new RequestException("Edit " + (i + 1) + ": " + e.getMessage());
+                            // Which edit only when there were several: alone, "Edit 1:" says nothing.
+                            throw edits.size() > 1 ? new RequestException("Edit " + (i + 1) + ": " + e.getMessage()) : e;
                         }
                     }
                 } catch (RequestException | RuntimeException e) {
