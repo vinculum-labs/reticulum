@@ -131,6 +131,29 @@ public final class Topology {
      * A connector lifted by a piston or a contraption (Create's), its data going along: its record stays, marked as
      * moving, so wherever it is put down it is taken for itself (see ConnectorBlockEntity), even after a restart.
      */
+    /**
+     * A registered block placed again where it was registered: put back by a contraption that lifted it (a bearing
+     * turned a full circle, say). A controller takes its network back (lifting it let go of it), and a connector is no
+     * longer moving, so a later copy of it isn't taken for the original.
+     */
+    private static void backInPlace(ServerLevel level, BlockPos pos, NetworkBlockEntity be) {
+        Network network = NetworkManager.network(level.getServer(), be.networkId());
+        if (network == null) {
+            return;
+        }
+        if (be instanceof ControllerBlockEntity && network.controller() == null) {
+            network.setController(Devices.global(level, pos));
+            NetworkManager.changed(level.getServer(), network);
+        }
+        if (be instanceof ConnectorBlockEntity connector) {
+            ConnectorRecord record = network.connector(connector.connectorId());
+            if (record != null && record.moving()) {
+                record.setMoving(false);
+                NetworkManager.data(level.getServer()).setDirty();
+            }
+        }
+    }
+
     public static void noteMoving(ServerLevel level, NetworkBlockEntity be) {
         if (!(be instanceof ConnectorBlockEntity connector)) {
             return;
@@ -254,10 +277,20 @@ public final class Topology {
 
     public static void onPlaced(ServerLevel level, BlockPos pos, @Nullable Direction placedAgainst, @Nullable ServerPlayer player) {
         NetworkBlockEntity be = blockEntity(level, pos);
-        if (be == null || be.isRegistered()) {
+        if (be == null) {
+            return;
+        }
+        if (be.isRegistered()) {
+            backInPlace(level, pos, be);
             return;
         }
         be.setRegistered();
+        // Moved or copied in: the joints cut because of the neighbors it had there mean nothing here.
+        if (be.arrivedFromElsewhere()) {
+            for (Direction dir : Direction.values()) {
+                be.setAutoDisconnected(dir, false);
+            }
+        }
         // Placed by a machine (a Deployer, a schematic, a command), or moved in (a contraption, a copy) without a network
         // that still exists to carry: nobody's access to check, so it may only go into networks open to anyone (public,
         // or with no owner). A block moved in with its own network follows the carry rule below instead.
@@ -663,6 +696,10 @@ public final class Topology {
         }
         Section piece = component(level, pos, null);
         Network old = NetworkManager.network(level.getServer(), piece.network());
+        // Already on it: nothing to do (and nothing to unwire on the way).
+        if (network.id().equals(piece.network())) {
+            return Component.translatable("message.reticulum.already_bound", network.name());
+        }
         if (!piece.controllers().isEmpty()) {
             if (!(be instanceof ConnectorBlockEntity)) {
                 return Component.translatable("message.reticulum.leads_to_controller", old == null ? "" : old.name());

@@ -56,6 +56,22 @@ public final class TopologyTests {
      * A connector bound to network B, placed against network A's controller, stays on B and can power A's controller:
      * one network switches another through the controller's own redstone setting.
      */
+    /**
+     * A controller put back where it was registered (a contraption lifting it and setting it down in place) takes its
+     * network back: lifting it let go of it.
+     */
+    @GameTest(template = "empty")
+    public static void aControllerPutBackInPlaceTakesItsNetworkBack(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        place(helper, at, ModBlocks.CONTROLLER.get(), null);
+        BlockPos abs = helper.absolutePos(at);
+        Network network = NetworkManager.network(helper.getLevel().getServer(), Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), abs)));
+        network.setController(null);
+        Topology.onPlaced(helper.getLevel(), abs, null, null);
+        check(helper, Devices.global(helper.getLevel(), abs).equals(network.controller()), "the network has no controller: " + network.controller());
+        helper.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void boundConnectorSwitchesAnotherNetworksController(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);

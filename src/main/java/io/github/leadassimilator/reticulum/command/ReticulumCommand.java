@@ -135,7 +135,9 @@ public final class ReticulumCommand {
         if (player != null && (!Security.canAdmin(from, player) || !Security.canAdmin(into, player) || !Security.mayAbsorb(from, into, player))) {
             throw NO_ACCESS.create();
         }
-        if (from.controller() != null && io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(ctx.getSource().getServer(), from)) {
+        // Any controller of its own (running or not: switched off, its chunk unloaded): its block would resolve to the
+        // merged network next to that one's own controller.
+        if (from.controller() != null) {
             throw new SimpleCommandExceptionType(Component.translatable("command.reticulum.merge_has_controller", from.name())).create();
         }
         Role cap = player == null ? Role.ADMIN : Security.role(into, player).orElse(Role.ADMIN);
