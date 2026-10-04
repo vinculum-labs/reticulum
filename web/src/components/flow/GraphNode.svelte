@@ -232,7 +232,7 @@
         id="gate"
         class={`gate-pin${data.gateWired ? " wired" : ""}${pulseGate ? " pulse" : ""}`}
         title={pulseGate ? "Gate: one operation each time a signal here turns on" : "Gate: a signal here switches this node on and off"}
-        style="top: 50%; left: {-BORDER - 3}px; {inPin('var(--c-signal)')}{layerPin('redstone')}"
+        style="top: 50%; left: {-BORDER - 3}px{layerPin('redstone')}"
       />
     {/if}
     {#if sensor && !data.device && data.reads?.block}
@@ -410,13 +410,34 @@ ${idleTitle}` : idleTitle}
     background: var(--warn);
   }
   /* The gate is a diamond, so it can't be taken for an input (round pins). */
+  /*
+   * The gate pin itself is an upright square (wires attach to the middle of its edge, as measured unturned); the
+   * diamond is drawn inside it, its left corner on that edge, so the wire meets the corner.
+   */
   :global(.svelte-flow__handle.gate-pin) {
-    border-radius: 2px;
+    width: 16px;
+    height: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    transform: translate(-50%, -50%);
+  }
+  :global(.svelte-flow__handle.gate-pin::before) {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 11px;
+    height: 11px;
+    box-sizing: border-box;
     transform: translate(-50%, -50%) rotate(45deg);
+    background: var(--panel);
+    border: 2px solid var(--c-signal);
+    border-radius: 2px;
   }
   /* A pulse gate is filled: it acts on the signal's rising edge, not its level. */
-  :global(.svelte-flow__handle.gate-pin.pulse) {
-    background: var(--c-signal) !important;
+  :global(.svelte-flow__handle.gate-pin.pulse::before) {
+    background: var(--c-signal);
   }
   /* An unused gate pin stays out of sight until the card is hovered or a wire is being dragged to it. */
   :global(.svelte-flow__handle.gate-pin:not(.wired)) {
