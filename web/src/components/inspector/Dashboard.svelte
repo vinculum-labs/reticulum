@@ -35,8 +35,8 @@
   /** Switches and displays, grouped by where they are (a sheet, or a blueprint placed in one). */
   const groups = $derived.by(() => {
     const by = new Map<string, ReturnType<typeof controls>>();
-    for (const c of controls(snapshot)) by.set(c.place, [...(by.get(c.place) ?? []), c]);
-    return [...by.entries()];
+    for (const c of controls(snapshot)) by.set(c.group, [...(by.get(c.group) ?? []), c]);
+    return [...by.values()].map((list) => [list[0].place, list[0].group, list] as const);
   });
 
   /** Goes to a node or sheet on the canvas (leaving the dashboard for it). */
@@ -110,7 +110,7 @@
       </section>
       {#if groups.length}
         <div class="controls-grid">
-          {#each groups as [place, list] (place)}
+          {#each groups as [place, group, list] (group)}
             <section class="card">
               <h3 class="truncate text-xs muted" title={place}>{place}</h3>
               {#each list as c (c.run)}

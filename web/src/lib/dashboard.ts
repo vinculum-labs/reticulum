@@ -12,8 +12,10 @@ export interface Control {
   sheet: Sheet;
   /** The id it runs under: its own, or made from the instances it is in (as the server pastes them). */
   run: string;
-  /** Where it is, as the dashboard groups it: a sheet's path, then each instance it is in. */
+  /** Where it is, as the dashboard shows it: a sheet's path, then each placed blueprint it is in. */
   place: string;
+  /** What the dashboard groups it by: its sheet, or the placed blueprint it is in (two may share a name). */
+  group: string;
 }
 
 /** How deep instances inside blueprints are followed (the engine refuses deeper ones). */
@@ -27,18 +29,18 @@ export function instanceName(snapshot: Snapshot, node: GraphNode): string {
 /** Every Switch and Display that runs, sheet by sheet (blueprints only through their instances). */
 export function controls(snapshot: Snapshot): Control[] {
   const out: Control[] = [];
-  const walk = (sheet: Sheet, run: (id: string) => string, place: string, depth: number) => {
+  const walk = (sheet: Sheet, run: (id: string) => string, place: string, group: string, depth: number) => {
     for (const node of sheet.nodes ?? []) {
       const s = node.settings;
-      if (s.kind === "switch" || s.kind === "display") out.push({ node, sheet, run: run(node.id), place });
+      if (s.kind === "switch" || s.kind === "display") out.push({ node, sheet, run: run(node.id), place, group });
       if (s.kind === "instance" && depth < NESTING) {
         const blueprint = snapshot.sheets.find((x) => x.id === s.sheet && x.blueprint);
         const at = run(node.id);
-        if (blueprint) walk(blueprint, (id) => inInstance(at, id), `${place} › ${instanceName(snapshot, node)}`, depth + 1);
+        if (blueprint) walk(blueprint, (id) => inInstance(at, id), `${place} › ${instanceName(snapshot, node)}`, at, depth + 1);
       }
     }
   };
-  for (const sheet of snapshot.sheets) if (!sheet.blueprint) walk(sheet, (id) => id, sheetPath(snapshot, sheet), 0);
+  for (const sheet of snapshot.sheets) if (!sheet.blueprint) walk(sheet, (id) => id, sheetPath(snapshot, sheet), sheet.id, 0);
   return out;
 }
 

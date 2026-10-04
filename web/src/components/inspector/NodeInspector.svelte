@@ -156,6 +156,15 @@
     return [...messages].sort((a, b) => (a.from ?? 0) - (b.from ?? 0));
   }
 
+  /** Another placement of the same blueprint with this one's name. */
+  const sameName = $derived.by(() => {
+    if (s.kind !== "instance" || !node.label) return false;
+    const label = node.label.trim().toLowerCase();
+    return (app.snapshot?.sheets ?? []).some((sh) =>
+      (sh.nodes ?? []).some((n) => n.id !== node.id && n.settings.kind === "instance" && n.settings.sheet === s.sheet && n.label?.trim().toLowerCase() === label),
+    );
+  });
+
   function settings(patch: Partial<NodeSettings>) {
     save({ ...node, settings: { ...node.settings, ...patch } as NodeSettings });
   }
@@ -241,8 +250,11 @@
       </div>
     </Field>
   {:else if s.kind === "instance"}
-    <Field label="Name" hint="Optional — the blueprint's name is shown otherwise.">
+    <Field label="Name" hint="Placed, it is numbered (“Smelter #2”) — rename it as you like; cleared, it gets a number again.">
       <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)} value={node.label} disabled={!canEdit} placeholder={app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Optional"} oncommit={(v) => save({ ...node, label: v || undefined }, "rename instance")} />
+      {#if sameName}
+        <p class="text-xs text-warn" role="status">Another placement of this blueprint is also called “{node.label}” — on the dashboard and in the tree they look alike.</p>
+      {/if}
     </Field>
   {:else if s.kind !== "sheet_input" && s.kind !== "sheet_output"}
     <Field label="Name" hint={slot ? "Optional — the kind of block is shown otherwise." : `Optional — “${KIND_LABEL[s.kind]}” is shown otherwise.`}>

@@ -39,6 +39,10 @@ public record Node(UUID id, NodeSettings settings, Optional<String> label, boole
         return new Node(id, settings, label, enabled, x, y, gate, note);
     }
 
+    public Node withLabel(Optional<String> label) {
+        return new Node(id, settings, label, enabled, x, y, gate, note);
+    }
+
     public Node withEnabled(boolean enabled) {
         return new Node(id, settings, label, enabled, x, y, gate, note);
     }

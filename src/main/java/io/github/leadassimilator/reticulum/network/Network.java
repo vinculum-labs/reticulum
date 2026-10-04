@@ -461,10 +461,55 @@ public final class Network {
         for (Sheet sheet : sheets) {
             changed |= sheet.assignPinSlots();
         }
+        changed |= nameInstances();
         if (changed) {
             bump();
         }
         return changed;
+    }
+
+    /** A placed blueprint's numbered name: "Smelter #2". */
+    private static final java.util.regex.Pattern NUMBERED = java.util.regex.Pattern.compile(".* #([0-9]{1,6})$");
+
+    /**
+     * Every placed blueprint has a name, so each can be told apart (on the dashboard, in the tree): one placed without
+     * (or cleared) gets "<blueprint> #n", the lowest n its blueprint's other placements don't already end in. Names are
+     * kept once given, so numbers never shift when one goes.
+     */
+    private boolean nameInstances() {
+        Map<UUID, java.util.Set<Integer>> taken = new java.util.HashMap<>();
+        List<Placement> unnamed = new ArrayList<>();
+        for (Sheet sheet : sheets) {
+            for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
+                if (!(node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance)) {
+                    continue;
+                }
+                String label = node.label().map(String::strip).orElse("");
+                if (label.isEmpty()) {
+                    unnamed.add(new Placement(sheet, node));
+                    continue;
+                }
+                java.util.regex.Matcher numbered = NUMBERED.matcher(label);
+                if (numbered.matches()) {
+                    taken.computeIfAbsent(instance.sheet(), k -> new java.util.HashSet<>()).add(Integer.parseInt(numbered.group(1)));
+                }
+            }
+        }
+        for (Placement placement : unnamed) {
+            UUID blueprint = ((io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings) placement.node().settings()).sheet();
+            java.util.Set<Integer> used = taken.computeIfAbsent(blueprint, k -> new java.util.HashSet<>());
+            int n = 1;
+            while (used.contains(n)) {
+                n++;
+            }
+            used.add(n);
+            Sheet held = sheet(blueprint);
+            String suffix = " #" + n;
+            String base = held != null ? held.name() : "Blueprint";
+            base = base.length() + suffix.length() > Limits.NAME ? base.substring(0, Limits.NAME - suffix.length()) : base;
+            placement.parent().replace(placement.node().withLabel(Optional.of(base + suffix)));
+        }
+        return !unnamed.isEmpty();
     }
 
     /**

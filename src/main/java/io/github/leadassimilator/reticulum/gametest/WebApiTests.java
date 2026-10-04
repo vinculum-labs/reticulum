@@ -127,6 +127,42 @@ public final class WebApiTests {
     }
 
     /** A batch of edits is all or nothing: one refused undoes the ones before it (a new sheet, a template, a node). */
+    /** Placed blueprints get numbered names ("bp #1", "bp #2"), the lowest free number; a name typed in is kept. */
+    @GameTest(template = "empty")
+    public static void placedBlueprintsGetNumberedNames(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.setOwner(player.getUUID(), "web-test");
+        String id = network.id().toString();
+        String root = network.root().id().toString();
+        String blueprint = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"bp\",\"blueprint\":true}]}")
+                .getAsJsonArray("results").get(0).getAsString();
+        java.util.function.Function<String, String> placeOne = label -> {
+            String node = UUID.randomUUID().toString();
+            call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"addNode\",\"sheet\":\"" + root
+                    + "\",\"node\":{\"id\":\"" + node + "\"" + (label == null ? "" : ",\"label\":\"" + label + "\"")
+                    + ",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + blueprint + "\"}}}]}");
+            return node;
+        };
+        java.util.function.Function<String, String> nameOf = node -> network.root().node(UUID.fromString(node)).label().orElse("");
+        String a = placeOne.apply(null);
+        String b = placeOne.apply(null);
+        String named = placeOne.apply("North smelter");
+        if (!nameOf.apply(a).equals("bp #1") || !nameOf.apply(b).equals("bp #2") || !nameOf.apply(named).equals("North smelter")) {
+            helper.fail("Names: " + nameOf.apply(a) + ", " + nameOf.apply(b) + ", " + nameOf.apply(named));
+        }
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"removeNode\",\"sheet\":\"" + root
+                + "\",\"node\":\"" + a + "\"}]}");
+        String c = placeOne.apply(null);
+        if (!nameOf.apply(c).equals("bp #1") || !nameOf.apply(b).equals("bp #2")) {
+            helper.fail("After removing #1: " + nameOf.apply(c) + ", " + nameOf.apply(b));
+        }
+        helper.succeed();
+    }
+
     /** A controller a fake player places (a Deployer, say) starts an ownerless public network, not one owned by the fake player. */
     @GameTest(template = "empty")
     public static void aFakePlayersControllerHasNoOwner(GameTestHelper helper) {
