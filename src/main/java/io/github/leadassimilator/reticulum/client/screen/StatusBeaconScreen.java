@@ -1,5 +1,6 @@
 package io.github.leadassimilator.reticulum.client.screen;
 
+import java.util.List;
 import java.util.Locale;
 
 import io.github.leadassimilator.reticulum.block.StatusBeaconBlock;
@@ -188,18 +189,17 @@ public class StatusBeaconScreen extends QuickScreen {
             }
         });
         addRenderableWidget(searchBox);
-        y += 18;
         if (!search.isBlank()) {
-            for (String id : SoundSearch.matches(search)) {
-                addRenderableWidget(Button.builder(Component.literal(id), b -> {
+            List<String> found = SoundSearch.matches(search);
+            if (!found.isEmpty()) {
+                overlay(new SoundDropdown(font, left, y, 16, WIDTH, height, found, id -> {
                     change(t -> t.putString("sound", id));
                     search = "";
                     rebuildWidgets();
-                }).bounds(left, y, WIDTH, 14).build());
-                y += 15;
+                }));
             }
         }
-        y += 4;
+        y += 22;
         int third = (WIDTH - 8) / 3;
         pitch = number("pitch", left, y + 10, third, String.format(Locale.ROOT, "%.2f", current.pitch()));
         interval = number("interval", left + third + 4, y + 10, third, Integer.toString(current.interval()));

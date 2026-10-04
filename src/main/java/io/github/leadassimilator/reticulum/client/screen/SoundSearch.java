@@ -16,8 +16,8 @@ import net.minecraft.sounds.SoundEvent;
 
 /** Picking a sound from every sound in the game by typing part of its id: the matches, a preview, and the box itself. */
 final class SoundSearch {
-    /** How many matches are offered at once. */
-    static final int RESULTS = 4;
+    /** At most this many matches are listed (the dropdown scrolls through them). */
+    static final int RESULTS = 500;
     private static List<String> allSounds;
 
     private SoundSearch() {

@@ -92,7 +92,46 @@ public abstract class QuickScreen extends Screen {
     protected void rebuildWidgets() {
         boxes.clear();
         built.clear();
+        overlay = null;
+        pendingOverlay = null;
         super.rebuildWidgets();
+    }
+
+    /** A widget over the others (a dropdown): drawn after them, and given clicks and scrolls before them. */
+    @Nullable
+    private net.minecraft.client.gui.components.AbstractWidget overlay;
+    @Nullable
+    private net.minecraft.client.gui.components.AbstractWidget pendingOverlay;
+
+    /** Sets the overlay; it is added once {@link #init} is done, so it comes after (over) everything else. */
+    protected void overlay(net.minecraft.client.gui.components.AbstractWidget widget) {
+        pendingOverlay = widget;
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        if (pendingOverlay != null) {
+            overlay = pendingOverlay;
+            pendingOverlay = null;
+            addRenderableWidget(overlay);
+        }
+        super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (overlay != null && overlay.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (overlay != null && overlay.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override

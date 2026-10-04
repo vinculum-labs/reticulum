@@ -57,8 +57,7 @@ public class AlarmSettingsScreen extends QuickScreen {
     @Override
     protected void init() {
         left = (width - WIDTH) / 2;
-        int results = (search[0].isBlank() ? 0 : 1) + (search[1].isBlank() ? 0 : 1);
-        top = Math.max(6, (height - (210 + LABELS.length * ROW + results * SoundSearch.RESULTS * 15)) / 2);
+        top = Math.max(6, (height - (210 + LABELS.length * ROW)) / 2);
         for (int row = 0; row < LABELS.length; row++) {
             for (int column = 0; column < 2; column++) {
                 ModConfigSpec.BooleanValue value = value(row, column == 1);
@@ -101,19 +100,18 @@ public class AlarmSettingsScreen extends QuickScreen {
         addRenderableWidget(box);
         addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.beacon_preview"),
                 b -> SoundSearch.preview(soundId(critical).get(), pitch(critical).get().floatValue())).bounds(left + WIDTH - 20, y - 1, 20, 18).build());
-        y += 18;
         if (!search[index].isBlank()) {
-            for (String id : SoundSearch.matches(search[index])) {
-                addRenderableWidget(Button.builder(Component.literal(id), b -> {
+            java.util.List<String> found = SoundSearch.matches(search[index]);
+            if (!found.isEmpty()) {
+                overlay(new SoundDropdown(font, left, y, 16, WIDTH, height, found, id -> {
                     soundId(critical).set(id);
                     soundId(critical).save();
                     search[index] = "";
                     rebuildWidgets();
-                }).bounds(left, y, WIDTH, 14).build());
-                y += 15;
+                }));
             }
         }
-        y += 2;
+        y += 20;
         EditBox pitchBox = kept("pitch_" + index, new SeeThroughTextBox(font, left + 40, y, 40, 16, Component.translatable("screen.reticulum.beacon_pitch")));
         pitchBox.setMaxLength(5);
         pitchBox.setValue(String.format(Locale.ROOT, "%.2f", pitch(critical).get()));
