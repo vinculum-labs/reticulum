@@ -151,7 +151,10 @@ public final class Screens {
         }
         network.setOwner(player.getUUID(), player.getGameProfile().getName());
         NetworkManager.changed(level.getServer(), network);
-        player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.network_claimed", network.name()), false);
+        // It stays as open as it was (others may already use it), but they are told when that is to anyone.
+        boolean open = network.accessMode() == io.github.leadassimilator.reticulum.security.AccessMode.PUBLIC;
+        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(open ? "message.reticulum.network_claimed_public"
+                : "message.reticulum.network_claimed", network.name()), false);
     }
 
     /** New contents for a screen after a change made in it; the client ignores it if the screen was closed meanwhile. */
