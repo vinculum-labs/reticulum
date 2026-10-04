@@ -142,10 +142,7 @@
           <span class="flex w-4 shrink-0 justify-center">
             {#if item.checked}<Check size={14} />{:else if ItemIcon}<ItemIcon size={15} />{/if}
           </span>
-          <span class="flex min-w-0 flex-1 flex-col">
-            <span class="trim-text truncate">{item.label}</span>
-            {#if item.hint}<span class="text-xs muted">{item.hint}</span>{/if}
-          </span>
+          <span class="trim-text min-w-0 flex-1 truncate">{item.label}</span>
           {#if item.shortcut}<span class="ml-4 shrink-0 text-xs muted">{item.shortcut}</span>{/if}
           {#if item.items}<ChevronRight size={14} class="shrink-0 muted" />{/if}
         </button>

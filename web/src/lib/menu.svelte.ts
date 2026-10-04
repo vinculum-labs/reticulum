@@ -11,8 +11,6 @@ import type { GlobalPos } from "./types";
 export interface MenuItem {
   label: string;
   icon?: Component<{ size?: number | string }>;
-  /** A line under the label. */
-  hint?: string;
   /** The key that does the same, shown at the right ("Del", "F2"). */
   shortcut?: string;
   /** A check beside it (a setting's current value, or a switch that is on). */

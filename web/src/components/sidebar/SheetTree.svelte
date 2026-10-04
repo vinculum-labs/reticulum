@@ -154,7 +154,7 @@
   function sheetMenu(e: MouseEvent, sheet: Sheet) {
     openMenu(e, [
       { label: "Open", icon: ExternalLink, run: () => openSheet(sheet.id) },
-      canEdit && { label: "Rename", icon: Pencil, hint: sheet.root ? "Renames the network too" : undefined, run: () => (renaming = sheet.id) },
+      canEdit && { label: sheet.root ? "Rename network" : "Rename", icon: Pencil, run: () => (renaming = sheet.id) },
       canEdit && { label: "New sheet inside", icon: Plus, run: () => addSheet(sheet) },
       canEdit && { label: sheet.enabled !== false ? "Turn off" : "Turn on", icon: sheet.enabled !== false ? PowerOff : Power, run: () => setSheetEnabled(sheet, sheet.enabled === false) },
       "-",

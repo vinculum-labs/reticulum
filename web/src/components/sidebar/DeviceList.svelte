@@ -6,7 +6,8 @@
   import { identifyItem, openMenu } from "../../lib/menu.svelte";
   import { chartableResources, deviceChart, deviceChartLabel, toggleDeviceChart, type DeviceChart } from "../../lib/charts";
   import ChartLine from "@lucide/svelte/icons/chart-line";
-  import { app, deviceName, deviceUses, matchesDevice, openDevice, placeDevice } from "../../lib/state.svelte";
+  import LocateFixed from "@lucide/svelte/icons/locate-fixed";
+  import { app, deviceName, deviceUses, matchesDevice, openDevice, placeDevice, showNode } from "../../lib/state.svelte";
   import { posKey, type Device } from "../../lib/types";
   import Segmented from "../controls/Segmented.svelte";
   import DeviceIcon from "../DeviceIcon.svelte";
@@ -55,18 +56,21 @@
 
   function deviceMenu(e: MouseEvent, d: Device) {
     const open = snapshot.sheets.find((s) => s.id === app.sheetId);
-    const homed = placed(posKey(d.pos));
-    const canPlace = canEdit && d.state === "active" && !!open && !app.instance && (open.blueprint || !homed);
+    // Its node, where it has one (each device lives on one sheet): offered as where to go instead of adding another.
+    const home = (uses.get(posKey(d.pos)) ?? []).find((u) => u.home);
+    const homeSheet = home ? snapshot.sheets.find((s) => s.id === home.sheetId) : undefined;
+    const canPlace = canEdit && d.state === "active" && !!open && !app.instance && (open.blueprint || !home);
     openMenu(e, [
       identifyItem(d.pos),
       { label: "Names…", icon: Pencil, run: () => openDevice(d) },
-      canEdit && {
-        label: open?.blueprint ? "Add a slot to the open blueprint" : "Add to the open sheet",
-        icon: Plus,
-        disabled: !canPlace,
-        hint: !canPlace && homed && !open?.blueprint ? "It already has a node" : undefined,
-        run: () => placeDevice(d),
-      },
+      home?.nodeId && homeSheet && !open?.blueprint
+        ? { label: `Go to its node in ${homeSheet.name}`, icon: LocateFixed, run: () => showNode(homeSheet.id, home.nodeId!) }
+        : canEdit && open && {
+            label: open.blueprint ? `Add a slot to ${open.name}` : `Add to ${open.name}`,
+            icon: Plus,
+            disabled: !canPlace,
+            run: () => placeDevice(d),
+          },
       chartableResources(d).length > 0 && {
         label: "Chart",
         icon: ChartLine,
