@@ -39,6 +39,7 @@
   import ControlWidget from "./ControlWidget.svelte";
   import IconPicker from "./IconPicker.svelte";
   import ColorField from "../controls/ColorField.svelte";
+  import ColorButton from "../controls/ColorButton.svelte";
   import Chart from "./Chart.svelte";
   import InspectorPanel from "./InspectorPanel.svelte";
   import ThroughputSummary from "./ThroughputSummary.svelte";
@@ -150,6 +151,11 @@
     edit(edits, undo, "remove track");
   }
 
+  /** A Display's messages in the order they apply: by the value each starts from. */
+  function sortedMessages<T extends { from?: number }>(messages: T[]): T[] {
+    return [...messages].sort((a, b) => (a.from ?? 0) - (b.from ?? 0));
+  }
+
   function settings(patch: Partial<NodeSettings>) {
     save({ ...node, settings: { ...node.settings, ...patch } as NodeSettings });
   }
@@ -243,6 +249,10 @@
       <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)} value={node.label} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
     </Field>
   {/if}
+
+  <Field label="Note" hint="What it is for: shown in its card's tooltip, and under its name on the dashboard.">
+    <TextField value={node.note ?? ""} placeholder="Optional" disabled={!canEdit} oncommit={(v) => save({ ...node, note: v.trim().slice(0, 200) || undefined }, "note")} />
+  </Field>
 
   <Switch label="On" checked={node.enabled !== false} disabled={!canEdit} onchange={(on) => save({ ...node, enabled: on }, "node on/off")} />
 
@@ -456,17 +466,56 @@
           { value: "number", label: "Number" },
           { value: "gauge", label: "Gauge" },
           { value: "light", label: "Light" },
+          { value: "message", label: "Message" },
         ]}
-        onchange={(style) => settings({ style })}
+        onchange={(style) => settings(style === "message" && !s.messages?.length ? { style, messages: [{ from: 0, text: "Off" }, { from: 1, text: "On" }] } : { style })}
       />
     </Field>
     <Field label="Icon" hint="Shown beside it on the dashboard.">
       <IconPicker value={s.icon} disabled={!canEdit} onchange={(icon) => settings({ icon })} />
     </Field>
-    <Field label="Color" hint={s.style === "gauge" ? "The gauge's fill." : s.style === "light" ? "The light, lit." : "The number."}>
-      <ColorField value={s.color} disabled={!canEdit} onchange={(color) => settings({ color })} />
-    </Field>
-    {#if (s.style ?? "number") !== "light"}
+    {#if s.style === "message"}
+      {@const messages = s.messages ?? []}
+      <Field label="Messages" hint="Each from its value up to the next one's. Below the first, the number shows.">
+        <div class="flex flex-col gap-1">
+          {#each messages as m, i (i)}
+            <div class="flex items-center gap-1">
+              <NumberField
+                value={m.from ?? 0}
+                min={-1_000_000_000_000}
+                max={1_000_000_000_000}
+                width="sm"
+                disabled={!canEdit}
+                oncommit={(v) => settings({ messages: sortedMessages(messages.map((x, j) => (j === i ? { ...x, from: v ?? 0 } : x))) })}
+              />
+              <TextField
+                class="min-w-0 flex-1"
+                value={m.text ?? ""}
+                placeholder="Text"
+                disabled={!canEdit}
+                oncommit={(v) => settings({ messages: messages.map((x, j) => (j === i ? { ...x, text: v.slice(0, 64) } : x)) })}
+              />
+              <ColorButton
+                value={m.color}
+                label={`Color of “${m.text || "this message"}”`}
+                disabled={!canEdit}
+                onchange={(color) => settings({ messages: messages.map((x, j) => (j === i ? { ...x, color } : x)) })}
+              />
+              {#if canEdit}<RemoveButton label="Remove this message" onclick={() => settings({ messages: messages.filter((_, j) => j !== i) })} />{/if}
+            </div>
+          {/each}
+          {#if canEdit && messages.length < 16}
+            {@const next = messages.length ? (messages[messages.length - 1].from ?? 0) + 1 : 0}
+            <button class="btn self-start text-xs" onclick={() => settings({ messages: [...messages, { from: next, text: "" }] })}>Add message</button>
+          {/if}
+        </div>
+      </Field>
+    {:else}
+      <Field label="Color" hint={s.style === "gauge" ? "The gauge's fill." : s.style === "light" ? "The light, lit." : "The number."}>
+        <ColorField value={s.color} disabled={!canEdit} onchange={(color) => settings({ color })} />
+      </Field>
+    {/if}
+    {#if (s.style ?? "number") === "number" || s.style === "gauge"}
       <Field label="Unit" hint="After the number: items, mB, %…">
         <TextField value={s.unit ?? ""} placeholder="none" disabled={!canEdit} oncommit={(v) => settings({ unit: v.slice(0, 16) })} />
       </Field>

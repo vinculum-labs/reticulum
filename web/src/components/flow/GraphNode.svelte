@@ -266,7 +266,8 @@
       <span class="shrink-0" style="color: {color}"><KindIcon size={16} /></span>
     {/if}
     <div class="min-w-0 flex-1 leading-tight">
-      <div class="truncate font-medium" style="font-size: 12px" title={title}>{title}</div>
+      <div class="truncate font-medium" style="font-size: 12px" title={data.node.note ? `${title}
+${data.node.note}` : title}>{title}</div>
       <div
         class="truncate muted"
         style="font-size: 10px"

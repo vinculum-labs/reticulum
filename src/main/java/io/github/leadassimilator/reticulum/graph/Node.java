@@ -12,9 +12,10 @@ import net.minecraft.util.StringRepresentable;
 
 /**
  * A node on a sheet. {@code x}/{@code y} are its position in the editor and have no effect on the engine.
- * {@code gate} is how a signal wired into its gate switches it.
+ * {@code gate} is how a signal wired into its gate switches it. {@code note} says what it is for (shown in the editor and on the
+ * dashboard), and has no effect either.
  */
-public record Node(UUID id, NodeSettings settings, Optional<String> label, boolean enabled, float x, float y, Gate gate) {
+public record Node(UUID id, NodeSettings settings, Optional<String> label, boolean enabled, float x, float y, Gate gate, Optional<String> note) {
     public static final Codec<Node> CODEC = RecordCodecBuilder.create(i -> i.group(
             Ids.UUID_CODEC.fieldOf("id").forGetter(Node::id),
             NodeSettings.CODEC.fieldOf("settings").forGetter(Node::settings),
@@ -22,31 +23,32 @@ public record Node(UUID id, NodeSettings settings, Optional<String> label, boole
             Codec.BOOL.optionalFieldOf("enabled", true).forGetter(Node::enabled),
             Codec.FLOAT.optionalFieldOf("x", 0f).forGetter(Node::x),
             Codec.FLOAT.optionalFieldOf("y", 0f).forGetter(Node::y),
-            Gate.CODEC.optionalFieldOf("gate", Gate.WHILE_ON).forGetter(Node::gate)
+            Gate.CODEC.optionalFieldOf("gate", Gate.WHILE_ON).forGetter(Node::gate),
+            Codec.STRING.optionalFieldOf("note").forGetter(Node::note)
     ).apply(i, Node::new));
 
     public static Node of(NodeSettings settings) {
-        return new Node(UUID.randomUUID(), settings, Optional.empty(), true, 0, 0, Gate.WHILE_ON);
+        return new Node(UUID.randomUUID(), settings, Optional.empty(), true, 0, 0, Gate.WHILE_ON, Optional.empty());
     }
 
     public Node withId(UUID id) {
-        return new Node(id, settings, label, enabled, x, y, gate);
+        return new Node(id, settings, label, enabled, x, y, gate, note);
     }
 
     public Node with(NodeSettings settings) {
-        return new Node(id, settings, label, enabled, x, y, gate);
+        return new Node(id, settings, label, enabled, x, y, gate, note);
     }
 
     public Node withEnabled(boolean enabled) {
-        return new Node(id, settings, label, enabled, x, y, gate);
+        return new Node(id, settings, label, enabled, x, y, gate, note);
     }
 
     public Node withGate(Gate gate) {
-        return new Node(id, settings, label, enabled, x, y, gate);
+        return new Node(id, settings, label, enabled, x, y, gate, note);
     }
 
     public Node at(float x, float y) {
-        return new Node(id, settings, label, enabled, x, y, gate);
+        return new Node(id, settings, label, enabled, x, y, gate, note);
     }
 
     public NodeSettings.Kind kind() {

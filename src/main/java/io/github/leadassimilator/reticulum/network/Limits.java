@@ -49,11 +49,17 @@ public final class Limits {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    /** The longest note a node may have. */
+    public static final int NOTE = 200;
+
     /** Why a node can't be stored, or null when it can. */
     @Nullable
     public static String check(Node node) {
         if (node.label().isPresent() && node.label().get().length() > NAME) {
             return "A node's label can be at most " + NAME + " characters";
+        }
+        if (node.note().isPresent() && node.note().get().length() > NOTE) {
+            return "A node's note can be at most " + NOTE + " characters";
         }
         // Every filter it holds, as long as a template's may be (they are only parsed when the sheet compiles).
         for (String filter : io.github.leadassimilator.reticulum.filter.FilterRefs.filters(node.settings())) {

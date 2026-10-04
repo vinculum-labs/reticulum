@@ -383,7 +383,7 @@ public final class CompiledSheet {
     private Node pin(Node device, UUID id, NodeSettings settings, String key) {
         owners.put(id, device.id());
         pinKeys.put(id, key);
-        return new Node(id, settings, device.label(), true, device.x(), device.y(), Node.Gate.WHILE_ON);
+        return new Node(id, settings, device.label(), true, device.x(), device.y(), Node.Gate.WHILE_ON, java.util.Optional.empty());
     }
 
     /** The connector side touching one of the given faces of the device (any face when none are chosen). */
@@ -849,7 +849,7 @@ public final class CompiledSheet {
             NodeSettings.Port port = new NodeSettings.Port(out.resource(), device.device(), out.faces(), out.slots());
             Node source = new Node(side(node.id(), "out", i),
                     new NodeSettings.SourceSettings(port, out.keep(), out.perOperation(), out.interval(), out.priority()),
-                    node.label(), true, node.x(), node.y(), Node.Gate.WHILE_ON);
+                    node.label(), true, node.x(), node.y(), Node.Gate.WHILE_ON, java.util.Optional.empty());
             nodes.put(source.id(), source);
             owners.put(source.id(), node.id());
         }
@@ -860,7 +860,7 @@ public final class CompiledSheet {
             }
             NodeSettings.Port port = new NodeSettings.Port(in.resource(), device.device(), in.faces(), in.slots());
             Node sink = new Node(side(node.id(), "in", i), new NodeSettings.SinkSettings(port, in.caps()), node.label(), true, node.x(), node.y(),
-                    Node.Gate.WHILE_ON);
+                    Node.Gate.WHILE_ON, java.util.Optional.empty());
             nodes.put(sink.id(), sink);
             owners.put(sink.id(), node.id());
         }

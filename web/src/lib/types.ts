@@ -225,7 +225,14 @@ export interface SwitchSettings {
   icon?: string;
 }
 
-export type DisplayStyle = "number" | "gauge" | "light";
+export type DisplayStyle = "number" | "gauge" | "light" | "message";
+
+/** A Display's text from {@code from} up (to the next message's {@code from}), in {@code color} if it has one. */
+export interface DisplayMessage {
+  from?: number;
+  text?: string;
+  color?: string;
+}
 
 /** Shows what is wired into it on the dashboard — a number (with its unit), a gauge up to {@code max}, or a light — and passes it on. */
 export interface DisplaySettings {
@@ -237,6 +244,8 @@ export interface DisplaySettings {
   icon?: string;
   /** "#rrggbb": its number, gauge or light (none: the usual). */
   color?: string;
+  /** As a message: the text of the last whose {@code from} the value has reached. */
+  messages?: DisplayMessage[];
 }
 
 export type AlarmSeverity = "warning" | "critical";
@@ -296,6 +305,8 @@ export interface GraphNode {
   x?: number;
   y?: number;
   gate?: GateMode;
+  /** What it is for: shown in its card's tooltip, its inspector and on the dashboard. */
+  note?: string;
 }
 
 export interface Wire {

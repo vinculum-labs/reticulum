@@ -720,24 +720,46 @@ public sealed interface NodeSettings {
         /** A bar filling up to {@code max}. */
         GAUGE,
         /** A light: lit while above 0. */
-        LIGHT;
+        LIGHT,
+        /** Text chosen by the value (its {@code messages}). */
+        MESSAGE;
 
         public static final Codec<DisplayStyle> CODEC = StringRepresentable.fromEnum(DisplayStyle::values);
     }
 
     /**
+     * A Display's text from {@code from} up (to the next message's {@code from}), in {@code color} ("#rrggbb") if it has one.
+     */
+    record DisplayMessage(long from, String text, Optional<String> color) {
+        public static final int TEXT_LIMIT = 64;
+        public static final int LIMIT = 16;
+        public static final Codec<DisplayMessage> CODEC = RecordCodecBuilder.create(i -> i.group(
+                Codec.LONG.optionalFieldOf("from", 0L).forGetter(DisplayMessage::from),
+                Codec.string(0, TEXT_LIMIT).optionalFieldOf("text", "").forGetter(DisplayMessage::text),
+                Codec.STRING.optionalFieldOf("color").forGetter(DisplayMessage::color)
+        ).apply(i, DisplayMessage::new));
+
+        public DisplayMessage {
+            color = color.filter(c -> c.matches("#[0-9a-fA-F]{6}"));
+        }
+    }
+
+    /**
      * Shows what is wired into it on the editor's dashboard (the highest of its wires), and passes it on. {@code unit}
      * follows the number ("items", "%"); {@code max} is a gauge's full mark; {@code icon} is an item the dashboard shows it
-     * with; {@code color} ("#rrggbb") colors its number, gauge or light.
+     * with; {@code color} ("#rrggbb") colors its number, gauge or light. As a message, it shows the text of the last of
+     * {@code messages} whose {@code from} the value has reached.
      */
-    record DisplaySettings(DisplayStyle style, String unit, long max, Optional<ResourceLocation> icon, Optional<String> color) implements NodeSettings {
+    record DisplaySettings(DisplayStyle style, String unit, long max, Optional<ResourceLocation> icon, Optional<String> color,
+            List<DisplayMessage> messages) implements NodeSettings {
         public static final int UNIT_LIMIT = 16;
         public static final MapCodec<DisplaySettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 DisplayStyle.CODEC.optionalFieldOf("style", DisplayStyle.NUMBER).forGetter(DisplaySettings::style),
                 Codec.string(0, UNIT_LIMIT).optionalFieldOf("unit", "").forGetter(DisplaySettings::unit),
                 Codec.LONG.optionalFieldOf("max", 15L).forGetter(DisplaySettings::max),
                 ResourceLocation.CODEC.optionalFieldOf("icon").forGetter(DisplaySettings::icon),
-                Codec.STRING.optionalFieldOf("color").forGetter(DisplaySettings::color)
+                Codec.STRING.optionalFieldOf("color").forGetter(DisplaySettings::color),
+                DisplayMessage.CODEC.sizeLimitedListOf(DisplayMessage.LIMIT).optionalFieldOf("messages", List.of()).forGetter(DisplaySettings::messages)
         ).apply(i, DisplaySettings::new));
 
         public DisplaySettings {

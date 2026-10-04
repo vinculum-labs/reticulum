@@ -36,7 +36,10 @@
         <span class="flex h-6 w-6 shrink-0 items-center justify-center muted"><Icon size={16} /></span>
       {/if}
     {/if}
-    <span class="trim-text truncate">{label}</span>
+    <span class="flex min-w-0 flex-col">
+      <span class="trim-text truncate">{label}</span>
+      {#if control.node.note}<span class="truncate text-xs muted" title={control.node.note}>{control.node.note}</span>{/if}
+    </span>
   </span>
 {/snippet}
 
@@ -79,6 +82,17 @@
     <div class="flex items-center gap-2">
       {@render name()}
       <span class="light" class:lit={value > 0} style={s.color ? `--lit: ${s.color}` : ""} title={value > 0 ? `On (${value})` : "Off"}></span>
+    </div>
+  {:else if s.style === "message"}
+    <!-- The last message whose start the value has reached; below the first, the number. -->
+    {@const shown = [...(s.messages ?? [])].sort((a, b) => (a.from ?? 0) - (b.from ?? 0)).filter((m) => value >= (m.from ?? 0)).at(-1)}
+    <div class="flex items-center gap-2">
+      {@render name()}
+      {#if shown}
+        <span class="truncate font-semibold" style={shown.color ? `color: ${shown.color}` : ""} title={`${shown.text ?? ""} (${value})`}>{shown.text || "—"}</span>
+      {:else}
+        <span class="text-base font-semibold tabular-nums">{format(value)}</span>
+      {/if}
     </div>
   {:else if s.style === "gauge"}
     {@const max = s.max ?? 15}

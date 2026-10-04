@@ -370,7 +370,13 @@ export function summary(node: GraphNode, unit: "t" | "s" = "t"): string {
     case "switch":
       return s.level ? `0–${s.value ?? 15}` : `off / ${s.value ?? 15}`;
     case "display":
-      return s.style === "gauge" ? `gauge to ${s.max ?? 15}${s.unit ? ` ${s.unit}` : ""}` : s.style === "light" ? "light" : `number${s.unit ? ` · ${s.unit}` : ""}`;
+      return s.style === "gauge"
+        ? `gauge to ${s.max ?? 15}${s.unit ? ` ${s.unit}` : ""}`
+        : s.style === "light"
+          ? "light"
+          : s.style === "message"
+            ? `${s.messages?.length ?? 0} message${s.messages?.length === 1 ? "" : "s"}`
+            : `number${s.unit ? ` · ${s.unit}` : ""}`;
     case "alarm": {
       const test = s.op ? `in ${OP_SYMBOL[s.op]} ${s.threshold ?? 0}` : "in on";
       const after = s.delay ? ` for ${s.delay}s` : "";
