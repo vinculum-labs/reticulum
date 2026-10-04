@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { app, deviceName, edit, request } from "../../lib/state.svelte";
-  import { loadCatalog, type Catalog, type CatalogKind } from "../../lib/catalog";
+  import { iconUrl, loadCatalog, matchesSearch, type Catalog, type CatalogKind } from "../../lib/catalog";
   import { RESOURCE_LABEL, RESOURCE_UNIT } from "../../lib/kinds";
   import { posKey, type ChartSeries, type Resource } from "../../lib/types";
   import InspectorPanel from "./InspectorPanel.svelte";
@@ -96,7 +96,21 @@
   let addId = $state("");
   let addDevice = $state("");
   let addResource = $state<Resource>("energy");
-  const suggestions = $derived(addKind === "level" || !catalog ? [] : (catalog[addKind] ?? []).map((e) => e.id));
+  let search = $state("");
+  /** Up to 8 entries of the kind matching what is typed (a name, an id, "@mod" or "#tag"). */
+  const matches = $derived.by(() => {
+    if (addKind === "level" || !catalog || !search.trim()) return [];
+    const words = search.toLowerCase().trim().split(/\s+/);
+    const out = [];
+    for (const entry of catalog[addKind] ?? []) {
+      if (matchesSearch(entry, words)) {
+        out.push(entry);
+        if (out.length === 8) break;
+      }
+    }
+    return out;
+  });
+  const picked = $derived(addKind === "level" || !catalog ? undefined : (catalog[addKind] ?? []).find((e) => e.id === addId));
   const heldResources = $derived.by(() => {
     const device = snapshot.devices.find((d) => posKey(d.pos) === addDevice);
     return (["energy", "item", "fluid", "chemical"] as Resource[]).filter((r) => device?.resources?.[r]?.length);
@@ -115,6 +129,7 @@
     }
     edit([{ type: "addChart", chart }], undefined, "chart");
     addId = "";
+    search = "";
   }
 
   function remove(c: ChartSeries) {
@@ -193,7 +208,20 @@
               />
             {/if}
           {:else}
-            <TextField value={addId} placeholder="minecraft:iron_ingot" {suggestions} oncommit={(v) => (addId = v)} oninput={(v) => (addId = v)} />
+            <TextField
+              value={search}
+              placeholder={`Search ${addKind === "item" ? "items" : addKind === "fluid" ? "fluids" : "chemicals"} by name or id`}
+              oncommit={(v) => (search = v)}
+              oninput={(v) => (search = v)}
+            />
+            {#each matches as entry (entry.id)}
+              <button class="list-row flex items-center gap-2 rounded px-1 text-left" style={entry.id === addId ? "background: var(--panel-2); outline: 1px solid var(--accent)" : ""} onclick={() => (addId = entry.id)}>
+                <img src={iconUrl(addKind as CatalogKind, entry.id)} alt="" width="16" height="16" class="shrink-0" style="image-rendering: pixelated" />
+                <span class="min-w-0 flex-1 truncate">{entry.name}</span>
+                <span class="shrink-0 text-xs muted">{entry.id}</span>
+              </button>
+            {/each}
+            {#if picked}<span class="text-xs">Picked: <strong>{picked.name}</strong> <span class="muted">{picked.id}</span></span>{/if}
           {/if}
           <button class="btn self-start" disabled={addKind === "level" ? !addDevice : !addId.trim()} onclick={add}>Chart it</button>
         </div>

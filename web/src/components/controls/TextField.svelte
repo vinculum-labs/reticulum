@@ -161,10 +161,11 @@
   <Popover bind:open={suggesting} anchor={element} role="listbox" label="Suggestions">
     <div bind:this={list} class="flex flex-col overflow-y-auto py-1 text-sm" role="none">
       {#each matches as suggestion, i (suggestion)}
-        <!-- Pressing keeps the keyboard in the box, so it doesn't save the half-typed text before the pick. -->
+        <!-- Pressing keeps the keyboard in the box, so it doesn't save the half-typed text before the pick. Not
+             shrinking: clipped (truncate) rows in a column too short for them were squashed to slivers. -->
         <button
           type="button"
-          class="list-row truncate px-2 py-1 text-left"
+          class="list-row shrink-0 truncate px-2 py-1 text-left"
           class:active={i === active}
           role="option"
           aria-selected={i === active}
