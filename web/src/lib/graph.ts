@@ -32,8 +32,6 @@ export interface NodeData extends Record<string, unknown> {
   wiredInputs?: number[];
   /** What is wrong with it, one error per line, as the server compiled the sheet. */
   problem?: string;
-  /** Its pins with a wire hidden by a layer (marked, so the wire isn't forgotten). */
-  hiddenHandles?: string[];
   /** A filter, rate limit, splitter or kit on a dimmed or hidden layer: drawn faint. */
   faded?: boolean;
   /**
@@ -569,7 +567,6 @@ function sheetFlow(
     if (n.settings.kind !== "splitter") continue;
     splitterBranches(sheet, n.id).forEach((w, i) => branchNumber.set(w.id, i + 1));
   }
-  const hiddenHandles = new Map<string, string[]>();
   const edges: Edge[] = (sheet.wires ?? []).map((w) => {
     const rate = rates[w.id] ?? 0;
     const resource = kinds.wires.get(w.id) ?? null;
@@ -584,12 +581,6 @@ function sheetFlow(
     const layer: Layer | null = signal ? "redstone" : pin === "me" ? "me" : resource;
     let mode = (layer && layers.modes[layer]) || "show";
     if (mode === "hide" && (selected.has(w.from) || selected.has(w.to) || selected.has(w.id))) mode = "dim";
-    if (mode === "hide") {
-      const from = sourceHandle(byId.get(w.from), w.output ?? 0);
-      const to = targetHandle(byId.get(w.to), w.input ?? 0);
-      hiddenHandles.set(w.from, [...(hiddenHandles.get(w.from) ?? []), from]);
-      hiddenHandles.set(w.to, [...(hiddenHandles.get(w.to) ?? []), to]);
-    }
     const faint = mode === "dim" ? "; opacity: 0.18" : "";
     return {
       class: mode === "hide" ? "layer-hidden" : undefined,
@@ -609,7 +600,6 @@ function sheetFlow(
     };
   });
   for (const n of nodes) {
-    n.data.hiddenHandles = hiddenHandles.get(n.id);
     // A flow node carries one resource: on a dimmed or hidden layer, it fades with its wires.
     const kind = n.data.node.settings.kind;
     const carried = kinds.nodes.get(n.id);

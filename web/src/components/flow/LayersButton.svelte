@@ -49,7 +49,7 @@
     <div class="flex gap-2 pt-1">
       <button class="btn text-xs" disabled={!changed} onclick={() => focusLayer(null)}>Show all</button>
     </div>
-    <p class="text-xs muted">Hidden wires come back faint while you draw a new wire, or select a card they join. Pins with a hidden wire get a ring.</p>
+    <p class="text-xs muted">Hidden wires come back faint while you draw a new wire, or select a card they join. Their pins stay, dimmed.</p>
   </div>
 </Popover>
 

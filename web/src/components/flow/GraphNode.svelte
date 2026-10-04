@@ -167,15 +167,10 @@
   }
 
   // Color says what a pin carries; shape says which way: inputs are hollow rings, outputs filled dots.
-  /**
-   * A pin on a dimmed or hidden layer is faint; one whose wire a layer hides gets a ring in its color, so the wire
-   * isn't forgotten.
-   */
-  function layerPin(layer: Layer | null | undefined, handle: string, c: string): string {
+  /** A pin on a dimmed or hidden layer is faint. */
+  function layerPin(layer: Layer | null | undefined): string {
     const mode = layer ? app.layers[layer] : "show";
-    const faint = mode === "dim" || mode === "hide" ? "; opacity: 0.4" : "";
-    const ring = data.hiddenHandles?.includes(handle) ? `; box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px ${c}; opacity: 0.75` : "";
-    return faint + ring;
+    return mode === "dim" || mode === "hide" ? "; opacity: 0.4" : "";
   }
   const inPin = (c: string) => `background: var(--panel); border: 2px solid ${c}`;
   const outPin = (c: string) => `background: ${c}; border: 2px solid ${c}`;
@@ -354,11 +349,11 @@ ${idleTitle}` : idleTitle}
   <!-- An open frame's handles sit on its edges, level with its pins inside; a card's beside their rows. -->
   {#each leftRows as row, i (row.handle)}
     <Handle type="target" position={Position.Left} id={row.handle} title={row.title}
-      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}{data.frame ? outerHalf(true) : ''}{layerPin(row.layer, row.handle, row.color)}" />
+      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}{data.frame ? outerHalf(true) : ''}{layerPin(row.layer)}" />
   {/each}
   {#each rightRows as row, i (row.handle)}
     <Handle type="source" position={Position.Right} id={row.handle} title={row.title}
-      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}{data.frame ? outerHalf(false) : ''}{layerPin(row.layer, row.handle, row.color)}" />
+      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}{data.frame ? outerHalf(false) : ''}{layerPin(row.layer)}" />
   {/each}
 {:else}
   {#if flowIn}
