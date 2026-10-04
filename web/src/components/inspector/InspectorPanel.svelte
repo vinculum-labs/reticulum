@@ -3,11 +3,10 @@
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import CircleHelp from "@lucide/svelte/icons/circle-help";
   import { help, toggleHelp } from "../../lib/help.svelte";
-  import { onEscape } from "../../lib/escape";
 
   /**
    * The frame of everything the side panel shows: a title (with an optional icon, subtitle and actions), then the
-   * content. {@code onclose} adds a Close button and lets Esc close it, {@code onback} a Back button above. The ? shows
+   * content. {@code onclose} adds a Close button (Esc leaves it open, as for every tab), {@code onback} a Back button above. The ? shows
    * or hides every panel's explanations.
    */
   let {
@@ -30,9 +29,6 @@
     children: Snippet;
   } = $props();
 
-  $effect(() => {
-    if (onclose) return onEscape(onclose);
-  });
 </script>
 
 <div class="flex flex-col gap-3">
