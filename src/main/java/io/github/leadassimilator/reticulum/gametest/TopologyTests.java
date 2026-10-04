@@ -64,6 +64,8 @@ public final class TopologyTests {
         Network b = network(helper, new BlockPos(5, 1, 5));
         check(helper, a != b, "the two controllers share a network");
         a.switches().setRedstone(io.github.leadassimilator.reticulum.network.Switches.Redstone.LOW);
+        // B reaches its wireless connector with an antenna (without one, a connector no cable joins does nothing).
+        ((io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getBlockEntity(new BlockPos(5, 1, 5))).setAntennaTier(1);
 
         // Placed from a stack bound to B, against A's controller.
         BlockPos at = new BlockPos(2, 1, 1);

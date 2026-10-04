@@ -150,7 +150,7 @@ final class Signals {
             }
         }
         values.keySet().retainAll(worked);
-        applyEmissions(ctx.server(), ctx.network(), emit);
+        applyEmissions(ctx.server(), ctx.network(), emit, id -> ctx.runtime().reach(id) != NetworkRuntime.Reach.OUT_OF_RANGE);
     }
 
     /**
@@ -215,6 +215,10 @@ final class Signals {
         String key = id.toString();
         return switch (node.node().settings()) {
             case NodeSettings.RedstoneInSettings in -> {
+                // Read only through a connector that reaches the controller (wired to it, or in antenna range).
+                if (ctx.runtime().outOfRange(in.device())) {
+                    yield 0;
+                }
                 if (in.comparator() || in.faces().isEmpty()) {
                     yield givenOut(ctx.server(), ctx.network(), in.device(), Optional.empty(), in.comparator());
                 }
@@ -393,7 +397,8 @@ final class Signals {
     // ---------------------------------------------------------------- redstone out
 
     /** Gives each connector's redstone to the devices it faces, touching only what changed. */
-    void applyEmissions(MinecraftServer server, Network network, Map<Emit, Integer> emit) {
+    /** {@code reaches}: whether a connector reaches the controller; one that doesn't gives nothing (cut off by cable, out of range). */
+    void applyEmissions(MinecraftServer server, Network network, Map<Emit, Integer> emit, java.util.function.Predicate<UUID> reaches) {
         if (emit.isEmpty() && emitting.isEmpty() && poweredConnectors.isEmpty()) {
             return;
         }
@@ -422,7 +427,8 @@ final class Signals {
                     continue;
                 }
                 // The device's face touching this connector is the opposite of the way the connector faces it.
-                int power = Math.max(emit.getOrDefault(new Emit(device, null), 0), emit.getOrDefault(new Emit(device, toward.getOpposite()), 0));
+                int power = !reaches.test(connector.id()) ? 0
+                        : Math.max(emit.getOrDefault(new Emit(device, null), 0), emit.getOrDefault(new Emit(device, toward.getOpposite()), 0));
                 set.add(toward);
                 changed |= be.setPower(toward, power);
             }
@@ -448,7 +454,7 @@ final class Signals {
 
     /** The network stopped (switched off, or its controller went away): connectors stop giving out redstone. */
     void stop(MinecraftServer server, Network network) {
-        applyEmissions(server, network, Map.of());
+        applyEmissions(server, network, Map.of(), id -> true);
         values.clear();
         delays.clear();
         pulseLeft.clear();

@@ -323,6 +323,21 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /** A connector cut off from its controller (no antenna) stops giving redstone: its lamp goes dark. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void aCutOffConnectorGivesNoRedstone(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+        Node constant = rig.node(new NodeSettings.ConstantSettings(15));
+        rig.signal(constant, rig.redstoneTo(rig.device(0)), 0);
+        BlockPos lamp = rig.devices().get(0);
+        helper.startSequence()
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "setup: the lamp should light"))
+                // The only cable between the controller and the connector goes.
+                .thenExecute(() -> helper.setBlock(new BlockPos(2, 1, 1), Blocks.AIR))
+                .thenWaitUntil(() -> check(helper, !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "the cut-off connector kept the lamp lit"))
+                .thenSucceed();
+    }
+
     /** A Constant with its "on" input wired gives its value only while that input is above 0. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void constantFollowsItsOnInput(GameTestHelper helper) {
