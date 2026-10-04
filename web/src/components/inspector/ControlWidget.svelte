@@ -86,17 +86,27 @@
     </div>
   {:else if s.style === "message"}
     <!-- The last message whose start the value has reached; below the first, the number. -->
-    {@const shown = [...(s.messages ?? [])].sort((a, b) => (a.from ?? 0) - (b.from ?? 0)).filter((m) => value >= (m.from ?? 0)).at(-1)}
+    {@const messages = [...(s.messages ?? [])].sort((a, b) => (a.from ?? 0) - (b.from ?? 0))}
+    {@const shown = messages.filter((m) => value >= (m.from ?? 0)).at(-1)}
+    <!-- Room for numbers as long as the widest value it has shown or any message starts at (and two digits at least). -->
+    {@const digits = Math.max(2, format(value).length, ...messages.map((m) => format(m.from ?? 0).length + 1))}
+    {@const widest = "8".repeat(digits)}
     <!-- The message beside the name: the dashboard's card grows to fit it; where there is no room (the inspector, a card
-         at its widest) it goes onto a line of its own below. -->
+         at its widest) it goes onto a line of its own below. Every message (and the number) is laid out in the same
+         place, only the one shown visible, so the space fits the longest and nothing moves as the value changes. -->
     <div class="message-row flex flex-wrap items-center gap-x-2 gap-y-0.5">
       {@render name()}
-      {#if shown}
-        {@const text = (shown.text ?? "").replaceAll("{value}", format(value))}
-        <span class="message ml-auto font-semibold" style={shown.color ? `color: ${shown.color}` : ""} title={`${text} (${value})`}>{text || "—"}</span>
-      {:else}
-        <span class="text-base font-semibold tabular-nums">{format(value)}</span>
-      {/if}
+      <span class="message ml-auto font-semibold" title={shown ? `${(shown.text ?? "").replaceAll("{value}", format(value))} (${value})` : String(value)}>
+        {#each messages as m, i (i)}
+          {@const text = (m.text ?? "").replaceAll("{value}", format(value))}
+          <span class:hidden-message={m !== shown} style={m.color ? `color: ${m.color}` : ""} aria-hidden={m !== shown}>{text || "—"}</span>
+        {/each}
+        <span class="tabular-nums" class:hidden-message={!!shown} aria-hidden={!!shown}>{format(value)}</span>
+        <!-- Sizing only: each message with its number as wide as it may get. -->
+        {#each messages as m, i (i)}
+          {#if m.text?.includes("{value}")}<span class="hidden-message" aria-hidden="true">{m.text.replaceAll("{value}", widest)}</span>{/if}
+        {/each}
+      </span>
     </div>
   {:else if s.style === "gauge"}
     {@const max = s.max ?? 15}
@@ -128,10 +138,19 @@
     max-width: 100%;
   }
   .message {
+    display: grid;
+    font-variant-numeric: tabular-nums;
+    justify-items: end;
     margin-left: auto;
     max-width: 100%;
     text-align: right;
     overflow-wrap: anywhere;
+  }
+  .message > span {
+    grid-area: 1 / 1;
+  }
+  .hidden-message {
+    visibility: hidden;
   }
   .light {
     width: 12px;
