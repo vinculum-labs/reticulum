@@ -417,11 +417,15 @@ public final class Network {
         for (Map.Entry<UUID, Placement> entry : List.copyOf(placements.entrySet())) {
             Sheet at = entry.getValue().parent();
             for (int depth = 0; at != null && !at.root(); depth++) {
-                if (at.id().equals(entry.getKey()) || depth > 64) {
+                if (at.id().equals(entry.getKey())) {
                     entry.getValue().parent().remove(entry.getValue().node().id());
                     placed.remove(entry.getKey());
                     placements.remove(entry.getKey());
                     changed = true;
+                    break;
+                }
+                // Going round a loop above it (not through itself): that loop is broken when its own sheets come up.
+                if (depth > 64) {
                     break;
                 }
                 Placement up = placements.get(at.id());

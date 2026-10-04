@@ -85,7 +85,7 @@ export function instanceStatus(node: GraphNode, holder: Sheet, holderOff: OffRea
   const off: OffReason | null =
     node.enabled === false ? { kind: "self" }
       : !holderOff ? null
-      : holderOff.kind === "network" || holderOff.kind === "parent" ? holderOff
+      : holderOff.kind === "network" || holderOff.kind === "parent" || holderOff.kind === "controller" ? holderOff
       : { kind: "parent", sheet: holder };
   const errors = (holder.errors ?? []).filter((e) => e.node === node.id);
   return { ...treeStatus({ ...holder, root: false, errors }, off, running, enabled, unpowered), icon: KIND_ICON.instance };

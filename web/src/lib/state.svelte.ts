@@ -381,7 +381,10 @@ function setSnapshot(snapshot: Snapshot): void {
     // An open instance that is gone (deleted, turned into a sheet, its blueprint deleted): back to the sheet holding it.
     // One now using another blueprint: that one opens.
     const open = openInstanceNode();
-    if (!open) openSheet(snapshot.sheets.some((s) => s.id === app.instance!.sheet) ? app.instance.sheet : (rootSheet(snapshot)?.id ?? ""));
+    // Opened through outer placed blueprints, one of which is gone: back to where the way in started.
+    const wayIn = app.instance.outer?.length && open && !open.run ? app.instance.outer[0].sheet : null;
+    if (wayIn) openSheet(snapshot.sheets.some((s) => s.id === wayIn) ? wayIn : (rootSheet(snapshot)?.id ?? ""));
+    else if (!open) openSheet(snapshot.sheets.some((s) => s.id === app.instance!.sheet) ? app.instance.sheet : (rootSheet(snapshot)?.id ?? ""));
     else if (open.blueprint.id !== app.sheetId) openInstance(open.sheet.id, open.node.id, app.instance.outer);
   } else if (!snapshot.sheets.some((s) => s.id === app.sheetId)) openSheet(rootSheet(snapshot)?.id ?? snapshot.sheets[0]?.id ?? "");
   // A network that stopped gets no more metrics: what it last moved isn't shown as moving.

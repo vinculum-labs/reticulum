@@ -406,6 +406,8 @@
       // A sheet node can't come back (its sheet is gone with it).
       if (node.settings.kind !== "sheet") undo.push({ type: "addNode", sheet: on.id, node });
     }
+    // Slots come back before the Level sensors reading them (the server takes a sensor only for a slot it has).
+    undo.sort((a, b) => Number((b.node as GraphNode)?.settings?.kind === "device") - Number((a.node as GraphNode)?.settings?.kind === "device"));
     for (const e of cut) {
       const on = sheetOf(e.id);
       if (on && !deleted.has(on.id)) touchedSheets.set(on.id, on);

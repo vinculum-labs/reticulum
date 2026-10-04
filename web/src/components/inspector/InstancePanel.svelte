@@ -60,7 +60,8 @@
   <div class="flex flex-wrap gap-2">
     <button class="btn text-sm" onclick={() => openSheet(blueprint.id)}>Edit the blueprint</button>
     <button class="btn text-sm" onclick={() => showNode(sheet.id, instance.id)}>Show its node</button>
-    {#if canEdit}
+    <!-- Not for one placed on a blueprint: sheets don't go in blueprints. -->
+    {#if canEdit && !sheet.blueprint}
       <button class="btn text-sm" onclick={convert}>Turn into a normal sheet…</button>
     {/if}
   </div>

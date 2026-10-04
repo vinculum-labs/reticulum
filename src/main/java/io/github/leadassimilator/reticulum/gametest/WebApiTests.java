@@ -324,11 +324,19 @@ public final class WebApiTests {
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         var a = new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "A");
         var b = new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "B");
+        // C hangs off the loop (inside A, listed first): it isn't part of it and stays where it is.
+        var c = new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "C");
+        a.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetSettings(c.id())));
         a.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetSettings(b.id())));
         b.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetSettings(a.id())));
+        network.sheets().add(c);
         network.sheets().add(a);
         network.sheets().add(b);
         network.ensureTree();
+        var placedC = network.placement(c.id());
+        if (placedC == null || placedC.parent() != a) {
+            helper.fail("C, beside the loop, was moved: in " + (placedC == null ? "nothing" : placedC.parent().name()));
+        }
         var placedA = network.placement(a.id());
         var placedB = network.placement(b.id());
         boolean oneInOther = placedA != null && placedB != null
