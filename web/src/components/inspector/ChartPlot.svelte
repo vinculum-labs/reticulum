@@ -2,7 +2,10 @@
   export interface PlotLine {
     label: string;
     values: number[];
+    /** A CSS color or "var(--name)"; {@code shade} lightens (above 0) or darkens (below) it, -1 to 1. */
     color: string;
+    shade?: number;
+    dashed?: boolean;
   }
 </script>
 
@@ -23,9 +26,18 @@
   /** The lines the plot was built for: another set (or colors) builds it again; new values only update it. */
   let builtFor = "";
 
-  function css(value: string): string {
-    if (!value.startsWith("var(")) return value;
-    return getComputedStyle(document.documentElement).getPropertyValue(value.slice(4, -1)).trim();
+  function css(value: string, shade = 0): string {
+    const color = value.startsWith("var(") ? getComputedStyle(document.documentElement).getPropertyValue(value.slice(4, -1)).trim() : value;
+    return shade ? mix(color, shade > 0 ? "#ffffff" : "#000000", Math.abs(shade)) : color;
+  }
+
+  /** {@code a} with {@code amount} (0 to 1) of {@code b} mixed in, for "#rrggbb" colors (others as they are). */
+  function mix(a: string, b: string, amount: number): string {
+    const parse = (c: string) => (/^#[0-9a-f]{6}$/i.test(c) ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)) : null);
+    const x = parse(a);
+    const y = parse(b);
+    if (!x || !y) return a;
+    return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * amount).toString(16).padStart(2, "0")).join("");
   }
 
   $effect(() => {
@@ -34,7 +46,7 @@
     const now = Math.floor(Date.now() / 1000);
     const xs = Array.from({ length }, (_, i) => now - (length - 1 - i) * step);
     const data: uPlot.AlignedData = [xs, ...lines.map((l) => (l.values.length === length ? l.values : Array(length).fill(0)))];
-    const shape = lines.map((l) => `${l.label}|${l.color}`).join(";") + `|${step}`;
+    const shape = lines.map((l) => `${l.label}|${l.color}|${l.shade ?? 0}|${!!l.dashed}`).join(";") + `|${step}`;
     if (plot && shape === builtFor) {
       plot.setData(data);
       return;
@@ -50,7 +62,7 @@
         legend: { show: true, live: true },
         scales: { x: { time: true }, y: { range: (_u, _min, max) => [0, Math.max(1, max * 1.1)] } },
         axes: [axis, { ...axis, size: 52 }],
-        series: [{}, ...lines.map((l) => ({ label: l.label, stroke: css(l.color), width: 1.5, value: (_u: uPlot, v: number | null) => (v == null ? "–" : format(v)) }))],
+        series: [{}, ...lines.map((l) => ({ label: l.label, stroke: css(l.color, l.shade), width: 1.5, dash: l.dashed ? [5, 4] : undefined, value: (_u: uPlot, v: number | null) => (v == null ? "–" : format(v)) }))],
       },
       data,
       host,

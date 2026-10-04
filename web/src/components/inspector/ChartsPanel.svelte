@@ -5,7 +5,7 @@
   import { loadCatalog, type Catalog, type CatalogKind } from "../../lib/catalog";
   import { addChart, removeChart } from "../../lib/charts";
   import CatalogCombobox from "../controls/CatalogCombobox.svelte";
-  import { RESOURCE_LABEL, RESOURCE_UNIT } from "../../lib/kinds";
+  import { RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR } from "../../lib/kinds";
   import { posKey, type ChartSeries, type Resource } from "../../lib/types";
   import Segmented from "../controls/Segmented.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
@@ -28,7 +28,8 @@
   let generation = 0;
 
   const MOVED: Resource[] = ["energy", "item", "fluid", "chemical"];
-  const PALETTE = ["var(--accent)", "#e0a846", "#5fb878", "#c678dd", "#56b6c2", "#e06c75", "#d19a66", "#98c379", "#61afef"];
+  /** Charted things in one chart: shades of its type's color, taking turns lighter and darker. */
+  const SHADES = [0.45, -0.35, 0.7, -0.55, 0.25, -0.2, 0.85];
 
   function deviceLabel(c: ChartSeries): string {
     const device = c.device ? snapshot.devices.find((d) => posKey(d.pos) === posKey(c.device!)) : undefined;
@@ -84,10 +85,10 @@
   /** One chart per resource, always (flat at 0 says nothing moved): its total and what of it is charted. */
   const groups = $derived(
     MOVED.map((resource) => {
-      const lines: PlotLine[] = [{ label: `All ${RESOURCE_LABEL[resource].toLowerCase()}`, values: rate(values[totals[resource] ?? ""]), color: PALETTE[0] }];
+      const lines: PlotLine[] = [{ label: `All ${RESOURCE_LABEL[resource].toLowerCase()}`, values: rate(values[totals[resource] ?? ""]), color: RESOURCE_VAR[resource] }];
       charts
         .filter((c) => (c.kind === "item" || c.kind === "fluid" || c.kind === "chemical") && c.kind === resource)
-        .forEach((c, i) => lines.push({ label: chartLabel(c), values: rate(values[c.series]), color: PALETTE[(i + 1) % PALETTE.length] }));
+        .forEach((c, i) => lines.push({ label: chartLabel(c), values: rate(values[c.series]), color: RESOURCE_VAR[resource], shade: SHADES[i % SHADES.length] }));
       return { resource, lines };
     }),
   );
@@ -139,13 +140,13 @@
           <section class="card">
             {#if c.kind === "level"}
               <h3 class="panel-title">{deviceLabel(c)} — {RESOURCE_LABEL[c.resource ?? "item"].toLowerCase()} held ({RESOURCE_UNIT[c.resource ?? "item"]})</h3>
-              <ChartPlot lines={[{ label: "Held", values: level(values[c.series]), color: PALETTE[3] }]} {step} />
+              <ChartPlot lines={[{ label: "Held", values: level(values[c.series]), color: RESOURCE_VAR[c.resource ?? "item"] }]} {step} />
             {:else}
               <h3 class="panel-title">{deviceLabel(c)} — {RESOURCE_LABEL[c.resource ?? "item"].toLowerCase()} in and out ({RESOURCE_UNIT[c.resource ?? "item"]}/{app.rateUnit})</h3>
               <ChartPlot
                 lines={[
-                  { label: "Into it", values: rate(values[c.seriesIn ?? ""]), color: PALETTE[2] },
-                  { label: "Out of it", values: rate(values[c.seriesOut ?? ""]), color: PALETTE[5] },
+                  { label: "Into it", values: rate(values[c.seriesIn ?? ""]), color: RESOURCE_VAR[c.resource ?? "item"] },
+                  { label: "Out of it", values: rate(values[c.seriesOut ?? ""]), color: RESOURCE_VAR[c.resource ?? "item"], shade: 0.45, dashed: true },
                 ]}
                 {step}
               />
