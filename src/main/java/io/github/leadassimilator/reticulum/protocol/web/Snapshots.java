@@ -79,11 +79,12 @@ final class Snapshots {
         return out;
     }
 
-    static JsonObject full(MinecraftServer server, Network network, Optional<Role> role) {
-        JsonObject out = summary(server, network, role);
+    static JsonObject full(MinecraftServer server, Network network, net.minecraft.world.entity.player.Player player) {
+        JsonObject out = summary(server, network, io.github.leadassimilator.reticulum.security.Security.role(network, player));
         out.addProperty("revision", network.revision());
-        out.addProperty("canEdit", role.map(r -> r.atLeast(Role.EDITOR)).orElse(false));
-        boolean canAdmin = role.map(r -> r.atLeast(Role.ADMIN)).orElse(false);
+        // As the server decides edits (an operator's bypass included), so the editor offers what it will accept.
+        out.addProperty("canEdit", io.github.leadassimilator.reticulum.security.Security.canEdit(network, player));
+        boolean canAdmin = io.github.leadassimilator.reticulum.security.Security.canAdmin(network, player);
         out.addProperty("canAdmin", canAdmin);
         out.addProperty("hasPassword", network.passwordHash() != null);
         out.addProperty("root", network.root().id().toString());

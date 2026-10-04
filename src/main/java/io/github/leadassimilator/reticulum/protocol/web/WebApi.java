@@ -159,7 +159,7 @@ public final class WebApi {
                 Network network = viewable(player, request);
                 SUBSCRIPTIONS.computeIfAbsent(player.getUUID(), k -> new HashMap<>()).put(network.id(), network.revision());
                 JsonObject out = ok(id);
-                out.add("network", Snapshots.full(server, network, Security.role(network, player)));
+                out.add("network", Snapshots.full(server, network, player));
                 yield out;
             }
             case "unsubscribe" -> {
@@ -1187,7 +1187,7 @@ public final class WebApi {
     private static void sendSnapshot(MinecraftServer server, ServerPlayer player, Network network) {
         JsonObject push = new JsonObject();
         push.addProperty("type", "snapshot");
-        push.add("network", Snapshots.full(server, network, Security.role(network, player)));
+        push.add("network", Snapshots.full(server, network, player));
         send(player, push);
     }
 
