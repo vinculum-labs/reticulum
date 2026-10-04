@@ -5,6 +5,7 @@
   import { PIN_DOT, PIN_H, PIN_KNOB, PIN_W } from "../../lib/graph";
   import { RESOURCE_LABEL, RESOURCE_VAR } from "../../lib/kinds";
   import { pinName } from "../../lib/types";
+  import { app, type Layer } from "../../lib/state.svelte";
 
   /**
    * A sheet's pin, anchored on its frame's edge: the dot sits on the border (inputs left, outputs right) and its name
@@ -20,6 +21,8 @@
   const resource = $derived((s.kind === "sheet_input" || s.kind === "sheet_output" ? s.resource : undefined) ?? data.resource ?? undefined);
   const name = $derived(pinName(data.node));
   const color = $derived(resource ? RESOURCE_VAR[resource] : "var(--muted)");
+  /** On a dimmed or hidden layer, the whole pin (tag and knob) is faint, like the card pins of that layer. */
+  const faint = $derived(!!resource && (app.layers[resource as Layer] === "dim" || app.layers[resource as Layer] === "hide"));
   const title = $derived(`${input ? "Input" : "Output"} pin “${name}”: ${resource ? RESOURCE_LABEL[resource] : "carries anything"}`);
   /** Half a dot inside a sheet node's frame (its outer half is the frame's handle); a whole one on the open sheet's. */
   const half = $derived(data.pinSide === "frame");
@@ -35,7 +38,7 @@
 <div
   class="edge-pin text-xs"
   class:selected
-  style="width: {PIN_W}px; height: {PIN_H}px; justify-content: {input ? 'flex-end' : 'flex-start'}; padding-{input ? 'right' : 'left'}: {PIN_KNOB + 4}px"
+  style="width: {PIN_W}px; height: {PIN_H}px; justify-content: {input ? 'flex-end' : 'flex-start'}; padding-{input ? 'right' : 'left'}: {PIN_KNOB + 4}px{faint ? '; opacity: 0.4' : ''}"
   title={data.problem ? `${title}\n${data.problem}` : title}
 >
   <!-- A tag outlined in the pin's color, its point at the dot (the side nearest the pin). -->
@@ -51,9 +54,9 @@
 </div>
 
 {#if input}
-  <Handle type="source" position={Position.Right} id="out" style={knob} />
+  <Handle type="source" position={Position.Right} id="out" style={knob + (faint ? "; opacity: 0.4" : "")} />
 {:else}
-  <Handle type="target" position={Position.Left} id="in" style={knob} />
+  <Handle type="target" position={Position.Left} id="in" style={knob + (faint ? "; opacity: 0.4" : "")} />
 {/if}
 
 <style>

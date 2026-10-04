@@ -172,6 +172,13 @@
     const mode = layer ? app.layers[layer] : "show";
     return mode === "dim" || mode === "hide" ? "; opacity: 0.4" : "";
   }
+  /** The card's border: thicker for a sheet or placed blueprint. */
+  const BORDER = $derived(kind === "instance" ? 3 : kind === "sheet" ? 2 : 1);
+  /**
+   * How far a thicker border moves the rows down from where pins are placed (for a 1px border): the pins move with
+   * them, or their labels sat below them.
+   */
+  const SHIFT = $derived(data.frame ? 0 : BORDER - 1);
   const inPin = (c: string) => `background: var(--panel); border: 2px solid ${c}`;
   const outPin = (c: string) => `background: ${c}; border: 2px solid ${c}`;
   /** An open frame's handle is the outer half of its pin's dot: just outside the border, the pin inside makes the rest. */
@@ -213,7 +220,7 @@
     ? 'var(--accent)'
     : data.problem
       ? 'var(--bad)'
-      : 'var(--line)'}; border-style: {kind === 'instance' ? 'double' : 'solid'}; border-width: {kind === 'instance' ? 3 : kind === 'sheet' ? 2 : 1}px; box-shadow: {selected
+      : 'var(--line)'}; border-style: {kind === 'instance' ? 'double' : 'solid'}; border-width: {BORDER}px; box-shadow: {selected
     ? '0 0 0 1px var(--accent)'
     : data.problem
       ? '0 0 0 1px var(--bad)'
@@ -342,25 +349,25 @@ ${idleTitle}` : idleTitle}
     id="gate"
     class={`gate-pin${data.gateWired ? " wired" : ""}${pulseGate ? " pulse" : ""}`}
     title={pulseGate ? "Gate: one operation each time a signal here turns on" : "Gate: a signal here switches this node on and off"}
-    style="top: {HEADER / 2}px; {inPin('var(--c-signal)')}"
+    style="top: {HEADER / 2 + SHIFT}px; {inPin('var(--c-signal)')}{layerPin('redstone')}"
   />
 {/if}
 {#if pinned}
   <!-- An open frame's handles sit on its edges, level with its pins inside; a card's beside their rows. -->
   {#each leftRows as row, i (row.handle)}
     <Handle type="target" position={Position.Left} id={row.handle} title={row.title}
-      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {inPin(row.color)}{data.frame ? outerHalf(true) : ''}{layerPin(row.layer)}" />
+      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2 + SHIFT}px; {inPin(row.color)}{data.frame ? outerHalf(true) : ''}{layerPin(row.layer)}" />
   {/each}
   {#each rightRows as row, i (row.handle)}
     <Handle type="source" position={Position.Right} id={row.handle} title={row.title}
-      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2}px; {outPin(row.color)}{data.frame ? outerHalf(false) : ''}{layerPin(row.layer)}" />
+      style="top: {data.frame?.pins[row.handle] ?? HEADER + ROW * i + ROW / 2 + SHIFT}px; {outPin(row.color)}{data.frame ? outerHalf(false) : ''}{layerPin(row.layer)}" />
   {/each}
 {:else}
   {#if flowIn}
-    <Handle type="target" position={Position.Left} id="in" style="top: {HEADER + ROW / 2}px; {inPin(color)}" />
+    <Handle type="target" position={Position.Left} id="in" style="top: {HEADER + ROW / 2}px; {inPin(color)}{data.faded ? '; opacity: 0.4' : ''}" />
   {/if}
   {#each flowOuts as out, i (out.id)}
-    <Handle type="source" position={Position.Right} id={out.id} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(out.color)}" />
+    <Handle type="source" position={Position.Right} id={out.id} style="top: {HEADER + ROW * i + ROW / 2}px; {outPin(out.color)}{data.faded ? '; opacity: 0.4' : ''}" />
   {/each}
 {/if}
 
