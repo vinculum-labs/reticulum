@@ -305,6 +305,10 @@ ${idleTitle}` : idleTitle}
 
 {#if data.problem}
   <span class="problem-badge" title={data.problem} role="img" aria-label={`Error: ${data.problem}`}><TriangleAlert size={12} /></span>
+{:else if offline}
+  <!-- Not an error in the sheet, but it does nothing until its block is back in reach: a warning on the same corner. -->
+  {@const why = data.device?.outOfRange ? "Out of range — its connector can't reach the controller" : data.device?.state === "orphaned" ? "Orphaned — no connector reaches it any more" : "Missing — the block is gone"}
+  <span class="problem-badge warn" title={why} role="img" aria-label={`Warning: ${why}`}><TriangleAlert size={12} /></span>
 {/if}
 
 {#if gated(kind)}
@@ -368,6 +372,9 @@ ${idleTitle}` : idleTitle}
     background: var(--bad);
     color: var(--panel);
     box-shadow: 0 0 0 2px var(--panel);
+  }
+  .problem-badge.warn {
+    background: var(--warn);
   }
   /* The gate is a diamond, so it can't be taken for an input (round pins). */
   :global(.svelte-flow__handle.gate-pin) {
