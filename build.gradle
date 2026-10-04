@@ -134,6 +134,8 @@ dependencies {
     localRuntime "mekanism:Mekanism:${minecraft_version}-${mekanism_version}:generators"
     localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
     localRuntime "maven.modrinth:jade:${jade_version}"
+    // Create, for trying our blocks on its contraptions (moved by mechanical pistons, bearings, gantries).
+    localRuntime "maven.modrinth:create:${create_version}"
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
