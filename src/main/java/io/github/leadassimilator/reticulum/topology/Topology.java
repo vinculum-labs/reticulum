@@ -258,9 +258,11 @@ public final class Topology {
             return;
         }
         be.setRegistered();
-        // Placed by a machine (a Deployer, a schematic, a command) rather than a player or moved in by a contraption:
-        // nobody's access to check, so it may only go into networks open to anyone (public, or with no owner).
-        boolean machine = player == null && !be.arrivedFromElsewhere();
+        // Placed by a machine (a Deployer, a schematic, a command), or moved in (a contraption, a copy) without a network
+        // that still exists to carry: nobody's access to check, so it may only go into networks open to anyone (public,
+        // or with no owner). A block moved in with its own network follows the carry rule below instead.
+        boolean carriesNetwork = be.arrivedFromElsewhere() && NetworkManager.network(level.getServer(), be.networkId()) != null;
+        boolean machine = player == null && !carriesNetwork;
 
         UUID own = be instanceof ControllerBlockEntity controller ? claimControllerNetwork(level, pos, controller, player, machine) : null;
         UUID bound = be instanceof ConnectorBlockEntity connector ? connector.takeItemNetworkId() : null;
