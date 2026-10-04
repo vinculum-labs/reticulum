@@ -410,7 +410,8 @@ const lastSnapshots = new Map<string, Snapshot>();
 export async function selectNetwork(id: string, fallback = true): Promise<void> {
   const previous = app.current;
   if (historyOwner !== id) {
-    if (historyOwner) histories.set(historyOwner, { undo: app.undo, redo: app.redo });
+    // Kept for the network left, unless it is gone (removed, another world): then there's nothing to come back to.
+    if (historyOwner && app.networks.some((n) => n.id === historyOwner)) histories.set(historyOwner, { undo: app.undo, redo: app.redo });
     const stacks = historyOf(id);
     app.undo = stacks.undo;
     app.redo = stacks.redo;
@@ -448,11 +449,11 @@ export async function selectNetwork(id: string, fallback = true): Promise<void> 
     // Nothing of it to show (what is shown is the network left, or a stale one): not left up to be edited.
     app.switching = false;
     app.snapshot = null;
-    if (fallback && previous && previous !== id) await selectNetwork(previous, false);
-    else {
-      const other = app.networks.find((n) => n.id !== id);
-      if (other) await selectNetwork(other.id, false);
-    }
+    // One step back only (the network left, else another listed): never from a fallback, so failures can't bounce
+    // between networks forever (every request fails at once while the game is unreachable).
+    if (!fallback) return;
+    const back = previous && previous !== id ? previous : app.networks.find((n) => n.id !== id)?.id;
+    if (back) await selectNetwork(back, false);
   }
 }
 

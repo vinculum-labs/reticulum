@@ -440,7 +440,9 @@ public final class Topology {
             message(player, Component.translatable("message.reticulum.network_gone"));
         }
         if (network == null) {
-            network = orphanedNeighbor(level, pos, player, machine);
+            // Not its own network (another controller still runs it, or it is gone): with no player to ask, a neighbor is
+            // adopted only if open to anyone, even for a copy whose own network lives on elsewhere.
+            network = orphanedNeighbor(level, pos, player, player == null);
             if (network != null) {
                 message(player, Component.translatable("message.reticulum.controller_reconnected", network.name()));
             }
