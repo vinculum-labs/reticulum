@@ -555,6 +555,10 @@ public final class Topology {
                     if (record == null) {
                         return;
                     }
+                    // Its names live on the new network now: the old one forgets it (unless it still uses it).
+                    if (oldNetwork != null && oldNetwork != newNetwork) {
+                        NetworkManager.forgetMovedDevice(level.getServer(), oldNetwork, device);
+                    }
                     if (record.name() == null && old.name() != null) {
                         record.setName(old.name());
                     }

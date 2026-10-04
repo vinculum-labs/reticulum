@@ -153,6 +153,7 @@ public final class TopologyTests {
         check(helper, a.equals(net(helper, new BlockPos(2, 1, 1))) && a.equals(net(helper, new BlockPos(1, 1, 1))), "A lost its controller or cable");
         var moved = network(helper, new BlockPos(6, 1, 1)).device(chest);
         check(helper, moved != null && "ore box".equals(moved.name()), "the chest's name didn't come along: " + (moved == null ? "no record" : moved.name()));
+        check(helper, network(helper, new BlockPos(1, 1, 1)).device(chest) == null, "A kept an orphaned record of the chest whose name moved on");
         helper.succeed();
     }
 

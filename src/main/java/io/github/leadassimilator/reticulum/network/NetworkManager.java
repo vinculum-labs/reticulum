@@ -157,6 +157,16 @@ public final class NetworkManager {
         return false;
     }
 
+    /**
+     * A device whose connector moved to another network, its names going along: the record left behind is dropped,
+     * unless something still reaches it here or a sheet here uses it (then it shows as orphaned, so that is seen).
+     */
+    public static void forgetMovedDevice(MinecraftServer server, Network network, GlobalPos pos) {
+        if (!network.isReached(pos) && !usedBySheets(network, pos) && network.deviceMap().remove(pos) != null) {
+            changed(server, network);
+        }
+    }
+
     private static void releaseDevice(MinecraftServer server, Network network, GlobalPos pos) {
         if (network.isReached(pos)) {
             return;
