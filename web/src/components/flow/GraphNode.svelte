@@ -415,8 +415,12 @@ ${idleTitle}` : idleTitle}
    * diamond is drawn inside it, its left corner on that edge, so the wire meets the corner.
    */
   :global(.svelte-flow__handle.gate-pin) {
-    width: 16px;
-    height: 16px;
+    /*
+     * Narrower than the diamond: the wire ends 2px inside its left corner, under its fill, so the wire's square end
+     * leaves no gap against the corner's sloping sides.
+     */
+    width: 10px;
+    height: 10px;
     background: transparent;
     border: none;
     border-radius: 0;
