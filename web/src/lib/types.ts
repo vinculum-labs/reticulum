@@ -292,7 +292,7 @@ export interface Device {
   givesRedstone?: boolean;
   /** Reacts to redstone (a door, lamp, piston, machine). */
   takesRedstone?: boolean;
-  /** Only wireless connectors the antenna doesn't reach reach it: it counts as offline. */
+  /** No connector that reaches it is cabled to the controller or in the antenna's range: it counts as offline. */
   outOfRange?: boolean;
 }
 

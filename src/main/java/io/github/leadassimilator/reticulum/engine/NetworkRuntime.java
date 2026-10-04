@@ -97,6 +97,8 @@ public final class NetworkRuntime {
 
     private long reachVersion = -1;
     private int reachTier = -1;
+    /** The network's revision reach was last worked out at: a device added to or dropped from a connector changes it. */
+    private int reachRevision = -1;
     /** Where the rolling connector rescan got to. */
     private int rescanCursor;
     private Map<UUID, Reach> reach = Map.of();
@@ -382,7 +384,7 @@ public final class NetworkRuntime {
         ControllerBlockEntity loaded = NetworkManager.controller(server, network);
         int tier = loaded == null ? 0 : loaded.antennaTier();
         rescanSomeConnectors(server, network);
-        if (reachVersion == Topology.version(network.id()) && reachTier == tier) {
+        if (reachVersion == Topology.version(network.id()) && reachTier == tier && reachRevision == network.revision()) {
             return;
         }
         reachVersion = Topology.version(network.id());
@@ -412,8 +414,13 @@ public final class NetworkRuntime {
             }
         }
         all.removeAll(reached);
+        // The editor shows which devices are out of range, and gets a new snapshot only when the revision moves.
+        if (!found.equals(reach) || !all.equals(unreachable)) {
+            network.bump();
+        }
         reach = found;
         unreachable = all;
+        reachRevision = network.revision();
     }
 
     /** Ticks it takes the rolling rescan to get round every connector once. */

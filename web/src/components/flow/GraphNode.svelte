@@ -22,6 +22,7 @@
     summary,
   } from "../../lib/kinds";
   import { app, instanceRun, deviceName, toggleFrame } from "../../lib/state.svelte";
+  import { unreachable } from "../../lib/status";
   import { blockName, liveKey } from "../../lib/blueprints";
   import DeviceIcon from "../DeviceIcon.svelte";
   import { KIND_ICON } from "../../lib/icons";
@@ -253,7 +254,7 @@ ${idleTitle}` : idleTitle}
           <span class="tabular-nums">avg {formatAverage(data.fiveMinutes, data.resource, app.rateUnit)}</span>
         {:else}
           {KIND_LABEL[kind]}
-        {/if}{offline ? ` · ${data.device?.outOfRange ? "out of range" : data.device?.state}` : ""}{disabled ? " · off" : ""}
+        {/if}{offline ? ` · ${data.device?.outOfRange ? unreachable(app.snapshot?.antenna).label : data.device?.state}` : ""}{disabled ? " · off" : ""}
       </div>
     </div>
     {#if data.device}<IdentifyBadge device={data.device} />{/if}
@@ -307,7 +308,7 @@ ${idleTitle}` : idleTitle}
   <span class="problem-badge" title={data.problem} role="img" aria-label={`Error: ${data.problem}`}><TriangleAlert size={12} /></span>
 {:else if offline}
   <!-- Not an error in the sheet, but it does nothing until its block is back in reach: a warning on the same corner. -->
-  {@const why = data.device?.outOfRange ? "Out of range — its connector can't reach the controller" : data.device?.state === "orphaned" ? "Orphaned — no connector reaches it any more" : "Missing — the block is gone"}
+  {@const why = data.device?.outOfRange ? unreachable(app.snapshot?.antenna).why : data.device?.state === "orphaned" ? "Orphaned — no connector reaches it any more" : "Missing — the block is gone"}
   <span class="problem-badge warn" title={why} role="img" aria-label={`Warning: ${why}`}><TriangleAlert size={12} /></span>
 {/if}
 

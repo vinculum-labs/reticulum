@@ -36,17 +36,27 @@ export function networkStatus(running: boolean, enabled: boolean, unpowered: boo
 export function tabStatus(n: { running: boolean; enabled: boolean; errors?: number; offline?: number }): { color: string; title: string } {
   const lines: string[] = [];
   if (n.errors) lines.push(`${n.errors} problem${n.errors === 1 ? "" : "s"} keeping flows from running`);
-  if (n.offline) lines.push(`${n.offline} device${n.offline === 1 ? "" : "s"} offline — out of range, orphaned or missing`);
+  if (n.offline) lines.push(`${n.offline} device${n.offline === 1 ? "" : "s"} offline — unreachable, orphaned or missing`);
   lines.push(n.running ? "Running" : n.enabled ? "Not running" : "Off");
   const color = n.errors ? "var(--bad)" : n.offline || (n.enabled && !n.running) ? "var(--warn)" : n.running ? "var(--good)" : "var(--muted)";
   return { color, title: lines.join("\n") };
 }
 
+/**
+ * A device whose connector no cable joins to the controller, in the words the game uses: with no antenna it is just
+ * unreachable; with one, it is out of the antenna's range.
+ */
+export function unreachable(antenna: number | undefined): { label: string; why: string } {
+  return antenna
+    ? { label: "out of range", why: "Its connector has no cable to the controller, and is beyond the antenna's range" }
+    : { label: "unreachable", why: "Its connector has no cable to the controller (and the controller has no antenna)" };
+}
+
 /** Why a device does nothing right now, or null when it is fine. */
-export function offlineReason(device: Device): string | null {
+export function offlineReason(device: Device, antenna: number | undefined): string | null {
   if (device.state === "orphaned") return "orphaned (no connector reaches it)";
   if (device.state === "missing") return "missing (the block is gone)";
-  if (device.outOfRange) return "out of range (its connector can't reach the controller)";
+  if (device.outOfRange) return `${unreachable(antenna).label} (its connector can't reach the controller)`;
   return null;
 }
 
@@ -60,7 +70,7 @@ export function offlineUsed(snapshot: Snapshot, sheet: Sheet, only?: string): st
   const lines = new Map<string, string>();
   const note = (pos: GlobalPos) => {
     const device = byKey.get(posKey(pos));
-    const why = device && offlineReason(device);
+    const why = device && offlineReason(device, snapshot.antenna);
     if (device && why) lines.set(posKey(pos), `${device.name || device.defaultName} is ${why}`);
   };
   for (const node of sheet.nodes ?? []) {

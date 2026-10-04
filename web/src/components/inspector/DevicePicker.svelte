@@ -1,6 +1,7 @@
 <script lang="ts">
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import { deviceName, matchesDevice } from "../../lib/state.svelte";
+  import { app, deviceName, matchesDevice } from "../../lib/state.svelte";
+  import { unreachable } from "../../lib/status";
   import { ListNav } from "../../lib/listnav.svelte";
   import { posKey, type Device, type GlobalPos } from "../../lib/types";
   import Popover from "../controls/Popover.svelte";
@@ -122,7 +123,7 @@
               <DeviceIcon item={d.icon} size={18} />
               <span class="min-w-0 flex-1">
                 <span class="block truncate">{deviceName(d)}</span>
-                <span class="block truncate text-xs muted">{d.pos.pos.join(", ")}{d.state !== "active" ? ` · ${d.state}` : d.outOfRange ? " · out of range" : ""}</span>
+                <span class="block truncate text-xs muted">{d.pos.pos.join(", ")}{d.state !== "active" ? ` · ${d.state}` : d.outOfRange ? ` · ${unreachable(app.snapshot?.antenna).label}` : ""}</span>
               </span>
             </button>
           {/each}

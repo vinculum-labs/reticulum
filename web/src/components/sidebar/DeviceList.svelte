@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { unreachable } from "../../lib/status";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Plus from "@lucide/svelte/icons/plus";
   import { help } from "../../lib/help.svelte";
@@ -99,7 +100,7 @@
           <DeviceIcon item={d.icon} />
           <span class="trim-text min-w-0 flex-1 truncate" class:muted={d.state !== "active"}>{deviceName(d)}</span>
           {#if d.state !== "active"}<span class="text-xs text-warn">{d.state}</span>
-          {:else if d.outOfRange}<span class="text-xs text-warn" title="Only wireless connectors the antenna doesn't reach reach it">out of range</span>{/if}
+          {:else if d.outOfRange}<span class="text-xs text-warn" title={unreachable(snapshot.antenna).why}>{unreachable(snapshot.antenna).label}</span>{/if}
         </button>
         <IdentifyBadge device={d} />
       </li>

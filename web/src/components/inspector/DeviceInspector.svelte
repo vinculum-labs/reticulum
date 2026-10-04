@@ -70,8 +70,13 @@
 
   {#if device.state === "active" && device.outOfRange}
     <p class="box box-warn text-sm" role="status">
-      Out of range: only wireless connectors reach this device, and the controller's antenna doesn't reach them. Install a better antenna
-      or run a cable to them.
+      {#if app.snapshot?.antenna}
+        Out of range: no cable joins its connector to the controller, and it is beyond the antenna's range. Run a cable to it or install a
+        better antenna.
+      {:else}
+        Unreachable: no cable joins its connector to the controller, and the controller has no antenna. Run a cable to it or install an
+        antenna.
+      {/if}
     </p>
   {/if}
   {#if device.state !== "active"}
