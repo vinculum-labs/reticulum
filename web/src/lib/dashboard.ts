@@ -48,13 +48,17 @@ export function controls(snapshot: Snapshot): Control[] {
 export async function setSwitch(control: Pick<Control, "node" | "sheet" | "run">, value: number): Promise<void> {
   const before = app.signals[control.run];
   // Shown until the game reports it (a report from before it applied this would put the old value back meanwhile).
-  pendingSignals.set(control.run, { value, until: Date.now() + 3000 });
+  const pending = { value, until: Date.now() + 3000 };
+  pendingSignals.set(control.run, pending);
   app.signals = { ...app.signals, [control.run]: value };
   try {
     await request("setSwitch", { sheet: control.sheet.id, node: control.node.id, run: control.run, value });
   } catch (e) {
-    pendingSignals.delete(control.run);
-    app.signals = { ...app.signals, [control.run]: before ?? 0 };
+    // Put back only if nothing newer was set meanwhile (that one's own answer decides it).
+    if (pendingSignals.get(control.run) === pending) {
+      pendingSignals.delete(control.run);
+      app.signals = { ...app.signals, [control.run]: before ?? 0 };
+    }
     throw e;
   }
 }

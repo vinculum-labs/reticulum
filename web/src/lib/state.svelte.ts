@@ -380,15 +380,15 @@ function historyOf(network: string): { undo: Change[]; redo: Change[] } {
 }
 
 /**
- * Shows another network: its snapshot once subscribed (nothing of the last one meanwhile, so no edit goes to the new
- * network with the old one's ids), and its own undo history. One that can't be opened goes back to the last.
- */
-/**
  * Each network's last snapshot this session: switching back shows it at once while the game sends a fresh one, rather
  * than the whole editor giving way to "Loading…" for a moment (a flash).
  */
 const lastSnapshots = new Map<string, Snapshot>();
 
+/**
+ * Shows another network, with its own undo history. Until its snapshot comes, what is shown (the network left, or this
+ * one as last seen) is out of reach, so no edit goes out built on it. One that can't be opened goes back to the last.
+ */
 export async function selectNetwork(id: string, fallback = true): Promise<void> {
   const previous = app.current;
   if (previous && previous !== id) {
@@ -405,7 +405,11 @@ export async function selectNetwork(id: string, fallback = true): Promise<void> 
   }
   app.current = id;
   const last = previous !== id ? lastSnapshots.get(id) : undefined;
-  if (last) setSnapshot(last);
+  if (last) {
+    setSnapshot(last);
+    // As last seen, maybe long ago (others may have edited it since): shown, but out of reach until the fresh one.
+    app.switching = true;
+  }
   history.replaceState(null, "", `#network=${id}`);
   clearMetrics();
   app.power = null;
@@ -870,11 +874,12 @@ export function openInstance(sheetId: string, node: string, outer: { sheet: stri
 
 const openRun = $derived(app.instance ? (openInstanceNode()?.run ?? null) : null);
 
-/** The id the open instance runs under (null when none is open, or it doesn't run itself): see openInstanceNode. */
 /** A view over the whole canvas (Charts, the dashboard): the canvas and inspector are out of sight, and out of reach of keys. */
 export function overCanvas(): boolean {
   return app.panel === "charts" || app.panel === "dashboard";
 }
+
+/** The id the open instance runs under (null when none is open, or it doesn't run itself): see openInstanceNode. */
 
 export function instanceRun(): string | null {
   return openRun;

@@ -125,7 +125,7 @@
     <button
       class="btn btn-danger px-2"
       onclick={deleteNetwork}
-      disabled={!snapshot.canDelete}
+      disabled={!snapshot.canDelete || app.switching}
       title={snapshot.canDelete ? "Delete this network" : "Only the owner can delete this network"}
       aria-label="Delete network"><Trash size={16} /></button
     >

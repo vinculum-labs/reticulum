@@ -34,7 +34,8 @@ export function installEscape(closeEditor: () => void, toggleFullscreen: () => v
   // box keeps it, to go on typing.
   document.addEventListener("visibilitychange", () => {
     const active = document.activeElement;
-    if (document.visibilityState === "hidden" && active instanceof HTMLElement && !active.matches("input, textarea, select, [contenteditable]")) {
+    const typing = "textarea, select, [contenteditable], input:not([type=range], [type=checkbox], [type=radio], [type=color], [type=button])";
+    if (document.visibilityState === "hidden" && active instanceof HTMLElement && !active.matches(typing)) {
       active.blur();
     }
   });

@@ -24,6 +24,8 @@
    * sent when let go.
    */
   let dragging = $state<number | null>(null);
+  /** The value when pressed: let go there, nothing changed. */
+  let pressed = 0;
 
   function set(to: number) {
     setSwitch(control, to).catch((e) => toast(e instanceof Error ? e.message : String(e)));
@@ -43,8 +45,12 @@
         style="--fill: {max > 0 ? (Math.max(0, Math.min(max, dragging ?? value)) / max) * 100 : 0}%"
         disabled={!usable}
         aria-label={label}
-        onpointerdown={() => (dragging = value)}
-        onpointerup={(e) => Number(e.currentTarget.value) === value && (dragging = null)}
+        onpointerdown={(e) => {
+          dragging = pressed = value;
+          // Its release comes here even off the slider, so the hold always ends.
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }}
+        onpointerup={(e) => Number(e.currentTarget.value) === pressed && (dragging = null)}
         onpointercancel={() => (dragging = null)}
         oninput={(e) => (dragging = Number(e.currentTarget.value))}
         onchange={(e) => {

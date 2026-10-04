@@ -14,6 +14,13 @@
   const s = $derived(control.node.settings);
   const value = $derived(app.signals[control.run] ?? 0);
 
+  /** The longest number shown so far: a display's room for it never shrinks back (no shifting as the value moves). */
+  let widestShown = $state(0);
+  $effect(() => {
+    const n = format(value).length;
+    if (n > widestShown) widestShown = n;
+  });
+
   function format(v: number): string {
     return Math.abs(v) >= 10_000 ? v.toLocaleString() : String(v);
   }
@@ -53,7 +60,7 @@
     {@const messages = [...(s.messages ?? [])].sort((a, b) => (a.from ?? 0) - (b.from ?? 0))}
     {@const shown = messages.filter((m) => value >= (m.from ?? 0)).at(-1)}
     <!-- Room for numbers as long as the widest value it has shown or any message starts at (and two digits at least). -->
-    {@const digits = Math.max(2, format(value).length, ...messages.map((m) => format(m.from ?? 0).length + 1))}
+    {@const digits = Math.max(2, widestShown, format(value).length, ...messages.map((m) => format(m.from ?? 0).length + 1))}
     {@const widest = "8".repeat(digits)}
     <!-- The message beside the name: the dashboard's card grows to fit it; where there is no room (the inspector, a card
          at its widest) it goes onto a line of its own below. Every message (and the number) is laid out in the same
@@ -80,7 +87,7 @@
         <span class="tabular-nums">{format(value)}{s.unit ? ` ${s.unit}` : ""} <span class="muted">/ {format(max)}</span></span>
       </div>
       <div class="gauge" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
-        <div style="width: {Math.max(0, Math.min(100, (value / max) * 100))}%{s.color ? `; background: ${s.color}` : ''}"></div>
+        <div style="width: {max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0}%{s.color ? `; background: ${s.color}` : ''}"></div>
       </div>
     </div>
   {:else}
