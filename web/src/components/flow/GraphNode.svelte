@@ -232,7 +232,7 @@
         id="gate"
         class={`gate-pin${data.gateWired ? " wired" : ""}${pulseGate ? " pulse" : ""}`}
         title={pulseGate ? "Gate: one operation each time a signal here turns on" : "Gate: a signal here switches this node on and off"}
-        style="top: 50%; left: {-BORDER - 3}px{layerPin('redstone')}"
+        style="top: 50%; left: {-BORDER - 3}px{data.gateWired ? layerPin('redstone') : ''}"
       />
     {/if}
     {#if sensor && !data.device && data.reads?.block}
