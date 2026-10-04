@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { app, toast } from "../../lib/state.svelte";
-  import { setSwitch, type Control } from "../../lib/dashboard";
-  import Switch from "../controls/Switch.svelte";
+  import { app } from "../../lib/state.svelte";
+  import type { Control } from "../../lib/dashboard";
+  import SwitchControl from "./SwitchControl.svelte";
   import { iconUrl } from "../../lib/catalog";
   import { KIND_ICON } from "../../lib/icons";
 
@@ -13,15 +13,6 @@
 
   const s = $derived(control.node.settings);
   const value = $derived(app.signals[control.run] ?? 0);
-  /**
-   * A level switch's slider while held (from the press, so values coming in meanwhile don't move it under the pointer):
-   * sent when let go.
-   */
-  let dragging = $state<number | null>(null);
-
-  function set(to: number) {
-    setSwitch(control, to).catch((e) => toast(e instanceof Error ? e.message : String(e)));
-  }
 
   function format(v: number): string {
     return Math.abs(v) >= 10_000 ? v.toLocaleString() : String(v);
@@ -47,43 +38,10 @@
 {/snippet}
 
 {#if s.kind === "switch"}
-  {@const max = s.value ?? 15}
-  {#if s.level}
-    <div class="flex items-center gap-2">
-      {@render name()}
-      <input
-        type="range"
-        class="w-28"
-        min="0"
-        {max}
-        value={dragging ?? value}
-        style="--fill: {(Math.max(0, Math.min(max, dragging ?? value)) / max) * 100}%"
-        disabled={!canEdit}
-        aria-label={label}
-        onpointerdown={() => (dragging = value)}
-        onpointerup={(e) => Number(e.currentTarget.value) === value && (dragging = null)}
-        onpointercancel={() => (dragging = null)}
-        oninput={(e) => (dragging = Number(e.currentTarget.value))}
-        onchange={(e) => {
-          set(Number(e.currentTarget.value));
-          dragging = null;
-        }}
-      />
-      <span class="w-8 text-right tabular-nums">{dragging ?? value}</span>
-    </div>
-  {:else}
-    <div class="flex items-center gap-2">
-      {@render name()}
-      <Switch
-        label={label}
-        hideLabel
-        checked={value > 0}
-        disabled={!canEdit}
-        title={canEdit ? `${value > 0 ? "On" : "Off"} — click to turn it ${value > 0 ? "off" : "on"}` : "Only players who can edit the network flip switches"}
-        onchange={(on) => set(on ? max : 0)}
-      />
-    </div>
-  {/if}
+  <div class="flex items-center gap-2">
+    {@render name()}
+    <SwitchControl {control} {label} {canEdit} />
+  </div>
 {:else if s.kind === "display"}
   {#if s.style === "light"}
     <div class="flex items-center gap-2">

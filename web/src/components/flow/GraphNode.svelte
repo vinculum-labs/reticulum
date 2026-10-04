@@ -22,7 +22,8 @@
     onWhenUnwired,
     summary,
   } from "../../lib/kinds";
-  import { app, instanceRun, deviceName, toggleFrame, type Layer } from "../../lib/state.svelte";
+  import { app, instanceRun, deviceName, sheetHolding, toggleFrame, type Layer } from "../../lib/state.svelte";
+  import SwitchControl from "../inspector/SwitchControl.svelte";
   import { unreachable } from "../../lib/status";
   import { blockName, liveKey } from "../../lib/blueprints";
   import DeviceIcon from "../DeviceIcon.svelte";
@@ -148,6 +149,9 @@
    * can show: tied to it always, every card would redraw once a second on an idle network.
    */
   let hovered = $state(false);
+  /** A Switch's sheet, and the id it runs under here: its own, or this open placed copy's; none on a blueprint itself. */
+  const holdingSheet = $derived(kind === "switch" ? sheetHolding(id) : undefined);
+  const switchRun = $derived(kind !== "switch" ? null : instanceRun() ? liveKey(id, instanceRun()!) : holdingSheet?.blueprint ? null : id);
   const moved = $derived(hovered ? app.ticksSinceMoved[liveKey(id, instanceRun() ?? undefined)] : undefined);
   const idleTitle = $derived(
     [
@@ -337,6 +341,18 @@ ${idleTitle}` : idleTitle}
         {/each}
       </div>
     </div>
+    {#if s.kind === "switch" && holdingSheet}
+      <!-- Flipped (or set) right here, as on the dashboard: not a drag or pan of the canvas. -->
+      <div class="nodrag nopan flex justify-center px-2 pb-1.5 text-xs">
+        <SwitchControl
+          control={{ node: data.node, sheet: holdingSheet, run: switchRun ?? id }}
+          label={title}
+          canEdit={app.snapshot?.canEdit ?? false}
+          why={switchRun ? undefined : "A blueprint doesn't run on its own — open one of its placed copies to flip it there"}
+          sliderClass="w-24"
+        />
+      </div>
+    {/if}
   {:else}
     <div class="grid grid-cols-2 gap-2" style="height: {flowRows * ROW}px; font-size: 10px">
       <div class="flex flex-col">
