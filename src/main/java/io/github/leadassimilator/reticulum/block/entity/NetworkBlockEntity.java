@@ -186,6 +186,27 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     }
 
     /**
+     * Turned in place from {@code was} to {@code now} (its state already {@code now}): what it keeps by side is moved so
+     * that it stays on the same sides of the world.
+     */
+    public void keepSides(io.github.leadassimilator.reticulum.block.Orientation was, io.github.leadassimilator.reticulum.block.Orientation now) {
+        manualDisconnects = keptSides(manualDisconnects, was, now);
+        autoDisconnects = keptSides(autoDisconnects, was, now);
+        setChanged();
+    }
+
+    /** {@code mask}, kept by sides as laid out under {@code was}, kept by sides as laid out under {@code now} instead. */
+    protected static int keptSides(int mask, io.github.leadassimilator.reticulum.block.Orientation was, io.github.leadassimilator.reticulum.block.Orientation now) {
+        int out = 0;
+        for (Direction side : Direction.values()) {
+            if ((mask & (1 << was.toLaid(side).get3DDataValue())) != 0) {
+                out |= 1 << now.toLaid(side).get3DDataValue();
+            }
+        }
+        return out;
+    }
+
+    /**
      * The bit kept for a side of the world: per-side data is kept by the sides as they were laid out, so it follows the
      * block when a structure, schematic or contraption turns it (see {@link io.github.leadassimilator.reticulum.block.Orientation}).
      */

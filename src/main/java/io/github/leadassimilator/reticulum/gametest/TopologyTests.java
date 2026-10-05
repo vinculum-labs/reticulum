@@ -375,6 +375,24 @@ public final class TopologyTests {
         });
     }
 
+    /** A cable turned where it stands (a wrench of another mod) keeps its cut joint with the same neighbor. */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void aCableTurnedInPlaceKeepsItsCuts(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CABLE.get(), null);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(1, 1, 2), ModBlocks.CABLE.get(), Direction.NORTH);
+        var level = helper.getLevel();
+        BlockPos at = helper.absolutePos(new BlockPos(1, 1, 1));
+        Topology.toggle(level, at, Direction.EAST, null);
+        level.setBlock(at, level.getBlockState(at).rotate(level, at, net.minecraft.world.level.block.Rotation.CLOCKWISE_90),
+                net.minecraft.world.level.block.Block.UPDATE_ALL);
+        helper.runAfterDelay(3, () -> {
+            check(helper, be(helper, new BlockPos(1, 1, 1)).isManuallyDisconnected(Direction.EAST), "the cut moved off its neighbor");
+            check(helper, Topology.connected(level, at, Direction.SOUTH), "the cable was cut from its other neighbor");
+            helper.succeed();
+        });
+    }
+
     /** Turning or mirroring an orientation moves every side as the game turns or mirrors that side. */
     @GameTest(template = "empty")
     public static void orientationsFollowTheGamesTurns(GameTestHelper helper) {

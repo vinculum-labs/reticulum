@@ -41,6 +41,12 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
         setChanged();
     }
 
+    @Override
+    public void keepSides(io.github.leadassimilator.reticulum.block.Orientation was, io.github.leadassimilator.reticulum.block.Orientation now) {
+        disabledDevices = keptSides(disabledDevices, was, now);
+        super.keepSides(was, now);
+    }
+
     @Nullable
     public Object meEndpoints() {
         return meEndpoints;

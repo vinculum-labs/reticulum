@@ -85,6 +85,12 @@ public abstract class NetworkBlock extends BaseEntityBlock {
         super.onPlace(state, level, pos, oldState, movedByPiston);
         if (!level.isClientSide && !oldState.is(state.getBlock())) {
             level.scheduleTick(pos, this, 1);
+        } else if (!level.isClientSide && oldState.hasProperty(LinkedBlock.ORIENTATION) && state.hasProperty(LinkedBlock.ORIENTATION)
+                && oldState.getValue(LinkedBlock.ORIENTATION) != state.getValue(LinkedBlock.ORIENTATION)
+                && level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity be) {
+            // Turned where it stands (a wrench of another mod): its joints are with the same neighbors as before, so
+            // what it keeps by side stays on the same sides of the world.
+            be.keepSides(oldState.getValue(LinkedBlock.ORIENTATION), state.getValue(LinkedBlock.ORIENTATION));
         }
     }
 
