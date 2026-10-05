@@ -39,6 +39,8 @@ public final class WorldLabel {
         pose.mulPose(camera.rotation());
         pose.scale(scale, -scale, scale);
         Matrix4f matrix = pose.last().pose();
+        // One font pixel away from the camera (it grows with the label, so it stays apart at any distance).
+        Matrix4f behind = new Matrix4f(matrix).translate(0, 0, -1f);
         int lineHeight = font.lineHeight + 1;
         for (int i = 0; i < lines.size(); i++) {
             FormattedCharSequence line = lines.get(i);
@@ -47,12 +49,11 @@ public final class WorldLabel {
             if (throughWalls) {
                 font.drawInBatch(line, x, y, 0xFF000000 | color, false, matrix, buffers, Font.DisplayMode.SEE_THROUGH, BACKGROUND, LightTexture.FULL_BRIGHT);
             } else {
-                // The background sits a hair behind the letters, closer than the depth buffer tells apart once the label
-                // is scaled up with distance: the two fought, and letters vanished in bands that swept as you moved.
-                // So the background goes on its own (its letters all but invisible), then the letters, drawn the way
-                // signs draw theirs: pulled towards the camera in depth.
-                font.drawInBatch(line, x, y, 0x04000000, false, matrix, buffers, Font.DisplayMode.NORMAL, BACKGROUND, LightTexture.FULL_BRIGHT);
-                font.drawInBatch(line, x, y, 0xFF000000 | color, false, matrix, buffers, Font.DisplayMode.POLYGON_OFFSET, 0, LightTexture.FULL_BRIGHT);
+                // Minecraft puts the background a hair in front of the letters (as underlines go over text), too close
+                // for the depth buffer to tell apart: the background hid letters, in bands that moved as you did. So the
+                // background goes on its own (its letters all but invisible), set clearly behind, then the letters.
+                font.drawInBatch(line, x, y, 0x04000000, false, behind, buffers, Font.DisplayMode.NORMAL, BACKGROUND, LightTexture.FULL_BRIGHT);
+                font.drawInBatch(line, x, y, 0xFF000000 | color, false, matrix, buffers, Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
             }
         }
         pose.popPose();

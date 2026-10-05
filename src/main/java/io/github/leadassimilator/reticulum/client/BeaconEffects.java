@@ -77,9 +77,9 @@ public final class BeaconEffects {
         pose.popPose();
     }
 
-    /** How long each alarm's message shows before the next. */
     /** How far a label is brought toward the camera, past the beam (its core reaches 0.2 blocks from the middle, 0.28 at the corners). */
     private static final double BEAM_CLEARANCE = 0.4;
+    /** How long each alarm's message shows before the next. */
     private static final long CYCLE_MS = 3000;
 
     /** Beacons' text: their look's label, or (Network mode) the alarms going off, taking turns. Through walls if set. */
