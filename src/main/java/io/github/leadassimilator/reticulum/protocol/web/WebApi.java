@@ -665,7 +665,7 @@ public final class WebApi {
                             throw new RequestException("A network can have at most " + Limits.FILTER_TEMPLATES + " filter templates");
                         }
                         try {
-                            Filters.items(expression, withTemplate(network, name, expression));
+                            Filters.checkAny(expression, withTemplate(network, name, expression));
                         } catch (FilterException e) {
                             throw new RequestException(e.getMessage());
                         }

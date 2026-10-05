@@ -79,8 +79,27 @@ public final class FilterTests {
         expect(helper, "is:stackable", sword, false);
         expect(helper, "is:fuel", new ItemStack(Items.COAL), true);
         expect(helper, "is:smeltable", ore, true);
+        expect(helper, "*_ore", ore, true);
+        expect(helper, "*_ore", iron, false);
+        expect(helper, "*ingot*", iron, true);
+        expect(helper, "* !*_ore", iron, true);
+        expect(helper, "id:/_ore$/", ore, true);
+        expect(helper, "id:/_ore$/", iron, false);
+        expect(helper, "mod:/^mine/", iron, true);
+        // Terms for fluids only are fine as a filter (they match no items), but not a typo.
+        try {
+            Filters.checkAny("temp:>1000", Map.of());
+        } catch (FilterException e) {
+            helper.fail("temp:>1000 should be a valid filter: " + e.getMessage());
+        }
+        try {
+            Filters.checkAny("tmep:>1000 | (", Map.of());
+            helper.fail("a broken filter passed checkAny");
+        } catch (FilterException expected) {
+            // expected
+        }
 
-        for (String bad : List.of("(tag:c:ingots", "name:\"open", "@missing", "is:bogus", "dura:<abc")) {
+        for (String bad : List.of("(tag:c:ingots", "name:\"open", "@missing", "is:bogus", "dura:<abc", "tag:/ores/")) {
             try {
                 Filters.items(bad, Map.of());
                 helper.fail("'" + bad + "' should not compile");

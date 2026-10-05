@@ -19,7 +19,7 @@ import java.util.Set;
  * A term whose key is not a known predicate is read as an id pattern, so {@code minecraft:*_ore} works as is.
  */
 public final class FilterParser {
-    public static final Set<String> KEYS = Set.of("id", "tag", "mod", "name", "dura", "ench", "has", "is", "in", "temp");
+    public static final Set<String> KEYS = Set.of("id", "tag", "mod", "name", "dura", "ench", "has", "is", "in", "temp", "chem");
 
     /** How deep brackets and ! may nest: deeper than any real filter, shallow enough not to overflow the stack. */
     public static final int MAX_DEPTH = 64;
@@ -113,7 +113,8 @@ public final class FilterParser {
     private FilterExpr term() throws FilterException {
         int start = pos;
         char c = peek();
-        if (c == '*') {
+        // A lone * is anything; one starting a word ("*_ore") is an id pattern like any other.
+        if (c == '*' && (pos + 1 >= text.length() || ends(text.charAt(pos + 1)))) {
             pos++;
             return new FilterExpr.Any();
         }
@@ -167,6 +168,10 @@ public final class FilterParser {
             pos++;
         }
         return text.substring(start, pos);
+    }
+
+    private static boolean ends(char c) {
+        return Character.isWhitespace(c) || c == '(' || c == ')' || c == '&' || c == '|' || c == '!';
     }
 
     private String quoted() throws FilterException {

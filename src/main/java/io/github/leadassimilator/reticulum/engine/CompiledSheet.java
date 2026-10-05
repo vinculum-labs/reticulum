@@ -1023,10 +1023,20 @@ public final class CompiledSheet {
     @Nullable
     private Gate compileGate(Node node, String expression, Map<String, String> templates) {
         try {
-            return new Gate(Filters.items(expression, templates), fluidsOrAny(expression, templates), chemicalsOrNone(expression, templates), false);
+            Filters.checkAny(expression, templates);
         } catch (FilterException e) {
             error(node, describe(node) + ": " + e.getMessage());
             return null;
+        }
+        return new Gate(itemsOrNone(expression, templates), fluidsOrAny(expression, templates), chemicalsOrNone(expression, templates), false);
+    }
+
+    /** A filter for fluids (temp:, say) may use predicates items don't have; such filters simply match no items. */
+    private static Filters.ItemFilter itemsOrNone(String expression, Map<String, String> templates) {
+        try {
+            return Filters.items(expression, templates);
+        } catch (FilterException e) {
+            return (stack, context) -> false;
         }
     }
 
@@ -1060,16 +1070,27 @@ public final class CompiledSheet {
         };
         for (String expression : expressions) {
             try {
-                if (!itemLimitFilters.containsKey(expression)) {
-                    itemLimitFilters.put(expression, Filters.items(expression, templates));
-                }
-                fluidLimitFilters.computeIfAbsent(expression, e -> fluidsOrAny(e, templates));
-                chemicalLimitFilters.computeIfAbsent(expression, e -> chemicalsOrNone(e, templates));
+                Filters.checkAny(expression, templates);
             } catch (FilterException e) {
                 error(node, describe(node) + ": " + e.getMessage());
+                brokenLimits.add(expression);
+                continue;
             }
+            itemLimitFilters.computeIfAbsent(expression, e -> itemsOrNone(e, templates));
+            fluidLimitFilters.computeIfAbsent(expression, e -> fluidsOrAny(e, templates));
+            chemicalLimitFilters.computeIfAbsent(expression, e -> chemicalsOrNone(e, templates));
         }
     }
+
+    /**
+     * Whether a keep rule's or cap's filter failed to compile (a typo, a template deleted): it then lets nothing move,
+     * rather than being skipped — a keep rule skipped would let the source be emptied.
+     */
+    public boolean broken(NodeSettings.Limit limit) {
+        return brokenLimits.contains(limit.filter());
+    }
+
+    private final Set<String> brokenLimits = new HashSet<>();
 
     /** The compiled filter of a keep rule or cap. Rules whose filter failed to compile match nothing. */
     public Filters.ItemFilter itemFilter(NodeSettings.Limit limit) {

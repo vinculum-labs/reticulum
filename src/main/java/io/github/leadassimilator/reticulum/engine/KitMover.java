@@ -175,6 +175,9 @@ final class KitMover {
             Filters.Context context, List<Take> takes) {
         long allowed = Long.MAX_VALUE;
         for (NodeSettings.Limit rule : source.keep()) {
+            if (sheet.broken(rule)) {
+                return 0;
+            }
             Filters.ItemFilter filter = sheet.itemFilter(rule);
             if (!filter.test(stack, context)) {
                 continue;

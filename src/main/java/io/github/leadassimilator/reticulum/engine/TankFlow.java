@@ -224,6 +224,9 @@ final class TankFlow {
             Filters.Context context, boolean keep) {
         long allowed = Long.MAX_VALUE;
         for (NodeSettings.Limit limit : limits) {
+            if (sheet.broken(limit)) {
+                return 0;
+            }
             if (!tank.matches(sheet, limit, kind, context)) {
                 continue;
             }

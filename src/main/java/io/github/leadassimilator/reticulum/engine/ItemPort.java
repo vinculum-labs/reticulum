@@ -121,6 +121,9 @@ final class ItemPort {
     long limit(List<NodeSettings.Limit> limits, CompiledSheet sheet, ItemStack stack, Filters.Context context, boolean keep) {
         long allowed = Long.MAX_VALUE;
         for (NodeSettings.Limit limit : limits) {
+            if (sheet.broken(limit)) {
+                return 0;
+            }
             Filters.ItemFilter filter = sheet.itemFilter(limit);
             if (!filter.test(stack, context)) {
                 continue;

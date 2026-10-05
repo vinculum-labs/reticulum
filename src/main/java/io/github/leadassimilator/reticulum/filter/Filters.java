@@ -89,6 +89,33 @@ public final class Filters {
         return usesContext(expr) ? compiled : cached(compiled);
     }
 
+    /**
+     * Throws unless the filter works for items, fluids or chemicals: some terms apply to one only ({@code temp:} to
+     * fluids, {@code dura:} to items), so a filter is fine as long as one of them takes it. The error given is the
+     * items one.
+     */
+    public static void checkAny(String expression, Map<String, String> templates) throws FilterException {
+        try {
+            items(expression, templates);
+        } catch (FilterException e) {
+            try {
+                fluids(expression, templates);
+                return;
+            } catch (FilterException ignored) {
+                // Nor fluids: chemicals next.
+            }
+            if (chemicalCompiler != null) {
+                try {
+                    chemicals(expression, templates);
+                    return;
+                } catch (FilterException ignored) {
+                    // Nor chemicals.
+                }
+            }
+            throw e;
+        }
+    }
+
     public static FluidFilter fluids(String expression, Map<String, String> templates) throws FilterException {
         return compileFluids(expand(FilterParser.parse(expression), templates));
     }
@@ -226,14 +253,24 @@ public final class Filters {
         String value = atom.value();
         return switch (atom.key()) {
             case "id" -> {
-                Predicate<String> matches = idMatcher(value);
+                // /regex/ searches the whole id ("minecraft:iron_ore"); otherwise a pattern with * wildcards.
+                Predicate<String> matches = atom.regex() ? textMatcher(atom) : idMatcher(value);
                 yield (s, c) -> matches.test(id.apply(s).toString());
             }
             case "tag" -> {
+                if (atom.regex()) {
+                    throw new FilterException("A tag can't be a /regex/ — name it (tag:c:ores)", -1);
+                }
                 Predicate<T> in = tag.apply(location(value));
                 yield (s, c) -> in.test(s);
             }
-            case "mod" -> (s, c) -> id.apply(s).getNamespace().equals(value);
+            case "mod" -> {
+                if (atom.regex()) {
+                    Predicate<String> matches = textMatcher(atom);
+                    yield (s, c) -> matches.test(id.apply(s).getNamespace());
+                }
+                yield (s, c) -> id.apply(s).getNamespace().equals(value);
+            }
             case "name" -> {
                 Predicate<String> matches = textMatcher(atom);
                 yield (s, c) -> matches.test(name.apply(s));
