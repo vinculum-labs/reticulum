@@ -40,7 +40,7 @@ public final class NetworkManager {
      * engine walk the cables again and every open editor get a whole new snapshot, as often as every tick while it drains.
      */
     public static void overflowChanged(MinecraftServer server, Network network) {
-        network.touchOverflow();
+        network.touchShown();
         data(server).setDirty();
     }
 

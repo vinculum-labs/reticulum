@@ -118,7 +118,18 @@ public final class WebApi {
     }
 
     static void send(ServerPlayer player, JsonObject message) {
-        for (WebPayloads.Chunk chunk : WebPayloads.split(nextMessage++, message.toString())) {
+        String text = message.toString();
+        // Past what the editor takes (a huge network's snapshot), it would be dropped there without a word: an answer
+        // says so instead, and a push is left out (the editor keeps what it has).
+        if (text.length() > WebPayloads.MAX_MESSAGE_BYTES / 3 && text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > WebPayloads.MAX_MESSAGE_BYTES) {
+            if (!message.has("id")) {
+                io.github.leadassimilator.reticulum.Reticulum.LOGGER.warn("A {} for the editor was too large to send ({} characters)",
+                        message.has("type") ? message.get("type").getAsString() : "message", text.length());
+                return;
+            }
+            text = error(message.get("id").getAsString(), "That is too large for the editor to show").toString();
+        }
+        for (WebPayloads.Chunk chunk : WebPayloads.split(nextMessage++, text)) {
             PacketDistributor.sendToPlayer(player, chunk);
         }
     }
@@ -1342,11 +1353,31 @@ public final class WebApi {
         }
     }
 
+    /**
+     * A chunk loaded or unloaded: an open network with a device in it shows that device's state anew (loaded, what it
+     * holds), though nothing in the network changed.
+     */
+    public static void onChunkChanged(net.neoforged.neoforge.event.level.ChunkEvent event) {
+        if (SUBSCRIPTIONS.isEmpty() || event.getLevel().isClientSide() || !(event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)) {
+            return;
+        }
+        net.minecraft.world.level.ChunkPos chunk = event.getChunk().getPos();
+        java.util.Set<UUID> open = new java.util.HashSet<>();
+        SUBSCRIPTIONS.values().forEach(subs -> open.addAll(subs.keySet()));
+        for (UUID id : open) {
+            Network network = NetworkManager.network(level.getServer(), id);
+            if (network != null && network.devices().stream().anyMatch(d -> d.pos().dimension() == level.dimension()
+                    && chunk.equals(new net.minecraft.world.level.ChunkPos(d.pos().pos())))) {
+                network.touchShown();
+            }
+        }
+    }
+
     /** When a failed push was last logged. */
     private static long lastPushFailureLogged;
 
     /** The overflow revision each network's editors were last shown (taken once a second). */
-    private static final Map<UUID, Integer> OVERFLOW_SHOWN = new HashMap<>();
+    private static final Map<UUID, Integer> SHOWN = new HashMap<>();
 
     /**
      * What a snapshot is current for: the network's revision, whether it runs (a controller's chunk unloading changes
@@ -1355,9 +1386,9 @@ public final class WebApi {
      */
     private static int stamp(MinecraftServer server, Network network, boolean everySecond) {
         if (everySecond) {
-            OVERFLOW_SHOWN.put(network.id(), network.overflowRevision());
+            SHOWN.put(network.id(), network.shownRevision());
         }
-        int overflow = OVERFLOW_SHOWN.getOrDefault(network.id(), 0);
+        int overflow = SHOWN.getOrDefault(network.id(), 0);
         // Spread apart so no change in one can cancel out a change in another (as a hash of the three could).
         return network.revision() * 1_000_003 + overflow * 2 + (NetworkTicker.isRunning(server, network) ? 1 : 0);
     }
@@ -1475,7 +1506,7 @@ public final class WebApi {
 
     public static void onServerStopped(ServerStoppedEvent event) {
         SUBSCRIPTIONS.clear();
-        OVERFLOW_SHOWN.clear();
+        SHOWN.clear();
         ALLOWANCE.clear();
         LIST_LISTENERS.clear();
     }

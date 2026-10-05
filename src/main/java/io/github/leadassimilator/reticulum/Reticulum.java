@@ -60,8 +60,14 @@ public class Reticulum {
 
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> ReticulumCommand.register(event.getDispatcher()));
         NeoForge.EVENT_BUS.addListener(BreakProtection::onBreak);
-        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.ChunkEvent.Load event) -> Topology.onChunkChanged(event));
-        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.ChunkEvent.Unload event) -> Topology.onChunkChanged(event));
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.ChunkEvent.Load event) -> {
+            Topology.onChunkChanged(event);
+            io.github.leadassimilator.reticulum.protocol.web.WebApi.onChunkChanged(event);
+        });
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.ChunkEvent.Unload event) -> {
+            Topology.onChunkChanged(event);
+            io.github.leadassimilator.reticulum.protocol.web.WebApi.onChunkChanged(event);
+        });
         NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST, PlacementRedirect::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(Topology::onServerTick);
         NeoForge.EVENT_BUS.addListener(NetworkTicker::onServerTick);

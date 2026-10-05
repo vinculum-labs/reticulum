@@ -564,15 +564,18 @@ public final class Network {
     public record Home(Sheet sheet, io.github.leadassimilator.reticulum.graph.Node node) {
     }
 
-    /** Bumped when the overflow buffer changes (not saved): shown in the editor at most once a second. */
-    private int overflowRevision;
+    /**
+     * Bumped when something only the editor shows changes (the overflow buffer, a device's chunk loading or unloading),
+     * not the network itself: not saved, and sent to editors at most once a second.
+     */
+    private int shownRevision;
 
-    public int overflowRevision() {
-        return overflowRevision;
+    public int shownRevision() {
+        return shownRevision;
     }
 
-    public void touchOverflow() {
-        overflowRevision++;
+    public void touchShown() {
+        shownRevision++;
     }
 
     public int revision() {
