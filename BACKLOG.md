@@ -19,8 +19,6 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
 
 ## Known gaps (left for now)
 
-- Two placed blueprints can end up with one numbered name (undo of a removal after the number was reused, or a paste
-  keeping its label): the name field warns, nothing renumbers.
 - Two quick edits to the same node within a tick: an edit queued behind one the server refuses still carries the refused
   change, and two quick list resizes (adding two inputs) can merge to the last only. Edits rebase on the snapshot plus
   what is in flight; a proper fix means rebasing on each confirmed step.
@@ -28,28 +26,18 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   to tell); someone with access can connect its joints by hand.
 - A contraption moving part of a network across unloaded chunks: the part left behind and the part moved may not
   reconcile until both are loaded.
-- Joints cut by hand survive a merge of two networks (`/reticulum merge`): they stay cut on the merged one.
+- Joints cut by hand survive a merge of two networks (`/reticulum merge`): they stay cut on the merged one. Kept: a cut
+  made by hand is meant.
 - Server bookkeeping: finding whether a block is reached scans linearly, and the version and alias maps are never
   pruned. Fine at today's sizes.
 - Cut joints aren't rotated with a block: a rotated contraption or a rotated paste keeps the cuts on the old faces.
-- An undo or redo whose answer is lost (connection dropped, or the 30 s timeout) is dropped from the history, whether
-  or not the game applied it.
 - A blueprint placed inside a blueprint keeps the slot blocks set inside the outer one: every instance of the outer
   blueprint drives the same blocks.
-- A wire drawn across a frame edge doesn't set the type of an untyped Sheet pin at either end (drawn on one sheet it
-  does).
-- KitMover may plan two parts into one empty slot seen through two faces of a sided block; the kit then rolls back
-  (or, if the block refuses extraction, part of it stays).
-- With "auto" faces, slot ranges index each face's own slots, while keep rules and caps count by the block's slots.
 - Redstone outputs and ME links keep working while a network is unpowered (only item, fluid, chemical and kit moves
   stop). By design: redstone often switches the generator that would refill it, and ME links already draw AE2 power.
 - A connector lifted by a contraption that never sets it down (the contraption destroyed) leaves its record behind,
-  moving, with no devices: it still counts toward upkeep and keeps its network from being empty.
+  moving, with no devices (it costs no upkeep; it keeps its network from counting as empty).
+- A network too large for the editor (well past 64 MiB of snapshot) can't be opened there: it says so.
 - Admins can demote or remove other admins (only the owner is protected). Kept on purpose.
-- A wire from a placed blueprint inside an open placed blueprint never lights (its value is kept under a nested name
-  the editor doesn't work out).
-- A device whose chunk loads or unloads (across a border from its connector) doesn't refresh the editor's snapshot
-  until something else changes.
-- No server-side size limit on snapshots: a huge network (well past 64 MiB of JSON) never reaches the editor.
 - "Copy as JSON" copies only the sheet: sheets inside it, the blueprints it places and the filter templates it uses are
   left out (the import says what was, and drops placed blueprints whose blueprint isn't there).
