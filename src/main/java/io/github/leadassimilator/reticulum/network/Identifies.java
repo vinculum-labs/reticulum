@@ -53,6 +53,34 @@ public final class Identifies {
         return on;
     }
 
+    /**
+     * Turns several on or off at once, telling players once: only those not so already change (one already lit keeps its
+     * color), and turning on stops at {@link Limits#IDENTIFIES}. Returns the ones that changed.
+     */
+    public static List<Identify> setAll(MinecraftServer server, Network network, List<Identify> targets, boolean on) {
+        List<Identify> list = network.identified();
+        List<Identify> changed = new ArrayList<>();
+        for (Identify target : targets) {
+            if (isOn(network, target) == on) {
+                continue;
+            }
+            if (on) {
+                if (!belongs(network, target) || list.size() >= Limits.IDENTIFIES) {
+                    continue;
+                }
+                int color = target.color() != 0 ? target.color() : Identify.PALETTE[list.size() % Identify.PALETTE.length];
+                list.add(new Identify(target.kind(), target.connector(), target.device(), target.face(), color, System.currentTimeMillis()));
+            } else {
+                list.removeIf(target::sameTarget);
+            }
+            changed.add(target);
+        }
+        if (!changed.isEmpty()) {
+            changed(server, network);
+        }
+        return changed;
+    }
+
     /** Whether an identify's connector or device is part of the network (only those can be lit). */
     public static boolean belongs(Network network, Identify target) {
         return switch (target.kind()) {

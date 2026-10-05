@@ -389,6 +389,11 @@ public final class TopologyTests {
         helper.runAfterDelay(3, () -> {
             check(helper, be(helper, new BlockPos(1, 1, 1)).isManuallyDisconnected(Direction.EAST), "the cut moved off its neighbor");
             check(helper, Topology.connected(level, at, Direction.SOUTH), "the cable was cut from its other neighbor");
+            var state = level.getBlockState(at);
+            var links = ((io.github.leadassimilator.reticulum.block.LinkedBlock) state.getBlock()).linkProperties();
+            check(helper, state.getValue(links.get(Direction.SOUTH)) == io.github.leadassimilator.reticulum.block.Link.CABLE
+                    && state.getValue(links.get(Direction.EAST)) == io.github.leadassimilator.reticulum.block.Link.NONE,
+                    "the turned cable's arms weren't drawn again: " + state);
             helper.succeed();
         });
     }

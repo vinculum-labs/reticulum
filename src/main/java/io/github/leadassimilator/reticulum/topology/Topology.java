@@ -1065,14 +1065,33 @@ public final class Topology {
         Direction best = null;
         double bestDistance = Double.MAX_VALUE;
         for (Direction dir : Direction.values()) {
-            Optional<Vec3> point = jointBox(dir, connector).move(pos).clip(from, to);
-            if (point.isPresent() && from.distanceToSqr(point.get()) < bestDistance) {
-                bestDistance = from.distanceToSqr(point.get());
-                best = dir;
+            // A connector's plug plate is wider than its arm: aimed at its rim, that's the plug too.
+            List<AABB> boxes = connector ? List.of(jointBox(dir, true), plugPlate(dir)) : List.of(jointBox(dir, false));
+            for (AABB box : boxes) {
+                Optional<Vec3> point = box.move(pos).clip(from, to);
+                if (point.isPresent() && from.distanceToSqr(point.get()) < bestDistance) {
+                    bestDistance = from.distanceToSqr(point.get());
+                    best = dir;
+                }
             }
         }
         BlockHitResult core = AABB.clip(List.of(coreBox(connector)), from, to, pos);
         return core != null && from.distanceToSqr(core.getLocation()) < bestDistance ? null : best;
+    }
+
+    /** A connector's plug plate on one side (as drawn: 3 to 13 pixels across, 1 deep), in block-local coordinates. */
+    private static AABB plugPlate(Direction side) {
+        double[] min = {3 / 16.0, 3 / 16.0, 3 / 16.0};
+        double[] max = {13 / 16.0, 13 / 16.0, 13 / 16.0};
+        int axis = side.getAxis().ordinal();
+        if (side.getAxisDirection() == Direction.AxisDirection.POSITIVE) {
+            min[axis] = 15 / 16.0;
+            max[axis] = 1;
+        } else {
+            min[axis] = 0;
+            max[axis] = 1 / 16.0;
+        }
+        return new AABB(min[0], min[1], min[2], max[0], max[1], max[2]);
     }
 
     private static double distanceSqr(AABB box, Vec3 p) {

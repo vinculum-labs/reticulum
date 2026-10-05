@@ -89,8 +89,16 @@ public abstract class NetworkBlock extends BaseEntityBlock {
                 && oldState.getValue(LinkedBlock.ORIENTATION) != state.getValue(LinkedBlock.ORIENTATION)
                 && level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity be) {
             // Turned where it stands (a wrench of another mod): its joints are with the same neighbors as before, so
-            // what it keeps by side stays on the same sides of the world.
+            // what it keeps by side stays on the same sides of the world, and its arms are drawn to them again (the
+            // turn moved them along). The block entity gets its new state now; the game would only after this.
+            be.setBlockState(state);
             be.keepSides(oldState.getValue(LinkedBlock.ORIENTATION), state.getValue(LinkedBlock.ORIENTATION));
+            if (be instanceof io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity && level instanceof ServerLevel server) {
+                Topology.rescanConnector(server, pos);
+            }
+            if (level instanceof ServerLevel server) {
+                Topology.refreshState(server, pos);
+            }
         }
     }
 

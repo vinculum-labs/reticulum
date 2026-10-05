@@ -186,14 +186,17 @@ public class NetworkToolItem extends Item {
         }
         Identify self = Identify.connector(connector.connectorId(), 0);
         boolean on = !Identifies.isOn(network, self);
-        Identifies.set(level.getServer(), network, self, on);
         var record = network.connector(connector.connectorId());
-        int devices = 0;
-        for (GlobalPos device : record == null ? List.<GlobalPos>of() : List.copyOf(record.devices())) {
-            if (Identifies.set(level.getServer(), network, Identifies.deviceOrFace(device, null), on) == on) {
-                devices++;
-            }
+        List<Identify> targets = new java.util.ArrayList<>(List.of(self));
+        for (GlobalPos device : record == null ? List.<GlobalPos>of() : record.devices()) {
+            targets.add(Identifies.deviceOrFace(device, null));
         }
+        List<Identify> changed = Identifies.setAll(level.getServer(), network, targets, on);
+        if (on && !changed.contains(self)) {
+            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", io.github.leadassimilator.reticulum.network.Limits.IDENTIFIES), true);
+            return;
+        }
+        int devices = changed.size() - (changed.contains(self) ? 1 : 0);
         Component what = devices == 0 ? Component.translatable("screen.reticulum.connector")
                 : devices == 1 ? Component.translatable("message.reticulum.connector_and_device")
                 : Component.translatable("message.reticulum.connector_and_devices", devices);
@@ -209,7 +212,12 @@ public class NetworkToolItem extends Item {
             return;
         }
         Identify target = Identifies.deviceOrFace(device, null);
+        boolean was = Identifies.isOn(found, target);
         boolean on = Identifies.toggle(level.getServer(), found, target);
+        if (!was && !on) {
+            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", io.github.leadassimilator.reticulum.network.Limits.IDENTIFIES), true);
+            return;
+        }
         String name = Identifies.deviceName(level.getServer(), found, device);
         player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", name), true);
     }
@@ -246,7 +254,12 @@ public class NetworkToolItem extends Item {
             return;
         }
         Identify target = Identifies.deviceOrFace(device, face);
+        boolean was = Identifies.isOn(network, target);
         boolean on = offOnly ? Identifies.set(level.getServer(), network, target, false) : Identifies.toggle(level.getServer(), network, target);
+        if (!offOnly && !was && !on) {
+            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", io.github.leadassimilator.reticulum.network.Limits.IDENTIFIES), true);
+            return;
+        }
         String name = Identifies.label(level.getServer(), network, target);
         player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", name), true);
     }

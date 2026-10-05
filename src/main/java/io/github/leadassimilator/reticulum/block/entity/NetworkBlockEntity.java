@@ -186,8 +186,8 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     }
 
     /**
-     * Turned in place from {@code was} to {@code now} (its state already {@code now}): what it keeps by side is moved so
-     * that it stays on the same sides of the world.
+     * Turned in place from {@code was} to {@code now}: what it keeps by side is moved so that it stays on the same sides
+     * of the world.
      */
     public void keepSides(io.github.leadassimilator.reticulum.block.Orientation was, io.github.leadassimilator.reticulum.block.Orientation now) {
         manualDisconnects = keptSides(manualDisconnects, was, now);
