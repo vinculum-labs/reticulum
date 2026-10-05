@@ -322,7 +322,9 @@ public final class NetworkRuntime {
         powerSource = controller;
         pullFromNeighbors((ServerLevel) controller.getLevel(), controller.getBlockPos(), controller);
         int tier = controller.antennaTier();
-        lastUpkeep = power.base() + power.perConnector() * network.connectors().size()
+        // Connectors lifted by a contraption (moving) aren't anywhere: they cost nothing until set down.
+        long placed = network.connectors().stream().filter(c -> !c.moving()).count();
+        lastUpkeep = power.base() + power.perConnector() * placed
                 + wirelessConnectors * (tier <= 1 ? power.wirelessTier1() : power.wirelessTier2())
                 + wirelessDistance * power.perBlock() + crossDimensionConnectors * power.crossDimension();
         upkeepOwed += lastUpkeep;
