@@ -92,6 +92,23 @@ final class Signals {
         alarmSince.clear();
     }
 
+    /** Drops edge, pulse, delay and timer memory of nodes no longer compiled (string keys start with the node id). */
+    void forgetGone(Set<UUID> present) {
+        java.util.function.Predicate<UUID> gone = id -> !present.contains(id);
+        pulseLeft.keySet().removeIf(gone);
+        timerStart.keySet().removeIf(gone);
+        delays.keySet().removeIf(gone);
+        wasOn.keySet().removeIf(key -> {
+            int slash = key.indexOf('/');
+            String head = slash < 0 ? key : key.substring(0, slash);
+            try {
+                return gone.test(UUID.fromString(head));
+            } catch (IllegalArgumentException notAnId) {
+                return false;
+            }
+        });
+    }
+
     /** Held off (redstone at the controller): no device counts as gated off. */
     void forgetGates() {
         gatedOff = Set.of();
@@ -162,8 +179,13 @@ final class Signals {
                 Set<UUID> slept = new HashSet<>();
                 for (CompiledSheet.SignalNode node : sheet.signals()) {
                     UUID id = node.node().id();
-                    if (!sheet.keepRunning().contains(id) && sheet.inside(id, sleeping)) {
-                        values.put(id, node.node().settings() instanceof NodeSettings.AlarmSettings ? 0 : whileOff(sheet, node, group == sheets ? emit : dark));
+                    boolean sleepsNow = !sheet.keepRunning().contains(id) && sheet.inside(id, sleeping);
+                    // Awake: what an output held while off is no longer kept (written only when there was one).
+                    if (!sleepsNow && sheet.whileOff(id) != null) {
+                        store(ctx, id + "/held", 0);
+                    }
+                    if (sleepsNow) {
+                        values.put(id, node.node().settings() instanceof NodeSettings.AlarmSettings ? 0 : whileOff(ctx, sheet, node, group == sheets ? emit : dark));
                         // A sleeping Sequencer's tracks keep their last values, like any switched-off output.
                         if (node.node().settings() instanceof NodeSettings.SequencerSettings asleepSequencer) {
                             for (int track = 1; track <= asleepSequencer.tracks().size(); track++) {
@@ -207,10 +229,18 @@ final class Signals {
      * A signal node in a switched-off sheet: it keeps its last value (outputs set to a fixed value give that), and a
      * device's redstone input keeps giving its device what that value says.
      */
-    private long whileOff(CompiledSheet sheet, CompiledSheet.SignalNode node, Map<Emit, Integer> emit) {
+    private long whileOff(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.SignalNode node, Map<Emit, Integer> emit) {
         UUID id = node.node().id();
         NodeSettings.OffBehavior behavior = sheet.whileOff(id);
-        long value = behavior != null && behavior.mode() == NodeSettings.WhileOff.FIXED ? behavior.value() : values.getOrDefault(id, 0L);
+        // Held: the last value, saved with the world for an output (a sheet's output pin, a device's redstone input),
+        // so a restart or the network stopping doesn't drop it to 0 while the sheet stays off.
+        String heldKey = id + "/held";
+        long held = values.containsKey(id) ? values.get(id) : ctx.network().signalMemory().getOrDefault(heldKey, 0L);
+        boolean fixed = behavior != null && behavior.mode() == NodeSettings.WhileOff.FIXED;
+        long value = fixed ? behavior.value() : held;
+        if (behavior != null && !fixed) {
+            store(ctx, heldKey, value);
+        }
         if (node.node().settings() instanceof NodeSettings.RedstoneOutSettings out) {
             int level = (int) Math.max(0, Math.min(15, value));
             if (out.faces().isEmpty()) {

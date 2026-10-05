@@ -594,6 +594,7 @@ public final class NetworkRuntime {
             compiled.clear();
             current = CompiledSheet.compile(root, network);
             compiled.put(root.id(), current);
+            forgetGone(current.nodeIds());
             for (CompiledSheet.Problem error : current.errors()) {
                 if (reportedErrors.add(current.sheetOf(error.node() == null ? root.id() : error.node()) + error.message())) {
                     Sheet on = network.sheet(error.node() == null ? root.id() : current.sheetOf(error.node()));
@@ -602,6 +603,27 @@ public final class NetworkRuntime {
             }
         }
         return current;
+    }
+
+    /**
+     * Drops what is kept per node for nodes no longer there (removed, an instance deleted, a node changed in place to
+     * another kind keeps its id and its state is reset with its kind's use of it): pulse and delay memory, rate-limit
+     * tokens, splitter turns, backoff. Kept for a node's derived keys (a filter's reject output's turns) too.
+     */
+    private void forgetGone(Set<UUID> present) {
+        java.util.function.Predicate<UUID> gone = id -> !present.contains(id);
+        tokens.keySet().removeIf(gone);
+        backoff.keySet().removeIf(gone);
+        // Turns are kept by node, or by a filter's reject output's key (not a node id).
+        if (!roundRobin.isEmpty() || !credits.isEmpty()) {
+            Set<UUID> kept = new java.util.HashSet<>(present);
+            for (UUID node : present) {
+                kept.add(CompiledSheet.outputKey(node, io.github.leadassimilator.reticulum.graph.Wire.REJECT));
+            }
+            roundRobin.keySet().removeIf(id -> !kept.contains(id));
+            credits.keySet().removeIf(id -> !kept.contains(id));
+        }
+        signals.forgetGone(present);
     }
 
     /** Shared by the movers for one tick. */
@@ -674,18 +696,31 @@ public final class NetworkRuntime {
     private Set<String> charted = Set.of();
 
     /** What is charted, taken in before anything moves each tick; series no longer charted forgotten. */
+    /** Charts taken off, and when (ticks): their history is forgotten a while after. */
+    private final Map<String, Long> unchartedAt = new HashMap<>();
+
     private void takeCharted(Network network) {
         Set<String> now = new java.util.HashSet<>();
         for (var series : network.charts()) {
             now.add(series.key());
         }
+        // A chart taken off keeps its history a while (ten minutes), so undoing "stop charting" brings it back whole.
         for (String gone : charted) {
             if (!now.contains(gone)) {
-                metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone));
-                metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone + "/in"));
-                metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone + "/out"));
+                unchartedAt.putIfAbsent(gone, ticks);
             }
         }
+        unchartedAt.keySet().removeIf(now::contains);
+        unchartedAt.entrySet().removeIf(entry -> {
+            if (ticks - entry.getValue() < 12_000) {
+                return false;
+            }
+            String gone = entry.getKey();
+            metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone));
+            metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone + "/in"));
+            metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone + "/out"));
+            return true;
+        });
         charted = now;
         chartsThrough = network.charts().stream().anyMatch(c -> c.kind() == io.github.leadassimilator.reticulum.network.ChartSeries.Kind.THROUGH);
     }

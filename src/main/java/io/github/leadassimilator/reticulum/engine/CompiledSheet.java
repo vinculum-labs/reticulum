@@ -84,6 +84,16 @@ public final class CompiledSheet {
     private final Map<UUID, Integer> dependencies = new LinkedHashMap<>();
     /** For every node as compiled (pasted instances, device sides and pins included): the sheet it shows on. */
     private final Map<UUID, UUID> nodeSheet = new LinkedHashMap<>();
+
+    /**
+     * Every node id this compiles (pasted from sheets and instances, and the pins and sides made for devices): what
+     * the engine keeps per node for any other id is for a node that is gone.
+     */
+    public Set<UUID> nodeIds() {
+        Set<UUID> out = new HashSet<>(nodeSheet.keySet());
+        out.addAll(owners.keySet());
+        return out;
+    }
     /** Each sheet's operation interval and priority, by sheet id, for what is compiled from it. */
     private final Map<UUID, int[]> sheetTiming = new LinkedHashMap<>();
     /** Each instance node's blueprint's interval and priority, for what runs in it. */

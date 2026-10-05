@@ -128,6 +128,8 @@ final class TankFlow {
         List<Long> demands = new ArrayList<>();
         // Room left in each target this tick: several routes may end at the same block (two inputs of one machine).
         Map<GlobalPos, Long> room = new HashMap<>();
+        // What each sink node's caps still allow this tick, once a route into it has asked.
+        Map<java.util.UUID, Long> capLeft = new HashMap<>();
         for (CompiledSheet.Route route : ordered) {
             NodeSettings.Port port = route.sinkSettings().port();
             List<H> to = tank.handlers(ctx, port);
@@ -141,7 +143,10 @@ final class TankFlow {
                 why = Status.furthest(why, Status.FILTERED_OUT);
                 continue;
             }
-            long capRoom = limit(tank, sheet, route.sinkSettings().caps(), toView, kind, context, false);
+            // Shared by every route into the same sink node this tick (a splitter's branches meeting again): each takes
+            // from what the cap leaves, rather than each seeing the whole of it.
+            long capRoom = Math.min(limit(tank, sheet, route.sinkSettings().caps(), toView, kind, context, false),
+                    capLeft.getOrDefault(route.sink().id(), Long.MAX_VALUE));
             long max = Math.min(Math.min(tank.perTick(), ctx.runtime().available(route.rateLimits())), capRoom);
             if (max <= 0) {
                 why = Status.furthest(why, capRoom <= 0 ? Status.CAP_REACHED : Status.RATE_LIMITED);
@@ -156,6 +161,9 @@ final class TankFlow {
             });
             long demand = Math.max(0, Math.min(max, free));
             room.put(port.device(), free - demand);
+            if (!route.sinkSettings().caps().isEmpty()) {
+                capLeft.put(route.sink().id(), capRoom - demand);
+            }
             routes.add(route);
             sinks.add(to);
             demands.add(demand);
