@@ -12,6 +12,7 @@
     value,
     oncommit,
     placeholder,
+    maxlength,
     disabled = false,
     required = false,
     trim = true,
@@ -28,6 +29,8 @@
     value: string | null | undefined;
     oncommit: (value: string) => void;
     placeholder?: string;
+    /** The most characters it takes (the server's limit, so a longer name isn't refused whole). */
+    maxlength?: number;
     disabled?: boolean;
     /** Blank isn't saved: the box goes back to the saved text. */
     required?: boolean;
@@ -148,6 +151,7 @@
   class="{className} {mono ? 'font-mono' : ''}"
   style={invalid ? "border-color: var(--bad)" : ""}
   {placeholder}
+  {maxlength}
   {disabled}
   {title}
   spellcheck={mono ? "false" : undefined}

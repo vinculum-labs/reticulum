@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app, pinChanged, updateNodeEdit } from "../../lib/state.svelte";
-  import { PIN_CARRIES } from "../../lib/kinds";
+  import { PIN_CARRIES, NAME_LIMIT } from "../../lib/kinds";
   import { pinName, sheetPins, type GraphNode, type Resource, type Sheet } from "../../lib/types";
   import Select from "../controls/Select.svelte";
   import TextField from "../controls/TextField.svelte";
@@ -31,6 +31,7 @@
     <!-- A name once set as the node's label shows here too, and moves into the pin's name when edited. -->
     <TextField
       value={s.name || pin.label}
+      maxlength={NAME_LIMIT}
       disabled={!canEdit}
       placeholder={fallback}
       autofocus={app.nameNode === pin.id}

@@ -3,7 +3,7 @@
   import Scissors from "@lucide/svelte/icons/scissors";
   import { app } from "../../lib/state.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
-  import { RESOURCE_VAR, defaultSettings, formatRate, offeredResources, sideLabel } from "../../lib/kinds";
+  import { RESOURCE_VAR, defaultSettings, formatRate, offeredResources, sideLabel, SIDES_LIMIT } from "../../lib/kinds";
   import { sideId } from "../../lib/nameUuid";
   import PinMark from "../controls/PinMark.svelte";
   import AddButton from "../controls/AddButton.svelte";
@@ -168,7 +168,7 @@
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
     <h3 class="panel-title flex items-center gap-1.5"><PinMark /><span class="trim-text">Inputs (left)</span></h3>
-    <AddButton inset label="Add an input" {disabled} onclick={() => ((openIn[inputs.length] = true), onchange({ ...settings, inputs: [...inputs, { resource: primary }] }))} />
+    <AddButton inset label="Add an input" disabled={disabled || inputs.length >= SIDES_LIMIT} onclick={() => ((openIn[inputs.length] = true), onchange({ ...settings, inputs: [...inputs, { resource: primary }] }))} />
   </div>
   {#each inputs as input, i}
     <details class="box" bind:open={() => openIn[i] ?? inputs.length === 1, (v) => (openIn[i] = v)}>
@@ -200,7 +200,7 @@
 <section class="flex flex-col gap-2">
   <div class="flex items-center justify-between">
     <h3 class="panel-title flex items-center gap-1.5"><PinMark solid /><span class="trim-text">Outputs (right)</span></h3>
-    <AddButton inset label="Add an output" {disabled} onclick={() => ((openOut[outputs.length] = true), onchange({ ...settings, outputs: [...outputs, { resource: primary, per_operation: 0 }] }))} />
+    <AddButton inset label="Add an output" disabled={disabled || outputs.length >= SIDES_LIMIT} onclick={() => ((openOut[outputs.length] = true), onchange({ ...settings, outputs: [...outputs, { resource: primary, per_operation: 0 }] }))} />
   </div>
   {#each outputs as output, i}
     <details class="box" bind:open={() => openOut[i] ?? outputs.length === 1, (v) => (openOut[i] = v)}>

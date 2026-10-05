@@ -8,11 +8,12 @@
   import PinMark from "../controls/PinMark.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
   import PinFields from "./PinFields.svelte";
+  import { holderWireRestores } from "../../lib/prune";
 
   /**
    * A sheet's pins, inputs and outputs, in the order its node shows them, each a group like a device's inputs and
    * outputs: its name, what it carries and (signal outputs) what it gives while the sheet is off. Removing one takes
-   * its wires inside along (undo brings both back); wires on the sheet's node stay, and come back to the pin with it.
+   * its wires along, inside and on the sheet's node (every placement's, for a blueprint); undo brings them all back.
    * Adding one here keeps you here: its group opens with its Name box focused (picked on the canvas, a pin has a panel
    * of its own, with the same fields and its activity).
    */
@@ -32,7 +33,11 @@
     const inner = (sheet.wires ?? []).filter((w) => w.from === pin.id || w.to === pin.id);
     edit(
       [{ type: "removeNode", sheet: sheet.id, node: pin.id }],
-      [{ type: "addNode", sheet: sheet.id, node: pin } as Edit, ...inner.map((wire) => ({ type: "connect", sheet: sheet.id, wire }) as Edit)],
+      [
+        { type: "addNode", sheet: sheet.id, node: pin } as Edit,
+        ...inner.map((wire) => ({ type: "connect", sheet: sheet.id, wire }) as Edit),
+        ...holderWireRestores(app.snapshot?.sheets ?? [], sheet, pin),
+      ],
       "remove pin",
     );
   }

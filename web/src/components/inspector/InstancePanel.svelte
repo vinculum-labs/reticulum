@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { NAME_LIMIT } from "../../lib/kinds";
   import Help from "./Help.svelte";
   import { app, deleteInstance, edit, nodeTitle, openSheet, showNode, updateNodeEdit } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
@@ -46,7 +47,7 @@
     {#if canEdit}<button class="btn btn-danger px-2" onclick={() => deleteInstance(sheet, instance)} title="Remove the blueprint from here" aria-label="Remove"><Trash size={16} /></button>{/if}
   {/snippet}
   <Field label="Name" hint="Optional — the blueprint's name is shown otherwise.">
-    <TextField value={instance.label} disabled={!canEdit} placeholder={blueprint.name} oncommit={rename} />
+    <TextField value={instance.label} maxlength={NAME_LIMIT} disabled={!canEdit} placeholder={blueprint.name} oncommit={rename} />
   </Field>
   <p class="text-sm">
     {#if slots.length}

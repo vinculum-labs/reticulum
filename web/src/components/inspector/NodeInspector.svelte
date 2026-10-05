@@ -5,7 +5,7 @@
   import { slotName, slotsOf } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
-  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, gated, sideLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR, isSignal } from "../../lib/kinds";
+  import { KIND_HINT, KIND_LABEL, OP_SYMBOL, gated, sideLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR, isSignal, NAME_LIMIT } from "../../lib/kinds";
   import {
     posKey,
     pinName,
@@ -260,14 +260,14 @@
     </Field>
   {:else if s.kind === "instance"}
     <Field label="Name" hint="Placed, it is numbered (“Smelter #2”) — rename it as you like; cleared, it gets a number again.">
-      <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)} value={node.label} disabled={!canEdit} placeholder={app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Optional"} oncommit={(v) => save({ ...node, label: v || undefined }, "rename instance")} />
+      <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)} value={node.label} maxlength={NAME_LIMIT} disabled={!canEdit} placeholder={app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Optional"} oncommit={(v) => save({ ...node, label: v || undefined }, "rename instance")} />
       {#if sameName}
         <p class="text-xs text-warn" role="status">Another placement of this blueprint is also called “{node.label}” — on the dashboard and in the tree they look alike.</p>
       {/if}
     </Field>
   {:else if s.kind !== "sheet_input" && s.kind !== "sheet_output"}
     <Field label="Name" hint={slot ? "Optional — the kind of block is shown otherwise." : `Optional — “${KIND_LABEL[s.kind]}” is shown otherwise.`}>
-      <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)} value={node.label} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
+      <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)} value={node.label} maxlength={NAME_LIMIT} disabled={!canEdit} placeholder="Optional" oncommit={(v) => save({ ...node, label: v || undefined }, "rename node")} />
     </Field>
   {/if}
 
@@ -326,7 +326,7 @@
         value={s.resource}
         disabled={!canEdit}
         options={Object.entries(RESOURCE_LABEL).filter(([key]) => moves(key as Resource)).map(([key, label]) => ({ value: key as Resource, label, swatch: RESOURCE_VAR[key as Resource] }))}
-        onchange={(resource) => settings({ resource })}
+        onchange={(resource) => settings(resource === "chemical" && s.output === "comparator" ? { resource, output: undefined } : { resource })}
       />
     </Field>
     {#if s.resource !== "energy"}
@@ -441,7 +441,7 @@
     <SequencerGrid
       tracks={s.tracks ?? []}
       steps={s.steps ?? 16}
-      playing={app.signals[node.id] ?? 0}
+      playing={activityId ? (app.signals[activityId] ?? 0) : 0}
       {canEdit}
       onchange={(tracks) => settings({ tracks })}
       onremove={(i) => removeTrack(i)}

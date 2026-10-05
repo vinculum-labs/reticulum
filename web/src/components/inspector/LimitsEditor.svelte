@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GlobalPos, Limit, Resource, Scope } from "../../lib/types";
-  import { RESOURCE_UNIT } from "../../lib/kinds";
+  import { RESOURCE_UNIT, SIDES_LIMIT } from "../../lib/kinds";
   import NumberField from "../controls/NumberField.svelte";
   import RemoveButton from "../controls/RemoveButton.svelte";
   import Select from "../controls/Select.svelte";
@@ -32,7 +32,7 @@
   <!-- The + on the heading's line, as a device's Inputs and Outputs have theirs. -->
   <div class="flex items-center justify-between">
     <legend class="field-label">{keep ? "Keep rules (leave at least)" : "Caps (stop inserting at)"}</legend>
-    <AddButton inset label={keep ? "Add a keep rule" : "Add a cap"} {disabled} onclick={() => onchange([...limits, { scope: "per_type", amount: keep ? 16 : 64, filter: "" }])} />
+    <AddButton inset label={keep ? "Add a keep rule" : "Add a cap"} disabled={disabled || limits.length >= SIDES_LIMIT} onclick={() => onchange([...limits, { scope: "per_type", amount: keep ? 16 : 64, filter: "" }])} />
   </div>
   <!-- Rows have no ids: when one is added or removed (here, or by an undo), the rows start over, so an open picker
        can't apply to the row that moved into its place. -->
