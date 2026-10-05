@@ -131,23 +131,26 @@ public final class Screens {
     }
 
     public static void open(ServerPlayer player, BlockPos pos) {
-        claim(player, pos);
+        // Claimed: not opened this time, so the message saying so (in chat) isn't hidden behind the screen.
+        if (claim(player, pos)) {
+            return;
+        }
         send(player, pos, false);
     }
 
     /**
      * A network with no owner (its controller placed by a machine, a schematic or a Deployer) becomes the player's who
-     * first opens its controller, as if they had placed it.
+     * first opens its controller, as if they had placed it. Returns whether it did.
      */
-    private static void claim(ServerPlayer player, BlockPos pos) {
+    private static boolean claim(ServerPlayer player, BlockPos pos) {
         ServerLevel level = player.serverLevel();
         if (player instanceof net.neoforged.neoforge.common.util.FakePlayer || player.isSpectator()
                 || !(level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity controller)) {
-            return;
+            return false;
         }
         Network network = NetworkManager.network(level.getServer(), controller.networkId());
         if (network == null || network.owner() != null) {
-            return;
+            return false;
         }
         network.setOwner(player.getUUID(), player.getGameProfile().getName());
         NetworkManager.changed(level.getServer(), network);
@@ -155,6 +158,7 @@ public final class Screens {
         boolean open = network.accessMode() == io.github.leadassimilator.reticulum.security.AccessMode.PUBLIC;
         player.displayClientMessage(net.minecraft.network.chat.Component.translatable(open ? "message.reticulum.network_claimed_public"
                 : "message.reticulum.network_claimed", network.name()), false);
+        return true;
     }
 
     /** New contents for a screen after a change made in it; the client ignores it if the screen was closed meanwhile. */
