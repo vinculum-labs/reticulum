@@ -6,7 +6,7 @@ export type { MeUsage };
 import { GATE, pinName, pinSlot, posKey, sheetPins } from "./types";
 import type { Layer, LayerMode } from "./state.svelte";
 import { RESOURCE_VAR, formatRate, isSignal } from "./kinds";
-import { slotName } from "./blueprints";
+import { inInstance, slotName } from "./blueprints";
 
 /** How the layers are set. */
 export interface LayerView {
@@ -65,6 +65,25 @@ const FRAME_TOP = CARD_HEADER + FRAME_PAD;
 const SHEET_TOP = 28 + FRAME_PAD;
 /** A card's size before Svelte Flow has measured it. */
 const GUESS = { width: 160, height: 60 };
+
+/**
+ * Where a signal wire's value is: a signal node's first output under its id, its others (a Sequencer's tracks) under
+ * "<node>/out/<n>"; a sheet pin under its own id; a sheet or placed blueprint's output under the pin inside it (a
+ * placed blueprint's by the instance's name for it); a device's redstone pin under "<node>/out/<n>".
+ */
+function signalKey(from: GraphNode | undefined, w: Wire, sheets: Sheet[]): string {
+  const output = w.output ?? 0;
+  if (!from) return w.from;
+  const s = from.settings;
+  if (isSignal(s.kind)) return output > 0 ? `${w.from}/out/${output}` : w.from;
+  if (isPin(from)) return w.from;
+  if (s.kind === "sheet" || s.kind === "instance") {
+    const inner = sheets.find((x) => x.id === s.sheet);
+    const pin = inner ? sheetPins(inner, false).find((p, i) => pinSlot(p, i) === output) : undefined;
+    if (pin) return s.kind === "instance" ? inInstance(w.from, pin.id) : pin.id;
+  }
+  return `${w.from}/out/${output}`;
+}
 
 export function isPin(node: GraphNode): boolean {
   return node.settings.kind === "sheet_input" || node.settings.kind === "sheet_output";
@@ -286,7 +305,9 @@ export function pinCarries(sheet: Sheet, pin: GraphNode, sheets: Sheet[] = [], s
     for (const id of frontier) {
       for (const w of sheet.wires ?? []) {
         if (input ? w.from !== id : w.to !== id) continue;
-        if (input && (w.input ?? 0) === GATE) return "redstone";
+        if (input && id === pin.id && (w.input ?? 0) === GATE) return "redstone";
+        // A gate wire into a filter (or the like) on the way switches it; it isn't what flows through.
+        if ((w.input ?? 0) === GATE && id !== pin.id) continue;
         const other = byId.get(input ? w.to : w.from);
         if (!other) continue;
         if (isSignal(other.settings.kind)) return "redstone";
@@ -498,10 +519,13 @@ function markSlots(nodes: Node<NodeData>[], bindings: Record<string, Binding> | 
     const binding = bindings?.[n.id];
     n.data.slot = { block: s.block, filled: bindings ? !!binding : undefined, turns: binding?.turns };
     n.data.device = binding ? byKey.get(posKey(binding.device)) : undefined;
-    // What moved through the blueprint's own nodes means nothing: it never runs.
-    n.data.rate = 0;
-    n.data.fiveMinutes = 0;
-    n.data.status = undefined;
+    // What moved through the blueprint's own nodes means nothing: it never runs. In an open instance, the activity
+    // shown is the instance's (moved onto these ids), so it stays.
+    if (!bindings) {
+      n.data.rate = 0;
+      n.data.fiveMinutes = 0;
+      n.data.status = undefined;
+    }
     if (bindings && !binding) n.data.problem = "No block fills this slot yet: drop a device from the list on it";
   }
 }
@@ -593,7 +617,8 @@ function sheetFlow(
         fiveMinutes: activity.fiveMinutes[n.id] ?? 0,
         status: activity.status[n.id],
         holder,
-        signal: isSignal(s.kind) ? (activity.signals[n.id] ?? 0) : undefined,
+        // A sheet pin carrying redstone shows its value too (it is worked out under its own id).
+        signal: isSignal(s.kind) || (isPin(n) && pinCarries(sheet, n, sheets) === "redstone") ? (activity.signals[n.id] ?? 0) : undefined,
         gateWired: (sheet.wires ?? []).some((w) => w.to === n.id && (w.input ?? 0) === GATE) || undefined,
         wiredInputs: isSignal(s.kind) ? (sheet.wires ?? []).filter((w) => w.to === n.id && (w.input ?? 0) !== GATE).map((w) => w.input ?? 0) : undefined,
         // A sheet node also shows what is wrong inside its sheet (open it to see).
@@ -615,7 +640,7 @@ function sheetFlow(
     // An untyped sheet pin's wires take what it carries from what else it is wired to.
     const pin = carriedAt(sheet, fromNode, "out", w.output ?? 0, sheets);
     const signal = isSignal(fromNode?.settings.kind) || pin === "redstone";
-    const on = signal && (activity.signals[isSignal(fromNode?.settings.kind) ? w.from : `${w.from}/out/${w.output ?? 0}`] ?? 0) > 0;
+    const on = signal && (activity.signals[signalKey(fromNode, w, sheets)] ?? 0) > 0;
     const color = signal ? "var(--c-signal)" : pin === "me" ? "var(--c-me)" : resource ? RESOURCE_VAR[resource] : "var(--muted)";
     // Its layer. Hidden means hidden (wires coming and going with the selection looked like missing ones); only while
     // a new wire is drawn do hidden wires show faint (by their class).

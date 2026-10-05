@@ -294,7 +294,8 @@ export function formatAmount(value: number, resource: Resource | null): string {
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}G ${unit}`;
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M ${unit}`;
   if (value >= 10_000) return `${(value / 1000).toFixed(1)}k ${unit}`;
-  const shown = Number.isInteger(value) ? String(value) : value >= 10 ? value.toFixed(1) : String(Number(value.toFixed(2)));
+  // Something moving, however slowly, never reads as 0 (one item every 20 s is 0.0025/t).
+  const shown = Number.isInteger(value) ? String(value) : value >= 10 ? value.toFixed(1) : value < 0.01 && value > 0 ? "<0.01" : String(Number(value.toFixed(2)));
   return `${shown} ${unit}`.trim();
 }
 

@@ -327,6 +327,13 @@ public final class CompiledSheet {
         return pinKeys;
     }
 
+    /** A signal node's outputs past its first (a Sequencer's tracks) as the editor names them: "<node>/out/<n>". */
+    private final Map<UUID, String> outputNames = new LinkedHashMap<>();
+
+    public Map<UUID, String> outputNames() {
+        return outputNames;
+    }
+
     /**
      * Turns device nodes' redstone and ME pins into the nodes the engine works with (a redstone output reads the
      * device, a redstone input powers it, an ME pin is the connector side touching that face) and moves their wires
@@ -559,6 +566,9 @@ public final class CompiledSheet {
             }
             UUID key = outputKey(wire.from(), wire.output());
             keyOwners.put(key, wire.from());
+            if (wire.output() > 0) {
+                outputNames.put(key, wire.from() + "/out/" + wire.output());
+            }
             if (wire.input() == Wire.GATE) {
                 switchedBy.computeIfAbsent(wire.to(), k -> new ArrayList<>()).add(key);
             } else if (carriers.contains(wire.to())) {

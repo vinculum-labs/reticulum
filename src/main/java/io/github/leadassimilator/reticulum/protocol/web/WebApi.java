@@ -1342,6 +1342,7 @@ public final class WebApi {
         CompiledSheet compiled = runtime.compiledIfPresent();
         if (compiled != null) {
             pins.putAll(compiled.pinKeys());
+            pins.putAll(compiled.outputNames());
         }
         runtime.signalValues().forEach((id, value) -> signals.addProperty(pins.getOrDefault(id, id.toString()), value));
         out.add("signals", signals);
