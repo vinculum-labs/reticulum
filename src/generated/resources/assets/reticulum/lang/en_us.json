@@ -73,6 +73,8 @@
   "message.reticulum.beacon_dye_nothing": "Nothing is showing — a dye recolors what the beacon shows now",
   "message.reticulum.bound": "Bound to %s",
   "message.reticulum.connected": "Connected",
+  "message.reticulum.connector_and_device": "the connector and its device",
+  "message.reticulum.connector_and_devices": "the connector and its %s devices",
   "message.reticulum.controller_exists": "%s already has a controller — this one starts a new network",
   "message.reticulum.controller_reconnected": "Took over %s, which had lost its controller",
   "message.reticulum.device_attached": "Device attached",

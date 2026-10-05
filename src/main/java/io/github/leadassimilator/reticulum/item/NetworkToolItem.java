@@ -135,26 +135,77 @@ public class NetworkToolItem extends Item {
         return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
     }
 
-    /** Identify mode: a connector lights up itself; any other block lights up as a device (sneak: just the clicked face). */
+    /**
+     * Identify mode: a connector lights up with every device it reaches (its plug aimed at: that device); any other block
+     * lights up as a device (sneak: just the clicked face). A cable is never a device: clicking one does nothing.
+     */
     private static void identify(ServerLevel level, ServerPlayer player, BlockPos pos, Direction face) {
+        if (level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.CableBlockEntity) {
+            return;
+        }
+        if (Topology.blockEntity(level, pos) instanceof ConnectorBlockEntity connector) {
+            // A plug aimed at: the device it reaches (sneaking, just the face touching it). Anywhere else on the
+            // connector: the connector and every device it reaches.
+            Direction plug = plugAimedAt(level, player, pos);
+            if (plug != null) {
+                if (player.isShiftKeyDown()) {
+                    toggleFace(level, player, pos.relative(plug), plug.getOpposite(), false);
+                } else {
+                    toggleDevice(level, player, pos.relative(plug));
+                }
+                return;
+            }
+            identifyConnector(level, player, pos, connector);
+            return;
+        }
         if (player.isShiftKeyDown()) {
             identifyFace(level, player, pos, face);
             return;
         }
-        if (Topology.blockEntity(level, pos) instanceof ConnectorBlockEntity connector) {
-            Network network = Access.require(player, Topology.network(level, pos), Role.USER);
-            if (network == null) {
-                return;
-            }
-            boolean on = Identifies.toggle(level.getServer(), network, Identify.connector(connector.connectorId(), 0));
-            player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified",
-                    Component.translatable("screen.reticulum.connector")), true);
+        toggleDevice(level, player, pos);
+    }
+
+    /** The side of a connector whose plug the player aims at, when a device of a network they may use is there. */
+    @javax.annotation.Nullable
+    private static Direction plugAimedAt(ServerLevel level, ServerPlayer player, BlockPos pos) {
+        Vec3 from = player.getEyePosition(1.0f);
+        Vec3 to = from.add(player.getViewVector(1.0f).scale(player.blockInteractionRange() + 1));
+        Direction side = Topology.armHit(pos, true, from, to);
+        if (side == null || !(level.getBlockState(pos).getBlock() instanceof ConnectorBlock block)
+                || level.getBlockState(pos).getValue(block.linkProperties().get(side)) != io.github.leadassimilator.reticulum.block.Link.DEVICE) {
+            return null;
+        }
+        return deviceNetwork(level, player, Devices.global(level, pos.relative(side))) != null ? side : null;
+    }
+
+    /** A connector and every device it reaches, lit up together (or all stopped, when the connector was lit). */
+    private static void identifyConnector(ServerLevel level, ServerPlayer player, BlockPos pos, ConnectorBlockEntity connector) {
+        Network network = Access.require(player, Topology.network(level, pos), Role.USER);
+        if (network == null) {
             return;
         }
+        Identify self = Identify.connector(connector.connectorId(), 0);
+        boolean on = !Identifies.isOn(network, self);
+        Identifies.set(level.getServer(), network, self, on);
+        var record = network.connector(connector.connectorId());
+        int devices = 0;
+        for (GlobalPos device : record == null ? List.<GlobalPos>of() : List.copyOf(record.devices())) {
+            if (Identifies.set(level.getServer(), network, Identifies.deviceOrFace(device, null), on) == on) {
+                devices++;
+            }
+        }
+        Component what = devices == 0 ? Component.translatable("screen.reticulum.connector")
+                : devices == 1 ? Component.translatable("message.reticulum.connector_and_device")
+                : Component.translatable("message.reticulum.connector_and_devices", devices);
+        player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", what), true);
+    }
+
+    /** A device lit up whole (or stopped). */
+    private static void toggleDevice(ServerLevel level, ServerPlayer player, BlockPos pos) {
         GlobalPos device = Devices.global(level, pos);
         Network found = deviceNetwork(level, player, device);
         if (found == null) {
-            player.displayClientMessage(Component.translatable("message.reticulum.not_a_device_of_yours"), true);
+            notADevice(level, player, pos);
             return;
         }
         Identify target = Identifies.deviceOrFace(device, null);
@@ -170,17 +221,6 @@ public class NetworkToolItem extends Item {
      * side of the surface is the one turned off.
      */
     private static void identifyFace(ServerLevel level, ServerPlayer player, BlockPos pos, Direction face) {
-        if (Topology.blockEntity(level, pos) instanceof ConnectorBlockEntity) {
-            // The side aimed at (a plug reaching a device): that device's face touching it.
-            Direction side = targetSide(player, level.getBlockState(pos), pos, face, 1.0f);
-            BlockPos device = pos.relative(side);
-            if (deviceNetwork(level, player, Devices.global(level, device)) != null) {
-                toggleFace(level, player, device, side.getOpposite(), false);
-            } else {
-                player.displayClientMessage(Component.translatable("message.reticulum.not_a_device_of_yours"), true);
-            }
-            return;
-        }
         // The face on the other side of the surface, if it is the one lit.
         BlockPos other = pos.relative(face);
         Network otherNetwork = deviceNetwork(level, player, Devices.global(level, other));
@@ -202,13 +242,20 @@ public class NetworkToolItem extends Item {
         GlobalPos device = Devices.global(level, pos);
         Network network = deviceNetwork(level, player, device);
         if (network == null) {
-            player.displayClientMessage(Component.translatable("message.reticulum.not_a_device_of_yours"), true);
+            notADevice(level, player, pos);
             return;
         }
         Identify target = Identifies.deviceOrFace(device, face);
         boolean on = offOnly ? Identifies.set(level.getServer(), network, target, false) : Identifies.toggle(level.getServer(), network, target);
         String name = Identifies.label(level.getServer(), network, target);
         player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", name), true);
+    }
+
+    /** Says the block isn't a device of a network the player may use; a block of the mod itself needs no saying. */
+    private static void notADevice(ServerLevel level, ServerPlayer player, BlockPos pos) {
+        if (Topology.blockEntity(level, pos) == null) {
+            player.displayClientMessage(Component.translatable("message.reticulum.not_a_device_of_yours"), true);
+        }
     }
 
     /** The first network the player may use that has this device. */

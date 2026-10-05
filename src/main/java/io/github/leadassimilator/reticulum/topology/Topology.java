@@ -1059,6 +1059,22 @@ public final class Topology {
         return best;
     }
 
+    /** The arm (or plug) of a cable or connector a look hits before its core, or null when it hits the core (or misses). */
+    @Nullable
+    public static Direction armHit(BlockPos pos, boolean connector, Vec3 from, Vec3 to) {
+        Direction best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Direction dir : Direction.values()) {
+            Optional<Vec3> point = jointBox(dir, connector).move(pos).clip(from, to);
+            if (point.isPresent() && from.distanceToSqr(point.get()) < bestDistance) {
+                bestDistance = from.distanceToSqr(point.get());
+                best = dir;
+            }
+        }
+        BlockHitResult core = AABB.clip(List.of(coreBox(connector)), from, to, pos);
+        return core != null && from.distanceToSqr(core.getLocation()) < bestDistance ? null : best;
+    }
+
     private static double distanceSqr(AABB box, Vec3 p) {
         double dx = Math.max(Math.max(box.minX - p.x, 0), p.x - box.maxX);
         double dy = Math.max(Math.max(box.minY - p.y, 0), p.y - box.maxY);
