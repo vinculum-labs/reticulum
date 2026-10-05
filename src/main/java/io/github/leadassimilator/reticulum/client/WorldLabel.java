@@ -19,6 +19,8 @@ import net.minecraft.world.phys.Vec3;
 public final class WorldLabel {
     /** Lines wrap at this width (in the font's pixels). */
     public static final int WRAP = 180;
+    /** The dark box behind the text. */
+    private static final int BACKGROUND = 0x60000000;
 
     private WorldLabel() {
     }
@@ -41,8 +43,17 @@ public final class WorldLabel {
         for (int i = 0; i < lines.size(); i++) {
             FormattedCharSequence line = lines.get(i);
             float y = (i - (lines.size() - 1)) * lineHeight;
-            font.drawInBatch(line, -font.width(line) / 2f, y, 0xFF000000 | color, false, matrix, buffers,
-                    throughWalls ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL, 0x60000000, LightTexture.FULL_BRIGHT);
+            float x = -font.width(line) / 2f;
+            if (throughWalls) {
+                font.drawInBatch(line, x, y, 0xFF000000 | color, false, matrix, buffers, Font.DisplayMode.SEE_THROUGH, BACKGROUND, LightTexture.FULL_BRIGHT);
+            } else {
+                // The background sits a hair behind the letters, closer than the depth buffer tells apart once the label
+                // is scaled up with distance: the two fought, and letters vanished in bands that swept as you moved.
+                // So the background goes on its own (its letters all but invisible), then the letters, drawn the way
+                // signs draw theirs: pulled towards the camera in depth.
+                font.drawInBatch(line, x, y, 0x04000000, false, matrix, buffers, Font.DisplayMode.NORMAL, BACKGROUND, LightTexture.FULL_BRIGHT);
+                font.drawInBatch(line, x, y, 0xFF000000 | color, false, matrix, buffers, Font.DisplayMode.POLYGON_OFFSET, 0, LightTexture.FULL_BRIGHT);
+            }
         }
         pose.popPose();
     }
