@@ -456,6 +456,11 @@ public final class CompiledSheet {
     private final List<SignalNode> signals = new ArrayList<>();
     /** Nodes with a signal wire into their gate, and the nodes wired into it. */
     private final Map<UUID, List<UUID>> switchedBy = new LinkedHashMap<>();
+    /**
+     * Signal nodes left out because they can't run (switched off, or a Level sensor whose slot has no block): their
+     * wires still count, carrying 0, so what they gate is off and what they feed sees 0 rather than nothing wired.
+     */
+    private final Set<UUID> silent = new HashSet<>();
     /** Nodes (by compiled id, including instance nodes) whose gate runs them once per pulse. */
     private final Set<UUID> pulseGates = new java.util.HashSet<>();
 
@@ -516,7 +521,9 @@ public final class CompiledSheet {
         }
         if (carriers.isEmpty()) {
             for (Wire wire : wires) {
-                if (wire.input() == Wire.GATE) {
+                if (wire.input() == Wire.GATE && silent.contains(wire.from())) {
+                    switchedBy.computeIfAbsent(wire.to(), k -> new ArrayList<>()).add(outputKey(wire.from(), wire.output()));
+                } else if (wire.input() == Wire.GATE) {
                     error(byId.get(wire.to()), "Only signal wires can switch a node on and off");
                 }
             }
@@ -526,6 +533,20 @@ public final class CompiledSheet {
         // Output keys (see outputKey) back to their nodes.
         Map<UUID, UUID> keyOwners = new java.util.HashMap<>();
         for (Wire wire : wires) {
+            if (silent.contains(wire.from())) {
+                // Never worked out, so it reads 0; not in keyOwners, so nothing waits on it.
+                UUID key = outputKey(wire.from(), wire.output());
+                if (wire.input() == Wire.GATE) {
+                    switchedBy.computeIfAbsent(wire.to(), k -> new ArrayList<>()).add(key);
+                } else if (carriers.contains(wire.to())) {
+                    List<List<UUID>> in = inputs.computeIfAbsent(wire.to(), k -> new ArrayList<>());
+                    while (in.size() <= wire.input()) {
+                        in.add(new ArrayList<>());
+                    }
+                    in.get(wire.input()).add(key);
+                }
+                continue;
+            }
             if (!carriers.contains(wire.from())) {
                 if (wire.input() == Wire.GATE) {
                     error(byId.get(wire.to()), "Only signal wires can switch a node on and off");
@@ -564,7 +585,8 @@ public final class CompiledSheet {
             for (List<UUID> from : in) {
                 for (UUID source : from) {
                     UUID owner = keyOwners.getOrDefault(source, source);
-                    if (!remembers(byId.get(owner).kind())) {
+                    Node feeder = byId.get(owner);
+                    if (feeder != null && !remembers(feeder.kind())) {
                         count++;
                         feeds.computeIfAbsent(owner, k -> new ArrayList<>()).add(id);
                     }
@@ -742,6 +764,9 @@ public final class CompiledSheet {
             boolean holds = child || node.settings() instanceof NodeSettings.InstanceSettings;
             // A switched-off sheet or instance still compiles (marked off), so its signal outputs can hold while it is off.
             if (!node.enabled() && !holds) {
+                if (node.kind().signal()) {
+                    silent.add(node.id());
+                }
                 continue;
             }
             if (!node.enabled()) {
@@ -794,6 +819,9 @@ public final class CompiledSheet {
                                 ? ": a Level sensor in it reads a slot the blueprint no longer has"
                                 : ": its slot " + io.github.leadassimilator.reticulum.graph.Blueprints.slotName(slot)
                                         + " has no block yet (open it and drop a device on it)"));
+                        if (inner.kind().signal()) {
+                            silent.add(pasted.id());
+                        }
                         continue;
                     }
                     pasted = pasted.with(bound);

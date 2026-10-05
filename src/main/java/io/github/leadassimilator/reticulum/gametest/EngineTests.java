@@ -362,6 +362,27 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /**
+     * A switched-off node gives 0 to what it is wired into, not nothing: a Constant whose "on" input it feeds stays off
+     * (unwired, it would give its value).
+     */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void aSwitchedOffFeederGivesZero(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+        Node toggle = rig.node(new NodeSettings.SwitchSettings(15, false, java.util.Optional.empty()));
+        Node constant = rig.node(new NodeSettings.ConstantSettings(15));
+        rig.signal(toggle, constant, 0);
+        rig.signal(constant, rig.redstoneTo(rig.device(0)), 0);
+        rig.network().signalMemory().put(toggle.id().toString(), 15L);
+        rig.sheet().replace(rig.sheet().node(toggle.id()).withEnabled(false));
+        BlockPos lamp = rig.devices().get(0);
+        helper.startSequence()
+                .thenExecuteAfter(10, () -> check(helper, !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "lit with its switch switched off"))
+                .thenExecute(() -> rig.sheet().replace(rig.sheet().node(toggle.id()).withEnabled(true)))
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "the switch back on didn't light the lamp"))
+                .thenSucceed();
+    }
+
     /** A connector cut off from its controller (no antenna) stops giving redstone: its lamp goes dark. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void aCutOffConnectorGivesNoRedstone(GameTestHelper helper) {
