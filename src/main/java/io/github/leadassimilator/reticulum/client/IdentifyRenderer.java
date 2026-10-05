@@ -136,8 +136,10 @@ public final class IdentifyRenderer {
         }
         boolean throughWalls = ReticulumClientConfig.IDENTIFY_THROUGH_WALLS.getAsBoolean();
         int beamDistance = ReticulumClientConfig.IDENTIFY_BEAM_DISTANCE.getAsInt();
-        RenderType lines = throughWalls ? LINES_THROUGH_WALLS : RenderType.lines();
-        RenderType quads = throughWalls ? QUADS_THROUGH_WALLS : RenderType.debugQuads();
+        // Not through walls: hidden by them, but writing no depth, so the column of light (which runs through the
+        // label) and the boxes never hide a label's letters.
+        RenderType lines = throughWalls ? LINES_THROUGH_WALLS : LINES_BEHIND_WALLS;
+        RenderType quads = throughWalls ? QUADS_THROUGH_WALLS : QUADS_BEHIND_WALLS;
         Vec3 camera = event.getCamera().getPosition();
         PoseStack pose = event.getPoseStack();
         pose.pushPose();

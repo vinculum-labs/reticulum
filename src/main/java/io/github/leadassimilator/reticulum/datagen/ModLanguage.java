@@ -59,6 +59,9 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.beacon_label_hint_network", "Its text (blank: the alarms' messages)");
         add("screen.reticulum.beacon_label_hint_redstone", "Its text, shown above the beacon");
         add("screen.reticulum.beacon_color", "Color");
+        add("screen.reticulum.beacon_text_color", "Text color");
+        add("screen.reticulum.beacon_text_color_auto", "Auto");
+        add("screen.reticulum.beacon_text_color_hint", "The text's color, as #RRGGBB. Blank: the beacon's color for its text, the alarm's color (amber or red) for alarms.");
         add("screen.reticulum.beacon_pitch", "Pitch");
         add("screen.reticulum.beacon_pitch2", "2nd pitch");
         add("screen.reticulum.beacon_interval", "Every (ticks)");

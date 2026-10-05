@@ -42,6 +42,7 @@ public class StatusBeaconScreen extends QuickScreen {
     private int colorTop;
     private EditBox hex;
     private EditBox label;
+    private EditBox textColor;
     private EditBox pitch;
     private EditBox pitch2;
     private EditBox interval;
@@ -194,12 +195,20 @@ public class StatusBeaconScreen extends QuickScreen {
             y += 18;
         }
         y += 2;
-        label = kept("label", new SeeThroughTextBox(font, left, y, WIDTH, 14, Component.translatable("screen.reticulum.beacon_label")));
+        // The text, and beside it its color (blank: automatic).
+        label = kept("label", new SeeThroughTextBox(font, left, y, WIDTH - 56, 14, Component.translatable("screen.reticulum.beacon_label")));
         label.setMaxLength(BeaconLook.LABEL_LIMIT);
         label.setValue(current.label());
         label.setHint(Component.translatable(redstone() ? "screen.reticulum.beacon_label_hint_redstone" : "screen.reticulum.beacon_label_hint_network"));
         label.setEditable(view.canEdit());
         addRenderableWidget(label);
+        textColor = kept("text_color", new SeeThroughTextBox(font, left + WIDTH - 52, y, 52, 14, Component.translatable("screen.reticulum.beacon_text_color")));
+        textColor.setMaxLength(7);
+        textColor.setValue(current.textColor() == BeaconLook.AUTO ? "" : String.format(Locale.ROOT, "#%06X", current.textColor()));
+        textColor.setHint(Component.translatable("screen.reticulum.beacon_text_color_auto").withStyle(s -> s.withColor(0x808080)));
+        textColor.setTooltip(Tooltip.create(Component.translatable("screen.reticulum.beacon_text_color_hint")));
+        textColor.setEditable(view.canEdit());
+        addRenderableWidget(textColor);
         y += 18;
         String chosen = current.sound().toString();
         EditBox searchBox = kept("search", SoundSearch.box(font, left, y, WIDTH - 22));
@@ -290,6 +299,16 @@ public class StatusBeaconScreen extends QuickScreen {
             changed |= color != look.getInt("color");
             look.putInt("color", color);
         } catch (NumberFormatException ignored) {
+        }
+        if (textColor != null) {
+            String text = textColor.getValue().replace("#", "").trim();
+            try {
+                int color = text.isEmpty() ? BeaconLook.AUTO : Integer.parseInt(text, 16) & 0xFFFFFF;
+                int before = look.contains("text_color") ? look.getInt("text_color") : BeaconLook.AUTO;
+                changed |= color != before;
+                look.putInt("text_color", color);
+            } catch (NumberFormatException ignored) {
+            }
         }
         try {
             float value = Float.parseFloat(pitch.getValue().trim());

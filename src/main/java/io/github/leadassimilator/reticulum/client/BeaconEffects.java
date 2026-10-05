@@ -127,6 +127,9 @@ public final class BeaconEffects {
                 } else {
                     continue;
                 }
+                if (look.textColor() != BeaconLook.AUTO) {
+                    color = look.textColor();
+                }
                 // Brought in front of the beam (toward the camera): drawn with walls hiding it, the beam's core, which
                 // runs through the label's middle, would hide it too.
                 Vec3 at = Vec3.atCenterOf(beacon.getBlockPos()).add(0, 0.9, 0);
