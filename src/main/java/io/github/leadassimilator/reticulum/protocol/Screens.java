@@ -69,6 +69,10 @@ public final class Screens {
      * device of (any player, on none).
      */
     public static void openBeacon(ServerPlayer player, BlockPos pos) {
+        openBeacon(player, pos, false);
+    }
+
+    private static void openBeacon(ServerPlayer player, BlockPos pos, boolean refresh) {
         if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, pos)
                 || !(player.serverLevel().getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
             return;
@@ -86,7 +90,7 @@ public final class Screens {
         }
         boolean canEdit = network == null || io.github.leadassimilator.reticulum.security.Security.canUse(network, player);
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new Payloads.OpenBeaconScreen(pos, beaconStatus(player, beacon, watch),
-                beacon.settings(), player.serverLevel().getBestNeighborSignal(pos), alarms, canEdit));
+                beacon.settings(), player.serverLevel().getBestNeighborSignal(pos), alarms, canEdit, refresh));
     }
 
     /** One line on what a beacon shows: the network it watches and whether it reaches it, or the signal it gets. */
@@ -126,8 +130,9 @@ public final class Screens {
             return;
         }
         beacon.applySettings(payload.settings());
-        // Sent back as kept (within the server's limits), and a new mode shows something else.
-        openBeacon(player, payload.pos());
+        // Sent back as kept (within the server's limits), and a new mode shows something else. Only to a screen still
+        // open: closing it sends what was typed, and the answer mustn't open it again.
+        openBeacon(player, payload.pos(), true);
     }
 
     public static void open(ServerPlayer player, BlockPos pos) {

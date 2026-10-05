@@ -55,6 +55,7 @@ public final class AlarmClient {
     public static void clear() {
         states = Map.of();
         markers = List.of();
+        markersLevel = null;
     }
 
     /** How many networks have a warning (index 0) or a critical alarm (1) going off, of the player's own. */

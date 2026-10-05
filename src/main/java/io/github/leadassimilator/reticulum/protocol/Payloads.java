@@ -297,17 +297,23 @@ public final class Payloads {
      * Opens (or refreshes) a Status Beacon's screen: a line on what it shows (its network and reach, or the signal), its
      * settings (mode and looks), the signal it gets now, what is going off, and whether the player may change it.
      */
+    /** {@code refresh}: new contents after a change made in the screen, ignored by the client once it is closed. */
     public record OpenBeaconScreen(BlockPos pos, net.minecraft.network.chat.Component status, net.minecraft.nbt.CompoundTag settings, int signal,
-            java.util.List<String> alarms, boolean canEdit) implements CustomPacketPayload {
+            java.util.List<String> alarms, boolean canEdit, boolean refresh) implements CustomPacketPayload {
         public static final Type<OpenBeaconScreen> TYPE = payloadType("open_beacon_screen");
-        public static final StreamCodec<RegistryFriendlyByteBuf, OpenBeaconScreen> STREAM_CODEC = StreamCodec.composite(
-                BlockPos.STREAM_CODEC, OpenBeaconScreen::pos,
-                net.minecraft.network.chat.ComponentSerialization.STREAM_CODEC, OpenBeaconScreen::status,
-                ByteBufCodecs.COMPOUND_TAG, OpenBeaconScreen::settings,
-                ByteBufCodecs.VAR_INT, OpenBeaconScreen::signal,
-                ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(64)), OpenBeaconScreen::alarms,
-                ByteBufCodecs.BOOL, OpenBeaconScreen::canEdit,
-                OpenBeaconScreen::new);
+        private static final StreamCodec<io.netty.buffer.ByteBuf, java.util.List<String>> ALARMS = ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(64));
+        public static final StreamCodec<RegistryFriendlyByteBuf, OpenBeaconScreen> STREAM_CODEC = StreamCodec.of(
+                (buf, p) -> {
+                    BlockPos.STREAM_CODEC.encode(buf, p.pos());
+                    net.minecraft.network.chat.ComponentSerialization.STREAM_CODEC.encode(buf, p.status());
+                    ByteBufCodecs.COMPOUND_TAG.encode(buf, p.settings());
+                    ByteBufCodecs.VAR_INT.encode(buf, p.signal());
+                    ALARMS.encode(buf, p.alarms());
+                    buf.writeBoolean(p.canEdit());
+                    buf.writeBoolean(p.refresh());
+                },
+                buf -> new OpenBeaconScreen(BlockPos.STREAM_CODEC.decode(buf), net.minecraft.network.chat.ComponentSerialization.STREAM_CODEC.decode(buf),
+                        ByteBufCodecs.COMPOUND_TAG.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), ALARMS.decode(buf), buf.readBoolean(), buf.readBoolean()));
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

@@ -113,9 +113,13 @@ final class WebKitGtkHost {
         return Platform.isLinux() && state != State.FAILED;
     }
 
+    /** Ready with the editor in it: after close() it holds a blank page, so the next open loads the editor again. */
     static boolean ready() {
-        return state == State.READY;
+        return state == State.READY && !closed;
     }
+
+    /** Closed (left the world) and not given a page since. */
+    private static volatile boolean closed;
 
     /** The page has loaded and a frame of it is there to draw. */
     static boolean shown() {
@@ -124,6 +128,9 @@ final class WebKitGtkHost {
 
     static void show(@Nullable String url, int x, int y, int w, int h) {
         visible = true;
+        if (url != null) {
+            closed = false;
+        }
         width = Math.max(1, w);
         height = Math.max(1, h);
         int newWidth = width;
@@ -155,6 +162,7 @@ final class WebKitGtkHost {
     static void close() {
         visible = false;
         loaded = false;
+        closed = true;
         if (state == State.READY || state == State.CREATING) {
             post(() -> {
                 if (view != null) {
