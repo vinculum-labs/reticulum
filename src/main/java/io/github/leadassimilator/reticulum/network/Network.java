@@ -468,6 +468,9 @@ public final class Network {
         return changed;
     }
 
+    /** The placed blueprints there were when names were last worked out: not saved (all are new after a load). */
+    private java.util.Set<UUID> knownPlacements = java.util.Set.of();
+
     /** A placed blueprint's numbered name: "Smelter #2". */
     private static final java.util.regex.Pattern NUMBERED = java.util.regex.Pattern.compile(".* #([0-9]{1,6})$");
 
@@ -479,13 +482,16 @@ public final class Network {
      */
     private boolean nameInstances() {
         Map<UUID, java.util.Set<Integer>> taken = new java.util.HashMap<>();
-        Map<UUID, java.util.Set<String>> numberedNames = new java.util.HashMap<>();
+        // Placements of each blueprint by numbered name: where two share one, the one placed here longest keeps it.
+        Map<UUID, Map<String, List<Placement>>> numberedNames = new java.util.HashMap<>();
         List<Placement> unnamed = new ArrayList<>();
+        java.util.Set<UUID> placements = new java.util.HashSet<>();
         for (Sheet sheet : sheets) {
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
                 if (!(node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance)) {
                     continue;
                 }
+                placements.add(node.id());
                 String label = node.label().map(String::strip).orElse("");
                 if (label.isEmpty()) {
                     unnamed.add(new Placement(sheet, node));
@@ -493,14 +499,23 @@ public final class Network {
                 }
                 java.util.regex.Matcher numbered = NUMBERED.matcher(label);
                 if (numbered.matches()) {
-                    if (!numberedNames.computeIfAbsent(instance.sheet(), k -> new java.util.HashSet<>()).add(label)) {
-                        unnamed.add(new Placement(sheet, node));
-                        continue;
-                    }
+                    numberedNames.computeIfAbsent(instance.sheet(), k -> new java.util.HashMap<>())
+                            .computeIfAbsent(label, k -> new ArrayList<>()).add(new Placement(sheet, node));
                     taken.computeIfAbsent(instance.sheet(), k -> new java.util.HashSet<>()).add(Integer.parseInt(numbered.group(1)));
                 }
             }
         }
+        for (Map<String, List<Placement>> names : numberedNames.values()) {
+            for (List<Placement> sharing : names.values()) {
+                if (sharing.size() < 2) {
+                    continue;
+                }
+                // The one that was here before (not the one an undo or paste just brought) keeps the name.
+                Placement keeps = sharing.stream().filter(p -> knownPlacements.contains(p.node().id())).findFirst().orElse(sharing.get(0));
+                sharing.stream().filter(p -> p != keeps).forEach(unnamed::add);
+            }
+        }
+        knownPlacements = placements;
         for (Placement placement : unnamed) {
             UUID blueprint = ((io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings) placement.node().settings()).sheet();
             java.util.Set<Integer> used = taken.computeIfAbsent(blueprint, k -> new java.util.HashSet<>());

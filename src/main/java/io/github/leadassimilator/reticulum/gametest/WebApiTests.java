@@ -189,6 +189,19 @@ public final class WebApiTests {
         if (!nameOf.apply(c).equals("bp #1") || !nameOf.apply(b).equals("bp #2")) {
             helper.fail("After removing #1: " + nameOf.apply(c) + ", " + nameOf.apply(b));
         }
+        // One on a sheet inside keeps its number when one with the same name comes back on the root (an undo): the
+        // newcomer is numbered again, whatever order the sheets are in.
+        String inner = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"inner\"}]}")
+                .getAsJsonArray("results").get(0).getAsString();
+        String e = UUID.randomUUID().toString();
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"addNode\",\"sheet\":\"" + inner
+                + "\",\"node\":{\"id\":\"" + e + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + blueprint + "\"}}}]}");
+        java.util.function.Function<String, String> innerName = node -> network.sheet(UUID.fromString(inner)).node(UUID.fromString(node)).label().orElse("");
+        String was = innerName.apply(e);
+        String back = placeOne.apply(was);
+        if (!innerName.apply(e).equals(was) || nameOf.apply(back).equals(was)) {
+            helper.fail("A returning name took the number: inner " + innerName.apply(e) + ", returning " + nameOf.apply(back));
+        }
         helper.succeed();
     }
 
