@@ -97,3 +97,10 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   being refused.
 - Op/deop doesn't refresh an open editor's edit and admin controls until the network next changes (the server still
   refuses what they may no longer do).
+- "Hold" on a sheet switched off by its own switch is lost on restart or when the network stops: the held value is kept
+  in memory only, so the output gives 0 until the sheet is switched on.
+- A sheet or placed blueprint on a "one per pulse" gate puts its signal logic to sleep between pulses (devices are
+  exempt): outputs set to Fixed flicker, Timers and Pulses inside freeze. Undecided whether that's wanted.
+- "Copy as JSON" copies only the sheet: sheets inside it, the blueprints it places and the filter templates it uses are
+  left out, and an import keeps references to missing ones without saying so.
+- The sheet tree accepts a drop the server then refuses for the depth or node-count limit (a toast says why).
