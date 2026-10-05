@@ -92,10 +92,14 @@ export function pruneSheet(sheet: Sheet): { edits: Edit[]; undo: Edit[]; count: 
   return { edits: [...disconnect, ...connect, ...updates], undo: [...undoDisconnect, ...restores, ...undoConnect], count };
 }
 
-/** Device nodes on a sheet with no wire at all (gates included): Prune devices removes them, undoably. */
+/**
+ * Device nodes on a sheet with no wire at all (gates included): Prune devices removes them, undoably. A blueprint's
+ * slot a Level sensor reads is in use without a wire.
+ */
 export function unwiredDevices(sheet: Sheet): GraphNode[] {
   const wires = sheet.wires ?? [];
-  return (sheet.nodes ?? []).filter((n) => n.settings.kind === "device" && !wires.some((w) => w.from === n.id || w.to === n.id));
+  const read = new Set((sheet.nodes ?? []).flatMap((n) => (n.settings.kind === "level" && n.settings.slot ? [n.settings.slot] : [])));
+  return (sheet.nodes ?? []).filter((n) => n.settings.kind === "device" && !read.has(n.id) && !wires.some((w) => w.from === n.id || w.to === n.id));
 }
 
 export function pruneDevices(sheet: Sheet): { edits: Edit[]; undo: Edit[]; count: number } {

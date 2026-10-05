@@ -146,8 +146,10 @@ export function edgeMenu(canvas: Canvas, edge: Edge, event: MouseEvent) {
   if (!app.selectedEdges.includes(edge.id)) canvas.select([], [edge.id]);
   const place = canvas.sheetAt(event.clientX, event.clientY);
   const at = place && place.sheet.id === on.id ? cardAt(place) : { x: 0, y: 0 };
-  const insert = (kind: NodeKind): MenuItem => ({ label: KIND_LABEL[kind], icon: KIND_ICON[kind], run: () => insertOnWire(canvas, on, wire, kind, at) });
   const layer = (edge.data as { layer?: Layer | null } | undefined)?.layer;
+  // Built for what the wire carries (a rate limit's default differs for items and the rest).
+  const carried: Resource = layer && layer !== "redstone" && layer !== "me" ? layer : "item";
+  const insert = (kind: NodeKind): MenuItem => ({ label: KIND_LABEL[kind], icon: KIND_ICON[kind], run: () => insertOnWire(canvas, on, wire, kind, at, carried) });
   openMenu(event, [
     layer && { label: `Show only ${LAYER_NOUN[layer]} wires`, icon: Layers, run: () => focusLayer(layer) },
     LAYERS.some((l) => app.layers[l] !== "show") && { label: "Show all wires", icon: Layers, run: () => focusLayer(null) },
@@ -201,8 +203,8 @@ function disconnectAll(on: Sheet, id: string) {
  * to where it went. The first keeps the wire's id and order, so it stays the same branch of a splitter (its weight is
  * by wire id). One undoable change; the node is selected.
  */
-async function insertOnWire(canvas: Canvas, on: Sheet, wire: Wire, kind: NodeKind, at: { x: number; y: number }) {
-  const node: GraphNode = { id: uuid(), settings: defaultSettings(kind, null, "item"), x: Math.round(at.x), y: Math.round(at.y) };
+async function insertOnWire(canvas: Canvas, on: Sheet, wire: Wire, kind: NodeKind, at: { x: number; y: number }, resource: Resource) {
+  const node: GraphNode = { id: uuid(), settings: defaultSettings(kind, null, resource), x: Math.round(at.x), y: Math.round(at.y) };
   const into: Wire = { id: wire.id, from: wire.from, ...(wire.output ? { output: wire.output } : {}), to: node.id, ...(wire.order !== undefined ? { order: wire.order } : {}) };
   const out: Wire = { id: uuid(), from: node.id, to: wire.to, ...(wire.input ? { input: wire.input } : {}) };
   const ok = await edit(

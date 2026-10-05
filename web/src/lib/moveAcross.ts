@@ -90,6 +90,10 @@ export function moveAcross(
         const sourceNode = s.sheet.nodes!.find((n) => n.id === s.node);
         const crossing = crossWire(view, s, t, sourceNode ? title(sourceNode) : "pin", uuid);
         if (!crossing) return null;
+        // The rebuilt wire leaving the original source keeps the old one's place among that output's wires (a
+        // splitter "in order" goes by it), rather than going last.
+        const leaving = s.node === w.from ? crossing.edits.find((e) => e.type === "connect" && e.sheet === s.sheet.id && (e.wire as Wire).from === w.from) : undefined;
+        if (leaving) leaving.wire = { ...(leaving.wire as Wire), order: w.order ?? 0 };
         // A splitter's branch rebuilt: its weight (kept by wire id) goes to the new wire leaving it.
         const weight = s.node === w.from && sourceNode?.settings.kind === "splitter" ? sourceNode.settings.weights?.[w.id] : undefined;
         const fresh = weight === undefined ? undefined : crossing.edits.find((e) => e.type === "connect" && e.sheet === s.sheet.id && (e.wire as Wire).from === w.from);
