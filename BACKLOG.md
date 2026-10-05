@@ -63,7 +63,6 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   (or, if the block refuses extraction, part of it stays).
 - With "auto" faces, slot ranges index each face's own slots, while keep rules and caps count by the block's slots.
 - Fluid, energy and chemical caps aren't shared between two routes into the same sink in one tick.
-- A save file that fails to load starts the world with no networks, and the next change overwrites the file.
 - Redstone outputs and ME links keep working while a network is unpowered (only item, fluid, chemical and kit moves
   stop). Possibly intended for redstone; undecided.
 - Deliveries from the overflow buffer cost no power per operation and don't show in rates or charts.
