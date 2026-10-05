@@ -603,6 +603,10 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
         // The game may have done it: undoable all the same (refused when undone, it wasn't), and redo can't follow it.
         const stacks = stacksOf(network);
         if (sending.undo) pushCapped(stacks.undo, { network, label, redo: sending.edits, undo: sending.undo, uncertain: true });
+        // Most likely done (a slow game): edits queued behind it build on it, as its undo step does.
+        for (const e of sending.edits) {
+          if ((e.type === "updateNode" || e.type === "addNode") && e.node) confirmedNodes.set((e.node as GraphNode).id, e.node as GraphNode);
+        }
         stacks.redo = [];
         toast(`No answer about “${label}” (${(e as Error).message}) — it may or may not have been done.`);
       } else {
@@ -775,6 +779,11 @@ function lostAnswer(e: unknown): boolean {
   return message === "Connection to the game lost" || message === "The game didn't answer in time";
 }
 
+/** Refused because it is so already (what it adds is there): a step tried before with no answer was done then. */
+function alreadyDone(e: unknown): boolean {
+  return /already exists/i.test((e as Error)?.message ?? "");
+}
+
 /** It never reached a network: not connected, or the game not in a world (out to the title screen, loading). */
 function notSent(e: unknown): boolean {
   const message = (e as Error)?.message;
@@ -812,8 +821,8 @@ export function undo(only?: (typeof app.undo)[number]): Promise<void> {
         // Maybe done, maybe not: kept, so it isn't lost. Done twice, the game refuses or changes nothing.
         pushCapped(stacksOf(change.network).undo, Object.assign(change, { uncertain: true }));
         toast(`No answer about undoing “${change.label}” (${(e as Error).message}) — it's kept: Undo again once the game is back.`);
-      } else if (change.uncertain) {
-        // Tried before with no answer, refused now: that first try was done.
+      } else if (change.uncertain && alreadyDone(e)) {
+        // Tried before with no answer, refused now as done already: that first try was done.
         pushCapped(stacksOf(change.network).redo, Object.assign(change, { uncertain: false }));
         toast(`“${change.label}” was undone already (the game says: ${(e as Error).message}).`, "info");
       } else {
@@ -847,7 +856,7 @@ export function redo(): Promise<void> {
       } else if (lostAnswer(e)) {
         pushCapped(stacksOf(change.network).redo, Object.assign(change, { uncertain: true }));
         toast(`No answer about redoing “${change.label}” (${(e as Error).message}) — it's kept: Redo again once the game is back.`);
-      } else if (change.uncertain) {
+      } else if (change.uncertain && alreadyDone(e)) {
         pushCapped(stacksOf(change.network).undo, Object.assign(change, { uncertain: false }));
         toast(`“${change.label}” was redone already (the game says: ${(e as Error).message}).`, "info");
       } else {

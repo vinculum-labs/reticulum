@@ -106,6 +106,8 @@ export function moveAcross(
           if (!sheet) continue;
           if (e.type === "addNode") sheet.nodes!.push(e.node as GraphNode);
           if (e.type === "connect") sheet.wires!.push(e.wire as Wire);
+          // An end pin typed by it: the next wire sees it typed (and doesn't type it again, differently).
+          if (e.type === "updateNode") sheet.nodes = sheet.nodes!.map((n) => (n.id === (e.node as GraphNode).id ? (e.node as GraphNode) : n));
         }
       }
     }
