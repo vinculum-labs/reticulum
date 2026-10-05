@@ -75,14 +75,16 @@
   let wiring = $state(false);
   let container: HTMLDivElement | undefined = $state();
   /**
-   * Whether focus is on the canvas (or nowhere): Delete and Backspace remove the selection only then. Svelte Flow
-   * listens on the whole window, so a key pressed on a sidebar row or an inspector button would also delete the card
-   * being inspected.
+   * Whether the Delete or Backspace being handled was pressed with focus off the canvas (a sidebar row, an inspector
+   * button): Svelte Flow listens on the whole window, and would delete the card being inspected too. Looked at as the
+   * key goes down (before Svelte Flow sees it), so nothing has to follow focus around (a closed menu leaves none).
    */
-  let focusOnCanvas = $state(true);
-  function trackFocus() {
+  let deleteKeyElsewhere = false;
+  function noteDeleteKey(e: KeyboardEvent) {
+    if (e.key !== "Delete" && e.key !== "Backspace") return;
     const at = document.activeElement;
-    focusOnCanvas = !at || at === document.body || !!container?.contains(at);
+    deleteKeyElsewhere = !!at && at !== document.body && !container?.contains(at);
+    setTimeout(() => (deleteKeyElsewhere = false));
   }
 
   const sheet = $derived(currentSheet());
@@ -1111,7 +1113,7 @@
   }
 </script>
 
-<svelte:document onfocusin={trackFocus} onfocusout={() => queueMicrotask(trackFocus)} />
+<svelte:window onkeydowncapture={noteDeleteKey} />
 
 <!-- "wiring" while a new wire is being dragged, so pins that hide when unused (gates) show as drop targets. -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -1124,7 +1126,8 @@
     {nodeTypes}
     minZoom={0.2}
     maxZoom={2}
-    deleteKey={editable && modals.open === 0 && focusOnCanvas && !overCanvas() ? ["Delete", "Backspace"] : null}
+    deleteKey={editable && modals.open === 0 && !overCanvas() ? ["Delete", "Backspace"] : null}
+    onbeforedelete={async () => !deleteKeyElsewhere}
     nodesDraggable={editable}
     nodesConnectable={editable}
     elementsSelectable={true}
