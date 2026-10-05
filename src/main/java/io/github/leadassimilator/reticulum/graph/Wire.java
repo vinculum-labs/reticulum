@@ -18,13 +18,16 @@ public record Wire(UUID id, UUID from, int output, UUID to, int input, int order
     public static final int REJECT = 1;
     /** The input every node has for a signal that switches it on or off. */
     public static final int GATE = -1;
+    /** More inputs or outputs than any node has. */
+    public static final int PINS = 1024;
 
     public static final Codec<Wire> CODEC = RecordCodecBuilder.create(i -> i.group(
             Ids.UUID_CODEC.fieldOf("id").forGetter(Wire::id),
             Ids.UUID_CODEC.fieldOf("from").forGetter(Wire::from),
-            Codec.INT.optionalFieldOf("output", 0).forGetter(Wire::output),
+            // Bounded: the engine makes a list per input up to the one a wire names.
+            Codec.intRange(0, PINS - 1).optionalFieldOf("output", 0).forGetter(Wire::output),
             Ids.UUID_CODEC.fieldOf("to").forGetter(Wire::to),
-            Codec.INT.optionalFieldOf("input", 0).forGetter(Wire::input),
+            Codec.intRange(GATE, PINS - 1).optionalFieldOf("input", 0).forGetter(Wire::input),
             Codec.INT.optionalFieldOf("order", 0).forGetter(Wire::order)
     ).apply(i, Wire::new));
 

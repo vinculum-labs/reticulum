@@ -410,7 +410,7 @@ public final class Screens {
         if (Security.canAdmin(network, player)) {
             try {
                 if (!payload.password().isEmpty()) {
-                    NetworkAdmin.setPassword(network, payload.password());
+                    NetworkAdmin.setPassword(network, player.getUUID(), payload.password());
                 }
                 NetworkAdmin.setAccess(network, payload.mode());
             } catch (NetworkAdmin.Refused e) {

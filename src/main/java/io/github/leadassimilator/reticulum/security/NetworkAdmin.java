@@ -76,9 +76,12 @@ public final class NetworkAdmin {
         network.setAccessMode(mode);
     }
 
-    public static void setPassword(Network network, String password) throws Refused {
+    public static void setPassword(Network network, java.util.UUID player, String password) throws Refused {
         if (password.isEmpty()) {
             throw new Refused("message.reticulum.password_empty", "The password can't be empty");
+        }
+        if (!Passwords.maySet(player)) {
+            throw new Refused("message.reticulum.password_too_soon", "Wait a moment before setting the password again");
         }
         network.setPasswordHash(Passwords.hash(password));
     }

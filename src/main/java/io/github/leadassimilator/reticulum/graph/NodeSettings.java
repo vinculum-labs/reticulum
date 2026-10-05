@@ -818,7 +818,8 @@ public sealed interface NodeSettings {
     /** Gives its input as it was {@code ticks} ticks ago. */
     record DelaySettings(int ticks) implements NodeSettings {
         public static final MapCodec<DelaySettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-                Codec.INT.optionalFieldOf("ticks", 1).forGetter(DelaySettings::ticks)
+                // Bounded: it remembers one value per tick of delay.
+                Codec.intRange(1, 1200).optionalFieldOf("ticks", 1).forGetter(DelaySettings::ticks)
         ).apply(i, DelaySettings::new));
 
         @Override

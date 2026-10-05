@@ -84,6 +84,7 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.member_is_owner", "%s owns the network");
         add("message.reticulum.too_many_members", "A network can have at most %s members");
         add("message.reticulum.password_empty", "The password can't be empty");
+        add("message.reticulum.password_too_soon", "Wait a moment before setting the password again");
         add("message.reticulum.no_access_private", "That network is private");
         add("message.reticulum.already_member_role", "You're already a member of %s — an admin can change your role");
         add("message.reticulum.merge_needs_owner", "That would merge %s in — only its owner can");

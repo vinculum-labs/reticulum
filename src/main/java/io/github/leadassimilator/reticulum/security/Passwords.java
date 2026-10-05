@@ -17,6 +17,8 @@ public final class Passwords {
     /** The least time between one player's password guesses. */
     private static final long GUESS_INTERVAL_MS = 1000;
     private static final java.util.Map<java.util.UUID, Long> LAST_GUESS = new java.util.concurrent.ConcurrentHashMap<>();
+    /** When each player last set a password (hashing one costs the server thread tens of milliseconds). */
+    private static final java.util.Map<java.util.UUID, Long> LAST_SET = new java.util.concurrent.ConcurrentHashMap<>();
 
     private Passwords() {
     }
@@ -33,6 +35,13 @@ public final class Passwords {
      * Checks a player's guess, at most once a second per player: a guess sooner than that is refused without being
      * checked.
      */
+    /** Whether a player may set a password now: at most once a second, like guesses. */
+    public static boolean maySet(java.util.UUID player) {
+        long now = System.currentTimeMillis();
+        Long last = LAST_SET.put(player, now);
+        return last == null || now - last >= GUESS_INTERVAL_MS;
+    }
+
     public static boolean guess(java.util.UUID player, String password, String stored) {
         long now = System.currentTimeMillis();
         Long last = LAST_GUESS.put(player, now);

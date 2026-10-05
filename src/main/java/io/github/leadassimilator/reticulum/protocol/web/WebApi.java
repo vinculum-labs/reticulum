@@ -352,6 +352,22 @@ public final class WebApi {
         return value.getAsString();
     }
 
+    static boolean bool(JsonObject json, String key) throws RequestException {
+        JsonElement value = json.get(key);
+        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isBoolean()) {
+            throw new RequestException("Missing '" + key + "'");
+        }
+        return value.getAsBoolean();
+    }
+
+    static JsonArray array(JsonObject json, String key) throws RequestException {
+        JsonElement value = json.get(key);
+        if (value == null || !value.isJsonArray()) {
+            throw new RequestException("Missing '" + key + "'");
+        }
+        return value.getAsJsonArray();
+    }
+
     /** A text field that may be left out or null (both: none). */
     @Nullable
     static String optionalString(JsonObject json, String key) {
@@ -470,7 +486,7 @@ public final class WebApi {
                 case "setPassword" -> {
                     admin(network, player);
                     String password = string(edit, "password");
-                    admin(() -> NetworkAdmin.setPassword(network, password));
+                    admin(() -> NetworkAdmin.setPassword(network, player.getUUID(), password));
                 }
                 case "setMember" -> {
                     admin(network, player);
@@ -555,7 +571,7 @@ public final class WebApi {
                 }
                 case "moveNodes" -> {
                     Sheet sheet = sheet(network, edit);
-                    for (JsonElement element : edit.getAsJsonArray("positions")) {
+                    for (JsonElement element : array(edit, "positions")) {
                         JsonObject p = element.getAsJsonObject();
                         Node node = sheet.node(uuid(p, "id"));
                         if (node != null) {
@@ -590,7 +606,7 @@ public final class WebApi {
                 case "orderWires" -> {
                     // A splitter's branches in a new order ("in order" and weights follow it).
                     List<UUID> ids = new ArrayList<>();
-                    for (JsonElement id : edit.getAsJsonArray("wires")) {
+                    for (JsonElement id : array(edit, "wires")) {
                         try {
                             ids.add(UUID.fromString(id.getAsString()));
                         } catch (IllegalArgumentException e) {
@@ -703,11 +719,11 @@ public final class WebApi {
                         sheet.touch();
                     }
                 }
-                case "setNetworkEnabled" -> network.setEnabled(edit.get("enabled").getAsBoolean());
+                case "setNetworkEnabled" -> network.setEnabled(bool(edit, "enabled"));
                 case "identify" -> {
                     io.github.leadassimilator.reticulum.network.Identify target = decode(server,
                             io.github.leadassimilator.reticulum.network.Identify.CODEC, edit, "identify");
-                    boolean on = edit.get("on").getAsBoolean();
+                    boolean on = bool(edit, "on");
                     if (!io.github.leadassimilator.reticulum.network.Identifies.set(server, network, target, on) && on) {
                         throw new RequestException(io.github.leadassimilator.reticulum.network.Identifies.belongs(network, target)
                                 ? "At most " + Limits.IDENTIFIES + " things can be identified at once"

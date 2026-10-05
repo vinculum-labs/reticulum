@@ -156,15 +156,19 @@ public final class ReticulumCommand {
             throw new SimpleCommandExceptionType(Component.translatable("command.reticulum.unknown_role")).create();
         }
         int count = 0;
-        for (GameProfile profile : GameProfileArgument.getGameProfiles(ctx, "player")) {
-            try {
+        try {
+            for (GameProfile profile : GameProfileArgument.getGameProfiles(ctx, "player")) {
                 NetworkAdmin.setMember(network, profile, role);
-            } catch (NetworkAdmin.Refused e) {
-                throw new SimpleCommandExceptionType(e.message()).create();
+                count++;
             }
-            count++;
+        } catch (NetworkAdmin.Refused e) {
+            throw new SimpleCommandExceptionType(e.message()).create();
+        } finally {
+            // Those added before one was refused stay added: saved and sent like the rest.
+            if (count > 0) {
+                NetworkManager.changed(ctx.getSource().getServer(), network);
+            }
         }
-        NetworkManager.changed(ctx.getSource().getServer(), network);
         int added = count;
         ctx.getSource().sendSuccess(() -> Component.translatable("command.reticulum.member_added", added, network.name()), true);
         return count;
