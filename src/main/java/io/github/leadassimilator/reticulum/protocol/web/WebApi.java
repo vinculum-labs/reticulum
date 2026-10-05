@@ -1172,7 +1172,14 @@ public final class WebApi {
                     try {
                         Filters.checkAny(template.getValue(), network.filters());
                     } catch (FilterException e) {
-                        throw new RequestException("Filter template @" + template.getKey() + ": " + e.getMessage());
+                        List<String> differing = new ArrayList<>();
+                        for (Map.Entry<String, JsonElement> entry : edit.getAsJsonObject("filters").entrySet()) {
+                            if (!added.containsKey(entry.getKey()) && !entry.getValue().getAsString().equals(network.filters().get(entry.getKey()))) {
+                                differing.add("@" + entry.getKey());
+                            }
+                        }
+                        throw new RequestException("Filter template @" + template.getKey() + ": " + e.getMessage()
+                                + (differing.isEmpty() ? "" : " (with this network's own " + String.join(", ", differing) + ", which differ from the copied ones)"));
                     }
                 }
             }
@@ -1193,7 +1200,8 @@ public final class WebApi {
                     ids.put(sheet.id(), sheet.id());
                     continue;
                 }
-                String name = names.contains(sheet.name()) ? Limits.name(sheet.name() + " (imported)") : sheet.name();
+                String own = Limits.name(sheet.name()) == null ? "Imported blueprint" : Limits.name(sheet.name());
+                String name = names.contains(own) ? Limits.name(own + " (imported)") : own;
                 boolean free = here == null && sheet.nodes().stream().noneMatch(node -> nodeIds.contains(node.id()));
                 Sheet copy;
                 if (free) {
@@ -1202,7 +1210,8 @@ public final class WebApi {
                 } else {
                     // Its slots get new ids: placements of it brought along fill them again.
                     copy = sheet.copyWithNewIds(name, new HashMap<>());
-                    notes.add("Blueprint '" + name + "' came in as a copy: fill the slots of its placements again");
+                    notes.add("Blueprint '" + name + "' came in as a copy (its ids are taken here): fill its slots again where it is placed, "
+                            + "and in the placements of blueprints it is placed in");
                 }
                 copy.setRoot(false);
                 ids.put(sheet.id(), copy.id());
@@ -1217,13 +1226,15 @@ public final class WebApi {
             ids.put(pasted.id(), top.id());
             List<Sheet> inside = new ArrayList<>();
             java.util.Set<UUID> insideIds = new java.util.HashSet<>();
-            java.util.ArrayDeque<Sheet> todo = new java.util.ArrayDeque<>(List.of(pasted));
+            // (A blueprint holds no sheets.)
+            java.util.ArrayDeque<Sheet> todo = new java.util.ArrayDeque<>(pasted.blueprint() ? List.of() : List.of(pasted));
             while (!todo.isEmpty()) {
                 Sheet at = todo.pop();
                 for (Node node : at.nodes()) {
                     if (node.settings() instanceof NodeSettings.SheetSettings child && brought.get(child.sheet()) instanceof Sheet sheet
                             && !sheet.blueprint() && !ids.containsKey(sheet.id())) {
-                        Sheet copy = sheet.copyWithNewIds(sheet.name(), new HashMap<>());
+                        String name = Limits.name(sheet.name());
+                        Sheet copy = sheet.copyWithNewIds(name == null ? "Imported sheet" : name, new HashMap<>());
                         copy.setRoot(false);
                         ids.put(sheet.id(), copy.id());
                         insideIds.add(copy.id());
