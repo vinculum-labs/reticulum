@@ -382,6 +382,7 @@ public final class CompiledSheet {
 
     private Node pin(Node device, UUID id, NodeSettings settings, String key) {
         owners.put(id, device.id());
+        pinHolders.add(device.id());
         pinKeys.put(id, key);
         return new Node(id, settings, device.label(), true, device.x(), device.y(), Node.Gate.WHILE_ON, java.util.Optional.empty());
     }
@@ -671,6 +672,12 @@ public final class CompiledSheet {
     /** For every node pasted in from a child sheet: that sheet's sheet node. Not an owner: the node shows as itself. */
     private final Map<UUID, UUID> containers = new LinkedHashMap<>();
     private final Set<UUID> instanceNodes = new java.util.HashSet<>();
+    /** Device nodes with redstone (or ME) pins: gated off, their pins go dark as when switched off. */
+    private final Set<UUID> pinHolders = new java.util.HashSet<>();
+
+    public Set<UUID> pinHolders() {
+        return pinHolders;
+    }
     /** Sheet and instance nodes whose own switch is off: what is in them is compiled but stays off. */
     private final Set<UUID> disabledHolders = new java.util.HashSet<>();
     /** Signal outputs (a sheet's output pins, devices' redstone inputs) by what they do while their sheet is off. */
@@ -764,7 +771,7 @@ public final class CompiledSheet {
             boolean holds = child || node.settings() instanceof NodeSettings.InstanceSettings;
             // A switched-off sheet or instance still compiles (marked off), so its signal outputs can hold while it is off.
             if (!node.enabled() && !holds) {
-                if (node.kind().signal()) {
+                if (node.kind().signal() || node.settings() instanceof NodeSettings.DeviceSettings) {
                     silent.add(node.id());
                 }
                 continue;

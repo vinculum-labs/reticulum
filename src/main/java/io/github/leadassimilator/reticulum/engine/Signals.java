@@ -56,6 +56,8 @@ final class Signals {
     private final Set<UUID> off = new HashSet<>();
     /** Sheet nodes that were off at the end of last tick: the logic in their sheets sleeps this tick. */
     private Set<UUID> asleep = Set.of();
+    /** Device nodes gated off as of last tick: their redstone pins give and read nothing, as when switched off. */
+    private Set<UUID> gatedOff = Set.of();
     private final Set<UUID> pulsed = new HashSet<>();
     /** Alarms whose test passes, and since which tick (to wait out their delay). */
     private final Map<UUID, Long> alarmSince = new HashMap<>();
@@ -163,6 +165,9 @@ final class Signals {
                         }
                         slept.add(id);
                         asleepNow.add(id);
+                    } else if (sheet.inside(id, gatedOff)) {
+                        values.put(id, 0L);
+                        slept.add(id);
                     } else if (node.node().settings() instanceof NodeSettings.AlarmSettings alarm) {
                         values.put(id, alarm(ctx, sheet, node, alarm));
                     } else if (node.node().settings() instanceof NodeSettings.SequencerSettings sequencer) {
@@ -227,6 +232,14 @@ final class Signals {
             }
         }
         asleep = now;
+        Set<UUID> gated = new HashSet<>();
+        for (UUID device : sheet.pinHolders()) {
+            // Not a pulse gate: that is off between pulses (one operation each), which would only flicker its redstone.
+            if (off.contains(device) && !sheet.pulses(device)) {
+                gated.add(device);
+            }
+        }
+        gatedOff = gated;
     }
 
     /**
@@ -586,6 +599,7 @@ final class Signals {
     void stop(MinecraftServer server, Network network) {
         applyEmissions(server, network, Map.of(), id -> true);
         values.clear();
+        gatedOff = Set.of();
         delays.clear();
         pulseLeft.clear();
     }

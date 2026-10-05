@@ -383,6 +383,26 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /** A device node gated off gives no redstone, as when switched off with its own switch: its lamp goes dark. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void aGatedOffDeviceGivesNoRedstone(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
+        Node constant = rig.node(new NodeSettings.ConstantSettings(15));
+        Node lampNode = rig.redstoneTo(rig.device(0));
+        rig.signal(constant, lampNode, 0);
+        Node toggle = rig.node(new NodeSettings.SwitchSettings(15, false, java.util.Optional.empty()));
+        rig.signal(toggle, lampNode, io.github.leadassimilator.reticulum.graph.Wire.GATE);
+        BlockPos lamp = rig.devices().get(0);
+        var memory = rig.network().signalMemory();
+        helper.startSequence()
+                .thenExecuteAfter(10, () -> check(helper, !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "lit with its device gated off"))
+                .thenExecute(() -> memory.put(toggle.id().toString(), 15L))
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "the gate on didn't light the lamp"))
+                .thenExecute(() -> memory.remove(toggle.id().toString()))
+                .thenWaitUntil(() -> check(helper, !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "the lamp stayed lit with the gate off again"))
+                .thenSucceed();
+    }
+
     /** A connector cut off from its controller (no antenna) stops giving redstone: its lamp goes dark. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void aCutOffConnectorGivesNoRedstone(GameTestHelper helper) {
