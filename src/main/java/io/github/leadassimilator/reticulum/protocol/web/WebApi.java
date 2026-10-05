@@ -239,8 +239,13 @@ public final class WebApi {
             case "history" -> {
                 Network network = viewable(player, request);
                 boolean perMinute = request.has("window") && "minute".equals(request.get("window").getAsString());
-                long[] values = NetworkTicker.runtime(network.id()).metrics().history(uuid(request, "item"), perMinute);
+                UUID item = uuid(request, "item");
+                var metrics = NetworkTicker.runtime(network.id()).metrics();
+                long[] values = metrics.history(item, perMinute);
                 JsonObject out = ok(id);
+                // When the newest value's second or minute ended (epoch seconds): the same on every poll until the next,
+                // where the browser's clock at each poll shifted the chart by up to a minute.
+                out.addProperty("newest", System.currentTimeMillis() / 1000 - (perMinute ? metrics.secondsIntoMinute(item) : 0));
                 JsonArray array = new JsonArray();
                 for (long v : values) {
                     array.add(v);
@@ -282,6 +287,10 @@ public final class WebApi {
                     network.signalMemory().put(run, value);
                 }
                 NetworkManager.data(server).setDirty();
+                // Stopped, no live values come: editors see the flip in a fresh snapshot (it carries what is remembered).
+                if (!NetworkTicker.isRunning(server, network)) {
+                    pushSnapshots(server, network);
+                }
                 yield ok(id);
             }
             case "deviceContents" -> {

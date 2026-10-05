@@ -66,7 +66,8 @@
   const runs = $derived(running(snapshot));
   const top = $derived(
     runs
-      .filter((x) => (app.rates[x.run] ?? 0) > 0)
+      // A placed blueprint's own rate is what its insides move, which are listed themselves: not twice.
+      .filter((x) => x.node.settings.kind !== "instance" && (app.rates[x.run] ?? 0) > 0)
       .sort((a, b) => (app.rates[b.run] ?? 0) - (app.rates[a.run] ?? 0))
       .slice(0, 10),
   );

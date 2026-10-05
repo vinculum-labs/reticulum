@@ -13,6 +13,7 @@
 
 <script lang="ts">
   import { onDestroy } from "svelte";
+  import { scheme } from "../../lib/scheme.svelte";
   import uPlot from "uplot";
   import "uplot/dist/uPlot.min.css";
 
@@ -20,7 +21,8 @@
    * Lines over time, newest at the right, one value per {@code step} seconds. Its legend shows each line's value under
    * the cursor; clicking a name hides or shows that line.
    */
-  let { lines, step }: { lines: PlotLine[]; step: number } = $props();
+  /** {@code newest}: when the newest value's second or minute ended (epoch seconds, from the game); now when not known. */
+  let { lines, step, newest }: { lines: PlotLine[]; step: number; newest?: number } = $props();
 
   let host: HTMLDivElement | undefined = $state();
   const HEIGHT = 220;
@@ -47,10 +49,11 @@
   $effect(() => {
     if (!host) return;
     const length = Math.max(1, ...lines.map((l) => l.values.length));
-    const now = Math.floor(Date.now() / 1000);
+    const now = newest ?? Math.floor(Date.now() / 1000);
     const xs = Array.from({ length }, (_, i) => now - (length - 1 - i) * step);
     const data: uPlot.AlignedData = [xs, ...lines.map((l) => (l.values.length === length ? l.values : Array(length).fill(0)))];
-    const shape = lines.map((l) => `${l.label}|${l.color}|${l.shade ?? 0}|${!!l.dashed}`).join(";") + `|${step}`;
+    // Light and dark switching draws it again too (its colors are read once, as it is built).
+    const shape = lines.map((l) => `${l.label}|${l.color}|${l.shade ?? 0}|${!!l.dashed}`).join(";") + `|${step}|${scheme.dark}`;
     if (plot && shape === builtFor) {
       plot.setData(data);
       // With the cursor away, the legend's "Now" values follow the new data.

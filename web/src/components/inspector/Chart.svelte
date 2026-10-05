@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
+  import { scheme } from "../../lib/scheme.svelte";
   import uPlot from "uplot";
   import "uplot/dist/uPlot.min.css";
   import { app, request } from "../../lib/state.svelte";
@@ -27,8 +28,11 @@
     if (!host) return;
     const asked = generation;
     let values: number[];
+    let newest: number | undefined;
     try {
-      values = (await request("history", { item: itemId, window: window_ })).values;
+      const r = await request("history", { item: itemId, window: window_ });
+      values = r.values;
+      newest = r.newest;
       if (asked !== generation) return;
       failed = false;
     } catch {
@@ -39,7 +43,7 @@
     // Each value covers one second or one minute; show it as an average per tick or per second.
     const ticksPerValue = step * 20;
     values = values.map((v) => (app.rateUnit === "t" ? v / ticksPerValue : v / step));
-    const now = Math.floor(Date.now() / 1000);
+    const now = newest ?? Math.floor(Date.now() / 1000);
     const xs = values.map((_, i) => now - (values.length - 1 - i) * step);
     const data: uPlot.AlignedData = [xs, values];
     if (plot) {
@@ -62,8 +66,9 @@
     );
   }
 
-  // Rebuilt only for another item, window or unit; loading itself subscribes to nothing.
+  // Rebuilt only for another item, window or unit, or light and dark switching; loading itself subscribes to nothing.
   $effect(() => {
+    void scheme.dark;
     void itemId;
     void window_;
     void app.rateUnit;

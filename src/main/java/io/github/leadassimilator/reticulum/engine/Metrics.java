@@ -124,6 +124,12 @@ public final class Metrics {
     }
 
     /** Oldest first: 300 per-second values, or 1440 per-minute values. Zeros for an id that has no series. */
+    /** Seconds since the series' newest whole minute ended (0 for one never recorded). */
+    public int secondsIntoMinute(UUID id) {
+        Series s = series.get(id);
+        return s == null ? 0 : s.secondsIntoMinute;
+    }
+
     public long[] history(UUID id, boolean perMinute) {
         Series s = series.get(id);
         int size = perMinute ? MINUTES : SECONDS;

@@ -402,3 +402,6 @@ export const OP_SYMBOL: Record<string, string> = { lt: "<", le: "≤", gt: ">", 
 export const NAME_LIMIT = 64;
 /** The most inputs or outputs on a device node, and caps or keep rules on one (Limits.DEVICE_SIDES, SIDE_LIMITS). */
 export const SIDES_LIMIT = 32;
+/** How deep sheets may go, and the most nodes on one (Limits.SHEET_DEPTH, NODES_PER_SHEET). */
+export const SHEET_DEPTH = 32;
+export const NODES_PER_SHEET = 1024;

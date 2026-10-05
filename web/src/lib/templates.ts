@@ -25,7 +25,7 @@ export function parseTemplates(text: string): [string, string][] {
  * checked as it is saved. {@code existing} are the names already there and staying.
  */
 /** The templates a filter names: @name (up to a space, bracket or operator) or @"a name" (with \" inside). */
-function references(expression: string): string[] {
+export function references(expression: string): string[] {
   return [...expression.matchAll(/@(?:"((?:[^"\\]|\\.)*)"|([^\s()&|!"]+))/g)].map((m) => (m[1] !== undefined ? m[1].replace(/\\"/g, '"') : m[2]));
 }
 

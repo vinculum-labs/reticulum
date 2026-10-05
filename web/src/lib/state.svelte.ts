@@ -9,6 +9,7 @@ import { KIND_LABEL } from "./kinds";
 import { descendants, rootSheet, sheetPath } from "./tree";
 import { confirmDialog, promptDialog } from "./dialog.svelte";
 import { instancesOf, fillOne, inInstance, slotName } from "./blueprints";
+import { references } from "./templates";
 
 export interface Toast {
   id: number;
@@ -498,6 +499,8 @@ function setSnapshot(snapshot: Snapshot): void {
     app.power = null;
     app.tick = null;
   }
+  // No live values (stopped, or none yet since opening it): switches and the like show what the game remembers.
+  if (!snapshot.running || !Object.keys(app.signals).length) app.signals = withPending({ ...(snapshot.memory ?? {}) });
 }
 
 // ---------------------------------------------------------------- edits
@@ -1156,9 +1159,12 @@ export async function importSheet(what: "sheet" | "blueprint", into?: Sheet | nu
   // Into the network it was asked on (its names checked against it), whatever is shown by now.
   // A sheet goes into the one asked about (the open one), at a free spot there; a blueprint isn't placed anywhere.
   const place = what === "sheet" && into ? { parent: into.id, ...freeSpot(into) } : {};
+  // What it refers to that isn't brought along (Copy as JSON copies the one sheet): said after, so nothing goes quietly.
+  const left = leftBehind(sheet, snapshot);
   const results = await edit([{ type: "importSheet", sheet, ...place }], undefined, "import", network);
   if (!results?.[0] || app.current !== network) return;
   openSheet(results[0] as string);
+  if (left) toast(left, "info");
   if (sheet.blueprint) {
     toast(
       what === "blueprint" ? "Imported. Wherever it's placed, blocks of the same kinds fill its slots." : "That's a blueprint — it's been added to Blueprints.",
@@ -1167,6 +1173,30 @@ export async function importSheet(what: "sheet" | "blueprint", into?: Sheet | nu
   } else {
     toast("Imported. Devices from another world show as offline until you pick local ones for them.", "info");
   }
+}
+
+/**
+ * What an imported sheet refers to that the import doesn't bring and this network lacks: sheets inside it (dropped),
+ * blueprints it places (dropped), filter templates its filters name. Null when nothing.
+ */
+function leftBehind(pasted: unknown, snapshot: Snapshot): string | null {
+  const nodes = (pasted as { nodes?: GraphNode[] }).nodes ?? [];
+  const sheets = nodes.filter((n) => n.settings?.kind === "sheet").length;
+  const blueprints = nodes.filter((n) => n.settings?.kind === "instance" && !snapshot.sheets.some((s) => s.blueprint && s.id === (n.settings as { sheet?: string }).sheet)).length;
+  const named = new Set<string>();
+  const walk = (v: unknown) => {
+    if (typeof v === "string") references(v).forEach((r) => named.add(r));
+    else if (Array.isArray(v)) v.forEach(walk);
+    else if (v && typeof v === "object") Object.values(v).forEach(walk);
+  };
+  nodes.forEach((n) => walk(n.settings));
+  const templates = [...named].filter((t) => !(t in (snapshot.filters ?? {})));
+  const parts = [
+    sheets && `${sheets} sheet${sheets === 1 ? "" : "s"} inside it (copy and import ${sheets === 1 ? "it" : "them"} on their own)`,
+    blueprints && `${blueprints} placed blueprint${blueprints === 1 ? "" : "s"} whose blueprint isn't here`,
+    templates.length && `filter template${templates.length === 1 ? "" : "s"} ${templates.map((t) => `@${t}`).join(", ")}`,
+  ].filter(Boolean);
+  return parts.length ? `Not brought along: ${parts.join("; ")}.` : null;
 }
 
 const placeListeners = new Set<(device: Device) => void>();

@@ -1102,7 +1102,14 @@
       const laidOut = sheet;
       const { edits, undo } = await tidyMoves(laidOut, app.snapshot.sheets, view, sizes, pins, new Set(app.frames));
       // Laying out takes a moment; if the sheet changed meanwhile, these positions are for the one laid out.
-      if (currentSheet()?.id !== laidOut.id) return;
+      const now = currentSheet();
+      if (now?.id !== laidOut.id) return;
+      // A card moved (or added or removed) while it ran: its layout would put that back. Asked again instead.
+      const where = (s: typeof now) => JSON.stringify((s?.nodes ?? []).map((n) => [n.id, n.x ?? 0, n.y ?? 0]));
+      if (where(now) !== where(laidOut)) {
+        toast("The sheet changed while it was being tidied — Tidy up again to lay it out as it is now.", "info");
+        return;
+      }
       await edit(edits, undo, "tidy up");
       setTimeout(() => flow.fitView({ duration: 300 }), 100);
     } catch (e) {

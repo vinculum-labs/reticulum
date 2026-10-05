@@ -253,7 +253,10 @@ export function resources(sheet: Sheet, sheets: Sheet[] = []): { wires: Map<stri
       if (wires.has(w.id) || (w.input ?? 0) === GATE) continue;
       wires.set(w.id, resource);
       const target = byId.get(w.to);
-      if (target && target.settings.kind !== "device" && !isSignal(target.settings.kind)) {
+      // Passed on through filters and the like; not through a sheet or placed blueprint (nothing flows straight
+      // across one: its outputs carry what their pins inside say).
+      const holder = target?.settings.kind === "sheet" || target?.settings.kind === "instance";
+      if (target && !holder && target.settings.kind !== "device" && !isSignal(target.settings.kind)) {
         if (!nodes.has(w.to)) nodes.set(w.to, resource);
         queue.push([w.to, resource]);
       }

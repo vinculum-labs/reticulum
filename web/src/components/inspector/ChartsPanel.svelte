@@ -25,6 +25,8 @@
   /** Every series' values, by series id, as last loaded. */
   let values = $state<Record<string, number[]>>({});
   let failed = $state(false);
+  /** When each series' newest value ended (epoch seconds, from the game). */
+  let newest = $state<Record<string, number>>({});
   /** The window the values shown are for. */
   let valuesWindow: unknown = undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -60,9 +62,12 @@
     loading = true;
     try {
       // Each on its own: one series that fails (a timeout) keeps its last values, the rest still update.
-      const settled = await Promise.allSettled(wanted.map((id) => request("history", { item: id, window: window_ }).then((r) => [id, r.values as number[]] as const)));
+      const settled = await Promise.allSettled(
+        wanted.map((id) => request("history", { item: id, window: window_ }).then((r) => [id, r.values as number[], r.newest as number | undefined] as const)),
+      );
       if (asked !== generation) return;
-      const loaded = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+      const loaded = settled.flatMap((r) => (r.status === "fulfilled" ? [[r.value[0], r.value[1]] as const] : []));
+      for (const r of settled) if (r.status === "fulfilled" && r.value[2] !== undefined) newest[r.value[0]] = r.value[2];
       // Kept only for the same window: per-second values don't belong on a per-minute chart.
       values = { ...(valuesWindow === window_ ? values : {}), ...Object.fromEntries(loaded) };
       valuesWindow = window_;
@@ -148,14 +153,14 @@
         {#each groups as group (group.resource)}
           <section class="card">
             <h3 class="panel-title">{RESOURCE_LABEL[group.resource]} moved ({RESOURCE_UNIT[group.resource]}/{app.rateUnit})</h3>
-            <ChartPlot lines={group.lines} {step} />
+            <ChartPlot lines={group.lines} {step} newest={newest[totals[group.resource] ?? ""]} />
           </section>
         {/each}
         {#each devices as c (c.key)}
           <section class="card">
             {#if c.kind === "level"}
               <h3 class="panel-title">{deviceLabel(c)} — {RESOURCE_LABEL[c.resource ?? "item"].toLowerCase()} held ({RESOURCE_UNIT[c.resource ?? "item"]})</h3>
-              <ChartPlot lines={[{ label: "Held", values: level(values[c.series]), color: RESOURCE_VAR[c.resource ?? "item"] }]} {step} />
+              <ChartPlot lines={[{ label: "Held", values: level(values[c.series]), color: RESOURCE_VAR[c.resource ?? "item"] }]} {step} newest={newest[c.series]} />
             {:else}
               <h3 class="panel-title">{deviceLabel(c)} — {RESOURCE_LABEL[c.resource ?? "item"].toLowerCase()} in and out ({RESOURCE_UNIT[c.resource ?? "item"]}/{app.rateUnit})</h3>
               <ChartPlot
@@ -164,6 +169,7 @@
                   { label: "Out of it", values: rate(values[c.seriesOut ?? ""]), color: RESOURCE_VAR[c.resource ?? "item"], shade: 0.45, dashed: true },
                 ]}
                 {step}
+                newest={newest[c.seriesIn ?? ""]}
               />
             {/if}
           </section>

@@ -387,6 +387,8 @@ export interface NetworkSummary {
   role: "viewer" | "user" | "editor" | "admin" | "owner" | "none";
   enabled: boolean;
   running: boolean;
+  /** What the game remembers (switches, latches, counters), by the id each runs as. */
+  memory?: Record<string, number>;
   /** What is going off: its alarm nodes and the built-in alarms, critical first, then oldest first. */
   alarms?: Alarm[];
 }

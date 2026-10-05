@@ -59,6 +59,15 @@ final class Snapshots {
         out.addProperty("role", role.map(Role::getSerializedName).orElse("none"));
         out.addProperty("enabled", network.enabled());
         out.addProperty("running", NetworkTicker.isRunning(server, network));
+        // What the game remembers (switches, latches, counters, by the id they run as): shown while no live values
+        // come (a stopped network, or the moment after opening one), so a switch that is on doesn't show off.
+        JsonObject memory = new JsonObject();
+        network.signalMemory().forEach((key, value) -> {
+            if (key.indexOf('/') < 0) {
+                memory.addProperty(key, value);
+            }
+        });
+        out.add("memory", memory);
         // What is going off, for its tab and the dashboard (sent every second the list changes).
         JsonArray alarms = new JsonArray();
         for (io.github.leadassimilator.reticulum.engine.Alarms.Alarm alarm : io.github.leadassimilator.reticulum.engine.Alarms.cached(server, network)) {

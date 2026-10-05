@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { NODES_PER_SHEET, SHEET_DEPTH } from "../../lib/kinds";
   import { KIND_ICON } from "../../lib/icons";
   const BlueprintIcon = KIND_ICON.instance;
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
@@ -141,9 +142,20 @@
   let dragged = $state<string | null>(null);
   let dropOn = $state<string | null>(null);
 
+  /** How many sheets up from it the top one is (the top one: 0). */
+  function depthOf(sheet: Sheet): number {
+    let depth = 0;
+    for (let at: Sheet | undefined = sheet; at?.parent && depth < 64; at = snapshot.sheets.find((s) => s.id === at!.parent)) depth++;
+    return depth;
+  }
+
   function canDrop(target: Sheet): boolean {
     const sheet = snapshot.sheets.find((s) => s.id === dragged);
-    return !!sheet && sheet.id !== target.id && sheet.parent !== target.id && !descendants(snapshot, sheet).includes(target);
+    if (!sheet || sheet.id === target.id || sheet.parent === target.id || descendants(snapshot, sheet).includes(target)) return false;
+    // As the server limits it: no deeper than SHEET_DEPTH with everything inside it, and room for its node there.
+    const inside = descendants(snapshot, sheet);
+    const height = inside.length ? Math.max(...inside.map(depthOf)) - depthOf(sheet) : 0;
+    return depthOf(target) + 1 + height <= SHEET_DEPTH && (target.nodes?.length ?? 0) < NODES_PER_SHEET;
   }
 
   function dropSheet(target: Sheet) {
