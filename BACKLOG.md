@@ -86,3 +86,14 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
 - Dashboard "Busiest" lists a placed blueprint and the nodes inside it for the same flow; "Waiting" shows the placed
   blueprint, not the node inside that waits.
 - Admins can demote or remove other admins (only the owner is protected). Kept on purpose.
+- A wire from a placed blueprint inside an open placed blueprint never lights (its value is kept under a nested name
+  the editor doesn't work out).
+- The alarm settings screen is cut off at the bottom on very short windows (scaled height under about 254).
+- Typing in a box that rebuilds as you type (sound search) or while a refresh comes in puts the cursor at the end.
+- A device whose chunk loads or unloads (across a border from its connector) doesn't refresh the editor's snapshot
+  until something else changes.
+- No server-side size limit on snapshots: a huge network (well past 64 MiB of JSON) never reaches the editor.
+- A request of more than 64 KiB (about 22k CJK characters in an import) closes the editor's connection instead of
+  being refused.
+- Op/deop doesn't refresh an open editor's edit and admin controls until the network next changes (the server still
+  refuses what they may no longer do).
