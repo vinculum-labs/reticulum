@@ -987,14 +987,16 @@ public final class CompiledSheet {
                 List<Wire> branch = wires.stream().filter(w -> w.output() == output).toList();
                 Walk next = walk.copy();
                 next.gates.add(new Gate(gate.items(), gate.fluids(), gate.chemicals(), output == Wire.REJECT));
-                follow(source, node, branch, resource, nodes, outgoing, gates, next, routes);
+                // Each output takes turns among its own wires: a turn on one doesn't move the other's on.
+                follow(source, node, output == Wire.MATCH ? node.id() : outputKey(node.id(), output), branch, resource, nodes, outgoing, gates, next, routes);
             }
             return;
         }
-        follow(source, node, wires, resource, nodes, outgoing, gates, walk, routes);
+        follow(source, node, node.id(), wires, resource, nodes, outgoing, gates, walk, routes);
     }
 
-    private void follow(Node source, Node from, List<Wire> wires, ResourceKind resource, Map<UUID, Node> nodes,
+    /** {@code turns}: whose turn-taking the branches here share (the node's, or a filter output's). */
+    private void follow(Node source, Node from, UUID turns, List<Wire> wires, ResourceKind resource, Map<UUID, Node> nodes,
             Map<UUID, List<Wire>> outgoing, Map<UUID, Gate> gates, Walk walk, List<Route> routes) {
         NodeSettings.SplitMode mode = from.settings() instanceof NodeSettings.SplitterSettings s ? s.mode() : NodeSettings.SplitMode.ROUND_ROBIN;
         int[] weights = new int[wires.size()];
@@ -1004,7 +1006,7 @@ public final class CompiledSheet {
         for (int i = 0; i < wires.size(); i++) {
             Walk next = walk.copy();
             if (wires.size() > 1) {
-                next.branches.add(new Branch(from.id(), i, wires.size(), mode, weights));
+                next.branches.add(new Branch(turns, i, wires.size(), mode, weights));
             }
             next.wires.add(wires.get(i).id());
             walk(source, nodes.get(wires.get(i).to()), resource, nodes, outgoing, gates, next, routes);

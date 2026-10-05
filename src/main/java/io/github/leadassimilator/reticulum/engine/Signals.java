@@ -114,7 +114,8 @@ final class Signals {
     static int givenOut(MinecraftServer server, Network network, GlobalPos device, Optional<FaceKey> face, boolean comparator) {
         ServerLevel level = server.getLevel(device.dimension());
         BlockPos pos = device.pos();
-        if (network.device(device) == null || level == null || !level.isLoaded(pos)) {
+        // Its neighbors too: a block's signal can read theirs (a solid block powered through it), loading their chunk.
+        if (network.device(device) == null || level == null || !level.isAreaLoaded(pos, 1)) {
             return 0;
         }
         BlockState state = level.getBlockState(pos);

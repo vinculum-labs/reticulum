@@ -442,7 +442,8 @@ public final class NetworkRuntime {
         for (int i = 0; i < count; i++) {
             ConnectorRecord connector = all.get(Math.floorMod(rescanCursor++, all.size()));
             ServerLevel level = server.getLevel(connector.pos().dimension());
-            if (level != null && level.isLoaded(connector.pos().pos())) {
+            // Its neighbors loaded too: one not yet loaded would read as no device, and the device be let go.
+            if (level != null && level.isAreaLoaded(connector.pos().pos(), 1)) {
                 Topology.rescanConnector(level, connector.pos().pos());
             }
         }

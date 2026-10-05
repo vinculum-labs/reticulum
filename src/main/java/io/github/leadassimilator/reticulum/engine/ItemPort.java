@@ -79,6 +79,23 @@ final class ItemPort {
      * Inserts into the port: first slots already holding the same item, then empty ones. Returns what didn't fit.
      */
     ItemStack insert(ItemStack stack, boolean simulate) {
+        if (!simulate || handlers.size() < 2) {
+            return insert(handlers, stack, simulate);
+        }
+        // Several faces often wrap the same slots (a double chest, a machine's sides), and a simulated insert changes
+        // nothing, so summing them would count the same room once per face: the real insert then refuses the rest.
+        // Count the face taking the most instead; what the others would take more arrives on a later operation.
+        ItemStack best = stack;
+        for (IItemHandler handler : handlers) {
+            ItemStack left = insert(List.of(handler), stack, true);
+            if (left.getCount() < best.getCount()) {
+                best = left;
+            }
+        }
+        return best.copy();
+    }
+
+    private ItemStack insert(List<IItemHandler> handlers, ItemStack stack, boolean simulate) {
         ItemStack remaining = stack.copy();
         for (int pass = 0; pass < 2 && !remaining.isEmpty(); pass++) {
             for (IItemHandler handler : handlers) {

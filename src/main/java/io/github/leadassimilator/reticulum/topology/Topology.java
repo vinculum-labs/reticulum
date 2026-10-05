@@ -627,6 +627,15 @@ public final class Topology {
             if (oldNetwork != null) {
                 NetworkManager.removeConnector(level.getServer(), oldNetwork, connector.connectorId());
             }
+            // The redstone the old network gave through it stops (that network no longer visits it); the new one gives
+            // its own from its next tick.
+            boolean dimmed = false;
+            for (Direction side : Direction.values()) {
+                dimmed |= connector.setPower(side, 0);
+            }
+            if (dimmed && level.isAreaLoaded(pos, 1)) {
+                level.updateNeighborsAt(pos, connector.getBlockState().getBlock());
+            }
             rescanConnector(level, pos);
             Network newNetwork = NetworkManager.network(level.getServer(), to);
             if (newNetwork != null) {
