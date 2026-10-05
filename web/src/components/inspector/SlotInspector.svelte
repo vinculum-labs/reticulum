@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app, instanceRun, bindingScope, deviceAt, deviceName, fillSlot, homeCheck, scopedBindings, setScopedBindings, toast } from "../../lib/state.svelte";
-  import { blockName, fillByLayout, inInstance, slotName, slotsOf } from "../../lib/blueprints";
+  import { allSlotKeys, blockName, fillByLayout, inInstance, slotName } from "../../lib/blueprints";
   import { RESOURCE_UNIT } from "../../lib/kinds";
   import { posKey, type InstanceSettings, type Device, type GraphNode, type Sheet } from "../../lib/types";
   import DeviceIcon from "../DeviceIcon.svelte";
@@ -23,7 +23,8 @@
   const block = $derived(slot.settings.kind === "device" ? slot.settings.block : undefined);
   const active = $derived((app.snapshot?.devices ?? []).filter((d) => d.state === "active"));
   const unit = $derived(slot.settings.kind === "device" && slot.settings.outputs?.[0] ? RESOURCE_UNIT[slot.settings.outputs[0].resource] : "units");
-  const empty = $derived(slotsOf(blueprint).filter((s) => !bindings[s.id]).length);
+  // Its slots and those of blueprints placed in it: filling by layout fills both.
+  const empty = $derived(allSlotKeys(blueprint, app.snapshot?.sheets ?? []).filter((key) => !bindings[key]).length);
 
   function fill(device: Device) {
     if (scope) fillSlot(scope, blueprint, slot, device);

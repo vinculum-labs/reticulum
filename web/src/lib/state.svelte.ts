@@ -8,7 +8,7 @@ import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
 import { descendants, rootSheet, sheetPath } from "./tree";
 import { confirmDialog, promptDialog } from "./dialog.svelte";
-import { allSlotKeys, instancesOf, fillOne, inInstance, slotName } from "./blueprints";
+import { allSlotKeys, instancesOf, fillOne, inInstance, layoutSlots, placementTurns, slotName } from "./blueprints";
 import { references } from "./templates";
 
 export interface Toast {
@@ -1459,7 +1459,11 @@ export async function fillSlot(scope: BindingScope, blueprint: Sheet, slot: Grap
     scope,
     blueprint,
     (bindings) => {
-      const turns = bindings[slot.id]?.turns ?? Object.values(bindings).find((b) => b.turns)?.turns;
+      // Turned as the slot already was, else as the placement is (from its other slots, each as it was laid out).
+      const laid = layoutSlots(blueprint, app.snapshot!.sheets);
+      const placement = placementTurns(laid, bindings);
+      const own = laid.find((s) => s.key === slot.id)?.turns ?? 0;
+      const turns = bindings[slot.id]?.turns ?? (placement === undefined ? undefined : (placement + own) % 4);
       const result = fillOne(blueprint, bindings, slot.id, { device: device.pos, ...(turns ? { turns } : {}) }, app.snapshot!.devices, homed, app.snapshot!.sheets);
       more = result.more;
       return result.bindings;

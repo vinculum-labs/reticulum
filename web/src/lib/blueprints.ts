@@ -66,23 +66,47 @@ function turn(dx: number, dz: number, turns: number): [number, number] {
  * blueprint was made from a sheet). A slot with no place (picked from the catalog, or in a blueprint placed by hand)
  * fills only by hand.
  */
-export function layoutSlots(blueprint: Sheet, sheets: Sheet[], depth = 0, path = new Set<string>()): { key: string; block?: string; laid?: GlobalPos }[] {
+export function layoutSlots(blueprint: Sheet, sheets: Sheet[], depth = 0, path = new Set<string>()): LaidSlot[] {
   if (depth >= 8 || path.has(blueprint.id)) return [];
   path.add(blueprint.id);
-  const out: { key: string; block?: string; laid?: GlobalPos }[] = [];
+  const out: LaidSlot[] = [];
   for (const n of blueprint.nodes ?? []) {
     const s = n.settings;
-    if (s.kind === "device") out.push({ key: n.id, block: s.block, laid: placeless(s.device) ? undefined : s.device });
+    if (s.kind === "device") out.push({ key: n.id, block: s.block, laid: placeless(s.device) ? undefined : s.device, turns: 0 });
     else if (s.kind === "instance") {
       const inner = sheets.find((x) => x.id === s.sheet && x.blueprint);
       if (!inner) continue;
       for (const slot of layoutSlots(inner, sheets, depth + 1, path)) {
-        out.push({ key: inInstance(n.id, slot.key), block: slot.block, laid: s.layout?.[slot.key]?.device });
+        const laid = s.layout?.[slot.key];
+        out.push({ key: inInstance(n.id, slot.key), block: slot.block, laid: laid?.device, turns: laid?.turns ?? 0 });
       }
     }
   }
   path.delete(blueprint.id);
   return out;
+}
+
+/**
+ * A slot as a placement fills it, with where it was laid out and how it was turned there: a slot of a blueprint placed
+ * in this one is turned as that placement was (its binding's turns are of its own blueprint), its own slots not at all.
+ */
+export interface LaidSlot {
+  key: string;
+  block?: string;
+  laid?: GlobalPos;
+  turns: number;
+}
+
+/**
+ * How far a placement is turned, from its filled slots: a slot's binding turns are its laid-out turns plus the
+ * placement's. Undefined when none is filled.
+ */
+export function placementTurns(slots: LaidSlot[], bindings: Record<string, Binding>): number | undefined {
+  for (const slot of slots) {
+    const b = bindings[slot.key];
+    if (b) return (((b.turns ?? 0) - slot.turns) % 4 + 4) % 4;
+  }
+  return undefined;
 }
 
 /**
@@ -105,7 +129,8 @@ export function fillByLayout(
   // A slot with no place in the layout has nothing to measure from.
   if (!from?.laid || !binding) return { bindings, filled: 0 };
   const origin = from.laid.pos;
-  const turns = binding.turns ?? 0;
+  // The placement's turn: the anchor's, less how its slot was turned in the layout.
+  const turns = (((binding.turns ?? 0) - from.turns) % 4 + 4) % 4;
   const next = { ...bindings };
   const taken = new Set(Object.values(next).map((b) => posKey(b.device)));
   let filled = 0;
@@ -117,7 +142,8 @@ export function fillByLayout(
     const want = { dimension: binding.device.dimension, pos: [at[0] + dx, at[1] + dy, at[2] + dz] as [number, number, number] };
     const found = devices.find((d) => posKey(d.pos) === posKey(want) && d.state === "active");
     if (!found || found.block !== slot.block || taken.has(posKey(found.pos)) || placed(found)) continue;
-    next[slot.key] = { device: found.pos, ...(turns ? { turns } : {}) };
+    const own = (turns + slot.turns) % 4;
+    next[slot.key] = { device: found.pos, ...(own ? { turns: own } : {}) };
     taken.add(posKey(found.pos));
     filled++;
   }
@@ -157,7 +183,7 @@ export function ownBlocks(blueprint: Sheet, devices: Device[], placed: (device: 
     const laid = slot.laid;
     const found = slot.block && laid ? devices.find((d) => posKey(d.pos) === posKey(laid) && d.state === "active") : undefined;
     if (found && found.block === slot.block && !placed(found) && !taken.has(posKey(found.pos))) {
-      bindings[slot.key] = { device: found.pos };
+      bindings[slot.key] = { device: found.pos, ...(slot.turns ? { turns: slot.turns } : {}) };
       taken.add(posKey(found.pos));
     }
   }
