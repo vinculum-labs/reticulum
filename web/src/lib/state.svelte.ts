@@ -629,6 +629,12 @@ function pushCapped(stack: Change[], change: Change): void {
  * block every step below it. {@code only}: undo that change only if it is still the last one when its turn comes
  * (edits sent before it may land first).
  */
+/** The game may or may not have done it: the connection dropped, or no answer came in time (not a refusal). */
+function lostAnswer(e: unknown): boolean {
+  const message = (e as Error)?.message;
+  return message === "Connection to the game lost" || message === "The game didn't answer in time";
+}
+
 export function undo(only?: (typeof app.undo)[number]): Promise<void> {
   // The network shown when asked: its turn may come after a switch to another.
   const network = app.current;
@@ -646,8 +652,14 @@ export function undo(only?: (typeof app.undo)[number]): Promise<void> {
       await connection.send({ op: "edit", network: change.network, edits: change.undo });
       pushCapped(stacksOf(change.network).redo, change);
     } catch (e) {
-      // Nothing of it was done (a batch is all or nothing); left on top it would block every step below it.
-      toast(`Couldn't undo “${change.label}”: ${(e as Error).message}. Skipped — Undo goes on from the step before.`);
+      if (lostAnswer(e)) {
+        // Maybe done, maybe not: kept, so it isn't lost. Done twice, the game refuses or changes nothing.
+        pushCapped(stacksOf(change.network).undo, change);
+        toast(`No answer about undoing “${change.label}” (${(e as Error).message}) — it's kept: Undo again once the game is back.`);
+      } else {
+        // Nothing of it was done (a batch is all or nothing); left on top it would block every step below it.
+        toast(`Couldn't undo “${change.label}”: ${(e as Error).message}. Skipped — Undo goes on from the step before.`);
+      }
       resync.count++;
     } finally {
       app.busy--;
@@ -666,7 +678,12 @@ export function redo(): Promise<void> {
       await connection.send({ op: "edit", network: change.network, edits: change.redo });
       pushCapped(stacksOf(change.network).undo, change);
     } catch (e) {
-      toast(`Couldn't redo “${change.label}”: ${(e as Error).message}. Skipped.`);
+      if (lostAnswer(e)) {
+        pushCapped(stacksOf(change.network).redo, change);
+        toast(`No answer about redoing “${change.label}” (${(e as Error).message}) — it's kept: Redo again once the game is back.`);
+      } else {
+        toast(`Couldn't redo “${change.label}”: ${(e as Error).message}. Skipped.`);
+      }
       resync.count++;
     } finally {
       app.busy--;
