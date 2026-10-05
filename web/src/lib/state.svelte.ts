@@ -24,6 +24,8 @@ interface Change {
   label: string;
   redo: Edit[];
   undo: Edit[];
+  /** Its last sending got no answer: the game may have done it. Refused when sent again, it was. */
+  uncertain?: boolean;
 }
 
 export type RateUnit = "t" | "s";
@@ -572,9 +574,10 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
   }
   app.busy++;
   return serially(async () => {
+    let sending: { edits: Edit[]; undo?: Edit[] } = { edits, undo };
     try {
       // Made again on what the game has now: the edits before this one are answered.
-      const sending = replanned(edits, undo);
+      sending = replanned(edits, undo);
       const r = await connection.send({ op: "edit", network, edits: sending.edits });
       for (const e of sending.edits) {
         if ((e.type === "updateNode" || e.type === "addNode") && e.node) confirmedNodes.set((e.node as GraphNode).id, e.node as GraphNode);
@@ -591,7 +594,15 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
       stacks.redo = [];
       return r.results as unknown[];
     } catch (e) {
-      toast((e as Error).message);
+      if (lostAnswer(e)) {
+        // The game may have done it: undoable all the same (refused when undone, it wasn't), and redo can't follow it.
+        const stacks = stacksOf(network);
+        if (sending.undo) pushCapped(stacks.undo, { network, label, redo: sending.edits, undo: sending.undo, uncertain: true });
+        stacks.redo = [];
+        toast(`No answer about “${label}” (${(e as Error).message}) — it may or may not have been done.`);
+      } else {
+        toast((e as Error).message);
+      }
       resync.count++;
       return null;
     } finally {
@@ -702,16 +713,24 @@ function pushCapped(stack: Change[], change: Change): void {
   if (stack.length > HISTORY) stack.shift();
 }
 
-/**
- * Undo and redo skip a change the server refuses (said in a toast): nothing of it was done, and left on top it would
- * block every step below it. {@code only}: undo that change only if it is still the last one when its turn comes
- * (edits sent before it may land first).
- */
 /** The game may or may not have done it: the connection dropped, or no answer came in time (not a refusal). */
 function lostAnswer(e: unknown): boolean {
   const message = (e as Error)?.message;
   return message === "Connection to the game lost" || message === "The game didn't answer in time";
 }
+
+/** It never reached a network: not connected, or the game not in a world (out to the title screen, loading). */
+function notSent(e: unknown): boolean {
+  const message = (e as Error)?.message;
+  return message === "Not connected to the game" || message === "Not in a world";
+}
+
+/**
+ * Undo and redo skip a change the server refuses (said in a toast): nothing of it was done, and left on top it would
+ * block every step below it. One not sent, or with no answer, is kept to try again; one with no answer that is refused
+ * when tried again was done the first time, and goes on as done. {@code only}: undo that change only if it is still the
+ * last one when its turn comes (edits sent before it may land first).
+ */
 
 export function undo(only?: (typeof app.undo)[number]): Promise<void> {
   // The network shown when asked: its turn may come after a switch to another.
@@ -728,12 +747,19 @@ export function undo(only?: (typeof app.undo)[number]): Promise<void> {
     app.busy++;
     try {
       await connection.send({ op: "edit", network: change.network, edits: change.undo });
-      pushCapped(stacksOf(change.network).redo, change);
+      pushCapped(stacksOf(change.network).redo, Object.assign(change, { uncertain: false }));
     } catch (e) {
-      if (lostAnswer(e)) {
-        // Maybe done, maybe not: kept, so it isn't lost. Done twice, the game refuses or changes nothing.
+      if (notSent(e)) {
         pushCapped(stacksOf(change.network).undo, change);
+        toast(`Couldn't undo “${change.label}”: ${(e as Error).message} — it's kept: Undo again once the game is back.`);
+      } else if (lostAnswer(e)) {
+        // Maybe done, maybe not: kept, so it isn't lost. Done twice, the game refuses or changes nothing.
+        pushCapped(stacksOf(change.network).undo, Object.assign(change, { uncertain: true }));
         toast(`No answer about undoing “${change.label}” (${(e as Error).message}) — it's kept: Undo again once the game is back.`);
+      } else if (change.uncertain) {
+        // Tried before with no answer, refused now: that first try was done.
+        pushCapped(stacksOf(change.network).redo, Object.assign(change, { uncertain: false }));
+        toast(`“${change.label}” was undone already (the game says: ${(e as Error).message}).`, "info");
       } else {
         // Nothing of it was done (a batch is all or nothing); left on top it would block every step below it.
         toast(`Couldn't undo “${change.label}”: ${(e as Error).message}. Skipped — Undo goes on from the step before.`);
@@ -754,11 +780,17 @@ export function redo(): Promise<void> {
     app.busy++;
     try {
       await connection.send({ op: "edit", network: change.network, edits: change.redo });
-      pushCapped(stacksOf(change.network).undo, change);
+      pushCapped(stacksOf(change.network).undo, Object.assign(change, { uncertain: false }));
     } catch (e) {
-      if (lostAnswer(e)) {
+      if (notSent(e)) {
         pushCapped(stacksOf(change.network).redo, change);
+        toast(`Couldn't redo “${change.label}”: ${(e as Error).message} — it's kept: Redo again once the game is back.`);
+      } else if (lostAnswer(e)) {
+        pushCapped(stacksOf(change.network).redo, Object.assign(change, { uncertain: true }));
         toast(`No answer about redoing “${change.label}” (${(e as Error).message}) — it's kept: Redo again once the game is back.`);
+      } else if (change.uncertain) {
+        pushCapped(stacksOf(change.network).undo, Object.assign(change, { uncertain: false }));
+        toast(`“${change.label}” was redone already (the game says: ${(e as Error).message}).`, "info");
       } else {
         toast(`Couldn't redo “${change.label}”: ${(e as Error).message}. Skipped.`);
       }
