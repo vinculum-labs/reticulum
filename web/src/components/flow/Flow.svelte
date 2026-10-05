@@ -44,6 +44,8 @@
     fillSlot,
     homeCheck,
     overCanvas,
+    bindingScope,
+    scopedBindings,
   } from "../../lib/state.svelte";
   import { instancesOf, instanceActivity, nowhere, ownBlocks, slotsOf } from "../../lib/blueprints";
   import { confirmDialog } from "../../lib/dialog.svelte";
@@ -185,7 +187,9 @@
     for (const n of untrack(() => nodes)) {
       if (n.type === "graph" && n.measured?.width && !n.data.frame) sizes.set(n.id, { width: n.measured.width, height: n.measured.height ?? 0 });
     }
-    const bindings = instance ? (instance.node.settings.bindings ?? {}) : undefined;
+    // Its slots as the placement it runs in fills them (one opened inside a blueprint on its own: the blueprint's slots).
+    const scope = instance && instance.run ? bindingScope() : null;
+    const bindings = scope ? scopedBindings(scope, s) : undefined;
     const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes, bindings, {
       modes: app.layers,
     });
@@ -995,7 +999,12 @@
       toast("Drop it on one of the slots.", "info");
       return;
     }
-    await fillSlot(instance.sheet, instance.node, instance.blueprint, slot, device);
+    const scope = bindingScope();
+    if (!scope) {
+      toast("Inside a blueprint nothing is filled: open it from where it's placed to fill its slots.", "info");
+      return;
+    }
+    await fillSlot(scope, instance.blueprint, slot, device);
     app.selectedNodes = [slot.id];
   }
 

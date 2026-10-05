@@ -555,7 +555,7 @@ public final class Network {
                     return new Home(sheet, node);
                 }
                 if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance) {
-                    for (var binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(sheet(instance.sheet()), instance).values()) {
+                    for (var binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(this, sheet(instance.sheet()), instance).values()) {
                         if (binding.device().equals(device)) {
                             return new Home(sheet, node);
                         }

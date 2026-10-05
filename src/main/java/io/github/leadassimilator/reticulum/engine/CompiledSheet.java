@@ -863,6 +863,12 @@ public final class CompiledSheet {
                         continue;
                     }
                     pasted = pasted.with(bound);
+                    // A blueprint placed in this one: filled by this placement, with the blocks it has for the inner one's
+                    // slots (whatever the inner node itself holds is the blueprint's, and not used).
+                    if (inner.settings() instanceof NodeSettings.InstanceSettings nested) {
+                        pasted = pasted.with(new NodeSettings.InstanceSettings(nested.sheet(),
+                                io.github.leadassimilator.reticulum.graph.Blueprints.inner(network, bindings, inner.id(), network.sheet(nested.sheet()))));
+                    }
                     // A splitter's weights are by wire, and the instance's wires have ids of their own.
                     if (pasted.settings() instanceof NodeSettings.SplitterSettings splitter && !splitter.weights().isEmpty()) {
                         pasted = pasted.with(splitter.renamed(instance));

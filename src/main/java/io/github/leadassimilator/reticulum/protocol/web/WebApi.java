@@ -554,7 +554,10 @@ public final class WebApi {
                 }
                 case "addNode", "updateNode" -> {
                     Sheet sheet = sheet(network, edit);
-                    Node node = decode(server, Node.CODEC, edit.get("node"), "node");
+                    Node sent = decode(server, Node.CODEC, edit.get("node"), "node");
+                    // A blueprint placed inside a blueprint holds no blocks: each placement of the outer one fills its slots.
+                    Node node = sheet.blueprint() && sent.settings() instanceof NodeSettings.InstanceSettings placed && !placed.bindings().isEmpty()
+                            ? sent.with(new NodeSettings.InstanceSettings(placed.sheet(), Map.of())) : sent;
                     checkPorts(network, sheet, node);
                     checkSlotRead(sheet, node);
                     checkSheetNode(network, sheet, node, type.equals("addNode"));
@@ -1110,7 +1113,7 @@ public final class WebApi {
             } else if (node.settings() instanceof NodeSettings.InstanceSettings instance) {
                 // A block filling a slot of an instance lives there, like a device node: once, in one slot.
                 java.util.Set<net.minecraft.core.GlobalPos> seen = new java.util.HashSet<>();
-                for (NodeSettings.Binding binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network.sheet(instance.sheet()), instance).values()) {
+                for (NodeSettings.Binding binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).values()) {
                     if (!seen.add(binding.device())) {
                         throw new RequestException("One block can't fill two slots");
                     }
@@ -1127,7 +1130,7 @@ public final class WebApi {
             if (node.settings() instanceof NodeSettings.DeviceSettings device) {
                 out.add(device.device());
             } else if (node.settings() instanceof NodeSettings.InstanceSettings instance) {
-                io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network.sheet(instance.sheet()), instance).values().forEach(b -> out.add(b.device()));
+                io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).values().forEach(b -> out.add(b.device()));
             }
             return out;
         }
@@ -1154,11 +1157,6 @@ public final class WebApi {
             }
             java.util.Set<GlobalPos> devices = new java.util.HashSet<>();
             for (Node node : sheet.nodes()) {
-                // Its blocks would sit inside the new blueprint, where nothing sees them: every instance would drive them.
-                if (node.settings() instanceof NodeSettings.InstanceSettings placed
-                        && !io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network.sheet(placed.sheet()), placed).isEmpty()) {
-                    throw new RequestException("A sheet holding a placed blueprint with blocks in its slots can't become a blueprint yet: detach it, or empty its slots, first");
-                }
                 // Two slots filled by one block can't be edited after (one block fills one slot).
                 if (node.settings() instanceof NodeSettings.DeviceSettings device && !devices.add(device.device())) {
                     throw new RequestException("A block has two nodes on this sheet: remove one first");
@@ -1177,6 +1175,16 @@ public final class WebApi {
                     blueprint.replace(slot.with(device.withBlock(record == null ? java.util.Optional.empty() : java.util.Optional.of(record.blockId()))));
                     bindings.put(slot.id(), new NodeSettings.Binding(device.device(), 0));
                     slotOf.putIfAbsent(device.device(), slot.id());
+                }
+            }
+            // A blueprint placed on the sheet: its slots are the new blueprint's slots too, and its blocks this placement's
+            // (each placement fills them with its own); the copy in the blueprint holds none.
+            for (Node original : sheet.nodes()) {
+                if (original.settings() instanceof NodeSettings.InstanceSettings placed) {
+                    UUID copy = ids.get(original.id());
+                    io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(placed.sheet()), placed)
+                            .forEach((key, binding) -> bindings.put(io.github.leadassimilator.reticulum.graph.Blueprints.nested(copy, key), binding));
+                    blueprint.replace(blueprint.node(copy).with(new NodeSettings.InstanceSettings(placed.sheet(), Map.of())));
                 }
             }
             // A Level sensor reading one of the sheet's devices reads that device's slot: in each instance, its block.
@@ -1216,7 +1224,8 @@ public final class WebApi {
             }
             roomForSheet(network);
             deepEnough(network, parent, 0);
-            Map<UUID, NodeSettings.Binding> live = io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(blueprint, instance);
+            Map<UUID, NodeSettings.Binding> live = io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, blueprint, instance);
+            // Its own slots become device nodes, so each needs a block; those of blueprints placed in it may stay empty.
             if (blueprint.nodes().stream().anyMatch(slot -> slot.settings() instanceof NodeSettings.DeviceSettings && !live.containsKey(slot.id()))) {
                 throw new RequestException("Fill its empty slots first: an empty slot has no block of its own to become a device node");
             }
@@ -1231,6 +1240,10 @@ public final class WebApi {
                 } else if (bound == null && inner.settings() instanceof NodeSettings.LevelSettings level) {
                     // Reading a slot the blueprint no longer has: it reads where that slot was laid out.
                     bound = level.readingDevice(level.device(), level.faces());
+                } else if (inner.settings() instanceof NodeSettings.InstanceSettings nested) {
+                    // A blueprint placed inside: on a sheet now, it holds this placement's blocks for its slots itself.
+                    bound = new NodeSettings.InstanceSettings(nested.sheet(),
+                            io.github.leadassimilator.reticulum.graph.Blueprints.inner(network, instance.bindings(), inner.id(), network.sheet(nested.sheet())));
                 }
                 sheet.replace(made.with(bound));
                 // What it remembered in the instance, now under its own id.

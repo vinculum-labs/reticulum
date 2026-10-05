@@ -8,7 +8,7 @@ import { share } from "./share";
 import { KIND_LABEL } from "./kinds";
 import { descendants, rootSheet, sheetPath } from "./tree";
 import { confirmDialog, promptDialog } from "./dialog.svelte";
-import { instancesOf, fillOne, inInstance, slotName } from "./blueprints";
+import { allSlotKeys, instancesOf, fillOne, inInstance, slotName } from "./blueprints";
 import { references } from "./templates";
 
 export interface Toast {
@@ -848,9 +848,11 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
       if (s.kind === "instance" && !sheet.blueprint) {
         const instanceLabel = `${label} › ${nodeTitle(node)}`;
         const blueprint = snapshot.sheets.find((b) => b.id === s.sheet);
+        // Only slots the blueprint still has (those of blueprints placed in it too): one taken out leaves its block free
+        // (as the server sees it).
+        const keys = new Set(allSlotKeys(blueprint, snapshot.sheets));
         for (const [slot, binding] of Object.entries(s.bindings ?? {})) {
-          // Only slots the blueprint still has: one taken out leaves its block free (as the server sees it).
-          if (blueprint?.nodes?.some((n) => n.id === slot)) add(binding.device, { label: instanceLabel, sheetId: sheet.id, nodeId: node.id, home: true });
+          if (keys.has(slot)) add(binding.device, { label: instanceLabel, sheetId: sheet.id, nodeId: node.id, home: true });
         }
       }
     }
@@ -1009,6 +1011,60 @@ export function openInstanceNode(): { sheet: Sheet; node: GraphNode & { settings
     expected = instance.settings.sheet;
   }
   return { sheet, node: node as GraphNode & { settings: InstanceSettings }, blueprint, run };
+}
+
+/**
+ * Where the open instance's slots are filled: the placement it runs in (the first of the way in, on a sheet that runs)
+ * and the key each of the open blueprint's slots has in that placement's bindings. A blueprint placed inside another
+ * holds no blocks itself; each placement of the outer one fills it. Null when the open instance doesn't run (one inside a
+ * blueprint opened on its own): nothing is filled there.
+ */
+export interface BindingScope {
+  holder: Sheet;
+  node: GraphNode & { settings: InstanceSettings };
+  key: (slot: string) => string;
+}
+
+export function bindingScope(): BindingScope | null {
+  const at = app.instance;
+  if (!at || !openInstanceNode()?.run) return null;
+  const chain = [...(at.outer ?? []), { sheet: at.sheet, node: at.node }];
+  const holder = app.snapshot?.sheets.find((s) => s.id === chain[0].sheet);
+  const node = holder?.nodes?.find((n) => n.id === chain[0].node);
+  if (!holder || node?.settings.kind !== "instance") return null;
+  const path = chain.slice(1).map((c) => c.node);
+  return { holder, node: node as GraphNode & { settings: InstanceSettings }, key: (slot) => path.reduceRight((k, placed) => inInstance(placed, k), slot) };
+}
+
+/** The open blueprint's slots as {@code scope}'s placement fills them, by slot id (all of them: theirs and those placed in it). */
+export function scopedBindings(scope: BindingScope | null, blueprint: Sheet): Record<string, Binding> {
+  if (!scope) return {};
+  const all = scope.node.settings.bindings ?? {};
+  const out: Record<string, Binding> = {};
+  for (const key of allSlotKeys(blueprint, app.snapshot?.sheets ?? [])) {
+    const b = all[scope.key(key)];
+    if (b) out[key] = b;
+  }
+  return out;
+}
+
+/** {@link setBindings} for the open instance's slots, written into the placement it runs in. */
+export function setScopedBindings(scope: BindingScope, blueprint: Sheet, change: (bindings: Record<string, Binding>) => Record<string, Binding>, label = "fill slot") {
+  const keys = allSlotKeys(blueprint, app.snapshot?.sheets ?? []);
+  return setBindings(
+    scope.holder,
+    scope.node,
+    (all) => {
+      const view: Record<string, Binding> = {};
+      for (const key of keys) if (all[scope.key(key)]) view[key] = all[scope.key(key)];
+      const next = change(view);
+      const out = { ...all };
+      for (const key of keys) delete out[scope.key(key)];
+      for (const [key, b] of Object.entries(next)) out[scope.key(key)] = b;
+      return out;
+    },
+    label,
+  );
 }
 
 /**
@@ -1242,12 +1298,12 @@ export function homeCheck(): (device: Device) => boolean {
  * Fills a slot of an instance with a device, turned as the slot already was (else as the instance's other slots are). The
  * instance's first block fills the rest by layout too: one undo step, offered on the toast.
  */
-export async function fillSlot(holder: Sheet, instance: GraphNode & { settings: InstanceSettings }, blueprint: Sheet, slot: GraphNode, device: Device): Promise<boolean> {
+export async function fillSlot(scope: BindingScope, blueprint: Sheet, slot: GraphNode, device: Device): Promise<boolean> {
   const homed = homeCheck();
   let more = 0;
-  const ok = await setBindings(
-    holder,
-    instance,
+  const ok = await setScopedBindings(
+    scope,
+    blueprint,
     (bindings) => {
       const turns = bindings[slot.id]?.turns ?? Object.values(bindings).find((b) => b.turns)?.turns;
       const result = fillOne(blueprint, bindings, slot.id, { device: device.pos, ...(turns ? { turns } : {}) }, app.snapshot!.devices, homed);

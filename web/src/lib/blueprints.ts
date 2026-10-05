@@ -140,6 +140,25 @@ export function inInstance(instanceNode: string, id: string): string {
 }
 
 /**
+ * Every slot a placement of this blueprint fills, by the key its bindings use (as the server keys them): its own slots
+ * by id, and those of blueprints placed in it (any depth) by the placed node and the key there ({@link inInstance}).
+ */
+export function allSlotKeys(blueprint: Sheet | undefined, sheets: Sheet[], depth = 0, path = new Set<string>()): string[] {
+  if (!blueprint || depth >= 8 || path.has(blueprint.id)) return [];
+  path.add(blueprint.id);
+  const out: string[] = [];
+  for (const n of blueprint.nodes ?? []) {
+    if (n.settings.kind === "device") out.push(n.id);
+    else if (n.settings.kind === "instance") {
+      const inner = sheets.find((s) => s.id === (n.settings as InstanceSettings).sheet && s.blueprint);
+      for (const key of allSlotKeys(inner, sheets, depth + 1, path)) out.push(inInstance(n.id, key));
+    }
+  }
+  path.delete(blueprint.id);
+  return out;
+}
+
+/**
  * Activity as an open instance's nodes and wires show it. The canvas shows the blueprint's own nodes, but the server names
  * them in this instance "<instance node>/<blueprint node>" (as a name UUID), and keeps their activity under those names.
  * Statuses aren't moved: the server puts those on the instance node.

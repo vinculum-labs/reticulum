@@ -1,9 +1,9 @@
 <script lang="ts">
   import { NAME_LIMIT } from "../../lib/kinds";
   import Help from "./Help.svelte";
-  import { app, deleteInstance, edit, nodeTitle, openSheet, showNode, updateNodeEdit } from "../../lib/state.svelte";
+  import { app, bindingScope, deleteInstance, edit, nodeTitle, openSheet, scopedBindings, showNode, updateNodeEdit } from "../../lib/state.svelte";
   import { confirmDialog } from "../../lib/dialog.svelte";
-  import { instancesOf, slotsOf } from "../../lib/blueprints";
+  import { allSlotKeys, instancesOf } from "../../lib/blueprints";
   import { sheetPath } from "../../lib/tree";
   import type { InstanceSettings, GraphNode, Sheet } from "../../lib/types";
   import Trash from "@lucide/svelte/icons/trash";
@@ -16,8 +16,11 @@
   let { sheet, instance, blueprint }: { sheet: Sheet; instance: GraphNode & { settings: InstanceSettings }; blueprint: Sheet } = $props();
 
   const canEdit = $derived(app.snapshot?.canEdit ?? false);
-  const slots = $derived(slotsOf(blueprint));
-  const filled = $derived(slots.filter((s) => instance.settings.bindings?.[s.id]).length);
+  // Its slots and those of blueprints placed in it, as the placement it runs in fills them.
+  const scope = $derived((void instance, bindingScope()));
+  const slots = $derived(allSlotKeys(blueprint, app.snapshot?.sheets ?? []));
+  const filled = $derived(Object.keys(scopedBindings(scope, blueprint)).length);
+  const slotCount = $derived((blueprint.nodes ?? []).filter((n) => n.settings.kind === "device").length);
   const instances = $derived(app.snapshot ? instancesOf(app.snapshot, blueprint.id).length : 0);
 
   /** This instance's own name (its node's label); blank goes back to the blueprint's. */
@@ -50,9 +53,11 @@
     <TextField value={instance.label} maxlength={NAME_LIMIT} disabled={!canEdit} placeholder={blueprint.name} oncommit={rename} />
   </Field>
   <p class="text-sm">
-    {#if slots.length}
-      {filled} of {slots.length} slot{slots.length === 1 ? "" : "s"} filled.
-      {filled < slots.length ? "Drop devices from the list on the empty (red) ones — routes through an empty slot don't run." : ""}
+    {#if slots.length && !scope}
+      Placed inside a blueprint: each placement of that blueprint fills these slots — open it from a placement to fill them.
+    {:else if slots.length}
+      {filled} of {slots.length} slot{slots.length === 1 ? "" : "s"} filled{slots.length > slotCount ? ", with those of the blueprints placed in it" : ""}.
+      {filled < slots.length ? "Drop devices from the list on the empty (red) ones — open a blueprint placed in it to fill its slots. Routes through an empty slot don't run." : ""}
     {:else}
       Its blueprint has no slots: it works on nothing but what is wired to its pins.
     {/if}

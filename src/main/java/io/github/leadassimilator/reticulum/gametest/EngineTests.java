@@ -1897,6 +1897,38 @@ public final class EngineTests {
         return new Node[] {a, b};
     }
 
+    /**
+     * A blueprint placed inside another is filled by each placement of the outer one: two placements of B (holding a
+     * placed A, "slot a -> slot b") move between their own blocks. Blocks the inner node holds itself (it is part of B's
+     * template) are not used.
+     */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void nestedSlotsAreFilledByEachOuterPlacement(GameTestHelper helper) {
+        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
+        rig.container(0).setItem(0, new ItemStack(Items.DIRT, 5));
+        rig.container(2).setItem(0, new ItemStack(Items.IRON_INGOT, 5));
+        rig.container(4).setItem(0, new ItemStack(Items.GOLD_INGOT, 5));
+        Sheet a = new Sheet(UUID.randomUUID(), "pair");
+        Node[] slots = barrelBlueprint(rig, a);
+        Sheet b = new Sheet(UUID.randomUUID(), "outer");
+        b.setBlueprint(true);
+        // Holding blocks of its own, as a blueprint's node shouldn't: ignored.
+        Node inner = b.add(Node.of(new NodeSettings.InstanceSettings(a.id(), Map.of(
+                slots[0].id(), new NodeSettings.Binding(rig.device(0), 0), slots[1].id(), new NodeSettings.Binding(rig.device(1), 0)))));
+        rig.network().sheets().add(b);
+        java.util.function.BiFunction<Integer, Integer, Map<UUID, NodeSettings.Binding>> filled = (from, to) -> Map.of(
+                io.github.leadassimilator.reticulum.graph.Blueprints.nested(inner.id(), slots[0].id()), new NodeSettings.Binding(rig.device(from), 0),
+                io.github.leadassimilator.reticulum.graph.Blueprints.nested(inner.id(), slots[1].id()), new NodeSettings.Binding(rig.device(to), 0));
+        rig.node(new NodeSettings.InstanceSettings(b.id(), filled.apply(2, 3)));
+        rig.node(new NodeSettings.InstanceSettings(b.id(), filled.apply(4, 5)));
+        check(helper, io.github.leadassimilator.reticulum.graph.Blueprints.slots(rig.network(), b).size() == 2, "B doesn't count A's two slots as its own");
+        helper.succeedWhen(() -> {
+            check(helper, rig.count(3, Items.IRON_INGOT) == 5, "the first placement didn't move between its own blocks");
+            check(helper, rig.count(5, Items.GOLD_INGOT) == 5, "the second placement didn't move between its own blocks");
+            check(helper, rig.count(0, Items.DIRT) == 5, "blocks held inside the blueprint were used");
+        });
+    }
+
     /** An instance moves between the blocks filling its slots, not the ones the blueprint was laid out on. */
     @GameTest(template = "empty")
     public static void instanceMovesBetweenTheBlocksFillingItsSlots(GameTestHelper helper) {

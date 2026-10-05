@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, instanceRun, deviceAt, deviceName, fillSlot, homeCheck, setBindings, toast } from "../../lib/state.svelte";
+  import { app, instanceRun, bindingScope, deviceAt, deviceName, fillSlot, homeCheck, scopedBindings, setScopedBindings, toast } from "../../lib/state.svelte";
   import { blockName, fillByLayout, inInstance, slotName, slotsOf } from "../../lib/blueprints";
   import { RESOURCE_UNIT } from "../../lib/kinds";
   import { posKey, type InstanceSettings, type Device, type GraphNode, type Sheet } from "../../lib/types";
@@ -14,8 +14,10 @@
   /** A slot of an open instance: which block fills it, how far it is turned, and filling the rest by layout. */
   let { sheet, instance, blueprint, slot }: { sheet: Sheet; instance: GraphNode & { settings: InstanceSettings }; blueprint: Sheet; slot: GraphNode } = $props();
 
-  const canEdit = $derived(app.snapshot?.canEdit ?? false);
-  const bindings = $derived(instance.settings.bindings ?? {});
+  // Filled in the placement the open instance runs in (inside a blueprint opened on its own: not at all).
+  const scope = $derived((void instance, bindingScope()));
+  const canEdit = $derived((app.snapshot?.canEdit ?? false) && !!scope);
+  const bindings = $derived(scopedBindings(scope, blueprint));
   const binding = $derived(bindings[slot.id]);
   const filler = $derived(binding ? deviceAt(posKey(binding.device)) : undefined);
   const block = $derived(slot.settings.kind === "device" ? slot.settings.block : undefined);
@@ -24,17 +26,18 @@
   const empty = $derived(slotsOf(blueprint).filter((s) => !bindings[s.id]).length);
 
   function fill(device: Device) {
-    fillSlot(sheet, instance, blueprint, slot, device);
+    if (scope) fillSlot(scope, blueprint, slot, device);
   }
 
   function turn(turns: number) {
-    if (binding) setBindings(sheet, instance, (b) => (b[slot.id] ? { ...b, [slot.id]: { device: b[slot.id].device, ...(turns ? { turns } : {}) } } : b), "turn slot");
+    if (binding && scope) setScopedBindings(scope, blueprint, (b) => (b[slot.id] ? { ...b, [slot.id]: { device: b[slot.id].device, ...(turns ? { turns } : {}) } } : b), "turn slot");
   }
 
   function clear() {
-    setBindings(
-      sheet,
-      instance,
+    if (!scope) return;
+    setScopedBindings(
+      scope,
+      blueprint,
       (b) => {
         const { [slot.id]: _gone, ...rest } = b;
         return rest;
@@ -52,7 +55,8 @@
     }
     // Counted before: the new snapshot (fewer empty slots) comes in before the answer.
     const wereEmpty = empty;
-    const ok = await setBindings(sheet, instance, () => result.bindings, "fill by layout");
+    if (!scope) return;
+    const ok = await setScopedBindings(scope, blueprint, () => result.bindings, "fill by layout");
     if (ok) toast(`Filled ${result.filled} of ${wereEmpty} empty slot${wereEmpty === 1 ? "" : "s"}.`, "info");
   }
 </script>

@@ -2,7 +2,7 @@
   import Help from "./Help.svelte";
   import Trash from "@lucide/svelte/icons/trash";
   import { app, deviceAt, edit, nodeTitle, openInstance, openDevice, openSheet, rebase, updateNodeEdit } from "../../lib/state.svelte";
-  import { slotName, slotsOf } from "../../lib/blueprints";
+  import { slotName, slotsOf, allSlotKeys } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
   import { KIND_HINT, KIND_LABEL, OP_SYMBOL, gated, sideLabel, moves, RESOURCE_LABEL, RESOURCE_UNIT, RESOURCE_VAR, isSignal, NAME_LIMIT } from "../../lib/kinds";
@@ -641,13 +641,15 @@
       />
     </Field>
     {#if used}
-      {@const slots = slotsOf(used)}
-      {@const filled = slots.filter((x) => s.bindings?.[x.id]).length}
+      {@const slots = allSlotKeys(used, app.snapshot?.sheets ?? [])}
+      {@const filled = slots.filter((key) => s.bindings?.[key]).length}
       <div class="text-sm">
         <div><span class="muted">Inputs:</span> {sheetPins(used, true).map(pinName).join(", ") || "none"}</div>
         <div><span class="muted">Outputs:</span> {sheetPins(used, false).map(pinName).join(", ") || "none"}</div>
-        {#if slots.length}
-          <div class={filled < slots.length && !sheet.blueprint ? "text-bad" : ""}><span class="muted">Slots filled:</span> {filled} of {slots.length}</div>
+        {#if slots.length && sheet.blueprint}
+          <div><span class="muted">Slots:</span> {slots.length}, filled by each placement of this blueprint</div>
+        {:else if slots.length}
+          <div class={filled < slots.length ? "text-bad" : ""}><span class="muted">Slots filled:</span> {filled} of {slots.length}</div>
         {/if}
       </div>
       <div class="flex flex-wrap gap-2">
