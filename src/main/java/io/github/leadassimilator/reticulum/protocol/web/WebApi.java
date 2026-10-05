@@ -556,8 +556,9 @@ public final class WebApi {
                     Sheet sheet = sheet(network, edit);
                     Node sent = decode(server, Node.CODEC, edit.get("node"), "node");
                     // A blueprint placed inside a blueprint holds no blocks: each placement of the outer one fills its slots.
+                    // (Its layout stays: where its slots were laid out, for filling placements by layout.)
                     Node node = sheet.blueprint() && sent.settings() instanceof NodeSettings.InstanceSettings placed && !placed.bindings().isEmpty()
-                            ? sent.with(new NodeSettings.InstanceSettings(placed.sheet(), Map.of())) : sent;
+                            ? sent.with(new NodeSettings.InstanceSettings(placed.sheet(), Map.of(), placed.layout())) : sent;
                     checkPorts(network, sheet, node);
                     checkSlotRead(sheet, node);
                     checkSheetNode(network, sheet, node, type.equals("addNode"));
@@ -1184,7 +1185,9 @@ public final class WebApi {
                     UUID copy = ids.get(original.id());
                     io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(placed.sheet()), placed)
                             .forEach((key, binding) -> bindings.put(io.github.leadassimilator.reticulum.graph.Blueprints.nested(copy, key), binding));
-                    blueprint.replace(blueprint.node(copy).with(new NodeSettings.InstanceSettings(placed.sheet(), Map.of())));
+                    // Its blocks stay as its layout: where its slots were laid out, for filling placements by layout.
+                    blueprint.replace(blueprint.node(copy).with(new NodeSettings.InstanceSettings(placed.sheet(), Map.of(),
+                            io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(placed.sheet()), placed))));
                 }
             }
             // A Level sensor reading one of the sheet's devices reads that device's slot: in each instance, its block.

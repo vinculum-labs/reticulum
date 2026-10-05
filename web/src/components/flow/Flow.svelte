@@ -835,7 +835,7 @@
     };
     // An instance comes filled with the blocks its blueprint was made from, where they are still free (one put back).
     const used = kind === "instance" && !into.blueprint ? app.snapshot?.sheets.find((x) => x.id === blueprint) : undefined;
-    const own = used ? ownBlocks(used, app.snapshot!.devices, homeCheck()) : {};
+    const own = used ? ownBlocks(used, app.snapshot!.devices, homeCheck(), app.snapshot!.sheets) : {};
     if (Object.keys(own).length) (node.settings as InstanceSettings).bindings = own;
     const ok = await edit([{ type: "addNode", sheet: into.id, node }], [{ type: "removeNode", sheet: into.id, node: node.id }], "add node");
     if (ok) {

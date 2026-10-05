@@ -1306,7 +1306,7 @@ export async function fillSlot(scope: BindingScope, blueprint: Sheet, slot: Grap
     blueprint,
     (bindings) => {
       const turns = bindings[slot.id]?.turns ?? Object.values(bindings).find((b) => b.turns)?.turns;
-      const result = fillOne(blueprint, bindings, slot.id, { device: device.pos, ...(turns ? { turns } : {}) }, app.snapshot!.devices, homed);
+      const result = fillOne(blueprint, bindings, slot.id, { device: device.pos, ...(turns ? { turns } : {}) }, app.snapshot!.devices, homed, app.snapshot!.sheets);
       more = result.more;
       return result.bindings;
     },

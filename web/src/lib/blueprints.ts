@@ -61,9 +61,35 @@ function turn(dx: number, dz: number, turns: number): [number, number] {
 }
 
 /**
+ * A blueprint's slots as a placement fills them, with where each was laid out: its own slots (where the block they
+ * were made from stood), and those of blueprints placed in it by the layout those keep (the blocks they had when the
+ * blueprint was made from a sheet). A slot with no place (picked from the catalog, or in a blueprint placed by hand)
+ * fills only by hand.
+ */
+export function layoutSlots(blueprint: Sheet, sheets: Sheet[], depth = 0, path = new Set<string>()): { key: string; block?: string; laid?: GlobalPos }[] {
+  if (depth >= 8 || path.has(blueprint.id)) return [];
+  path.add(blueprint.id);
+  const out: { key: string; block?: string; laid?: GlobalPos }[] = [];
+  for (const n of blueprint.nodes ?? []) {
+    const s = n.settings;
+    if (s.kind === "device") out.push({ key: n.id, block: s.block, laid: placeless(s.device) ? undefined : s.device });
+    else if (s.kind === "instance") {
+      const inner = sheets.find((x) => x.id === s.sheet && x.blueprint);
+      if (!inner) continue;
+      for (const slot of layoutSlots(inner, sheets, depth + 1, path)) {
+        out.push({ key: inInstance(n.id, slot.key), block: slot.block, laid: s.layout?.[slot.key]?.device });
+      }
+    }
+  }
+  path.delete(blueprint.id);
+  return out;
+}
+
+/**
  * Fills an instance's empty slots by layout, from one filled slot (the anchor): each other slot's block is looked for at
  * the same place relative to the anchor's block as in the blueprint, turned the same way, and taken only if it is
- * exactly that kind of block and lives nowhere yet. Returns the new bindings and how many slots it filled.
+ * exactly that kind of block and lives nowhere yet. Slots of blueprints placed in it count too, where it keeps their
+ * layout. Returns the new bindings and how many slots it filled.
  */
 export function fillByLayout(
   blueprint: Sheet,
@@ -71,25 +97,27 @@ export function fillByLayout(
   anchor: string,
   devices: Device[],
   placed: (device: Device) => boolean,
+  sheets: Sheet[] = [],
 ): { bindings: Record<string, Binding>; filled: number } {
-  const slots = slotsOf(blueprint);
-  const from = slots.find((s) => s.id === anchor);
+  const slots = layoutSlots(blueprint, sheets);
+  const from = slots.find((s) => s.key === anchor);
   const binding = bindings[anchor];
-  // A slot picked from the catalog has no place to measure a layout from, nor to be found at.
-  if (!from || !binding || placeless(from.settings.device)) return { bindings, filled: 0 };
+  // A slot with no place in the layout has nothing to measure from.
+  if (!from?.laid || !binding) return { bindings, filled: 0 };
+  const origin = from.laid.pos;
   const turns = binding.turns ?? 0;
   const next = { ...bindings };
   const taken = new Set(Object.values(next).map((b) => posKey(b.device)));
   let filled = 0;
   for (const slot of slots) {
-    if (next[slot.id] || !slot.settings.block || placeless(slot.settings.device)) continue;
-    const [dx, dz] = turn(slot.settings.device.pos[0] - from.settings.device.pos[0], slot.settings.device.pos[2] - from.settings.device.pos[2], turns);
-    const dy = slot.settings.device.pos[1] - from.settings.device.pos[1];
+    if (next[slot.key] || !slot.block || !slot.laid) continue;
+    const [dx, dz] = turn(slot.laid.pos[0] - origin[0], slot.laid.pos[2] - origin[2], turns);
+    const dy = slot.laid.pos[1] - origin[1];
     const at = binding.device.pos;
     const want = { dimension: binding.device.dimension, pos: [at[0] + dx, at[1] + dy, at[2] + dz] as [number, number, number] };
     const found = devices.find((d) => posKey(d.pos) === posKey(want) && d.state === "active");
-    if (!found || found.block !== slot.settings.block || taken.has(posKey(found.pos)) || placed(found)) continue;
-    next[slot.id] = { device: found.pos, ...(turns ? { turns } : {}) };
+    if (!found || found.block !== slot.block || taken.has(posKey(found.pos)) || placed(found)) continue;
+    next[slot.key] = { device: found.pos, ...(turns ? { turns } : {}) };
     taken.add(posKey(found.pos));
     filled++;
   }
@@ -107,11 +135,12 @@ export function fillOne(
   binding: Binding,
   devices: Device[],
   placed: (device: Device) => boolean,
+  sheets: Sheet[] = [],
 ): { bindings: Record<string, Binding>; more: number } {
-  const first = slotsOf(blueprint).every((s) => s.id === slot || !bindings[s.id]);
+  const first = layoutSlots(blueprint, sheets).every((s) => s.key === slot || !bindings[s.key]);
   const next = { ...bindings, [slot]: binding };
   if (!first) return { bindings: next, more: 0 };
-  const result = fillByLayout(blueprint, next, slot, devices, placed);
+  const result = fillByLayout(blueprint, next, slot, devices, placed, sheets);
   return { bindings: result.bindings, more: result.filled };
 }
 
@@ -119,15 +148,16 @@ export function fillOne(
  * A new instance's slots filled with the blocks the blueprint was made from, each where it still is, still that kind of
  * block and living nowhere: an instance put back where it was comes back filled.
  */
-export function ownBlocks(blueprint: Sheet, devices: Device[], placed: (device: Device) => boolean): Record<string, Binding> {
+export function ownBlocks(blueprint: Sheet, devices: Device[], placed: (device: Device) => boolean, sheets: Sheet[] = []): Record<string, Binding> {
   const bindings: Record<string, Binding> = {};
-  // A block fills one slot (two slots made from the same device: the first gets it).
+  // A block fills one slot (two slots made from the same device: the first gets it). Those of blueprints placed in it
+  // too, where it keeps their layout.
   const taken = new Set<string>();
-  for (const slot of slotsOf(blueprint)) {
-    const block = slot.settings.block;
-    const found = block ? devices.find((d) => posKey(d.pos) === posKey(slot.settings.device) && d.state === "active") : undefined;
-    if (found && found.block === block && !placed(found) && !taken.has(posKey(found.pos))) {
-      bindings[slot.id] = { device: found.pos };
+  for (const slot of layoutSlots(blueprint, sheets)) {
+    const laid = slot.laid;
+    const found = slot.block && laid ? devices.find((d) => posKey(d.pos) === posKey(laid) && d.state === "active") : undefined;
+    if (found && found.block === slot.block && !placed(found) && !taken.has(posKey(found.pos))) {
+      bindings[slot.key] = { device: found.pos };
       taken.add(posKey(found.pos));
     }
   }

@@ -48,7 +48,7 @@
 
   /** Fills the other empty slots from this one: same layout, turned the same, exact kinds of blocks, unused ones only. */
   async function fillRest() {
-    const result = fillByLayout(blueprint, bindings, slot.id, app.snapshot!.devices, homeCheck());
+    const result = fillByLayout(blueprint, bindings, slot.id, app.snapshot!.devices, homeCheck(), app.snapshot!.sheets);
     if (!result.filled) {
       toast("No other slot's block is where the layout says (the same kind of block, unused, at the same place from this one).", "info");
       return;

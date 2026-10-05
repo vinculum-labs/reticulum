@@ -311,14 +311,24 @@ public sealed interface NodeSettings {
      * An instance of a blueprint placed here, {@code bindings} saying which block fills each of its slots. Its pins are the
      * blueprint's Sheet input nodes (inputs, left) and Sheet output nodes (outputs, right); wires attach to them by slot.
      */
-    record InstanceSettings(UUID sheet, Map<UUID, Binding> bindings) implements NodeSettings {
+    /**
+     * {@code layout}: for one placed inside a blueprint, where its slots (by their keys) were laid out in that blueprint's
+     * layout (the blocks they had when the blueprint was made from a sheet). Never run: placements of the outer blueprint
+     * fill its slots, and fill them by this layout as by the outer blueprint's own.
+     */
+    record InstanceSettings(UUID sheet, Map<UUID, Binding> bindings, Map<UUID, Binding> layout) implements NodeSettings {
         public InstanceSettings(UUID sheet) {
-            this(sheet, Map.of());
+            this(sheet, Map.of(), Map.of());
+        }
+
+        public InstanceSettings(UUID sheet, Map<UUID, Binding> bindings) {
+            this(sheet, bindings, Map.of());
         }
 
         public static final MapCodec<InstanceSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 Ids.UUID_CODEC.fieldOf("sheet").forGetter(InstanceSettings::sheet),
-                Codec.unboundedMap(Ids.UUID_CODEC, Binding.CODEC).optionalFieldOf("bindings", Map.of()).forGetter(InstanceSettings::bindings)
+                Codec.unboundedMap(Ids.UUID_CODEC, Binding.CODEC).optionalFieldOf("bindings", Map.of()).forGetter(InstanceSettings::bindings),
+                Codec.unboundedMap(Ids.UUID_CODEC, Binding.CODEC).optionalFieldOf("layout", Map.of()).forGetter(InstanceSettings::layout)
         ).apply(i, InstanceSettings::new));
 
         @Override

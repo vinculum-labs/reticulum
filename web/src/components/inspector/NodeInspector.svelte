@@ -162,7 +162,7 @@
     if (node.settings.kind !== "instance") return;
     const old = app.snapshot?.sheets.find((x) => x.id === (node.settings as { sheet?: string }).sheet)?.name;
     const numbered = !!old && !!node.label?.startsWith(`${old} #`) && /^\d+$/.test(node.label.slice(old.length + 2));
-    save({ ...node, label: numbered ? undefined : node.label, settings: { ...node.settings, sheet, bindings: undefined } as NodeSettings }, "change blueprint");
+    save({ ...node, label: numbered ? undefined : node.label, settings: { ...node.settings, sheet, bindings: undefined, layout: undefined } as NodeSettings }, "change blueprint");
   }
 
   /** Another placement of the same blueprint with this one's name. */

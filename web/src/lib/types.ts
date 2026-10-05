@@ -110,6 +110,8 @@ export interface InstanceSettings {
   sheet: string;
   /** The block filling each slot, by the slot's node id in the blueprint. */
   bindings?: Record<string, Binding>;
+  /** Placed inside a blueprint: where its slots (by key) were laid out in that blueprint (for filling by layout; never run). */
+  layout?: Record<string, Binding>;
 }
 
 /** The block filling a slot of an instance, and how far the set is turned from the blueprint's (quarter turns clockwise). */
