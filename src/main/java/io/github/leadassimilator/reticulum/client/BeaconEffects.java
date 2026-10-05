@@ -58,8 +58,9 @@ public final class BeaconEffects {
             float r = ((color >> 16) & 0xFF) / 255f;
             float g = ((color >> 8) & 0xFF) / 255f;
             float b = (color & 0xFF) / 255f;
-            RenderType quads = through ? IdentifyRenderer.QUADS_THROUGH_WALLS : RenderType.debugQuads();
-            RenderType lines = through ? IdentifyRenderer.LINES_THROUGH_WALLS : RenderType.lines();
+            // Not through walls: hidden by them, but writing no depth, so the label inside the bubble still shows.
+            RenderType quads = through ? IdentifyRenderer.QUADS_THROUGH_WALLS : IdentifyRenderer.QUADS_BEHIND_WALLS;
+            RenderType lines = through ? IdentifyRenderer.LINES_THROUGH_WALLS : IdentifyRenderer.LINES_BEHIND_WALLS;
             // Two shells breathing out of step, and an outline, so it reads as a bubble around the block.
             double outer = 0.35 + 0.35 * pulse;
             double inner = 0.15 + 0.2 * (1 - pulse);
@@ -71,8 +72,8 @@ public final class BeaconEffects {
         if (any) {
             buffers.endBatch(IdentifyRenderer.QUADS_THROUGH_WALLS);
             buffers.endBatch(IdentifyRenderer.LINES_THROUGH_WALLS);
-            buffers.endBatch(RenderType.debugQuads());
-            buffers.endBatch(RenderType.lines());
+            buffers.endBatch(IdentifyRenderer.QUADS_BEHIND_WALLS);
+            buffers.endBatch(IdentifyRenderer.LINES_BEHIND_WALLS);
         }
         pose.popPose();
     }

@@ -63,6 +63,31 @@ public final class IdentifyRenderer {
                     .setWriteMaskState(RenderStateShard.COLOR_WRITE)
                     .createCompositeState(false));
 
+    /**
+     * Translucent quads that walls hide but that hide nothing themselves (no depth written): a glow around a block, so
+     * text inside it (a beacon's label) still shows.
+     */
+    static final RenderType QUADS_BEHIND_WALLS = RenderType.create("reticulum_glow_quads", DefaultVertexFormat.POSITION_COLOR,
+            VertexFormat.Mode.QUADS, 1536, false, true, RenderType.CompositeState.builder()
+                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .setDepthTestState(RenderStateShard.LEQUAL_DEPTH_TEST)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .createCompositeState(false));
+    /** Lines walls hide that hide nothing themselves, likewise. */
+    static final RenderType LINES_BEHIND_WALLS = RenderType.create("reticulum_glow_lines", DefaultVertexFormat.POSITION_COLOR_NORMAL,
+            VertexFormat.Mode.LINES, 1536, false, false, RenderType.CompositeState.builder()
+                    .setShaderState(RenderStateShard.RENDERTYPE_LINES_SHADER)
+                    .setLineState(new RenderStateShard.LineStateShard(OptionalDouble.empty()))
+                    .setLayeringState(RenderStateShard.VIEW_OFFSET_Z_LAYERING)
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setOutputState(RenderStateShard.ITEM_ENTITY_TARGET)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .setDepthTestState(RenderStateShard.LEQUAL_DEPTH_TEST)
+                    .createCompositeState(false));
+
     /** Only subclasses may name some render state classes. Never instantiated. */
     private abstract static class States extends RenderType {
         /**
