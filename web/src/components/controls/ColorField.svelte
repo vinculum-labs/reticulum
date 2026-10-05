@@ -64,7 +64,9 @@
   .swatch.none {
     background: linear-gradient(to bottom right, #fff calc(50% - 1px), #e0302a calc(50% - 1px), #e0302a calc(50% + 1px), #fff calc(50% + 1px));
   }
-  .swatch.none.on {
+  /* The chosen one is ringed: a white check alone is lost on light colors (white, yellow, light gray). */
+  .swatch.on,
+  .swatch[aria-checked="true"] {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
   }

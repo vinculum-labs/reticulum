@@ -56,7 +56,11 @@
     const release = onEscape(() => close(true));
     const onpointerdown = (e: PointerEvent) => {
       const target = e.target as Node;
-      if (!element?.contains(target) && !anchor?.contains(target)) close(false);
+      if (!element?.contains(target) && !anchor?.contains(target)) {
+        close(false);
+        // Marked, so a dialog under it doesn't take the same press as a click on its backdrop (closing both).
+        Object.assign(e, { closedLayer: true });
+      }
     };
     const reposition = () => place();
     window.addEventListener("pointerdown", onpointerdown, true);

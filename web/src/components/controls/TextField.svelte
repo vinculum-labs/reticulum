@@ -62,13 +62,16 @@
     const text = draft.trim().toLowerCase();
     return (suggestions ?? []).filter((s) => s.toLowerCase() !== text && s.toLowerCase().includes(text)).slice(0, 50);
   });
+  /** The suggestion just chosen: the list stays shut on it (it would offer longer ones containing it) until typing. */
+  let chosen: string | null = null;
   $effect(() => {
     // Open while typing in the box with something to offer; a new list starts with nothing picked.
-    suggesting = focused && matches.length > 0;
+    suggesting = focused && matches.length > 0 && draft !== chosen;
     active = -1;
   });
 
   function choose(suggestion: string) {
+    chosen = suggestion;
     draft = suggestion;
     suggesting = false;
     commit();

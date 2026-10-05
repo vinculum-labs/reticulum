@@ -57,10 +57,12 @@
     const asked = ++generation;
     loading = true;
     try {
-      const loaded = await Promise.all(wanted.map((id) => request("history", { item: id, window: window_ }).then((r) => [id, r.values as number[]] as const)));
+      // Each on its own: one series that fails (a timeout) keeps its last values, the rest still update.
+      const settled = await Promise.allSettled(wanted.map((id) => request("history", { item: id, window: window_ }).then((r) => [id, r.values as number[]] as const)));
       if (asked !== generation) return;
-      values = Object.fromEntries(loaded);
-      failed = false;
+      const loaded = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+      values = { ...values, ...Object.fromEntries(loaded) };
+      failed = loaded.length === 0 && settled.length > 0;
     } catch {
       if (asked === generation) failed = true;
     } finally {

@@ -135,7 +135,11 @@
           onpointerenter={() => {
             nav.active = i;
             if (item.items) openSub(i);
-            else sub = null;
+            else if (sub) {
+              // The submenu had focus: back to this menu, so keys (Esc above all) still reach a menu.
+              sub = null;
+              element?.focus();
+            }
           }}
           onclick={() => pick(item, i)}
         >

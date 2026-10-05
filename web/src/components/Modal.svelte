@@ -63,7 +63,8 @@
   let pressedBackdrop = false;
 
   function onpointerdown(e: PointerEvent) {
-    pressedBackdrop = e.target === element;
+    // Not a press that only closed a dropdown on top (Popover marks it): one click closes one layer.
+    pressedBackdrop = e.target === element && !(e as PointerEvent & { closedLayer?: boolean }).closedLayer;
   }
 
   /**

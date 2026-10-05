@@ -111,7 +111,8 @@
     const k = kind;
     contents = null;
     if (!key) return;
-    const device = allDevices.find((d) => posKey(d.pos) === key);
+    // Untracked: a new snapshot (devices listed afresh) isn't a reason to fetch again and lose the scroll.
+    const device = untrack(() => allDevices.find((d) => posKey(d.pos) === key));
     if (!device) return;
     request("deviceContents", { device: device.pos, resource: k })
       .then((r: { entries: { id: string; amount: number }[] }) => {
