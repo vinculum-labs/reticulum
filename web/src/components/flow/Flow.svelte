@@ -359,7 +359,31 @@
         resync.count++;
         return;
       }
-      await edit(crossing.edits, crossing.undo, "connect across sheets");
+      // What the wire carries, from either end (an untyped pin at one takes it from the other), as on one sheet: the
+      // untyped pins at its ends and the pins it makes on the frame edges between them take it too.
+      const sourceNode = nodeOf(c.source);
+      const targetNode = nodeOf(c.target);
+      const sent = sourceNode
+        ? isSignal(sourceNode.settings.kind) ? "redstone" : (pinResource(sourceNode, "out", output, app.snapshot.sheets) ?? resources(from, app.snapshot.sheets).nodes.get(sourceNode.id))
+        : undefined;
+      const taken = targetNode ? (input === GATE || isSignal(targetNode.settings.kind) ? "redstone" : pinResource(targetNode, "in", input, app.snapshot.sheets)) : undefined;
+      const carried = sent ?? taken ?? null;
+      const typed: Edit[] = [];
+      const untype: Edit[] = [];
+      const typeAt = (sheet: Sheet, pin: GraphNode | undefined) => {
+        const s = pin?.settings;
+        if (!pin || !carried || (s?.kind !== "sheet_input" && s?.kind !== "sheet_output") || s.resource) return;
+        typed.push({ type: "updateNode", sheet: sheet.id, node: { ...pin, settings: { ...s, resource: carried } } });
+        untype.push({ type: "updateNode", sheet: sheet.id, node: pin });
+      };
+      if (sourceNode?.settings.kind === "sheet_input") typeAt(from, sourceNode);
+      if (targetNode?.settings.kind === "sheet_output") typeAt(to, targetNode);
+      const edits = crossing.edits.map((e) => {
+        const n = e.type === "addNode" ? (e.node as GraphNode) : undefined;
+        const ns = n?.settings;
+        return carried && n && (ns?.kind === "sheet_input" || ns?.kind === "sheet_output") && !ns.resource ? { ...e, node: { ...n, settings: { ...ns, resource: carried } } } : e;
+      });
+      await edit([...typed, ...edits], [...crossing.undo, ...untype], "connect across sheets");
       return;
     }
     const wire: Wire = { id: uuid(), from: c.source, output, to: c.target, input, order: nextOrder(from, c.source, output) };
