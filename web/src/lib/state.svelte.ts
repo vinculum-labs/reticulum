@@ -640,11 +640,7 @@ function merged(base: unknown, mine: unknown, theirs: unknown): unknown {
   if (same(theirs, base)) return mine;
   if (Array.isArray(base) && Array.isArray(mine) && Array.isArray(theirs)) {
     if (base.length === mine.length && base.length === theirs.length) return mine.map((item, i) => merged(base[i], item, theirs[i]));
-    // One side added or removed items, the other only changed some: the items the first left as they were are
-    // found in the original list, and take the other side's changes to them.
-    if (base.length === theirs.length) return realign(base, mine, (k, item) => (k < 0 ? item : theirs[k]));
-    if (base.length === mine.length) return realign(base, theirs, (k, item) => (k < 0 ? item : merged(base[k], mine[k], item)));
-    return resizedBoth(base, mine, theirs);
+    return resized(base, mine, theirs);
   }
   if (isRecord(base) && isRecord(mine) && isRecord(theirs)) {
     const out: Record<string, unknown> = {};
@@ -658,27 +654,83 @@ function merged(base: unknown, mine: unknown, theirs: unknown): unknown {
 }
 
 /**
- * Both sides added or removed items (two quick "add input"s): theirs, less the items mine removed, with the items mine
- * added put after the item they followed in mine (and after those theirs added there, which came first). An item one
- * side changed counts as that item (paired in order with the original items it matched none of), not as one added.
+ * Each item of {@code list} with the original (index in {@code base}) it is, or -1 for one added; {@code exact} when it
+ * is that original unchanged. Unchanged items are found in order (the longest run of them); between two found ones, the
+ * items left on each side are the originals changed only when there are as many of each (else removed and added).
  */
-function resizedBoth(base: unknown[], mine: unknown[], theirs: unknown[]): unknown[] {
-  /** For each item, the original it is (-1: added), and whether it is that one unchanged. */
-  const match = (list: unknown[]) => {
-    const used = new Set<number>();
-    const out = list.map((item) => {
-      const k = base.findIndex((b, j) => !used.has(j) && same(b, item));
-      if (k >= 0) used.add(k);
-      return { k, exact: k >= 0 };
-    });
-    const left = base.map((_, j) => j).filter((j) => !used.has(j));
-    for (const m of out) if (m.k < 0 && left.length) m.k = left.shift()!;
-    return out;
-  };
-  const inMine = match(mine);
+function matchList(base: unknown[], list: unknown[]): { k: number; exact: boolean }[] {
+  // Longest common run of equal items, in order.
+  const n = base.length;
+  const m = list.length;
+  const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      lcs[i][j] = same(base[i], list[j]) ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+    }
+  }
+  const out = list.map(() => ({ k: -1, exact: false }));
+  const anchors: [number, number][] = [];
+  for (let i = 0, j = 0; i < n && j < m; ) {
+    if (same(base[i], list[j]) && lcs[i][j] === lcs[i + 1][j + 1] + 1) {
+      out[j] = { k: i, exact: true };
+      anchors.push([i, j]);
+      i++;
+      j++;
+    } else if (lcs[i + 1][j] >= lcs[i][j + 1]) i++;
+    else j++;
+  }
+  // The gaps between found items: as many left on each side, they are the originals changed.
+  anchors.push([n, m]);
+  let bi = 0;
+  let li = 0;
+  for (const [i, j] of anchors) {
+    if (i - bi === j - li) {
+      for (let d = 0; d < i - bi; d++) out[li + d] = { k: bi + d, exact: false };
+    } else {
+      // Not as many: an original is the item after the last one paired that shares the most of its fields with it
+      // (settings objects: the same resource, the same faces), if any does.
+      let from = li;
+      for (let b = bi; b < i; b++) {
+        let best = -1;
+        let bestShared = 0;
+        for (let l = from; l < j; l++) {
+          const shared = sharedFields(base[b], list[l]);
+          if (shared > bestShared) {
+            best = l;
+            bestShared = shared;
+          }
+        }
+        if (best >= 0) {
+          out[best] = { k: b, exact: false };
+          from = best + 1;
+        }
+      }
+    }
+    bi = i + 1;
+    li = j + 1;
+  }
+  return out;
+}
+
+/** How many fields two objects have equal (0 for anything else). */
+function sharedFields(a: unknown, b: unknown): number {
+  if (!isRecord(a) || !isRecord(b)) return 0;
+  return Object.keys(a).filter((key) => key in b && same(a[key], b[key])).length;
+}
+
+/**
+ * One side or both added or removed items (two quick "add input"s): theirs, less the originals mine removed, with mine's
+ * changes to the originals both kept, and the items mine added put after the item they followed in mine (and after those
+ * theirs added there, which came first).
+ */
+function resized(base: unknown[], mine: unknown[], theirs: unknown[]): unknown[] {
+  const inMine = matchList(base, mine);
   const kept = new Set(inMine.filter((m) => m.k >= 0).map((m) => m.k));
-  const mineChanged = new Map(inMine.map((m, i) => [m, mine[i]] as const).filter(([m]) => m.k >= 0 && !m.exact).map(([m, item]) => [m.k, item]));
-  const out: { item: unknown; k: number }[] = match(theirs)
+  const mineChanged = new Map<number, unknown>();
+  inMine.forEach((m, i) => {
+    if (m.k >= 0 && !m.exact) mineChanged.set(m.k, mine[i]);
+  });
+  const out: { item: unknown; k: number }[] = matchList(base, theirs)
     .map((m, i) => ({ item: mineChanged.has(m.k) ? merged(base[m.k], mineChanged.get(m.k), theirs[i]) : theirs[i], k: m.k }))
     .filter((e) => e.k < 0 || kept.has(e.k));
   let at = -1;
@@ -695,16 +747,6 @@ function resizedBoth(base: unknown[], mine: unknown[], theirs: unknown[]): unkno
     at = to;
   });
   return out.map((e) => e.item);
-}
-
-/** Each item of {@code changed} with the index of an equal, not yet matched, item of {@code base} (-1: none), mapped. */
-function realign(base: unknown[], changed: unknown[], map: (k: number, item: unknown) => unknown): unknown[] {
-  const used = new Set<number>();
-  return changed.map((item) => {
-    const k = base.findIndex((b, j) => !used.has(j) && same(b, item));
-    if (k >= 0) used.add(k);
-    return map(k, item);
-  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
