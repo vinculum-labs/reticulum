@@ -149,14 +149,20 @@ public abstract class LinkedBlock extends NetworkBlock {
 
     /**
      * What is drawn, so a look through the empty parts reaches the block behind; a full block under a facade. Holding the
-     * network tool it is a full block too, so a side with no arm drawn (a disconnected joint) can still be aimed at.
+     * network tool to configure joints or link connectors it is a full block too, so a side with no arm drawn (a
+     * disconnected joint) can still be aimed at; to identify or see status it stays as drawn, so a device behind it
+     * can be aimed at past it.
      */
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        if (context instanceof EntityCollisionContext entity && entity.getEntity() instanceof Player player
-                && (player.getMainHandItem().getItem() instanceof io.github.leadassimilator.reticulum.item.NetworkToolItem
-                        || player.getOffhandItem().getItem() instanceof io.github.leadassimilator.reticulum.item.NetworkToolItem)) {
-            return Shapes.block();
+        if (context instanceof EntityCollisionContext entity && entity.getEntity() instanceof Player player) {
+            net.minecraft.world.item.ItemStack tool = io.github.leadassimilator.reticulum.item.NetworkToolItem.held(player);
+            if (!tool.isEmpty()) {
+                io.github.leadassimilator.reticulum.item.ToolMode mode = io.github.leadassimilator.reticulum.item.NetworkToolItem.mode(tool);
+                if (mode == io.github.leadassimilator.reticulum.item.ToolMode.CONFIGURE || mode == io.github.leadassimilator.reticulum.item.ToolMode.LINK) {
+                    return Shapes.block();
+                }
+            }
         }
         return getCollisionShape(state, level, pos, context);
     }
