@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -73,6 +74,15 @@ public final class Ae2Links implements MeLinker {
             IGridNode a = node(server, network, key.a);
             IGridNode b = node(server, network, key.b);
             if (a == null || b == null) {
+                // An AE2 machine ready after the connector sends it no block update: look again now and then.
+                if (updates % 20 == 0) {
+                    for (End end : List.of(key.a, key.b)) {
+                        MeEndpoints endpoints = endpoints(server, network, end.connector);
+                        if (endpoints != null && endpoints.node(end.side) == null) {
+                            endpoints.refresh();
+                        }
+                    }
+                }
                 continue;
             }
             keep.add(key);
@@ -95,7 +105,7 @@ public final class Ae2Links implements MeLinker {
         while (it.hasNext()) {
             Map.Entry<Key, IGridConnection> entry = it.next();
             if (!keep.contains(entry.getKey())) {
-                entry.getValue().destroy();
+                destroy(entry.getValue());
                 it.remove();
             }
         }
@@ -103,7 +113,7 @@ public final class Ae2Links implements MeLinker {
 
     @Override
     public void clear() {
-        connections.values().forEach(IGridConnection::destroy);
+        connections.values().forEach(Ae2Links::destroy);
         connections.clear();
         failed.clear();
     }
@@ -140,6 +150,16 @@ public final class Ae2Links implements MeLinker {
         }
         ServerLevel level = server.getLevel(record.pos().dimension());
         return level == null ? null : Ae2Integration.existing(level, record.pos().pos());
+    }
+
+    /**
+     * Destroys a link still standing. One whose end was destroyed (its connector unloaded or broken) went with it:
+     * destroying it again would make AE2 build a fresh grid for that dead node, which then ticks forever.
+     */
+    private static void destroy(IGridConnection connection) {
+        if (connection.a().getConnections().contains(connection) && connection.b().getConnections().contains(connection)) {
+            connection.destroy();
+        }
     }
 
     private static boolean alive(IGridConnection connection, IGridNode a, IGridNode b) {

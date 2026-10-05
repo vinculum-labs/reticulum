@@ -121,7 +121,8 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         super.applyImplicitComponents(input);
         // Only the field: the block state already has the tier (set as it was placed).
         antennaTier = input.getOrDefault(ModDataComponents.ANTENNA_TIER.get(), 0);
-        energy = Math.max(0, input.getOrDefault(ModDataComponents.STORED_ENERGY.get(), 0L));
+        // Within what it holds now (the capacity may have been lowered since it was charged).
+        energy = Math.min(capacity(), Math.max(0, input.getOrDefault(ModDataComponents.STORED_ENERGY.get(), 0L)));
     }
 
     @Override
