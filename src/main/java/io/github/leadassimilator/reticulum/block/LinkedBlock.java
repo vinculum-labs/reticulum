@@ -62,7 +62,8 @@ public abstract class LinkedBlock extends NetworkBlock {
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
             BlockHitResult hitResult) {
         BlockState facade = FacadeItem.state(stack);
-        if (facade == null) {
+        // Checked here too: a facade given by command could carry any block (one drawing nothing, but solid).
+        if (facade == null || !FacadeItem.canBeFacade(facade)) {
             return super.useItemOn(stack, state, level, pos, player, hand, hitResult);
         }
         if (!(level.getBlockEntity(pos) instanceof NetworkBlockEntity be) || facade.equals(be.facade())) {

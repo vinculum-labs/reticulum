@@ -43,6 +43,8 @@ final class Signals {
     /** Whether each edge-watching input (pulse nodes, counters, pulse gates) was on last tick. */
     private final Map<String, Boolean> wasOn = new HashMap<>();
     private final Map<UUID, Integer> pulseLeft = new HashMap<>();
+    /** When each Timer started running (network ticks), its pulses counted from there. */
+    private final Map<UUID, Long> timerStart = new HashMap<>();
     private final Map<UUID, ArrayDeque<Long>> delays = new HashMap<>();
     /** Redstone to give a device: on every face ({@code face} null) or on one face (the connector touching it). */
     record Emit(GlobalPos device, @Nullable Direction face) {
@@ -395,11 +397,22 @@ final class Signals {
             case NodeSettings.ConstantSettings constant -> node.input(0).isEmpty() || in(node, 0) > 0 ? constant.value() : 0;
             case NodeSettings.TimerSettings timer -> {
                 boolean running = node.input(0).isEmpty() || in(node, 0) > 0;
-                yield running && Math.floorMod(ctx.runtime().ticks(), Math.max(1, timer.interval())) == 0 ? ON : 0;
+                // Counted from when it starts running (a pulse then, and every interval after), not from the
+                // network's clock: a short run would otherwise often see no pulse at all.
+                Boolean was = wasOn.put(key + "/run", running);
+                if (running && !Boolean.TRUE.equals(was)) {
+                    timerStart.put(id, ctx.runtime().ticks());
+                }
+                long since = ctx.runtime().ticks() - timerStart.getOrDefault(id, ctx.runtime().ticks());
+                yield running && Math.floorMod(since, Math.max(1, timer.interval())) == 0 ? ON : 0;
             }
             case NodeSettings.PulseSettings pulse -> {
                 boolean high = in(node, 0) > 0;
-                Boolean before = wasOn.put(key, high);
+                // Last tick's input saved with the world (as a Counter's is): an input held on across a restart
+                // isn't taken for a new rising edge.
+                Boolean before = wasOn.containsKey(key) ? wasOn.get(key) : ctx.network().signalMemory().getOrDefault(key + "/on", 0L) > 0;
+                wasOn.put(key, high);
+                store(ctx, key + "/on", high ? 1 : 0);
                 if (high && !Boolean.TRUE.equals(before)) {
                     pulseLeft.put(id, Math.max(1, pulse.length()));
                 }
@@ -609,6 +622,7 @@ final class Signals {
         gatedOff = Set.of();
         delays.clear();
         pulseLeft.clear();
+        timerStart.clear();
     }
 
     // ---------------------------------------------------------------- switching
@@ -617,14 +631,18 @@ final class Signals {
      * Works out which nodes of a sheet are off this tick: those in a switched-off sheet, and those whose gate is off. A
      * pulse gate is off except on the tick its signal rises above 0, when its node does one operation.
      */
-    void switchNodes(CompiledSheet sheet) {
+    void switchNodes(NetworkRuntime.Context ctx, CompiledSheet sheet) {
         // Sheets switched off by their own switch: everything in them is off.
         off.addAll(sheet.disabledHolders());
         for (Map.Entry<UUID, List<UUID>> entry : sheet.switchedBy().entrySet()) {
             UUID node = entry.getKey();
             boolean high = gate(entry.getValue()) > 0;
             if (sheet.pulses(node)) {
-                Boolean before = wasOn.put("gate:" + node, high);
+                // Saved with the world, like a Pulse node's input: no extra operation on every restart.
+                String key = node + "/gate";
+                Boolean before = wasOn.containsKey(key) ? wasOn.get(key) : ctx.network().signalMemory().getOrDefault(key, 0L) > 0;
+                wasOn.put(key, high);
+                store(ctx, key, high ? 1 : 0);
                 if (high && !Boolean.TRUE.equals(before)) {
                     pulsed.add(node);
                 } else {

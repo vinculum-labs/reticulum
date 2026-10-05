@@ -449,7 +449,7 @@
     {#if canEdit && (s.tracks?.length ?? 0) < 16}
       <button class="btn self-start" onclick={() => settings({ tracks: [...(s.tracks ?? []), { name: "", cells: "" }] })}>Add track</button>
     {/if}
-    <Help>Wire each track to a device's redstone input — a note block per note. "run" (always on while unwired) plays it; "reset" goes back to step 1. The highlighted step updates about once a second.</Help>
+    <Help>Wire each track to a device's redstone input — a note block per note. "run" (always on while unwired) plays it; "reset" goes back to step 1 — without Loop it plays once, then waits for "reset" before "run" plays it again. The highlighted step updates about once a second.</Help>
   {:else if s.kind === "switch"}
     <Field label="On gives" hint="What it gives while on (0 while off). A level switch is set to anything from 0 to this.">
       <NumberField value={s.value ?? 15} min={1} max={1_000_000} width="md" disabled={!canEdit} oncommit={(v) => settings({ value: v ?? 15 })} />

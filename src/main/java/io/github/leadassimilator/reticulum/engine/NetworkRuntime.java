@@ -203,7 +203,7 @@ public final class NetworkRuntime {
         signals.evaluate(context, sheets, List.of());
         for (CompiledSheet sheet : sheets) {
             if (sheet.switchable()) {
-                signals.switchNodes(sheet);
+                signals.switchNodes(context, sheet);
                 for (UUID node : signals.off()) {
                     if (sheet.switchedBy().containsKey(node)) {
                         statuses.put(sheet.owner(node), Status.SWITCHED_OFF);

@@ -71,7 +71,6 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.beacon_range", "Range (blocks)");
         add("screen.reticulum.beacon_search", "Search sounds…");
         add("screen.reticulum.beacon_preview", "▶");
-        add("screen.reticulum.beacon_level", "Signal %s");
         add("screen.reticulum.beacon_own_level", "Own look (else as signal %s)");
         add("screen.reticulum.beacon_own_first", "Shows something at signal 0 (no signal)");
         add("screen.reticulum.beacon_shows_nothing", "Shows nothing");
@@ -235,6 +234,29 @@ public class ModLanguage extends LanguageProvider {
         section("identify", "Identify");
         section("ae2", "Applied Energistics 2");
         section("webEditor", "Web editor");
+        section("beacons", "Status Beacons");
+        add("reticulum.configuration.beaconMaxRange", "Furthest a beacon's sound may carry");
+        add("reticulum.configuration.beaconMinInterval", "Least ticks between a beacon's sounds");
+        add("reticulum.configuration.beaconBannedSounds", "Sounds beacons may not play");
+        section("alarms", "Alarms");
+        add("reticulum.configuration.toolColorWarning", "Tool marked yellow for warnings");
+        add("reticulum.configuration.toolColorCritical", "Tool marked red for critical alarms");
+        add("reticulum.configuration.toolSoundWarning", "Tool chimes for warnings");
+        add("reticulum.configuration.toolSoundCritical", "Tool sounds a siren for critical alarms");
+        add("reticulum.configuration.markersWarning", "Status mode marks warnings");
+        add("reticulum.configuration.markersCritical", "Status mode marks critical alarms");
+        add("reticulum.configuration.toolSoundEveryWarning", "Seconds between warning chimes");
+        add("reticulum.configuration.toolSoundEveryCritical", "Seconds between critical sirens");
+        add("reticulum.configuration.toolSoundIdWarning", "Warning sound");
+        add("reticulum.configuration.toolSoundIdCritical", "Critical alarm sound");
+        add("reticulum.configuration.toolSoundPitchWarning", "Warning sound pitch");
+        add("reticulum.configuration.toolSoundPitchCritical", "Critical alarm sound pitch");
+        add("reticulum.configuration.toolSoundPitch2Warning", "Warning second tone pitch");
+        add("reticulum.configuration.toolSoundPitch2Critical", "Critical second tone pitch");
+        add("reticulum.configuration.toolSoundTwoToneWarning", "Warning as a two-tone siren");
+        add("reticulum.configuration.toolSoundTwoToneCritical", "Critical alarm as a two-tone siren");
+        add("reticulum.configuration.muteRedstoneBeacons", "Mute Redstone-mode beacons");
+        add("reticulum.configuration.hideRedstoneBeaconGlow", "Hide Redstone-mode beacon glow through walls");
 
         // Wireless: antennas, binding connectors, the tool's Link mode and the network picker.
         add(ModItems.ANTENNA_1.get(), "Antenna (Tier 1)");

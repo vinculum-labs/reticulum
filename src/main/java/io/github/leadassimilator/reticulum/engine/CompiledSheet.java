@@ -517,12 +517,23 @@ public final class CompiledSheet {
         }
         Set<UUID> carriers = new java.util.LinkedHashSet<>();
         byId.values().stream().filter(n -> n.kind().signal()).forEach(n -> carriers.add(n.id()));
+        // A sheet pin feeding a gate or a signal node carries a signal, whatever feeds it (a switched-off node, or
+        // nothing: an unwired pin gives 0 rather than leaving what it feeds unwired, which often reads as on).
+        for (Wire wire : wires) {
+            Node from = byId.get(wire.from());
+            Node to = byId.get(wire.to());
+            if (from != null && from.settings() instanceof NodeSettings.SheetPinSettings
+                    && (wire.input() == Wire.GATE || to != null && to.kind().signal())) {
+                carriers.add(from.id());
+            }
+        }
         boolean grew = true;
         while (grew) {
             grew = false;
             for (Wire wire : wires) {
                 Node to = byId.get(wire.to());
-                if (carriers.contains(wire.from()) && to != null && to.settings() instanceof NodeSettings.SheetPinSettings && carriers.add(to.id())) {
+                boolean signalIn = carriers.contains(wire.from()) || silent.contains(wire.from());
+                if (signalIn && to != null && to.settings() instanceof NodeSettings.SheetPinSettings && carriers.add(to.id())) {
                     grew = true;
                 }
             }

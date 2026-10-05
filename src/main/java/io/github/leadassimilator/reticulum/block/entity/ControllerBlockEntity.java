@@ -24,6 +24,11 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     private final IEnergyStorage energyStorage = new IEnergyStorage() {
         @Override
         public int receiveEnergy(int toReceive, boolean simulate) {
+            // Power free (no preset charging for it): it takes nothing, so energy isn't soaked up for no use (and a
+            // broken controller stacks with fresh ones).
+            if (!io.github.leadassimilator.reticulum.engine.Power.current().enabled()) {
+                return 0;
+            }
             long room = Math.max(0, capacity() - energy);
             int accepted = (int) Math.min(room, Math.max(0, toReceive));
             if (!simulate && accepted > 0) {

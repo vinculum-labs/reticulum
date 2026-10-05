@@ -500,11 +500,16 @@ public sealed interface NodeSettings {
          * What it gives for {@code amount}, or for {@code fullness} (0 to 1, and whether anything is there at all) in
          * comparator mode.
          */
+        private static long range(long amount, long from, long to) {
+            return amount <= from ? 0 : amount >= to ? 15 : 1 + (long) Math.floor((double) (amount - from) / (to - from) * 14);
+        }
+
         public long value(long amount, double fullness, boolean any) {
             return switch (output) {
                 case AMOUNT -> amount;
-                // Like vanilla: 0 at or below the low point, 15 at or above the high point, 1 to 14 between.
-                case RANGE -> amount <= low ? 0 : amount >= high ? 15 : 1 + (long) Math.floor((double) (amount - low) / (high - low) * 14);
+                // Like vanilla: 0 at or below the low point, 15 at or above the high point, 1 to 14 between. With the
+                // first amount above the second, the other way round: 15 at or below the second, 0 at or above the first.
+                case RANGE -> high >= low ? range(amount, low, high) : 15 - range(amount, high, low);
                 case COMPARATOR -> (long) Math.floor(fullness * 14) + (any ? 1 : 0);
             };
         }
