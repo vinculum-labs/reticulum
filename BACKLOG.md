@@ -52,3 +52,14 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   only when the network stops. A slow leak; a node changed in place to another kind can read a stale edge once.
 - A blueprint placed inside a blueprint keeps the slot blocks set inside the outer one: every instance of the outer
   blueprint drives the same blocks.
+- Tidy up lays out the sheet as it was when clicked: a card dragged while the layout runs is put back where the layout
+  wanted it.
+- A wire drawn across a frame edge doesn't set the type of an untyped Sheet pin at either end (drawn on one sheet it
+  does).
+- A Level sensor detached from a blueprint whose slot was removed reads where that slot was laid out, unchecked (it
+  reads nothing unless that block is one of the network's devices).
+- Web editor icons are cached for the session: after a resource reload (F3+T, a resource pack) they stay as they were.
+- KitMover may plan two parts into one empty slot seen through two faces of a sided block; the kit then rolls back
+  (or, if the block refuses extraction, part of it stays).
+- With "auto" faces, slot ranges index each face's own slots, while keep rules and caps count by the block's slots.
+- Fluid, energy and chemical caps aren't shared between two routes into the same sink in one tick.
