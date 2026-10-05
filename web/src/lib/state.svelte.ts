@@ -654,25 +654,31 @@ function merged(base: unknown, mine: unknown, theirs: unknown): unknown {
 
 /**
  * Both sides added or removed items (two quick "add input"s): theirs, less the items mine removed, with the items mine
- * added put after the item they followed in mine (and after those theirs added there, which came first).
+ * added put after the item they followed in mine (and after those theirs added there, which came first). An item one
+ * side changed counts as that item (paired in order with the original items it matched none of), not as one added.
  */
 function resizedBoth(base: unknown[], mine: unknown[], theirs: unknown[]): unknown[] {
+  /** For each item, the original it is (-1: added), and whether it is that one unchanged. */
   const match = (list: unknown[]) => {
     const used = new Set<number>();
-    return list.map((item) => {
+    const out = list.map((item) => {
       const k = base.findIndex((b, j) => !used.has(j) && same(b, item));
       if (k >= 0) used.add(k);
-      return k;
+      return { k, exact: k >= 0 };
     });
+    const left = base.map((_, j) => j).filter((j) => !used.has(j));
+    for (const m of out) if (m.k < 0 && left.length) m.k = left.shift()!;
+    return out;
   };
   const inMine = match(mine);
-  const kept = new Set(inMine.filter((k) => k >= 0));
+  const kept = new Set(inMine.filter((m) => m.k >= 0).map((m) => m.k));
+  const mineChanged = new Map(inMine.map((m, i) => [m, mine[i]] as const).filter(([m]) => m.k >= 0 && !m.exact).map(([m, item]) => [m.k, item]));
   const out: { item: unknown; k: number }[] = match(theirs)
-    .map((k, i) => ({ item: theirs[i], k }))
+    .map((m, i) => ({ item: mineChanged.has(m.k) ? merged(base[m.k], mineChanged.get(m.k), theirs[i]) : theirs[i], k: m.k }))
     .filter((e) => e.k < 0 || kept.has(e.k));
   let at = -1;
   mine.forEach((item, i) => {
-    const k = inMine[i];
+    const k = inMine[i].k;
     if (k >= 0) {
       const found = out.findIndex((e) => e.k === k);
       if (found >= 0) at = found;
