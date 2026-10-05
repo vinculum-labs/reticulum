@@ -78,6 +78,8 @@ public final class BeaconEffects {
     }
 
     /** How long each alarm's message shows before the next. */
+    /** How far a label is brought toward the camera, past the beam (its core reaches 0.2 blocks from the middle, 0.28 at the corners). */
+    private static final double BEAM_CLEARANCE = 0.4;
     private static final long CYCLE_MS = 3000;
 
     /** Beacons' text: their look's label, or (Network mode) the alarms going off, taking turns. Through walls if set. */
@@ -124,7 +126,14 @@ public final class BeaconEffects {
                 } else {
                     continue;
                 }
-                WorldLabel.draw(pose, event.getCamera(), buffers, mc.font, Vec3.atCenterOf(beacon.getBlockPos()).add(0, 0.9, 0), text, color, through);
+                // Brought in front of the beam (toward the camera): drawn with walls hiding it, the beam's core, which
+                // runs through the label's middle, would hide it too.
+                Vec3 at = Vec3.atCenterOf(beacon.getBlockPos()).add(0, 0.9, 0);
+                Vec3 toward = camera.subtract(at);
+                if (toward.lengthSqr() > 1) {
+                    at = at.add(toward.normalize().scale(BEAM_CLEARANCE));
+                }
+                WorldLabel.draw(pose, event.getCamera(), buffers, mc.font, at, text, color, through);
                 any = true;
             }
             if (any) {
