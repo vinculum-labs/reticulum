@@ -403,6 +403,26 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /**
+     * A device gated off still reads its redstone: one gated by its own reading (a lever) comes back on when the lever
+     * does, and what the reading feeds (a lamp) follows it.
+     */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void aDeviceGatedByItsOwnReadingComesBackOn(GameTestHelper helper) {
+        // A barrel between them, so the lever doesn't light the lamp itself.
+        Rig rig = rig(helper, Blocks.LEVER, Blocks.BARREL, Blocks.REDSTONE_LAMP);
+        helper.setBlock(rig.devices().get(0), lever(false));
+        Node reading = rig.redstoneFrom(rig.device(0));
+        rig.signal(reading, reading, io.github.leadassimilator.reticulum.graph.Wire.GATE);
+        rig.signal(reading, rig.redstoneTo(rig.device(2)), 0);
+        BlockPos lamp = rig.devices().get(2);
+        helper.startSequence()
+                .thenExecuteAfter(10, () -> check(helper, !helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "lit with the lever off"))
+                .thenExecute(() -> helper.setBlock(rig.devices().get(0), lever(true)))
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(lamp).getValue(RedstoneLampBlock.LIT), "the lever on didn't light the lamp: its gated-off reading stayed 0"))
+                .thenSucceed();
+    }
+
     /** A connector cut off from its controller (no antenna) stops giving redstone: its lamp goes dark. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void aCutOffConnectorGivesNoRedstone(GameTestHelper helper) {

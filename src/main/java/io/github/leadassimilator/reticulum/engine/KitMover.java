@@ -216,6 +216,10 @@ final class KitMover {
     /** Every cap must have room for everything in the kit it counts. */
     private static boolean withinCaps(CompiledSheet sheet, ItemPort to, List<NodeSettings.Limit> caps, List<Take> takes, Filters.Context context) {
         for (NodeSettings.Limit cap : caps) {
+            // A cap whose filter doesn't compile lets nothing in, as for single moves.
+            if (sheet.broken(cap)) {
+                return false;
+            }
             Filters.ItemFilter filter = sheet.itemFilter(cap);
             for (Take take : takes) {
                 if (!filter.test(take.stack, context)) {

@@ -255,6 +255,8 @@ public final class NetworkRuntime {
         if (power.enabled() && powerSource != null) {
             pullFromNeighbors((ServerLevel) powerSource.getLevel(), powerSource.getBlockPos(), powerSource);
         }
+        // No gates are worked out while held off: none stays "gated off" from before.
+        signals.forgetGates();
         // Nothing moves: rates fall to 0 and the charts go on (with zeros) rather than freezing at the last second.
         chart(server, network);
         metrics.tick(ticks);

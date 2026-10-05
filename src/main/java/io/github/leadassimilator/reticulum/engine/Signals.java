@@ -56,7 +56,7 @@ final class Signals {
     private final Set<UUID> off = new HashSet<>();
     /** Sheet nodes that were off at the end of last tick: the logic in their sheets sleeps this tick. */
     private Set<UUID> asleep = Set.of();
-    /** Device nodes gated off as of last tick: their redstone pins give and read nothing, as when switched off. */
+    /** Device nodes gated off as of last tick: their redstone outputs give nothing, as when switched off. */
     private Set<UUID> gatedOff = Set.of();
     private final Set<UUID> pulsed = new HashSet<>();
     /** Alarms whose test passes, and since which tick (to wait out their delay). */
@@ -88,6 +88,11 @@ final class Signals {
     void forgetAlarms() {
         raised.clear();
         alarmSince.clear();
+    }
+
+    /** Held off (redstone at the controller): no device counts as gated off. */
+    void forgetGates() {
+        gatedOff = Set.of();
     }
 
     void startTick() {
@@ -165,7 +170,9 @@ final class Signals {
                         }
                         slept.add(id);
                         asleepNow.add(id);
-                    } else if (sheet.inside(id, gatedOff)) {
+                    } else if (node.node().settings() instanceof NodeSettings.RedstoneOutSettings && sheet.inside(id, gatedOff)) {
+                        // Gives nothing while its device is gated off. Its redstone readings go on: one may be what
+                        // turns the gate back on (a chest's comparator gating its own device).
                         values.put(id, 0L);
                         slept.add(id);
                     } else if (node.node().settings() instanceof NodeSettings.AlarmSettings alarm) {
