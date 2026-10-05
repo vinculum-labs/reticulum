@@ -546,6 +546,12 @@ public final class WebApi {
                         }
                         // Another kind under the same id: what the old one remembered (a counter's count) goes, or a
                         // Switch could come up "on" from it.
+                        // Likewise a placed blueprint switched to another blueprint: the old one's contents go.
+                        boolean otherBlueprint = old.settings() instanceof NodeSettings.InstanceSettings was
+                                && node.settings() instanceof NodeSettings.InstanceSettings now && !was.sheet().equals(now.sheet());
+                        if (otherBlueprint) {
+                            forgetNode(network, sheet, old);
+                        }
                         if (old.kind() != node.kind()) {
                             forgetNode(network, sheet, old);
                             // A pin no longer that pin: the wires on its sheet's node(s) go, as when it is removed.
@@ -1081,6 +1087,18 @@ public final class WebApi {
             }
             if (!network.descendants(sheet).isEmpty()) {
                 throw new RequestException("A sheet with sheets inside it can't become a blueprint yet: move them out first");
+            }
+            java.util.Set<GlobalPos> devices = new java.util.HashSet<>();
+            for (Node node : sheet.nodes()) {
+                // Its blocks would sit inside the new blueprint, where nothing sees them: every instance would drive them.
+                if (node.settings() instanceof NodeSettings.InstanceSettings placed
+                        && !io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network.sheet(placed.sheet()), placed).isEmpty()) {
+                    throw new RequestException("A sheet holding a placed blueprint with blocks in its slots can't become a blueprint yet: detach it, or empty its slots, first");
+                }
+                // Two slots filled by one block can't be edited after (one block fills one slot).
+                if (node.settings() instanceof NodeSettings.DeviceSettings device && !devices.add(device.device())) {
+                    throw new RequestException("A block has two nodes on this sheet: remove one first");
+                }
             }
             roomForSheet(network);
             Map<UUID, UUID> ids = new HashMap<>();
