@@ -51,7 +51,5 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
 - A device whose chunk loads or unloads (across a border from its connector) doesn't refresh the editor's snapshot
   until something else changes.
 - No server-side size limit on snapshots: a huge network (well past 64 MiB of JSON) never reaches the editor.
-- A sheet or placed blueprint on a "one per pulse" gate puts its signal logic to sleep between pulses (devices are
-  exempt): outputs set to Fixed flicker, Timers and Pulses inside freeze. Undecided whether that's wanted.
 - "Copy as JSON" copies only the sheet: sheets inside it, the blueprints it places and the filter templates it uses are
   left out (the import says what was, and drops placed blueprints whose blueprint isn't there).

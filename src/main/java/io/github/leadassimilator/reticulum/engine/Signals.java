@@ -259,14 +259,16 @@ final class Signals {
 
     /** After switching: the sheet and instance nodes now off, whose logic sleeps next tick. */
     void noteAsleep(CompiledSheet sheet) {
+        // Not on a pulse gate, as for devices: that is off between pulses (one operation each), and its logic sleeping
+        // then would flicker its outputs and freeze its timers.
         Set<UUID> now = new HashSet<>();
         for (UUID holder : sheet.sheetNodes().values()) {
-            if (off.contains(holder)) {
+            if (off.contains(holder) && !sheet.pulses(holder)) {
                 now.add(holder);
             }
         }
         for (UUID holder : sheet.instanceNodes()) {
-            if (off.contains(holder)) {
+            if (off.contains(holder) && !sheet.pulses(holder)) {
                 now.add(holder);
             }
         }
