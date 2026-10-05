@@ -18,6 +18,9 @@ public class ReticulumClient {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT, ReticulumClientConfig.SPEC);
         modEventBus.addListener(LookHud::registerLayer);
+        modEventBus.addListener((net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent event) -> event.registerReloadListener(
+                (net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager ->
+                        io.github.leadassimilator.reticulum.client.web.WebBridge.onResourcesReloaded()));
         // The network tool's look follows its mode (see the item model's overrides).
         modEventBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) -> event.enqueueWork(() ->
                 net.minecraft.client.renderer.item.ItemProperties.register(io.github.leadassimilator.reticulum.registry.ModItems.NETWORK_TOOL.get(),

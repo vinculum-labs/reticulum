@@ -287,6 +287,11 @@ public final class WebBridge {
      * Shows the editor on a network: inside the game on Windows and macOS (when enabled and the system's web view
      * works), else in the browser. If a page is already connected it just switches to the network there.
      */
+    /** Resources reloaded: the web editor's icons are drawn again. */
+    public static void onResourcesReloaded() {
+        IconRenderer.clear();
+    }
+
     public static void openEditor(@Nullable UUID network) {
         start();
         if (server == null) {

@@ -64,12 +64,14 @@ public abstract class QuickScreen extends Screen {
     /** Rebuilds the widgets for new values from the server, keeping what the player was typing and which box had focus. */
     protected void rebuildKeepingInput() {
         Map<String, String> typed = new HashMap<>();
+        Map<String, Integer> cursors = new HashMap<>();
         String focused = null;
         for (Map.Entry<String, EditBox> entry : boxes.entrySet()) {
             EditBox box = entry.getValue();
             if (!box.getValue().equals(built.get(entry.getKey()))) {
                 typed.put(entry.getKey(), box.getValue());
             }
+            cursors.put(entry.getKey(), box.getCursorPosition());
             if (getFocused() == box) {
                 focused = entry.getKey();
             }
@@ -89,6 +91,14 @@ public abstract class QuickScreen extends Screen {
         if (focused != null && boxes.get(focused) != null) {
             setFocused(boxes.get(focused));
         }
+        // The cursor back where it was (setting a box's text puts it at the end), so typing mid-word goes on there.
+        cursors.forEach((key, cursor) -> {
+            EditBox box = boxes.get(key);
+            if (box != null) {
+                box.setCursorPosition(Math.min(cursor, box.getValue().length()));
+                box.setHighlightPos(box.getCursorPosition());
+            }
+        });
     }
 
     /** Resized (the window, the GUI scale): laid out again, keeping what was being typed. */

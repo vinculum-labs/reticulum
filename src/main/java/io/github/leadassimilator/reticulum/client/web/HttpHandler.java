@@ -242,9 +242,22 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
     // ---------------------------------------------------------------- responses
 
+    /**
+     * An icon, checked again each time it is shown (by its tag: a 304 when unchanged), so one drawn anew after a resource
+     * reload replaces the old one in the page.
+     */
     private static void respondCached(ChannelHandlerContext ctx, FullHttpRequest request, byte[] png) {
+        String tag = "\"" + Integer.toHexString(java.util.Arrays.hashCode(png)) + "\"";
+        if (tag.equals(request.headers().get(HttpHeaderNames.IF_NONE_MATCH))) {
+            FullHttpResponse notModified = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_MODIFIED);
+            notModified.headers().set(HttpHeaderNames.ETAG, tag);
+            HttpUtil.setContentLength(notModified, 0);
+            send(ctx, request, notModified);
+            return;
+        }
         FullHttpResponse response = response(HttpResponseStatus.OK, "image/png", png);
-        response.headers().set(HttpHeaderNames.CACHE_CONTROL, "private, max-age=3600");
+        response.headers().set(HttpHeaderNames.CACHE_CONTROL, "private, no-cache");
+        response.headers().set(HttpHeaderNames.ETAG, tag);
         send(ctx, request, response);
     }
 

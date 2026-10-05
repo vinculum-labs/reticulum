@@ -36,6 +36,12 @@ final class IconRenderer {
 
     private static final Map<String, CompletableFuture<byte[]>> OTHER = new ConcurrentHashMap<>();
 
+    /** Resources reloaded (F3+T, a resource pack): icons are drawn again as they are asked for. */
+    static void clear() {
+        CACHE.clear();
+        OTHER.clear();
+    }
+
     static CompletableFuture<byte[]> item(ResourceLocation id) {
         return CACHE.computeIfAbsent(id, key -> Minecraft.getInstance().submit(() -> {
             ItemStack stack = BuiltInRegistries.ITEM.getOptional(key).map(ItemStack::new).orElse(ItemStack.EMPTY);

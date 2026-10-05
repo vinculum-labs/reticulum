@@ -75,7 +75,9 @@ public class AlarmSettingsScreen extends QuickScreen {
     protected void init() {
         labels.clear();
         left = (width - WIDTH) / 2;
-        top = Math.max(6, (height - (210 + LABELS.length * ROW)) / 2);
+        // On a short window (scaled height under about 260) the sections sit closer, so the last row still shows.
+        compact = height < 260;
+        top = Math.max(compact ? 2 : 6, (height - (210 + LABELS.length * ROW)) / 2);
         for (int row = 0; row < LABELS.length; row++) {
             for (int column = 0; column < 2; column++) {
                 ModConfigSpec.BooleanValue value = value(row, column == 1);
@@ -93,7 +95,7 @@ public class AlarmSettingsScreen extends QuickScreen {
         int y = top + 48 + LABELS.length * ROW + 4;
         every(left + COLUMN, y, ReticulumClientConfig.TOOL_SOUND_EVERY_WARNING, "every_warning");
         every(left + COLUMN + 56, y, ReticulumClientConfig.TOOL_SOUND_EVERY_CRITICAL, "every_critical");
-        soundsTop = y + 26;
+        soundsTop = y + (compact ? 20 : 26);
         y = soundsTop;
         for (int i = 0; i < 2; i++) {
             y = soundSection(i, y);
@@ -142,8 +144,11 @@ public class AlarmSettingsScreen extends QuickScreen {
                     twoTone(critical).save();
                 })
                 .build());
-        return y + 26;
+        return y + (compact ? 20 : 26);
     }
+
+    /** Laid out tighter, for a short window. */
+    private boolean compact;
 
     /** A label for a 16-high box on the row at {@code y}, centered on it; returns where the box goes. */
     private int labeled(String key, int x, int y) {
