@@ -90,6 +90,13 @@ public final class ReticulumConfig {
             .comment("Most mB one chemical route moves per tick. Set above Mekanism's best tubes by default.")
             .defineInRange("chemicalPerTick", 1_024_000L, 1L, Long.MAX_VALUE);
 
+    public static final ModConfigSpec.BooleanValue SLOT_RANGES_THROUGH_FACES = BUILDER
+            .comment("A slot range on a block with its faces left to work out moves through the block's own slots. Some blocks",
+                    "(Mekanism machines) take and give items only through their faces, so nothing moves there unless faces are picked.",
+                    "On, such blocks are detected (a few simulated moves per operation) and their slot ranges move through the faces",
+                    "instead, each face numbering its own slots. Off (the default), nothing is probed.")
+            .define("slotRangesThroughFaces", false);
+
     public static final ModConfigSpec.IntValue OVERFLOW_ITEM_STACKS = BUILDER
             .comment("Item stacks a network's overflow buffer holds before item flows pause.")
             .defineInRange("overflowItemStacks", 9, 1, 1024);

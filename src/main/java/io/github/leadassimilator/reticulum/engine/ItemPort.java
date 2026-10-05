@@ -17,11 +17,42 @@ final class ItemPort {
     final List<IItemHandler> handlers;
     private final List<IItemHandler> view;
     private final Optional<NodeSettings.SlotRange> range;
+    /**
+     * The faces behind an unsided handler that may only show the inventory (a slot range, faces left to work out, the
+     * server's fallback on), or null: what it takes in no slot at all, while a face would, goes in through them.
+     */
+    @javax.annotation.Nullable
+    final List<IItemHandler> fallback;
 
     ItemPort(List<IItemHandler> handlers, List<IItemHandler> view, Optional<NodeSettings.SlotRange> range) {
+        this(handlers, view, range, null);
+    }
+
+    ItemPort(List<IItemHandler> handlers, List<IItemHandler> view, Optional<NodeSettings.SlotRange> range,
+            @javax.annotation.Nullable List<IItemHandler> fallback) {
         this.handlers = handlers;
         this.view = view.isEmpty() ? handlers : view;
         this.range = range;
+        this.fallback = fallback == null || fallback.isEmpty() ? null : fallback;
+    }
+
+    /**
+     * Whether {@code handler} only shows the block's slots: it holds something (anywhere, the range aside), and none of
+     * it can be taken out or put back (simulated). Holding nothing, it can't be told (see {@link #takesAnywhere}).
+     */
+    static boolean readOnly(IItemHandler handler) {
+        boolean holds = false;
+        for (int slot = 0; slot < handler.getSlots(); slot++) {
+            ItemStack stack = handler.getStackInSlot(slot);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            holds = true;
+            if (!handler.extractItem(slot, 1, true).isEmpty() || handler.insertItem(slot, stack.copyWithCount(1), true).isEmpty()) {
+                return false;
+            }
+        }
+        return holds;
     }
 
     boolean isEmpty() {
@@ -79,6 +110,36 @@ final class ItemPort {
      * Inserts into the port: first slots already holding the same item, then empty ones. Returns what didn't fit.
      */
     ItemStack insert(ItemStack stack, boolean simulate) {
+        ItemStack left = insertThrough(handlers, stack, simulate);
+        // None of it taken, the unsided handler would take it in no slot at all (the range aside), yet its faces would:
+        // it only shows the inventory, so through the faces. A full block takes it through no face either: just full.
+        return fallback != null && left.getCount() == stack.getCount() && onlyThroughFaces(stack) ? insertThrough(fallback, stack, simulate) : left;
+    }
+
+    /** Whether the handlers take none of these stacks in any slot, whatever the range (an unsided handler that only shows). */
+    boolean refusesAll(List<ItemStack> stacks) {
+        return fallback != null && stacks.stream().noneMatch(stack -> takesAnywhere(handlers, stack))
+                && stacks.stream().anyMatch(stack -> takesAnywhere(fallback, stack));
+    }
+
+    /** The unsided handler takes {@code stack} in no slot at all, while a face would: it only shows the inventory. */
+    private boolean onlyThroughFaces(ItemStack stack) {
+        return !takesAnywhere(handlers, stack) && takesAnywhere(fallback, stack);
+    }
+
+    /** Whether any slot of these handlers takes some of {@code stack} (simulated), whatever the range. */
+    private static boolean takesAnywhere(List<IItemHandler> handlers, ItemStack stack) {
+        for (IItemHandler handler : handlers) {
+            for (int slot = 0; slot < handler.getSlots(); slot++) {
+                if (handler.insertItem(slot, stack, true).getCount() < stack.getCount()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private ItemStack insertThrough(List<IItemHandler> handlers, ItemStack stack, boolean simulate) {
         if (!simulate || handlers.size() < 2) {
             return insert(handlers, stack, simulate);
         }

@@ -377,5 +377,6 @@ public class ModLanguage extends LanguageProvider {
         add("reticulum.configuration.identifyThroughWalls", "Show identified blocks through walls");
         add("reticulum.configuration.identifyBeamDistance", "Identify beam distance");
         add("reticulum.configuration.identifyAutoOffMinutes", "Identify auto-off (minutes, 0 = never)");
+        add("reticulum.configuration.slotRangesThroughFaces", "Slot ranges through faces on blocks that need them");
     }
 }

@@ -171,6 +171,7 @@
   "reticulum.configuration.section.reticulum.server.toml.title": "Reticulum",
   "reticulum.configuration.security": "Security",
   "reticulum.configuration.security.title": "Security",
+  "reticulum.configuration.slotRangesThroughFaces": "Slot ranges through faces on blocks that need them",
   "reticulum.configuration.throughput": "Throughput and overflow",
   "reticulum.configuration.throughput.title": "Throughput and overflow",
   "reticulum.configuration.title": "Reticulum",

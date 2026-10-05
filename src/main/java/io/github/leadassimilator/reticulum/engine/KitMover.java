@@ -118,6 +118,13 @@ final class KitMover {
             if (puts != null && !verify(takes, puts)) {
                 puts = null;
             }
+            // An unsided handler that takes none of it in any slot (it only shows the inventory): through the faces.
+            if (puts == null && to.fallback != null && to.refusesAll(takes.stream().map(Take::stack).toList())) {
+                puts = planInsertion(to, to.fallback, takes);
+                if (puts != null && !verify(takes, puts)) {
+                    puts = null;
+                }
+            }
             oneFace = false;
         }
         if (puts == null) {

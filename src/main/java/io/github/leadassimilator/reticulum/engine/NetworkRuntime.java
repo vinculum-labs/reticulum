@@ -856,7 +856,17 @@ public final class NetworkRuntime {
         // A slot range with faces left to work out: the block's own slots, numbered as the block numbers them (each
         // face's handler numbers only its own), so moving and counting (keep rules, caps) mean the same slots.
         boolean blockSlots = port.slots().isPresent() && port.faces().isEmpty() && !view.isEmpty();
-        return new ItemPort(blockSlots ? view : items(server, network, port), view, port.slots());
+        if (!blockSlots) {
+            return new ItemPort(items(server, network, port), view, port.slots());
+        }
+        if (!io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.get()) {
+            return new ItemPort(view, view, port.slots());
+        }
+        // The server's choice: some blocks' unsided handler only shows the inventory (a Mekanism machine's takes and
+        // gives nothing), and then items go through the faces, as each face numbers its slots. Seen by what it holds
+        // (none of it comes out); holding nothing, by what is put in (no slot takes it, while a face would).
+        List<IItemHandler> faces = items(server, network, port);
+        return ItemPort.readOnly(view.getFirst()) ? new ItemPort(faces, view, port.slots()) : new ItemPort(view, view, port.slots(), faces);
     }
 
     public List<IFluidHandler> fluids(MinecraftServer server, Network network, NodeSettings.Port port) {
