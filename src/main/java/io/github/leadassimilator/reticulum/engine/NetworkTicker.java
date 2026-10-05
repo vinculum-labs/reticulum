@@ -18,34 +18,45 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 public final class NetworkTicker {
     private static final Map<UUID, NetworkRuntime> RUNTIMES = new HashMap<>();
 
+    /** When each network's failure was last logged. */
+    private static final java.util.Map<UUID, Long> LAST_FAILURE_LOGGED = new java.util.HashMap<>();
+
     private NetworkTicker() {
     }
 
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
         for (Network network : NetworkManager.data(server).networks()) {
-            if (!isRunning(server, network)) {
-                NetworkRuntime idle = RUNTIMES.get(network.id());
-                if (idle != null) {
-                    idle.stop(server, network);
-                }
-                continue;
-            }
             try {
+                if (!isRunning(server, network)) {
+                    // Stopping touches neighbors (redstone) and AE2 too, so it is guarded like a tick.
+                    NetworkRuntime idle = RUNTIMES.get(network.id());
+                    if (idle != null) {
+                        idle.stop(server, network);
+                    }
+                    continue;
+                }
                 NetworkRuntime runtime = runtime(network.id());
                 long start = System.nanoTime();
                 runtime.tick(server, network);
                 runtime.recordTickTime(System.nanoTime() - start);
             } catch (RuntimeException | StackOverflowError | LinkageError e) {
                 // One broken network (or a misbehaving machine, or an optional mod whose internals changed) must not
-                // take the server down. Other errors (out of memory) are left to crash it as usual.
-                Reticulum.LOGGER.error("Reticulum network {} ({}) failed this tick", network.name(), network.id(), e);
+                // take the server down. Other errors (out of memory) are left to crash it as usual. Logged once a
+                // minute per network at most: one failing every tick would otherwise flood the log.
+                long now = System.currentTimeMillis();
+                Long last = LAST_FAILURE_LOGGED.get(network.id());
+                if (last == null || now - last >= 60_000) {
+                    LAST_FAILURE_LOGGED.put(network.id(), now);
+                    Reticulum.LOGGER.error("Reticulum network {} ({}) failed this tick (not logged again for a minute)", network.name(), network.id(), e);
+                }
             }
         }
     }
 
     public static void onServerStopped(ServerStoppedEvent event) {
         RUNTIMES.clear();
+        LAST_FAILURE_LOGGED.clear();
     }
 
     /**

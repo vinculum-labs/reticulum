@@ -246,6 +246,18 @@ public final class NetworkRuntime {
         if (meLinker != null) {
             meLinker.clear();
         }
+        // Held off, it pays no upkeep and isn't "unpowered" (no alarm for it), but its controller still charges from
+        // what is next to it, so it can come back on with power.
+        power = Power.current();
+        powered = true;
+        lastUpkeep = 0;
+        powerSource = NetworkManager.controller(server, network);
+        if (power.enabled() && powerSource != null) {
+            pullFromNeighbors((ServerLevel) powerSource.getLevel(), powerSource.getBlockPos(), powerSource);
+        }
+        // Nothing moves: rates fall to 0 and the charts go on (with zeros) rather than freezing at the last second.
+        chart(server, network);
+        metrics.tick(ticks);
         CompiledSheet compiled = compiled(network.root(), network);
         sheetsOff.add(network.root().id());
         sheetsOff.addAll(compiled.sheetNodes().keySet());
