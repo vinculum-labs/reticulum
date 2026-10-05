@@ -65,13 +65,15 @@ final class ItemPort {
 
     long count(Predicate<ItemStack> which) {
         long total = 0;
+        // Several faces may show one slot: its live stack is counted once.
+        java.util.Set<ItemStack> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         for (IItemHandler handler : view) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 if (!inRange(slot)) {
                     continue;
                 }
                 ItemStack stack = handler.getStackInSlot(slot);
-                if (!stack.isEmpty() && which.test(stack)) {
+                if (!stack.isEmpty() && which.test(stack) && (view.size() < 2 || seen.add(stack))) {
                     total += stack.getCount();
                 }
             }
@@ -124,8 +126,11 @@ final class ItemPort {
 
     /** The unsided handler takes {@code stack} in no slot at all, while a face would: it only shows the inventory. */
     private boolean onlyThroughFaces(ItemStack stack) {
-        return !takesAnywhere(handlers, stack) && takesAnywhere(fallback, stack);
+        return onlyThroughFaces.computeIfAbsent(stack.getItem(), item -> !takesAnywhere(handlers, stack) && takesAnywhere(fallback, stack));
     }
+
+    /** {@link #onlyThroughFaces} by kind of item, worked out once for this port. */
+    private final java.util.Map<net.minecraft.world.item.Item, Boolean> onlyThroughFaces = new java.util.HashMap<>();
 
     /** Whether any slot of these handlers takes some of {@code stack} (simulated), whatever the range. */
     private static boolean takesAnywhere(List<IItemHandler> handlers, ItemStack stack) {

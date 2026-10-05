@@ -866,7 +866,12 @@ public final class NetworkRuntime {
         // gives nothing), and then items go through the faces, as each face numbers its slots. Seen by what it holds
         // (none of it comes out); holding nothing, by what is put in (no slot takes it, while a face would).
         List<IItemHandler> faces = items(server, network, port);
-        return ItemPort.readOnly(view.getFirst()) ? new ItemPort(faces, view, port.slots()) : new ItemPort(view, view, port.slots(), faces);
+        if (view.equals(faces)) {
+            // No unsided handler (the view is the faces): nothing to fall back from.
+            return new ItemPort(view, view, port.slots());
+        }
+        // Only through the faces: counted through them too, so keep rules and caps mean the slots moved through.
+        return ItemPort.readOnly(view.getFirst()) ? new ItemPort(faces, faces, port.slots()) : new ItemPort(view, view, port.slots(), faces);
     }
 
     public List<IFluidHandler> fluids(MinecraftServer server, Network network, NodeSettings.Port port) {

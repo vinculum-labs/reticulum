@@ -1549,13 +1549,25 @@ public final class EngineTests {
         });
     }
 
-    /**
-     * A slot range whose slots are full doesn't spill through the faces into slots outside it: a furnace taking only into
-     * its input slot (full of something else) gets no coal in its fuel slot.
-     */
-    @GameTest(template = "empty", timeoutTicks = 60)
-    public static void aFullSlotRangeDoesntSpillIntoOtherSlots(GameTestHelper helper) {
+    /** Slot-range tests with the server's fallback through faces on: their own batch, which turns it on and off. */
+    private static final String SLOT_FACES = "slot_faces";
+
+    @net.minecraft.gametest.framework.BeforeBatch(batch = SLOT_FACES)
+    public static void slotRangesThroughFacesOn(net.minecraft.server.level.ServerLevel level) {
         io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(true);
+    }
+
+    @net.minecraft.gametest.framework.AfterBatch(batch = SLOT_FACES)
+    public static void slotRangesThroughFacesOff(net.minecraft.server.level.ServerLevel level) {
+        io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(false);
+    }
+
+    /**
+     * With the fallback on, a slot range whose slots are full doesn't spill through the faces into slots outside it: a
+     * furnace taking only into its input slot (full of something else) gets no coal in its fuel slot.
+     */
+    @GameTest(template = "empty", batch = SLOT_FACES, timeoutTicks = 60)
+    public static void aFullSlotRangeDoesntSpillIntoOtherSlots(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.FURNACE);
         rig.container(0).setItem(0, new ItemStack(Items.COAL, 8));
         rig.container(1).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
@@ -1563,44 +1575,50 @@ public final class EngineTests {
                 new NodeSettings.Input(ResourceKind.ITEM, List.of(), Optional.of(new NodeSettings.SlotRange(0, 0)), List.of())), List.of()));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 0), sink);
         helper.runAfterDelay(40, () -> {
-            io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(false);
             check(helper, rig.container(1).getItem(1).isEmpty() && rig.count(0, Items.COAL) == 8, "coal went past the slot range");
             helper.succeed();
         });
     }
 
-    /**
-     * A slot range on a Mekanism machine with faces left to work out: its unsided handler only shows its inventory. By
-     * default nothing goes in (faces need picking); with the server's fallback on, items go in through its faces.
-     */
-    @GameTest(template = "empty", timeoutTicks = 200)
-    public static void aSlotRangeOnAMekanismMachineNeedsFacesOrTheFallback(GameTestHelper helper) {
+    /** By default a slot range on a Mekanism machine with faces left to work out moves nothing: faces need picking. */
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void aSlotRangeOnAMekanismMachineNeedsFaces(GameTestHelper helper) {
         if (!Mods.MEKANISM) {
             helper.succeed();
             return;
         }
+        Rig rig = mekanismSlotRange(helper);
+        helper.runAfterDelay(20, () -> {
+            check(helper, rig.count(0, Items.IRON_ORE) == 8, "items went in with the fallback off");
+            helper.succeed();
+        });
+    }
+
+    /** With the fallback on, a slot range on a Mekanism machine moves items in through its faces. */
+    @GameTest(template = "empty", batch = SLOT_FACES, timeoutTicks = 100)
+    public static void aSlotRangeOnAMekanismMachineGoesThroughItsFaces(GameTestHelper helper) {
+        if (!Mods.MEKANISM) {
+            helper.succeed();
+            return;
+        }
+        Rig rig = mekanismSlotRange(helper);
+        helper.succeedWhen(() -> check(helper, rig.count(0, Items.IRON_ORE) < 8, "nothing went in with the fallback on"));
+    }
+
+    /** A barrel of iron ore wired into an enrichment chamber, slots 0 to 20, faces left to work out. */
+    private static Rig mekanismSlotRange(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, MekanismTestSupport.block("enrichment_chamber"));
         MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
         rig.container(0).setItem(0, new ItemStack(Items.IRON_ORE, 8));
         Node sink = rig.node(new NodeSettings.DeviceSettings(rig.device(1), List.of(
                 new NodeSettings.Input(ResourceKind.ITEM, List.of(), Optional.of(new NodeSettings.SlotRange(0, 20)), List.of())), List.of()));
-        Node source = rig.source(0, ResourceKind.ITEM, List.of(), 0);
-        rig.wire(source, sink);
-        helper.runAfterDelay(20, () -> {
-            check(helper, rig.count(0, Items.IRON_ORE) == 8, "items went in with the fallback off");
-            io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(true);
-            helper.runAfterDelay(20, () -> {
-                io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(false);
-                check(helper, rig.count(0, Items.IRON_ORE) < 8, "nothing went in with the fallback on");
-                helper.succeed();
-            });
-        });
+        rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 0), sink);
+        return rig;
     }
 
     /** With the fallback on, a full block with a slot range is just full: nothing goes through its faces past the range. */
-    @GameTest(template = "empty", timeoutTicks = 60)
+    @GameTest(template = "empty", batch = SLOT_FACES, timeoutTicks = 60)
     public static void aFullBlockWithASlotRangeIsJustFull(GameTestHelper helper) {
-        io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(true);
         Rig rig = rig(helper, Blocks.BARREL, Blocks.CHEST);
         rig.container(0).setItem(0, new ItemStack(Items.COAL, 8));
         for (int slot = 0; slot < rig.container(1).getContainerSize(); slot++) {
@@ -1611,7 +1629,6 @@ public final class EngineTests {
         Node source = rig.source(0, ResourceKind.ITEM, List.of(), 0);
         rig.wire(source, sink);
         helper.runAfterDelay(20, () -> {
-            io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(false);
             check(helper, status(rig, source) == io.github.leadassimilator.reticulum.engine.Status.TARGET_FULL && rig.count(0, Items.COAL) == 8,
                     "a full chest says " + status(rig, source));
             helper.succeed();

@@ -120,9 +120,13 @@ final class KitMover {
             }
             // An unsided handler that takes none of it in any slot (it only shows the inventory): through the faces.
             if (puts == null && to.fallback != null && to.refusesAll(takes.stream().map(Take::stack).toList())) {
-                puts = planInsertion(to, to.fallback, takes);
-                if (puts != null && !verify(takes, puts)) {
-                    puts = null;
+                // One face at a time first: two faces showing one empty slot would have it planned twice.
+                puts = planOneFace(to, to.fallback, takes);
+                if (puts == null) {
+                    puts = planInsertion(to, to.fallback, takes);
+                    if (puts != null && !verify(takes, puts)) {
+                        puts = null;
+                    }
                 }
             }
             oneFace = false;
@@ -271,7 +275,12 @@ final class KitMover {
     /** The kit put in through one face, the first that takes all of it. */
     @Nullable
     private static List<Put> planOneFace(ItemPort to, List<Take> takes) {
-        for (IItemHandler handler : to.handlers) {
+        return planOneFace(to, to.handlers, takes);
+    }
+
+    @Nullable
+    private static List<Put> planOneFace(ItemPort to, List<IItemHandler> handlers, List<Take> takes) {
+        for (IItemHandler handler : handlers) {
             List<Put> puts = planInsertion(to, List.of(handler), takes);
             if (puts != null && verify(takes, puts)) {
                 return puts;
