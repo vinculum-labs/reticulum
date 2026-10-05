@@ -44,3 +44,11 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
 - Latch and counter memory inside a blueprint is lost on "make blueprint" or "detach".
 - Filter names aren't checked (length, blanks) the way node names are.
 - Adding a member by name looks the profile up on the server thread, which can stall it briefly for an unknown name.
+- Merging networks doesn't check the count limits (sheets, members, filter templates): two full networks joined go
+  past them; only new additions are refused afterwards.
+- An undo or redo whose answer is lost (connection dropped, or the 30 s timeout) is dropped from the history, whether
+  or not the game applied it.
+- Per-node engine state (pulse and delay memory, rate-limit tokens, splitter turns) isn't pruned when nodes go; cleared
+  only when the network stops. A slow leak; a node changed in place to another kind can read a stale edge once.
+- A blueprint placed inside a blueprint keeps the slot blocks set inside the outer one: every instance of the outer
+  blueprint drives the same blocks.
