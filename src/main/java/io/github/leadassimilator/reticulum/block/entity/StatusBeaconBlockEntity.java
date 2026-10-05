@@ -202,6 +202,19 @@ public class StatusBeaconBlockEntity extends BlockEntity {
         return placer != null && (placer.equals(network.owner()) || network.members().containsKey(placer));
     }
 
+    /** Every network it is a device of, whether or not it may watch them: who may change it is decided by these. */
+    public List<Network> sitsOn(ServerLevel level) {
+        GlobalPos at = Devices.global(level, worldPosition);
+        List<Network> out = new java.util.ArrayList<>();
+        for (Network network : NetworkManager.networksWith(level.getServer(), at)) {
+            DeviceRecord record = network.device(at);
+            if (record != null && record.state() == DeviceRecord.State.ACTIVE) {
+                out.add(network);
+            }
+        }
+        return out;
+    }
+
     public Watch watch(ServerLevel level) {
         GlobalPos at = Devices.global(level, worldPosition);
         Network best = null;

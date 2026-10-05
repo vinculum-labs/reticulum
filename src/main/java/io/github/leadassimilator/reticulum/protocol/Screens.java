@@ -113,11 +113,14 @@ public final class Screens {
         if (player.isSpectator()) {
             return false;
         }
-        io.github.leadassimilator.reticulum.network.Network network = beacon.watch(player.serverLevel()).network();
-        if (network != null && !io.github.leadassimilator.reticulum.security.Security.canUse(network, player)) {
-            // Not named to someone who can't see it.
-            player.displayClientMessage(Access.refusal(network, player, Role.USER), true);
-            return false;
+        // Every network it sits on, not only the one it watches: one it may not watch (its placer can't see it) still
+        // isn't for others to take over.
+        for (io.github.leadassimilator.reticulum.network.Network network : beacon.sitsOn(player.serverLevel())) {
+            if (!io.github.leadassimilator.reticulum.security.Security.canUse(network, player)) {
+                // Not named to someone who can't see it.
+                player.displayClientMessage(Access.refusal(network, player, Role.USER), true);
+                return false;
+            }
         }
         return true;
     }

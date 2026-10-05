@@ -161,7 +161,7 @@
     commit();
     onfinish?.();
   }}
-  oninput={() => oninput?.(draft)}
+  oninput={() => ((chosen = null), oninput?.(draft))}
   {onkeydown}
 />
 {#if suggestions}

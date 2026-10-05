@@ -25,6 +25,8 @@
   /** Every series' values, by series id, as last loaded. */
   let values = $state<Record<string, number[]>>({});
   let failed = $state(false);
+  /** The window the values shown are for. */
+  let valuesWindow: unknown = undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   let generation = 0;
   /** A load still waiting on the game: the next tick skips (a slow server isn't sent more while it catches up). */
@@ -61,8 +63,11 @@
       const settled = await Promise.allSettled(wanted.map((id) => request("history", { item: id, window: window_ }).then((r) => [id, r.values as number[]] as const)));
       if (asked !== generation) return;
       const loaded = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
-      values = { ...values, ...Object.fromEntries(loaded) };
-      failed = loaded.length === 0 && settled.length > 0;
+      // Kept only for the same window: per-second values don't belong on a per-minute chart.
+      values = { ...(valuesWindow === window_ ? values : {}), ...Object.fromEntries(loaded) };
+      valuesWindow = window_;
+      // Said when any failed (its chart then shows what it last had, or nothing).
+      failed = loaded.length < settled.length;
     } catch {
       if (asked === generation) failed = true;
     } finally {
@@ -138,7 +143,7 @@
   </div>
   <div class="flex min-h-0 flex-1">
     <div class="min-w-0 flex-1 overflow-y-auto p-4">
-      {#if failed}<p class="mb-2 text-xs muted" role="status">Couldn't load the history from the game.</p>{/if}
+      {#if failed}<p class="mb-2 text-xs muted" role="status">Couldn't load all of the history from the game.</p>{/if}
       <div class="charts-grid">
         {#each groups as group (group.resource)}
           <section class="card">

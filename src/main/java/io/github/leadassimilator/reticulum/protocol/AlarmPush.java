@@ -70,14 +70,14 @@ public final class AlarmPush {
         LAST_MARKERS.keySet().retainAll(online);
     }
 
+    /** The most networks' alarm states sent (the packet's own limit is 4096). */
+    private static final int STATES_LIMIT = 4096;
+
     /**
      * The worst alarm going off (0 a warning, 1 critical) on each network the player belongs to (owner or member, or one
      * nobody owns), plus any other they may view (the network tool may be linked to it). Networks with nothing going off
      * are left out.
      */
-    /** The most networks' alarm states sent (the packet's own limit is 4096). */
-    private static final int STATES_LIMIT = 4096;
-
     private static Map<UUID, Integer> states(MinecraftServer server, ServerPlayer player) {
         Map<UUID, Integer> out = new HashMap<>();
         for (Network network : NetworkManager.data(server).networks()) {

@@ -392,6 +392,12 @@ public class StatusBeaconScreen extends QuickScreen {
         return (critical ? BeaconLook.CRITICAL : BeaconLook.WARNING).color();
     }
 
+    /** The frame round a chosen swatch: white, or amber round a light one (white on white wouldn't show). */
+    private static int ring(int color) {
+        int luma = (((color >> 16) & 0xFF) * 299 + ((color >> 8) & 0xFF) * 587 + (color & 0xFF) * 114) / 1000;
+        return luma > 200 ? 0xFFFFC040 : 0xFFFFFFFF;
+    }
+
     /** Each row's "automatic" swatch, just before the dyes. */
     private int autoX() {
         return left + SWATCHES_LEFT - (SWATCH + 2);
@@ -500,7 +506,7 @@ public class StatusBeaconScreen extends QuickScreen {
                 int x = swatchX(i);
                 int color = dyes[i].getTextureDiffuseColor() & 0xFFFFFF;
                 if (color == chosen) {
-                    graphics.fill(x - 1, y - 1, x + SWATCH + 1, y + SWATCH + 1, 0xFFFFFFFF);
+                    graphics.fill(x - 1, y - 1, x + SWATCH + 1, y + SWATCH + 1, ring(color));
                 }
                 graphics.fill(x, y, x + SWATCH, y + SWATCH, 0xFF000000 | color);
             }
@@ -511,7 +517,7 @@ public class StatusBeaconScreen extends QuickScreen {
             int ay = swatchY(row);
             boolean on = row == 0 ? look.getInt("color") == defaultColor() : textColorNow == BeaconLook.AUTO;
             if (on) {
-                graphics.fill(ax - 1, ay - 1, ax + SWATCH + 1, ay + SWATCH + 1, 0xFFFFFFFF);
+                graphics.fill(ax - 1, ay - 1, ax + SWATCH + 1, ay + SWATCH + 1, ring(0xFFFFFF));
             }
             graphics.fill(ax, ay, ax + SWATCH, ay + SWATCH, 0xFFFFFFFF);
             for (int i = 0; i < SWATCH; i++) {
