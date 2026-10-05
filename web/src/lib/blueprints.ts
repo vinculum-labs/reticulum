@@ -76,9 +76,14 @@ export function layoutSlots(blueprint: Sheet, sheets: Sheet[], depth = 0, path =
     else if (s.kind === "instance") {
       const inner = sheets.find((x) => x.id === s.sheet && x.blueprint);
       if (!inner) continue;
-      for (const slot of layoutSlots(inner, sheets, depth + 1, path)) {
+      const slots = layoutSlots(inner, sheets, depth + 1, path);
+      // How the placed blueprint is turned in this one, from any slot it keeps a layout for: a slot it has none for (one
+      // added since) is turned that much plus its own turn in there.
+      const kept = slots.find((slot) => s.layout?.[slot.key]);
+      const placed = kept ? ((((s.layout![kept.key].turns ?? 0) - kept.turns) % 4) + 4) % 4 : 0;
+      for (const slot of slots) {
         const laid = s.layout?.[slot.key];
-        out.push({ key: inInstance(n.id, slot.key), block: slot.block, laid: laid?.device, turns: laid?.turns ?? 0 });
+        out.push({ key: inInstance(n.id, slot.key), block: slot.block, laid: laid?.device, turns: laid ? (laid.turns ?? 0) : (placed + slot.turns) % 4 });
       }
     }
   }

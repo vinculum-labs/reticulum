@@ -1033,6 +1033,12 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
           if (keys.has(slot)) add(binding.device, { label: instanceLabel, sheetId: sheet.id, nodeId: node.id, home: true });
         }
       }
+      // A blueprint placed in a blueprint keeps where its slots were laid out (its layout measures from those blocks).
+      if (s.kind === "instance" && sheet.blueprint) {
+        for (const binding of Object.values(s.layout ?? {})) {
+          add(binding.device, { label: `${label} › ${nodeTitle(node)}: a slot laid out on it (where its layout measures from)`, sheetId: sheet.id, nodeId: node.id });
+        }
+      }
     }
   }
   return uses;
@@ -1521,10 +1527,12 @@ export async function fillSlot(scope: BindingScope, blueprint: Sheet, slot: Grap
     scope,
     blueprint,
     (bindings) => {
-      // Turned as the slot already was, else as the placement is (from its other slots, each as it was laid out).
-      const laid = layoutSlots(blueprint, app.snapshot!.sheets);
-      const placement = placementTurns(laid, bindings);
-      const own = laid.find((s) => s.key === slot.id)?.turns ?? 0;
+      // Turned as the slot already was, else as the placement is (from any slot it fills, the outer blueprint's too:
+      // each as it was laid out there).
+      const outer = app.snapshot!.sheets.find((s) => s.id === scope.node.settings.sheet);
+      const laid = outer ? layoutSlots(outer, app.snapshot!.sheets) : [];
+      const placement = placementTurns(laid, scope.node.settings.bindings ?? {});
+      const own = laid.find((s) => s.key === scope.key(slot.id))?.turns ?? 0;
       const turns = bindings[slot.id]?.turns ?? (placement === undefined ? undefined : (placement + own) % 4);
       const result = fillOne(blueprint, bindings, slot.id, { device: device.pos, ...(turns ? { turns } : {}) }, app.snapshot!.devices, homed, app.snapshot!.sheets);
       more = result.more;
