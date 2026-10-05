@@ -109,13 +109,28 @@ final class KitMover {
             ctx.runtime().status(kitNode, Status.CAP_REACHED);
             return false;
         }
-        List<Put> puts = planInsertion(to, takes);
-        if (puts == null || !verify(takes, puts)) {
+        // Planned across every face of the sink, unless that went wrong before (see below): then through one face first,
+        // and across faces still when no one face takes it all (a furnace's ore and fuel go in through different faces).
+        boolean oneFace = ctx.runtime().kitsOneFace().contains(kitNode);
+        List<Put> puts = oneFace ? planOneFace(to, takes) : null;
+        if (puts == null) {
+            puts = planInsertion(to, to.handlers, takes);
+            if (puts != null && !verify(takes, puts)) {
+                puts = null;
+            }
+            oneFace = false;
+        }
+        if (puts == null) {
             ctx.runtime().status(kitNode, Status.NO_ROOM_FOR_KIT);
             return false;
         }
         boolean moved = commit(ctx, takes, puts);
         ctx.runtime().status(kitNode, moved ? null : Status.NO_ROOM_FOR_KIT);
+        // Refused after planning across faces: two faces wrap the same slots (a block reached by two connectors), so an
+        // empty slot was counted twice. From now on this kit plans through one face at a time.
+        if (!moved && !oneFace && to.handlers.size() > 1) {
+            ctx.runtime().kitsOneFace().add(kitNode);
+        }
         return moved;
     }
 
@@ -246,11 +261,23 @@ final class KitMover {
 
     // ---------------------------------------------------------------- step 2: plan the insertion
 
+    /** The kit put in through one face, the first that takes all of it. */
     @Nullable
-    private static List<Put> planInsertion(ItemPort to, List<Take> takes) {
+    private static List<Put> planOneFace(ItemPort to, List<Take> takes) {
+        for (IItemHandler handler : to.handlers) {
+            List<Put> puts = planInsertion(to, List.of(handler), takes);
+            if (puts != null && verify(takes, puts)) {
+                return puts;
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    private static List<Put> planInsertion(ItemPort to, List<IItemHandler> handlers, List<Take> takes) {
         List<Put> slots = new ArrayList<>();
         java.util.Set<ItemStack> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        for (IItemHandler handler : to.handlers) {
+        for (IItemHandler handler : handlers) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 if (!to.inRange(slot)) {
                     continue;

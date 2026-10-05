@@ -46,6 +46,12 @@ public final class NetworkRuntime {
     private final Map<UUID, Double> tokens = new HashMap<>();
     private final Map<UUID, Integer> roundRobin = new HashMap<>();
     private final Map<UUID, Integer> backoff = new HashMap<>();
+    /** Kit nodes whose sink two faces wrap the same slots of: their kits are planned through one face at a time. */
+    private final Set<UUID> kitsOneFace = new java.util.HashSet<>();
+
+    Set<UUID> kitsOneFace() {
+        return kitsOneFace;
+    }
     private final Set<String> reportedErrors = new LinkedHashSet<>();
     private final Metrics metrics = new Metrics();
     /** Why each node last moved nothing; absent once it moves again. Keyed by the node the editor shows. */
@@ -614,6 +620,7 @@ public final class NetworkRuntime {
         java.util.function.Predicate<UUID> gone = id -> !present.contains(id);
         tokens.keySet().removeIf(gone);
         backoff.keySet().removeIf(gone);
+        kitsOneFace.removeIf(gone);
         // Turns are kept by node, or by a filter's reject output's key (not a node id).
         if (!roundRobin.isEmpty() || !credits.isEmpty()) {
             Set<UUID> kept = new java.util.HashSet<>(present);
