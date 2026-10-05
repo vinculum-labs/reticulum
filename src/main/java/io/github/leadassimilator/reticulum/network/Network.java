@@ -474,10 +474,12 @@ public final class Network {
     /**
      * Every placed blueprint has a name, so each can be told apart (on the dashboard, in the tree): one placed without
      * (or cleared) gets "<blueprint> #n", the lowest n its blueprint's other placements don't already end in. Names are
-     * kept once given, so numbers never shift when one goes.
+     * kept once given, so numbers never shift when one goes; a numbered name another placement of it already has (an
+     * undo bringing one back after its number was reused, a paste) is numbered again.
      */
     private boolean nameInstances() {
         Map<UUID, java.util.Set<Integer>> taken = new java.util.HashMap<>();
+        Map<UUID, java.util.Set<String>> numberedNames = new java.util.HashMap<>();
         List<Placement> unnamed = new ArrayList<>();
         for (Sheet sheet : sheets) {
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
@@ -491,6 +493,10 @@ public final class Network {
                 }
                 java.util.regex.Matcher numbered = NUMBERED.matcher(label);
                 if (numbered.matches()) {
+                    if (!numberedNames.computeIfAbsent(instance.sheet(), k -> new java.util.HashSet<>()).add(label)) {
+                        unnamed.add(new Placement(sheet, node));
+                        continue;
+                    }
                     taken.computeIfAbsent(instance.sheet(), k -> new java.util.HashSet<>()).add(Integer.parseInt(numbered.group(1)));
                 }
             }
