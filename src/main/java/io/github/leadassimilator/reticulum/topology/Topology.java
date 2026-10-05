@@ -162,7 +162,9 @@ public final class Topology {
         ConnectorRecord record = network == null ? null : network.connector(connector.connectorId());
         if (record != null) {
             record.setMoving(true);
-            NetworkManager.data(level.getServer()).setDirty();
+            // Lifted, it no longer touches the devices where it stood: they are let go (named ones kept, as orphans),
+            // so flows don't go on through a connector that isn't there. Set down, it finds what is next to it then.
+            NetworkManager.releaseAll(level.getServer(), network, record);
         }
     }
 

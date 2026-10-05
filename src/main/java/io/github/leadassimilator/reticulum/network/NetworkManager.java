@@ -86,6 +86,16 @@ public final class NetworkManager {
         changed(level.getServer(), network);
     }
 
+    /** A connector's devices let go (it was lifted by a contraption): its record stays, with none. */
+    public static void releaseAll(MinecraftServer server, Network network, ConnectorRecord record) {
+        List<GlobalPos> old = new ArrayList<>(record.devices());
+        record.devices().clear();
+        for (GlobalPos device : old) {
+            releaseDevice(server, network, device);
+        }
+        changed(server, network);
+    }
+
     /** Removes a connector from its network; devices nothing else reaches follow the record lifecycle. */
     public static void removeConnector(MinecraftServer server, Network network, UUID connectorId) {
         ConnectorRecord record = network.connectorMap().remove(connectorId);

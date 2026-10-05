@@ -894,6 +894,19 @@ public final class WebApi {
             }
         }
 
+        /**
+         * Moves what a node remembers from one id it runs under to another, and, for a placed blueprint, what every node
+         * in it remembers (their ids are made from the placed blueprint's), all the way down.
+         */
+        private static void moveRunning(Network network, String from, String to, Node node, int depth) {
+            moveMemory(network, from, to);
+            if (depth < NESTING && node.settings() instanceof NodeSettings.InstanceSettings instance && network.sheet(instance.sheet()) instanceof Sheet blueprint) {
+                for (Node inner : blueprint.nodes()) {
+                    moveRunning(network, inInstance(from, inner.id()), inInstance(to, inner.id()), inner, depth + 1);
+                }
+            }
+        }
+
         private static String inInstance(String instance, String node) {
             return inInstance(instance, UUID.fromString(node));
         }
@@ -943,12 +956,18 @@ public final class WebApi {
             } catch (IllegalArgumentException notAnId) {
                 // a name, looked up below
             }
-            var cache = server.getProfileCache();
-            if (cache != null) {
-                var found = cache.get(name);
-                if (found.isPresent()) {
-                    return found.get();
+            // Players who have been on this server, from its saved list: asking the cache by name would look an unknown
+            // one up online, on the server thread, stalling it.
+            java.nio.file.Path users = server.getServerDirectory().resolve("usercache.json");
+            try (java.io.Reader reader = java.nio.file.Files.newBufferedReader(users)) {
+                for (JsonElement entry : com.google.gson.JsonParser.parseReader(reader).getAsJsonArray()) {
+                    JsonObject user = entry.getAsJsonObject();
+                    if (user.has("name") && user.has("uuid") && user.get("name").getAsString().equalsIgnoreCase(name)) {
+                        return new GameProfile(UUID.fromString(user.get("uuid").getAsString()), user.get("name").getAsString());
+                    }
                 }
+            } catch (java.io.IOException | RuntimeException unreadable) {
+                // No list (yet), or not one we can read: nobody found.
             }
             throw new RequestException("No player called " + name + " has been on this server");
         }
@@ -1160,7 +1179,7 @@ public final class WebApi {
             if (!keep && placement != null) {
                 // Its latches and counters keep what they remember, under the ids they now run under in the instance.
                 for (Node original : sheet.nodes()) {
-                    moveMemory(network, original.id().toString(), inInstance(placement.node().id().toString(), ids.get(original.id())));
+                    moveRunning(network, original.id().toString(), inInstance(placement.node().id().toString(), ids.get(original.id())), original, 0);
                 }
                 forget(server, network, sheet);
                 // Same node, same wires: the blueprint's pins keep their slots.
@@ -1204,7 +1223,7 @@ public final class WebApi {
                 }
                 sheet.replace(made.with(bound));
                 // What it remembered in the instance, now under its own id.
-                moveMemory(network, inInstance(node.id().toString(), inner.id()), ids.get(inner.id()).toString());
+                moveRunning(network, inInstance(node.id().toString(), inner.id()), ids.get(inner.id()).toString(), inner, 0);
             }
             network.sheets().add(sheet);
             parent.replace(node.with(new NodeSettings.SheetSettings(sheet.id())));
