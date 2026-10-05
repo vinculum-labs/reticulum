@@ -128,7 +128,11 @@
       </li>
     {:else}
       <li class="text-sm muted">
-        {filter === "unused" && snapshot.devices.length ? "Every device is used on a sheet." : "No devices. Place a connector next to a machine."}
+        {search.trim() && snapshot.devices.length
+          ? "No device matches the search."
+          : filter === "unused" && snapshot.devices.length
+            ? "Every device is used on a sheet."
+            : "No devices. Place a connector next to a machine."}
       </li>
     {/each}
   </ul>

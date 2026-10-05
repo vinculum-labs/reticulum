@@ -7,7 +7,7 @@
   import type { Alarm, GraphNode, Sheet } from "../../lib/types";
   import Siren from "@lucide/svelte/icons/siren";
   import { severityColor } from "../../lib/status";
-  import { controls } from "../../lib/dashboard";
+  import { controls, running } from "../../lib/dashboard";
   import ControlWidget from "./ControlWidget.svelte";
 
   /**
@@ -56,13 +56,21 @@
     openSheet(sheet.id, node ? [node.id] : [], true);
   }
 
+  /** Shows where a running node is: its card, or the placed blueprint's it runs in. */
+  function openRun(sheet: Sheet, select: string) {
+    app.panel = null;
+    openSheet(sheet.id, [select], true);
+  }
+
+  /** Every node as it runs, those inside placed blueprints too (their activity is kept under the ids they run as). */
+  const runs = $derived(running(snapshot));
   const top = $derived(
-    nodes
-      .filter((x) => (app.rates[x.node.id] ?? 0) > 0)
-      .sort((a, b) => (app.rates[b.node.id] ?? 0) - (app.rates[a.node.id] ?? 0))
+    runs
+      .filter((x) => (app.rates[x.run] ?? 0) > 0)
+      .sort((a, b) => (app.rates[b.run] ?? 0) - (app.rates[a.run] ?? 0))
       .slice(0, 10),
   );
-  const blocked = $derived(nodes.filter((x) => app.status[x.node.id] && app.status[x.node.id] !== "switched_off"));
+  const blocked = $derived(runs.filter((x) => app.status[x.run] && app.status[x.run] !== "switched_off"));
   /**
    * Everything switched off, so nothing stays off by accident: sheets (by their own switch, a sheet above, or a gate),
    * then nodes (sheet nodes are listed as their sheets).
@@ -141,10 +149,10 @@
 
       <section class="flex flex-col gap-1">
         <h3 class="panel-title">Busiest</h3>
-        {#each top as x (x.node.id)}
-          <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
-            <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {sheetPath(snapshot, x.sheet)}</span></span>
-            <span class="tabular-nums">{formatRate(app.rates[x.node.id] ?? 0, null, app.rateUnit)}</span>
+        {#each top as x (x.run)}
+          <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => openRun(x.top, x.select)}>
+            <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {x.place}</span></span>
+            <span class="tabular-nums">{formatRate(app.rates[x.run] ?? 0, null, app.rateUnit)}</span>
           </button>
         {:else}
           <p class="muted">Nothing is moving.</p>
@@ -153,10 +161,10 @@
 
       <section class="flex flex-col gap-1">
         <h3 class="panel-title">Waiting ({blocked.length})</h3>
-        {#each blocked as x (x.node.id)}
-          <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => open(x.sheet, x.node)}>
-            <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {sheetPath(snapshot, x.sheet)}</span></span>
-            <span class="text-warn">{STATUS_LABEL[app.status[x.node.id]] ?? app.status[x.node.id]}</span>
+        {#each blocked as x (x.run)}
+          <button class="list-row flex justify-between gap-2 rounded px-1 text-left" onclick={() => openRun(x.top, x.select)}>
+            <span class="truncate">{nodeTitle(x.node)} <span class="muted">· {x.place}</span></span>
+            <span class="text-warn">{STATUS_LABEL[app.status[x.run]] ?? app.status[x.run]}</span>
           </button>
         {:else}
           <p class="muted">Nothing is waiting.</p>

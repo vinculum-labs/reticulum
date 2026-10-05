@@ -24,12 +24,17 @@ export function parseTemplates(text: string): [string, string][] {
  * The templates in an order the server takes them: each after every one it uses (@other) among them, since each is
  * checked as it is saved. {@code existing} are the names already there and staying.
  */
+/** The templates a filter names: @name (up to a space, bracket or operator) or @"a name" (with \" inside). */
+function references(expression: string): string[] {
+  return [...expression.matchAll(/@(?:"((?:[^"\\]|\\.)*)"|([^\s()&|!"]+))/g)].map((m) => (m[1] !== undefined ? m[1].replace(/\\"/g, '"') : m[2]));
+}
+
 export function inSavingOrder(todo: [string, string][], existing: Iterable<string>): [string, string][] {
   const ordered: [string, string][] = [];
   const known = new Set(existing);
   let left = todo;
   while (left.length) {
-    const ready = left.filter(([, expression]) => [...expression.matchAll(/@([A-Za-z0-9_\-.]+)/g)].every((m) => known.has(m[1]) || !left.some(([n]) => n === m[1])));
+    const ready = left.filter(([, expression]) => references(expression).every((name) => known.has(name) || !left.some(([n]) => n === name)));
     const batch = ready.length ? ready : left; // a loop between them: let the server say so
     for (const entry of batch) {
       ordered.push(entry);

@@ -50,8 +50,10 @@
       toast("No other slot's block is where the layout says (the same kind of block, unused, at the same place from this one).", "info");
       return;
     }
+    // Counted before: the new snapshot (fewer empty slots) comes in before the answer.
+    const wereEmpty = empty;
     const ok = await setBindings(sheet, instance, () => result.bindings, "fill by layout");
-    if (ok) toast(`Filled ${result.filled} of ${empty} empty slot${empty === 1 ? "" : "s"}.`, "info");
+    if (ok) toast(`Filled ${result.filled} of ${wereEmpty} empty slot${wereEmpty === 1 ? "" : "s"}.`, "info");
   }
 </script>
 

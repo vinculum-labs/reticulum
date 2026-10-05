@@ -57,13 +57,16 @@ function hasTopLevelOr(text: string): boolean {
   let depth = 0;
   let quote = false;
   let regex = false;
+  let prev = "";
   for (const c of text) {
     if (quote) quote = c !== '"';
     else if (regex) regex = c !== "/";
     else if (c === '"') quote = true;
+    else if (c === "/" && prev === ":") regex = true;
     else if (c === "(") depth++;
     else if (c === ")") depth--;
     else if (c === "|" && depth === 0) return true;
+    prev = c;
   }
   return false;
 }

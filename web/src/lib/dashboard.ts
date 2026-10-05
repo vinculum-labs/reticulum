@@ -26,22 +26,33 @@ export function instanceName(snapshot: Snapshot, node: GraphNode): string {
   return node.label || (s.kind === "instance" ? snapshot.sheets.find((x) => x.id === s.sheet)?.name : undefined) || "Blueprint";
 }
 
-/** Every Switch and Display that runs, sheet by sheet (blueprints only through their instances). */
-export function controls(snapshot: Snapshot): Control[] {
-  const out: Control[] = [];
-  const walk = (sheet: Sheet, run: (id: string) => string, place: string, group: string, depth: number) => {
+/** A node as it runs, and where to show it: the sheet in the tree holding it, and the card there (its instance's). */
+export interface Running extends Control {
+  top: Sheet;
+  select: string;
+}
+
+/** Every node that runs, sheet by sheet (blueprints only through their instances, under the ids they run as there). */
+export function running(snapshot: Snapshot): Running[] {
+  const out: Running[] = [];
+  const walk = (sheet: Sheet, run: (id: string) => string, place: string, group: string, top: Sheet, select: string | null, depth: number) => {
     for (const node of sheet.nodes ?? []) {
       const s = node.settings;
-      if (s.kind === "switch" || s.kind === "display") out.push({ node, sheet, run: run(node.id), place, group });
+      out.push({ node, sheet, run: run(node.id), place, group, top, select: select ?? node.id });
       if (s.kind === "instance" && depth < NESTING) {
         const blueprint = snapshot.sheets.find((x) => x.id === s.sheet && x.blueprint);
         const at = run(node.id);
-        if (blueprint) walk(blueprint, (id) => inInstance(at, id), `${place} › ${instanceName(snapshot, node)}`, at, depth + 1);
+        if (blueprint) walk(blueprint, (id) => inInstance(at, id), `${place} › ${instanceName(snapshot, node)}`, at, top, select ?? node.id, depth + 1);
       }
     }
   };
-  for (const sheet of snapshot.sheets) if (!sheet.blueprint) walk(sheet, (id) => id, sheetPath(snapshot, sheet), sheet.id, 0);
+  for (const sheet of snapshot.sheets) if (!sheet.blueprint) walk(sheet, (id) => id, sheetPath(snapshot, sheet), sheet.id, sheet, null, 0);
   return out;
+}
+
+/** Every Switch and Display that runs, sheet by sheet (blueprints only through their instances). */
+export function controls(snapshot: Snapshot): Control[] {
+  return running(snapshot).filter((x) => x.node.settings.kind === "switch" || x.node.settings.kind === "display");
 }
 
 /** Sets a switch where it runs; shown at once, and confirmed by the next values from the game. */

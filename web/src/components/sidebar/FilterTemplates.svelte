@@ -83,15 +83,16 @@
   }
 
   /** Renames a template, and everywhere it is used: other templates and every filter on every sheet. One undo. */
-  function rename(from: string, to: string) {
+  async function rename(from: string, to: string) {
     to = to.trim().replace(/^@/, "");
     if (!to || to === from) return;
     if (to in snapshot.filters) {
       toast(`There's already a template @${to}.`);
       return;
     }
-    edit([{ type: "renameFilter", from, to }], [{ type: "renameFilter", from: to, to: from }], "rename filter template");
-    if (open === from) open = to;
+    const ok = await edit([{ type: "renameFilter", from, to }], [{ type: "renameFilter", from: to, to: from }], "rename filter template");
+    // Only once it took: a refused rename leaves the open row on the old name.
+    if (ok && open === from) open = to;
   }
 
   function save(name: string, expression: string | null) {
@@ -137,7 +138,7 @@
         </div>
         {#if isOpen}
           <div class="px-2 pb-2">
-            <FilterField value={expression} disabled={!canEdit} placeholder="everything" onchange={(v) => save(name, v)} />
+            <FilterField value={expression} anyResource disabled={!canEdit} placeholder="everything" onchange={(v) => save(name, v)} />
           </div>
         {/if}
       </li>

@@ -2,7 +2,7 @@
   import type { Snippet } from "svelte";
   import CircleHelp from "@lucide/svelte/icons/circle-help";
   import type { CatalogKind } from "../../lib/catalog";
-  import { request } from "../../lib/state.svelte";
+  import { request, resync } from "../../lib/state.svelte";
   import FilterSyntax from "./FilterSyntax.svelte";
 
   /**
@@ -14,6 +14,7 @@
     text = $bindable(""),
     value,
     kind = "item",
+    anyResource = false,
     oncommit,
     disabled = false,
     placeholder = "anything (e.g. tag:c:ores & !mod:create)",
@@ -25,6 +26,8 @@
     /** The saved filter, followed when it changes (unless being typed in). */
     value?: string;
     kind?: CatalogKind;
+    /** Checked as fine when it works for any resource (a template: used by item, fluid and chemical filters alike). */
+    anyResource?: boolean;
     oncommit?: (value: string) => void;
     disabled?: boolean;
     placeholder?: string;
@@ -38,7 +41,9 @@
   let focused = false;
   let element: HTMLInputElement | undefined = $state();
 
+  // Follows the saved filter, and goes back to it when a save is refused (the saved one didn't change).
   $effect(() => {
+    void resync.count;
     const saved = value;
     if (saved !== undefined && !focused) text = saved;
   });
@@ -47,7 +52,7 @@
   let timer: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     const expression = text;
-    const resource = kind;
+    const resource = anyResource ? "any" : kind;
     clearTimeout(timer);
     timer = setTimeout(async () => {
       try {

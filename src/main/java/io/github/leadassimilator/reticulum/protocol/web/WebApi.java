@@ -307,6 +307,8 @@ public final class WebApi {
                     // Checked as a filter for the resource it is for (items when not said), since some terms only apply to one.
                     switch (request.has("resource") ? request.get("resource").getAsString() : "item") {
                         case "fluid" -> Filters.fluids(expression, network.filters());
+                        // A template: fine when items, fluids or chemicals take it (as setFilter checks).
+                        case "any" -> Filters.checkAny(expression, network.filters());
                         case "chemical" -> {
                             if (io.github.leadassimilator.reticulum.integration.Mods.MEKANISM) {
                                 Filters.chemicals(expression, network.filters());
