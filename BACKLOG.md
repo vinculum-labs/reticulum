@@ -31,8 +31,6 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
 - Server bookkeeping: finding whether a block is reached scans linearly, and the version and alias maps are never
   pruned. Fine at today's sizes.
 - Cut joints aren't rotated with a block: a rotated contraption or a rotated paste keeps the cuts on the old faces.
-- A blueprint placed inside a blueprint keeps the slot blocks set inside the outer one: every instance of the outer
-  blueprint drives the same blocks.
 - Redstone outputs and ME links keep working while a network is unpowered (only item, fluid, chemical and kit moves
   stop). By design: redstone often switches the generator that would refill it, and ME links already draw AE2 power.
 - A connector lifted by a contraption that never sets it down (the contraption destroyed) leaves its record behind,
