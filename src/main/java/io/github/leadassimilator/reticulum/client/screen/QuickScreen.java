@@ -116,6 +116,10 @@ public abstract class QuickScreen extends Screen {
     @Nullable
     private net.minecraft.client.gui.components.AbstractWidget pendingOverlay;
 
+    /** The overlay was closed with Esc: forget what made it (a search), so the next rebuild doesn't bring it back. */
+    protected void overlayDismissed() {
+    }
+
     /** Sets the overlay; it is added once {@link #init} is done, so it comes after (over) everything else. */
     protected void overlay(net.minecraft.client.gui.components.AbstractWidget widget) {
         pendingOverlay = widget;
@@ -177,6 +181,7 @@ public abstract class QuickScreen extends Screen {
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && overlay != null) {
             removeWidget(overlay);
             overlay = null;
+            overlayDismissed();
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);

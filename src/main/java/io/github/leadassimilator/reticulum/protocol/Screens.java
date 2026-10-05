@@ -88,7 +88,9 @@ public final class Screens {
                 }
             }
         }
-        boolean canEdit = network == null || io.github.leadassimilator.reticulum.security.Security.canUse(network, player);
+        // As mayChangeBeacon decides it: every network it sits on, not only the one it watches.
+        boolean canEdit = !player.isSpectator() && beacon.sitsOn(player.serverLevel()).stream()
+                .allMatch(n -> io.github.leadassimilator.reticulum.security.Security.could(n, player, Role.USER));
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new Payloads.OpenBeaconScreen(pos, beaconStatus(player, beacon, watch),
                 beacon.settings(), player.serverLevel().getBestNeighborSignal(pos), alarms, canEdit, refresh));
     }

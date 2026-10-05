@@ -162,7 +162,7 @@ public final class WebApi {
             }
             case "subscribe" -> {
                 Network network = viewable(player, request);
-                SUBSCRIPTIONS.computeIfAbsent(player.getUUID(), k -> new HashMap<>()).put(network.id(), stamp(server, network, false));
+                SUBSCRIPTIONS.computeIfAbsent(player.getUUID(), k -> new HashMap<>()).put(network.id(), stamp(server, network, true));
                 JsonObject out = ok(id);
                 out.add("network", Snapshots.full(server, network, player));
                 yield out;
@@ -1273,8 +1273,9 @@ public final class WebApi {
                 try {
                     int stamp = stamp(server, network, metricsDue);
                     if (subs.get(networkId) != stamp) {
-                        subs.put(networkId, stamp);
                         sendSnapshot(server, player, network);
+                        // Only once sent: one that failed is tried again on the next pass.
+                        subs.put(networkId, stamp);
                     }
                     if (metricsDue && NetworkTicker.isRunning(server, network)) {
                         send(player, metrics(server, network));
@@ -1306,7 +1307,8 @@ public final class WebApi {
             OVERFLOW_SHOWN.put(network.id(), network.overflowRevision());
         }
         int overflow = OVERFLOW_SHOWN.getOrDefault(network.id(), 0);
-        return java.util.Objects.hash(network.revision(), NetworkTicker.isRunning(server, network), overflow);
+        // Spread apart so no change in one can cancel out a change in another (as a hash of the three could).
+        return network.revision() * 1_000_003 + overflow * 2 + (NetworkTicker.isRunning(server, network) ? 1 : 0);
     }
 
     /** Sends a fresh snapshot of the network to every subscriber now. */

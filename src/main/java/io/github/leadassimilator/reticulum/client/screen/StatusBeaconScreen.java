@@ -36,6 +36,11 @@ public class StatusBeaconScreen extends QuickScreen {
     /** The state being edited: 0 to 15 a signal level, or {@link StatusBeaconBlock#WARNING} / {@link StatusBeaconBlock#CRITICAL}. */
     private int selected;
     private String search = "";
+
+    @Override
+    protected void overlayDismissed() {
+        search = "";
+    }
     private int left;
     private int top;
     private int pickerTop;

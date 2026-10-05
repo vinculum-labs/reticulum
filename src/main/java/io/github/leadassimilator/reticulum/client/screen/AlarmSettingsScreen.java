@@ -27,6 +27,12 @@ public class AlarmSettingsScreen extends QuickScreen {
     private int soundsTop;
     /** What is typed in each sound box (0 warning, 1 critical) that isn't the chosen sound: a search. */
     private final String[] search = {"", ""};
+
+    @Override
+    protected void overlayDismissed() {
+        search[0] = "";
+        search[1] = "";
+    }
     /** Where each severity's sound section starts. */
     private final int[] sectionTop = new int[2];
     /** Labels beside boxes, placed with them. */
