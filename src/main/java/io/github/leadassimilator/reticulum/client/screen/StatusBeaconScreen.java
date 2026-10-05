@@ -26,6 +26,8 @@ public class StatusBeaconScreen extends QuickScreen {
     private static final int WIDTH = 300;
     private static final int CELL = 16;
     private static final int SWATCH = 11;
+    /** Where the dye swatches start, from the left edge (the last ends just short of the hex box). */
+    private static final int SWATCHES_LEFT = 38;
     /** Alarms listed under the status line, at most. */
     private static final int ALARM_LINES = 2;
 
@@ -138,9 +140,9 @@ public class StatusBeaconScreen extends QuickScreen {
     @Override
     protected void init() {
         left = (width - WIDTH) / 2;
-        // Tight, so it fits at large GUI scales: about 225 high at most.
+        // Tight, so it fits at large GUI scales: about 243 high at most.
         int alarms = redstone() ? 0 : Math.min(ALARM_LINES, Math.max(1, view.alarms().size()));
-        top = Math.max(4, (this.height - 225) / 2);
+        top = Math.max(4, (this.height - 243) / 2);
         String mode = redstone() ? "redstone" : "network";
         Button modeButton = Button.builder(Component.translatable("screen.reticulum.beacon_mode_" + mode), b -> {
                     settings.putString("mode", redstone() ? "network" : "redstone");
@@ -183,6 +185,15 @@ public class StatusBeaconScreen extends QuickScreen {
         hex.setEditable(view.canEdit());
         addRenderableWidget(hex);
         y += 18;
+        // The text's color: the same row (swatches, hex box), with "automatic" first (blank box).
+        textColor = kept("text_color", new SeeThroughTextBox(font, left + WIDTH - 52, y, 52, 14, Component.translatable("screen.reticulum.beacon_text_color")));
+        textColor.setMaxLength(7);
+        textColor.setValue(current.textColor() == BeaconLook.AUTO ? "" : String.format(Locale.ROOT, "#%06X", current.textColor()));
+        textColor.setHint(Component.translatable("screen.reticulum.beacon_text_color_auto").withStyle(s -> s.withColor(0x808080)));
+        textColor.setTooltip(Tooltip.create(Component.translatable("screen.reticulum.beacon_text_color_hint")));
+        textColor.setEditable(view.canEdit());
+        addRenderableWidget(textColor);
+        y += 18;
         // The effects: two rows of four switches (green on, gray off).
         int quarter = (WIDTH - 6) / 4;
         int[][] flags = {{BeaconLook.BEAM, BeaconLook.BEAM_THROUGH, BeaconLook.GLOW, BeaconLook.GLOW_THROUGH},
@@ -195,20 +206,12 @@ public class StatusBeaconScreen extends QuickScreen {
             y += 18;
         }
         y += 2;
-        // The text, and beside it its color (blank: automatic).
-        label = kept("label", new SeeThroughTextBox(font, left, y, WIDTH - 56, 14, Component.translatable("screen.reticulum.beacon_label")));
+        label = kept("label", new SeeThroughTextBox(font, left, y, WIDTH, 14, Component.translatable("screen.reticulum.beacon_label")));
         label.setMaxLength(BeaconLook.LABEL_LIMIT);
         label.setValue(current.label());
         label.setHint(Component.translatable(redstone() ? "screen.reticulum.beacon_label_hint_redstone" : "screen.reticulum.beacon_label_hint_network"));
         label.setEditable(view.canEdit());
         addRenderableWidget(label);
-        textColor = kept("text_color", new SeeThroughTextBox(font, left + WIDTH - 52, y, 52, 14, Component.translatable("screen.reticulum.beacon_text_color")));
-        textColor.setMaxLength(7);
-        textColor.setValue(current.textColor() == BeaconLook.AUTO ? "" : String.format(Locale.ROOT, "#%06X", current.textColor()));
-        textColor.setHint(Component.translatable("screen.reticulum.beacon_text_color_auto").withStyle(s -> s.withColor(0x808080)));
-        textColor.setTooltip(Tooltip.create(Component.translatable("screen.reticulum.beacon_text_color_hint")));
-        textColor.setEditable(view.canEdit());
-        addRenderableWidget(textColor);
         y += 18;
         String chosen = current.sound().toString();
         EditBox searchBox = kept("search", SoundSearch.box(font, left, y, WIDTH - 22));
@@ -356,11 +359,18 @@ public class StatusBeaconScreen extends QuickScreen {
     }
 
     private int swatchX(int i) {
-        return left + 34 + i * (SWATCH + 2);
+        // Room before them for a row's name and the text row's "automatic" swatch.
+        return left + SWATCHES_LEFT + i * (SWATCH + 2);
     }
 
-    private int swatchY(int i) {
-        return colorTop + 1;
+    /** Row 0: the color; row 1: the text's color. */
+    private int swatchY(int row) {
+        return colorTop + 1 + row * 18;
+    }
+
+    /** The text row's "automatic" swatch, just before the dyes. */
+    private int autoX() {
+        return left + SWATCHES_LEFT - (SWATCH + 2);
     }
 
     @Override
@@ -380,14 +390,28 @@ public class StatusBeaconScreen extends QuickScreen {
         }
         if (own(selected) != null && view.canEdit()) {
             DyeColor[] dyes = DyeColor.values();
-            for (int i = 0; i < dyes.length; i++) {
-                if (mouseX >= swatchX(i) && mouseX < swatchX(i) + SWATCH && mouseY >= swatchY(i) && mouseY < swatchY(i) + SWATCH) {
-                    int color = dyes[i].getTextureDiffuseColor() & 0xFFFFFF;
-                    change(t -> t.putInt("color", color));
-                    if (hex != null) {
-                        hex.setValue(String.format(Locale.ROOT, "#%06X", color));
+            for (int row = 0; row < 2; row++) {
+                String key = row == 0 ? "color" : "text_color";
+                EditBox box = row == 0 ? hex : textColor;
+                if (mouseY < swatchY(row) || mouseY >= swatchY(row) + SWATCH) {
+                    continue;
+                }
+                if (row == 1 && mouseX >= autoX() && mouseX < autoX() + SWATCH) {
+                    change(t -> t.putInt("text_color", BeaconLook.AUTO));
+                    if (box != null) {
+                        box.setValue("");
                     }
                     return true;
+                }
+                for (int i = 0; i < dyes.length; i++) {
+                    if (mouseX >= swatchX(i) && mouseX < swatchX(i) + SWATCH) {
+                        int color = dyes[i].getTextureDiffuseColor() & 0xFFFFFF;
+                        change(t -> t.putInt(key, color));
+                        if (box != null) {
+                            box.setValue(String.format(Locale.ROOT, "#%06X", color));
+                        }
+                        return true;
+                    }
                 }
             }
         }
@@ -440,15 +464,33 @@ public class StatusBeaconScreen extends QuickScreen {
             return;
         }
         graphics.drawString(font, Component.translatable("screen.reticulum.beacon_color"), left, colorTop + 3, 0xE0E0E0);
+        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_text_color_row"), left, colorTop + 21, 0xE0E0E0);
+        int textColorNow = look.contains("text_color") ? look.getInt("text_color") : BeaconLook.AUTO;
         DyeColor[] dyes = DyeColor.values();
-        for (int i = 0; i < dyes.length; i++) {
-            int x = swatchX(i);
-            int y = swatchY(i);
-            int color = dyes[i].getTextureDiffuseColor() & 0xFFFFFF;
-            if (color == look.getInt("color")) {
-                graphics.fill(x - 1, y - 1, x + SWATCH + 1, y + SWATCH + 1, 0xFFFFFFFF);
+        for (int row = 0; row < 2; row++) {
+            int chosen = row == 0 ? look.getInt("color") : textColorNow;
+            int y = swatchY(row);
+            for (int i = 0; i < dyes.length; i++) {
+                int x = swatchX(i);
+                int color = dyes[i].getTextureDiffuseColor() & 0xFFFFFF;
+                if (color == chosen) {
+                    graphics.fill(x - 1, y - 1, x + SWATCH + 1, y + SWATCH + 1, 0xFFFFFFFF);
+                }
+                graphics.fill(x, y, x + SWATCH, y + SWATCH, 0xFF000000 | color);
             }
-            graphics.fill(x, y, x + SWATCH, y + SWATCH, 0xFF000000 | color);
+        }
+        // "Automatic": white, struck through with a red line from the bottom left to the top right.
+        int ax = autoX();
+        int ay = swatchY(1);
+        if (textColorNow == BeaconLook.AUTO) {
+            graphics.fill(ax - 1, ay - 1, ax + SWATCH + 1, ay + SWATCH + 1, 0xFFFFC040);
+        }
+        graphics.fill(ax, ay, ax + SWATCH, ay + SWATCH, 0xFFFFFFFF);
+        for (int i = 0; i < SWATCH; i++) {
+            graphics.fill(ax + i, ay + SWATCH - 1 - i, ax + i + 1, ay + SWATCH - i, 0xFFE0302A);
+        }
+        if (mouseX >= ax && mouseX < ax + SWATCH && mouseY >= ay && mouseY < ay + SWATCH) {
+            graphics.renderTooltip(font, Component.translatable("screen.reticulum.beacon_text_color_auto_hint"), mouseX, mouseY);
         }
         if (pitch != null) {
             graphics.drawString(font, Component.translatable("screen.reticulum.beacon_pitch"), pitch.getX(), pitch.getY() - 10, 0xE0E0E0);
