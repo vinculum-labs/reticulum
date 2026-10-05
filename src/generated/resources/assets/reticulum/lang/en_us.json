@@ -105,6 +105,7 @@
   "message.reticulum.piece_moved": "Connected — this piece moved from %s to %s",
   "message.reticulum.protected": "%s is private — only members can break its blocks",
   "message.reticulum.protected_private": "This network is private — only members can break its blocks",
+  "message.reticulum.save_unreadable": "Reticulum couldn't read all of its saved networks — a copy was kept as %s (in the world's data folder). Those networks start empty; avoid rebuilding them until it's sorted.",
   "message.reticulum.stack_bound": "Bound %s connector(s) to %s — place them where no cable joins them",
   "message.reticulum.too_many_members": "A network can have at most %s members",
   "message.reticulum.tool_cleared": "Network tool cleared",
