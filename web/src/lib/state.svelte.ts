@@ -473,6 +473,8 @@ function clearMetrics(): void {
 function setSnapshot(snapshot: Snapshot): void {
   if (snapshot.id !== app.current) return;
   // Unchanged parts keep their objects, so after an edit only what it changed re-renders.
+  // What the game took from here shows in it now.
+  confirmedNodes.clear();
   const merged = app.snapshot && app.snapshot.id === snapshot.id ? share(app.snapshot, snapshot) : snapshot;
   if (merged !== app.snapshot) app.snapshot = merged;
   lastSnapshots.set(snapshot.id, merged);
@@ -520,6 +522,40 @@ export const resync = $state({ count: 0 });
 /** Node versions sent but not yet answered: a second quick edit builds on these, not on the older snapshot. */
 const sentNodes = new Map<string, GraphNode>();
 
+/** Node versions the game took that the snapshot may not show yet (cleared by the next one). */
+const confirmedNodes = new Map<string, GraphNode>();
+
+/**
+ * How a node edit was made: {@code mine} from {@code base}. When its turn to be sent comes, the edits before it have been
+ * answered, so it is made again on what the game really has: one refused is left out, and its undo restores that.
+ */
+const plans = new WeakMap<GraphNode, { base: GraphNode; mine: GraphNode; before: GraphNode }>();
+
+/** The node as the game has it now, as far as is known: what it last took from here, else the snapshot. */
+function confirmedNode(id: string): GraphNode | undefined {
+  const known = confirmedNodes.get(id);
+  if (known) return known;
+  for (const sheet of app.snapshot?.sheets ?? []) {
+    const node = sheet.nodes?.find((n) => n.id === id);
+    if (node) return node;
+  }
+  return undefined;
+}
+
+/** {@code edits} (and their undo) with each planned node edit made again on what the game has by now. */
+function replanned(edits: Edit[], undo?: Edit[]): { edits: Edit[]; undo?: Edit[] } {
+  const restore = new Map<GraphNode, GraphNode>();
+  const out = edits.map((e) => {
+    const plan = e.type === "updateNode" && e.node ? plans.get(e.node as GraphNode) : undefined;
+    if (!plan) return e;
+    const theirs = confirmedNode(plan.mine.id);
+    if (!theirs) return e;
+    restore.set(plan.before, theirs);
+    return { ...e, node: same(theirs, plan.base) ? plan.mine : (merged(plan.base, plan.mine, theirs) as GraphNode) };
+  });
+  return { edits: out, undo: undo?.map((e) => (e.type === "updateNode" && e.node && restore.has(e.node as GraphNode) ? { ...e, node: restore.get(e.node as GraphNode) } : e)) };
+}
+
 /**
  * Sends edits; returns the server's per-edit results (created ids) or null on failure. {@code network} is where
  * they go (the network shown when not given): a confirm answered after switching networks still acts on the one
@@ -537,7 +573,14 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
   app.busy++;
   return serially(async () => {
     try {
-      const r = await connection.send({ op: "edit", network, edits });
+      // Made again on what the game has now: the edits before this one are answered.
+      const sending = replanned(edits, undo);
+      const r = await connection.send({ op: "edit", network, edits: sending.edits });
+      for (const e of sending.edits) {
+        if ((e.type === "updateNode" || e.type === "addNode") && e.node) confirmedNodes.set((e.node as GraphNode).id, e.node as GraphNode);
+      }
+      undo = sending.undo;
+      edits = sending.edits;
       // Made on another network than the one now shown (a confirm answered after switching): its own history. Any
       // change (one that can't be undone too) leaves nothing to redo: what redo would bring back may be gone.
       const stacks = stacksOf(network);
@@ -566,8 +609,9 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
  */
 export function rebase(node: GraphNode, next: GraphNode): { after: GraphNode; before: GraphNode } {
   const before = sentNodes.get(node.id) ?? node;
-  if (before === node) return { after: next, before };
-  return { after: merged(node, next, before) as GraphNode, before };
+  const after = before === node ? next : (merged(node, next, before) as GraphNode);
+  plans.set(after, { base: node, mine: next, before });
+  return { after, before };
 }
 
 /**
@@ -584,7 +628,7 @@ function merged(base: unknown, mine: unknown, theirs: unknown): unknown {
     // found in the original list, and take the other side's changes to them.
     if (base.length === theirs.length) return realign(base, mine, (k, item) => (k < 0 ? item : theirs[k]));
     if (base.length === mine.length) return realign(base, theirs, (k, item) => (k < 0 ? item : merged(base[k], mine[k], item)));
-    return mine;
+    return resizedBoth(base, mine, theirs);
   }
   if (isRecord(base) && isRecord(mine) && isRecord(theirs)) {
     const out: Record<string, unknown> = {};
@@ -595,6 +639,40 @@ function merged(base: unknown, mine: unknown, theirs: unknown): unknown {
     return out;
   }
   return mine;
+}
+
+/**
+ * Both sides added or removed items (two quick "add input"s): theirs, less the items mine removed, with the items mine
+ * added put after the item they followed in mine (and after those theirs added there, which came first).
+ */
+function resizedBoth(base: unknown[], mine: unknown[], theirs: unknown[]): unknown[] {
+  const match = (list: unknown[]) => {
+    const used = new Set<number>();
+    return list.map((item) => {
+      const k = base.findIndex((b, j) => !used.has(j) && same(b, item));
+      if (k >= 0) used.add(k);
+      return k;
+    });
+  };
+  const inMine = match(mine);
+  const kept = new Set(inMine.filter((k) => k >= 0));
+  const out: { item: unknown; k: number }[] = match(theirs)
+    .map((k, i) => ({ item: theirs[i], k }))
+    .filter((e) => e.k < 0 || kept.has(e.k));
+  let at = -1;
+  mine.forEach((item, i) => {
+    const k = inMine[i];
+    if (k >= 0) {
+      const found = out.findIndex((e) => e.k === k);
+      if (found >= 0) at = found;
+      return;
+    }
+    let to = at + 1;
+    while (to < out.length && out[to].k < 0) to++;
+    out.splice(to, 0, { item, k: -2 });
+    at = to;
+  });
+  return out.map((e) => e.item);
 }
 
 /** Each item of {@code changed} with the index of an equal, not yet matched, item of {@code base} (-1: none), mapped. */
@@ -1079,6 +1157,7 @@ export function setBindings(
 ) {
   const before = (sentNodes.get(node.id) ?? node) as GraphNode & { settings: InstanceSettings };
   const next = { ...before, settings: { ...before.settings, bindings: change(before.settings.bindings ?? {}) } };
+  plans.set(next, { base: before, mine: next, before });
   return edit([{ type: "updateNode", sheet: sheet.id, node: next }], [{ type: "updateNode", sheet: sheet.id, node: before }], label);
 }
 
@@ -1156,9 +1235,39 @@ export async function deleteInstance(holder: Sheet, node: GraphNode) {
 
 /** Copies a sheet or blueprint as JSON, to paste with the matching import here or in another world. */
 export async function copySheetJson(sheet: Sheet) {
-  const { errors: _errors, parent: _parent, node: _node, enabled: _enabled, root: _root, ...plain } = sheet;
+  const all = app.snapshot?.sheets ?? [];
+  const plain = ({ errors: _errors, parent: _parent, node: _node, enabled: _enabled, root: _root, ...rest }: Sheet) => rest;
+  // What it needs comes along: the sheets inside it, the blueprints placed in it (and in those), the templates they name.
+  const inside: Sheet[] = [];
+  const blueprints: Sheet[] = [];
+  const todo = [sheet];
+  while (todo.length) {
+    const at = todo.pop()!;
+    for (const n of at.nodes ?? []) {
+      const s = n.settings as { kind?: string; sheet?: string };
+      const used = all.find((x) => x.id === s.sheet);
+      if (!used || used === sheet) continue;
+      if (s.kind === "sheet" && !used.blueprint && !inside.includes(used)) inside.push(used), todo.push(used);
+      else if (s.kind === "instance" && used.blueprint && !blueprints.includes(used)) blueprints.push(used), todo.push(used);
+    }
+  }
+  const filters: Record<string, string> = {};
+  const name = (v: unknown) => {
+    if (typeof v === "string") {
+      for (const r of references(v)) {
+        const expression = app.snapshot?.filters?.[r];
+        if (expression !== undefined && !(r in filters)) {
+          filters[r] = expression;
+          name(expression);
+        }
+      }
+    } else if (Array.isArray(v)) v.forEach(name);
+    else if (v && typeof v === "object") Object.values(v).forEach(name);
+  };
+  for (const s of [sheet, ...inside, ...blueprints]) for (const n of s.nodes ?? []) name(n.settings);
+  const bundle = inside.length || blueprints.length || Object.keys(filters).length ? { bundle: { sheets: [...inside, ...blueprints].map(plain), filters } } : {};
   try {
-    await navigator.clipboard.writeText(JSON.stringify(plain, null, 2));
+    await navigator.clipboard.writeText(JSON.stringify({ ...plain(sheet), ...bundle }, null, 2));
     toast(`Copied. Paste it with the ${sheet.blueprint ? "Blueprints" : "Sheets"} import, here or in another world.`, "info");
   } catch {
     toast("Couldn't reach the clipboard.");
@@ -1213,7 +1322,7 @@ export async function importSheet(what: "sheet" | "blueprint", into?: Sheet | nu
     multiline: true,
   });
   if (!text?.trim()) return;
-  let sheet: { blueprint?: boolean; name?: string } | null = null;
+  let sheet: { blueprint?: boolean; name?: string; bundle?: { sheets?: unknown[]; filters?: Record<string, string> } } | null = null;
   try {
     sheet = JSON.parse(text);
   } catch {
@@ -1232,12 +1341,17 @@ export async function importSheet(what: "sheet" | "blueprint", into?: Sheet | nu
   // Into the network it was asked on (its names checked against it), whatever is shown by now.
   // A sheet goes into the one asked about (the open one), at a free spot there; a blueprint isn't placed anywhere.
   const place = what === "sheet" && into ? { parent: into.id, ...freeSpot(into) } : {};
-  // What it refers to that isn't brought along (Copy as JSON copies the one sheet): said after, so nothing goes quietly.
-  const left = leftBehind(sheet, snapshot);
-  const results = await edit([{ type: "importSheet", sheet, ...place }], undefined, "import", network);
-  if (!results?.[0] || app.current !== network) return;
-  openSheet(results[0] as string);
+  // What it brought along (the sheets inside it, blueprints, templates) goes with it.
+  const { bundle, ...main } = sheet;
+  const brought = { sheets: Array.isArray(bundle?.sheets) ? bundle.sheets : [], filters: bundle?.filters && typeof bundle.filters === "object" ? bundle.filters : {} };
+  // What it refers to that it didn't bring and this network lacks: said after, so nothing goes quietly.
+  const left = leftBehind(main, brought, snapshot);
+  const results = await edit([{ type: "importSheet", sheet: main, ...brought, ...place }], undefined, "import", network);
+  const result = results?.[0] as { sheet?: string; notes?: string[] } | undefined;
+  if (!result?.sheet || app.current !== network) return;
+  openSheet(result.sheet);
   if (left) toast(left, "info");
+  for (const note of result.notes ?? []) toast(`${note}.`, "info");
   if (sheet.blueprint) {
     toast(
       what === "blueprint" ? "Imported. Wherever it's placed, blocks of the same kinds fill its slots." : "That's a blueprint — it's been added to Blueprints.",
@@ -1249,13 +1363,15 @@ export async function importSheet(what: "sheet" | "blueprint", into?: Sheet | nu
 }
 
 /**
- * What an imported sheet refers to that the import doesn't bring and this network lacks: sheets inside it (dropped),
+ * What an imported sheet refers to that it didn't bring along and this network lacks: sheets inside it (dropped),
  * blueprints it places (dropped), filter templates its filters name. Null when nothing.
  */
-function leftBehind(pasted: unknown, snapshot: Snapshot): string | null {
-  const nodes = (pasted as { nodes?: GraphNode[] }).nodes ?? [];
-  const sheets = nodes.filter((n) => n.settings?.kind === "sheet").length;
-  const blueprints = nodes.filter((n) => n.settings?.kind === "instance" && !snapshot.sheets.some((s) => s.blueprint && s.id === (n.settings as { sheet?: string }).sheet)).length;
+function leftBehind(pasted: unknown, brought: { sheets: unknown[]; filters: Record<string, string> }, snapshot: Snapshot): string | null {
+  const bundled = brought.sheets.filter((s): s is Sheet => !!s && typeof s === "object");
+  const nodes = [pasted, ...bundled].flatMap((s) => (s as { nodes?: GraphNode[] }).nodes ?? []);
+  const has = (id: string | undefined, blueprint: boolean) => [...bundled, ...(blueprint ? snapshot.sheets : [])].some((s) => s.id === id && !!s.blueprint === blueprint);
+  const sheets = nodes.filter((n) => n.settings?.kind === "sheet" && !has((n.settings as { sheet?: string }).sheet, false)).length;
+  const blueprints = nodes.filter((n) => n.settings?.kind === "instance" && !has((n.settings as { sheet?: string }).sheet, true)).length;
   const named = new Set<string>();
   const walk = (v: unknown) => {
     if (typeof v === "string") references(v).forEach((r) => named.add(r));
@@ -1263,9 +1379,9 @@ function leftBehind(pasted: unknown, snapshot: Snapshot): string | null {
     else if (v && typeof v === "object") Object.values(v).forEach(walk);
   };
   nodes.forEach((n) => walk(n.settings));
-  const templates = [...named].filter((t) => !(t in (snapshot.filters ?? {})));
+  const templates = [...named].filter((t) => !(t in (snapshot.filters ?? {})) && !(t in brought.filters));
   const parts = [
-    sheets && `${sheets} sheet${sheets === 1 ? "" : "s"} inside it (copy and import ${sheets === 1 ? "it" : "them"} on their own)`,
+    sheets && `${sheets} sheet${sheets === 1 ? "" : "s"} inside it (copy it again to bring them along)`,
     blueprints && `${blueprints} placed blueprint${blueprints === 1 ? "" : "s"} whose blueprint isn't here`,
     templates.length && `filter template${templates.length === 1 ? "" : "s"} ${templates.map((t) => `@${t}`).join(", ")}`,
   ].filter(Boolean);

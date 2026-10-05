@@ -19,9 +19,6 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
 
 ## Known gaps (left for now)
 
-- Two quick edits to the same node within a tick: an edit queued behind one the server refuses still carries the refused
-  change, and two quick list resizes (adding two inputs) can merge to the last only. Edits rebase on the snapshot plus
-  what is in flight; a proper fix means rebasing on each confirmed step.
 - A cable placed by a command or machine between blocks of a private network stays cut off from it, silently (no player
   to tell); someone with access can connect its joints by hand.
 - Networks are only worked out over loaded chunks: a section reaching into unloaded ones (a contraption's part left
@@ -41,5 +38,3 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   moving, with no devices (it costs no upkeep; it keeps its network from counting as empty).
 - A network too large for the editor (well past 64 MiB of snapshot) can't be opened there: it says so.
 - Admins can demote or remove other admins (only the owner is protected). Kept on purpose.
-- "Copy as JSON" copies only the sheet: sheets inside it, the blueprints it places and the filter templates it uses are
-  left out (the import says what was, and drops placed blueprints whose blueprint isn't there).

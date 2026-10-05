@@ -424,32 +424,7 @@ public final class WebApi {
             String type = string(edit, "type");
             switch (type) {
                 case "importSheet" -> {
-                    // A sheet pasted as JSON (from another world, say): new ids, the same devices by position, placed
-                    // in the parent asked for (the root when none). Sheet nodes in it are dropped: their sheets aren't here.
-                    Sheet pasted = decode(server, Sheet.CODEC, edit.get("sheet"), "sheet");
-                    roomForSheet(network);
-                    check(Limits.check(pasted));
-                    String name = Limits.name(pasted.name());
-                    Sheet sheet = pasted.copyWithNewIds(name == null ? "Imported sheet" : name);
-                    sheet.setRoot(false);
-                    network.sheets().add(sheet);
-                    // A device of this network keeps its one node: pasting a sheet of this world again is refused.
-                    for (Node node : sheet.nodes()) {
-                        checkHome(network, sheet, node, null);
-                    }
-                    // A placed blueprint whose blueprint isn't on this network (or that would hold the sheet it's on) is
-                    // dropped, with its wires, as the editor says when importing; it would only show an error.
-                    for (Node node : List.copyOf(sheet.nodes())) {
-                        try {
-                            checkInstance(network, sheet, node);
-                        } catch (RequestException missing) {
-                            sheet.remove(node.id());
-                        }
-                    }
-                    if (!sheet.blueprint()) {
-                        place(network, sheet, parentOf(network, edit), edit);
-                    }
-                    return new com.google.gson.JsonPrimitive(sheet.id().toString());
+                    return importSheet(server, network, edit);
                 }
                 case "createSheet" -> {
                     // A new sheet, placed as a node in its parent (the root when none is given) where the editor asks.
@@ -1149,6 +1124,165 @@ public final class WebApi {
          * kinds of blocks. Unless {@code keep}, the sheet becomes the blueprint's first instance, its slots filled with the
          * sheet's own blocks, so nothing stops running. Sheets with sheets inside them are refused for now.
          */
+        /**
+         * A sheet or blueprint pasted as JSON (from another world, say), with what it brought along: the sheets inside
+         * it, the blueprints placed in it (and in those), the filter templates they name. The sheet and the sheets inside
+         * it come in with new ids (devices the same, by position), placed in the parent asked for (the root when none).
+         * A blueprint already here is used as it is; one that isn't comes in under its own ids where they are free (so
+         * pasting it again finds it), as a copy otherwise. A template already here is kept, the copied one said when it
+         * differs. Sheet nodes and placed blueprints whose sheet didn't come along are dropped. Returns the sheet's id and
+         * what the editor should say.
+         */
+        private static JsonElement importSheet(MinecraftServer server, Network network, JsonObject edit) throws RequestException {
+            Sheet pasted = decode(server, Sheet.CODEC, edit.get("sheet"), "sheet");
+            check(Limits.check(pasted));
+            Map<UUID, Sheet> brought = new java.util.LinkedHashMap<>();
+            if (edit.has("sheets") && edit.get("sheets").isJsonArray()) {
+                for (JsonElement element : edit.getAsJsonArray("sheets")) {
+                    Sheet sheet = decode(server, Sheet.CODEC, element, "sheet");
+                    check(Limits.check(sheet));
+                    brought.put(sheet.id(), sheet);
+                }
+            }
+            JsonArray notes = new JsonArray();
+
+            // Filter templates first: the filters on the sheets may name them (and they each other).
+            if (edit.has("filters") && edit.get("filters").isJsonObject()) {
+                Map<String, String> added = new java.util.LinkedHashMap<>();
+                for (Map.Entry<String, JsonElement> entry : edit.getAsJsonObject("filters").entrySet()) {
+                    String name = entry.getKey();
+                    String expression = entry.getValue().getAsString();
+                    String here = network.filters().get(name);
+                    if (here != null) {
+                        if (!here.equals(expression)) {
+                            notes.add("@" + name + " is different here: this network's own was kept");
+                        }
+                        continue;
+                    }
+                    if (!name.equals(Limits.name(name)) || name.contains("\"") || name.contains("\\")) {
+                        throw new RequestException("The filter template name '" + name + "' can't be used");
+                    }
+                    if (network.filters().size() >= Limits.FILTER_TEMPLATES) {
+                        throw new RequestException("A network can have at most " + Limits.FILTER_TEMPLATES + " filter templates");
+                    }
+                    network.filters().put(name, expression);
+                    added.put(name, expression);
+                }
+                for (Map.Entry<String, String> template : added.entrySet()) {
+                    try {
+                        Filters.checkAny(template.getValue(), network.filters());
+                    } catch (FilterException e) {
+                        throw new RequestException("Filter template @" + template.getKey() + ": " + e.getMessage());
+                    }
+                }
+            }
+
+            // Ids for what comes in, by the ids it had.
+            Map<UUID, UUID> ids = new HashMap<>();
+            java.util.Set<UUID> nodeIds = new java.util.HashSet<>();
+            network.sheets().forEach(sheet -> sheet.nodes().forEach(node -> nodeIds.add(node.id())));
+            java.util.Set<String> names = new java.util.HashSet<>();
+            network.sheets().forEach(sheet -> names.add(sheet.name()));
+            List<Sheet> blueprints = new ArrayList<>();
+            for (Sheet sheet : brought.values()) {
+                if (!sheet.blueprint()) {
+                    continue;
+                }
+                Sheet here = network.sheet(sheet.id());
+                if (here != null && here.blueprint()) {
+                    ids.put(sheet.id(), sheet.id());
+                    continue;
+                }
+                String name = names.contains(sheet.name()) ? Limits.name(sheet.name() + " (imported)") : sheet.name();
+                boolean free = here == null && sheet.nodes().stream().noneMatch(node -> nodeIds.contains(node.id()));
+                Sheet copy;
+                if (free) {
+                    copy = sheet;
+                    copy.setName(name);
+                } else {
+                    // Its slots get new ids: placements of it brought along fill them again.
+                    copy = sheet.copyWithNewIds(name, new HashMap<>());
+                    notes.add("Blueprint '" + name + "' came in as a copy: fill the slots of its placements again");
+                }
+                copy.setRoot(false);
+                ids.put(sheet.id(), copy.id());
+                copy.nodes().forEach(node -> nodeIds.add(node.id()));
+                names.add(name);
+                blueprints.add(copy);
+            }
+            // The pasted sheet and the sheets inside it (as its sheet nodes reach them): always new.
+            String pastedName = Limits.name(pasted.name());
+            Sheet top = pasted.copyWithNewIds(pastedName == null ? "Imported sheet" : pastedName);
+            top.setRoot(false);
+            ids.put(pasted.id(), top.id());
+            List<Sheet> inside = new ArrayList<>();
+            java.util.Set<UUID> insideIds = new java.util.HashSet<>();
+            java.util.ArrayDeque<Sheet> todo = new java.util.ArrayDeque<>(List.of(pasted));
+            while (!todo.isEmpty()) {
+                Sheet at = todo.pop();
+                for (Node node : at.nodes()) {
+                    if (node.settings() instanceof NodeSettings.SheetSettings child && brought.get(child.sheet()) instanceof Sheet sheet
+                            && !sheet.blueprint() && !ids.containsKey(sheet.id())) {
+                        Sheet copy = sheet.copyWithNewIds(sheet.name(), new HashMap<>());
+                        copy.setRoot(false);
+                        ids.put(sheet.id(), copy.id());
+                        insideIds.add(copy.id());
+                        inside.add(copy);
+                        todo.push(sheet);
+                    }
+                }
+            }
+            // Pointed at the sheets as they came in; what points at a sheet that didn't come along goes.
+            List<Sheet> sheets = new ArrayList<>(blueprints);
+            sheets.add(top);
+            sheets.addAll(inside);
+            for (Sheet sheet : sheets) {
+                for (Node node : List.copyOf(sheet.nodes())) {
+                    if (node.settings() instanceof NodeSettings.SheetSettings child) {
+                        UUID to = ids.get(child.sheet());
+                        if (to == null || sheet.blueprint() || !insideIds.contains(to)) {
+                            sheet.remove(node.id());
+                        } else {
+                            sheet.replace(node.with(new NodeSettings.SheetSettings(to)));
+                        }
+                    } else if (node.settings() instanceof NodeSettings.InstanceSettings placed && ids.containsKey(placed.sheet())) {
+                        sheet.replace(node.with(new NodeSettings.InstanceSettings(ids.get(placed.sheet()), placed.bindings(), placed.layout())));
+                    }
+                }
+            }
+
+            for (Sheet sheet : sheets) {
+                roomForSheet(network);
+                network.sheets().add(sheet);
+            }
+            // A device of this network keeps its one node: pasting a sheet of this world again is refused.
+            for (Sheet sheet : sheets) {
+                for (Node node : sheet.nodes()) {
+                    checkHome(network, sheet, node, null);
+                }
+            }
+            // A placed blueprint whose blueprint isn't here (or that would hold the sheet it's on) is dropped, with its
+            // wires, as the editor says when importing; it would only show an error.
+            for (Sheet sheet : sheets) {
+                for (Node node : List.copyOf(sheet.nodes())) {
+                    try {
+                        checkInstance(network, sheet, node);
+                    } catch (RequestException missing) {
+                        sheet.remove(node.id());
+                    }
+                }
+            }
+            if (!top.blueprint()) {
+                Sheet parent = parentOf(network, edit);
+                deepEnough(network, parent, network.height(top));
+                place(network, top, parent, edit);
+            }
+            JsonObject result = new JsonObject();
+            result.addProperty("sheet", top.id().toString());
+            result.add("notes", notes);
+            return result;
+        }
+
         private static Sheet makeBlueprint(MinecraftServer server, Network network, Sheet sheet, boolean keep) throws RequestException {
             if (sheet.root() || sheet.blueprint()) {
                 throw new RequestException("Only a sheet in the tree can become a blueprint");
