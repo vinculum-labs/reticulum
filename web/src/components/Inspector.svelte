@@ -25,7 +25,10 @@
 <!-- A fixed width that nothing inside may widen: no sideways scrolling. -->
 <aside class="flex w-80 shrink-0 flex-col overflow-x-hidden overflow-y-auto border-l border-line bg-panel p-3">
   {#if app.panel === "network" && app.snapshot}
-    <NetworkSettings />
+    <!-- Built anew for each network: a password or member name typed for one doesn't carry over to the next. -->
+    {#key app.current}
+      <NetworkSettings />
+    {/key}
   {:else if app.panel === "identified" && app.snapshot}
     <IdentifiedPanel />
   {:else if device}
@@ -39,7 +42,7 @@
       {/key}
     {:else if node}
       {#key node.id}
-        <NodeInspector {node} sheet={instance.blueprint} inInstanceAs={instance.run ? inInstance(instance.run, node.id) : node.id} />
+        <NodeInspector {node} sheet={instance.blueprint} inInstanceAs={instance.run ? inInstance(instance.run, node.id) : null} />
       {/key}
     {:else}
       <InstancePanel sheet={instance.sheet} instance={instance.node} blueprint={instance.blueprint} />

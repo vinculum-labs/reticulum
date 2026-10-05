@@ -73,7 +73,7 @@
         class="btn flex items-center gap-2"
         aria-current={n.id === app.current ? "page" : undefined}
         aria-pressed={n.id === app.current}
-        onclick={() => selectNetwork(n.id)}
+        onclick={() => n.id !== app.current && selectNetwork(n.id)}
         title={`${tabStatus(n).title}\n${n.access}, owner ${n.owner || "none"}, your role: ${n.role}`}
       >
         <span class="inline-block h-2 w-2 rounded-full" style="background: {tabStatus(n).color}"></span>

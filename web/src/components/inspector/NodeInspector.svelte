@@ -63,13 +63,16 @@
   }: {
     node: GraphNode;
     sheet: Sheet;
-    /** Shown inside an open instance: read-only, its activity kept under this id (the instance's name for it). */
-    inInstanceAs?: string;
+    /**
+     * Shown inside an open instance: read-only, its activity kept under this id (the instance's name for it), or null
+     * for an instance that doesn't run (one opened inside a blueprint): no activity at all.
+     */
+    inInstanceAs?: string | null;
   } = $props();
 
-  const canEdit = $derived(!inInstanceAs && (app.snapshot?.canEdit ?? false));
+  const canEdit = $derived(inInstanceAs === undefined && (app.snapshot?.canEdit ?? false));
   /** Whose activity to show: its own, or the instance's name for it. A blueprint itself never runs: none. */
-  const activityId = $derived(inInstanceAs ?? (sheet.blueprint ? null : node.id));
+  const activityId = $derived(inInstanceAs !== undefined ? inInstanceAs : sheet.blueprint ? null : node.id);
   const s = $derived(node.settings);
   const signal = $derived(isSignal(s.kind));
   /** The device the node points at, whose names (and face names) can be edited. */

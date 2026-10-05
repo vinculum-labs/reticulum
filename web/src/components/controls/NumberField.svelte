@@ -1,5 +1,6 @@
 <script lang="ts">
   import { clampNumber, fieldId as takeFieldId } from "./field";
+  import { resync } from "../../lib/state.svelte";
 
   /**
    * A number box with the same saving rules as TextField. Typed numbers are kept within {@code min}..{@code max}
@@ -50,7 +51,10 @@
     return String(Number((stored * scale).toFixed(4)));
   }
 
+  // Follows the saved value, and goes back to it when an edit is refused (the value didn't change, so the box would
+  // keep showing the refused number).
   $effect(() => {
+    void resync.count;
     const saved = shown(value);
     if (!focused) draft = saved;
   });

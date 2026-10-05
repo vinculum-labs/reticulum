@@ -383,10 +383,11 @@ function forgetUnlisted(): void {
  * The last change on this stack that belongs to the network shown; any on top from another network (left there when
  * the shown one went away, say) are filed with their own network's history instead of being sent.
  */
-function takeOwn(stack: Change[]): Change | undefined {
+function takeOwn(network: string, kind: "undo" | "redo"): Change | undefined {
+  const stack = stacksOf(network)[kind];
   for (let change = stack.pop(); change; change = stack.pop()) {
-    if (change.network === app.current) return change;
-    historyOf(change.network)[stack === app.undo ? "undo" : "redo"].push(change);
+    if (change.network === network) return change;
+    historyOf(change.network)[kind].push(change);
   }
   return undefined;
 }
@@ -626,12 +627,16 @@ function pushCapped(stack: Change[], change: Change): void {
  * (edits sent before it may land first).
  */
 export function undo(only?: (typeof app.undo)[number]): Promise<void> {
+  // The network shown when asked: its turn may come after a switch to another.
+  const network = app.current;
+  if (!network) return Promise.resolve();
   return serially(async () => {
-    if (only && app.undo[app.undo.length - 1] !== only) {
+    const stack = stacksOf(network).undo;
+    if (only && stack[stack.length - 1] !== only) {
       toast("Something else has changed since — use Undo in the top bar.", "info");
       return;
     }
-    const change = takeOwn(app.undo);
+    const change = takeOwn(network, "undo");
     if (!change) return;
     app.busy++;
     try {
@@ -648,8 +653,10 @@ export function undo(only?: (typeof app.undo)[number]): Promise<void> {
 }
 
 export function redo(): Promise<void> {
+  const network = app.current;
+  if (!network) return Promise.resolve();
   return serially(async () => {
-    const change = takeOwn(app.redo);
+    const change = takeOwn(network, "redo");
     if (!change) return;
     app.busy++;
     try {
