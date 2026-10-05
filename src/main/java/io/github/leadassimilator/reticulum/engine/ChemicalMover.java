@@ -114,7 +114,7 @@ final class ChemicalMover {
         @Override
         public void overflow(NetworkRuntime.Context ctx, ChemicalStack kind, long amount) {
             ctx.network().overflow().chemicals().merge(MekanismChemicals.id(kind), amount, Long::sum);
-            NetworkManager.changed(ctx.server(), ctx.network());
+            NetworkManager.overflowChanged(ctx.server(), ctx.network());
         }
 
         private static Action action(boolean simulate) {

@@ -35,6 +35,15 @@ public final class NetworkManager {
         data(server).setDirty();
     }
 
+    /**
+     * The overflow buffer changed: saved, but not a change to the network (its revision stays), which would have the
+     * engine walk the cables again and every open editor get a whole new snapshot, as often as every tick while it drains.
+     */
+    public static void overflowChanged(MinecraftServer server, Network network) {
+        network.touchOverflow();
+        data(server).setDirty();
+    }
+
     public static Network create(MinecraftServer server, @Nullable Player owner) {
         ReticulumSavedData data = data(server);
         String name = owner != null

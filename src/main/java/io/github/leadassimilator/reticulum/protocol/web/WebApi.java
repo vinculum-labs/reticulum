@@ -162,7 +162,7 @@ public final class WebApi {
             }
             case "subscribe" -> {
                 Network network = viewable(player, request);
-                SUBSCRIPTIONS.computeIfAbsent(player.getUUID(), k -> new HashMap<>()).put(network.id(), network.revision());
+                SUBSCRIPTIONS.computeIfAbsent(player.getUUID(), k -> new HashMap<>()).put(network.id(), stamp(server, network, false));
                 JsonObject out = ok(id);
                 out.add("network", Snapshots.full(server, network, player));
                 yield out;
@@ -1268,15 +1268,45 @@ public final class WebApi {
                     send(player, gone);
                     continue;
                 }
-                if (subs.get(networkId) != network.revision()) {
-                    subs.put(networkId, network.revision());
-                    sendSnapshot(server, player, network);
-                }
-                if (metricsDue && NetworkTicker.isRunning(server, network)) {
-                    send(player, metrics(server, network));
+                // Building a snapshot reads other mods' blocks: one that throws must not take the server down (as a tick
+                // of the network itself wouldn't).
+                try {
+                    int stamp = stamp(server, network, metricsDue);
+                    if (subs.get(networkId) != stamp) {
+                        subs.put(networkId, stamp);
+                        sendSnapshot(server, player, network);
+                    }
+                    if (metricsDue && NetworkTicker.isRunning(server, network)) {
+                        send(player, metrics(server, network));
+                    }
+                } catch (RuntimeException | LinkageError e) {
+                    long now = System.currentTimeMillis();
+                    if (now - lastPushFailureLogged > 60_000) {
+                        lastPushFailureLogged = now;
+                        io.github.leadassimilator.reticulum.Reticulum.LOGGER.error("Couldn't send network {} ({}) to the editor (not logged again for a minute)", network.name(), network.id(), e);
+                    }
                 }
             }
         }
+    }
+
+    /** When a failed push was last logged. */
+    private static long lastPushFailureLogged;
+
+    /** The overflow revision each network's editors were last shown (taken once a second). */
+    private static final Map<UUID, Integer> OVERFLOW_SHOWN = new HashMap<>();
+
+    /**
+     * What a snapshot is current for: the network's revision, whether it runs (a controller's chunk unloading changes
+     * no revision, but the editor must stop showing it as running), and its overflow buffer as of the last second
+     * (taken when {@code everySecond}, so a draining buffer sends a snapshot once a second, not every few ticks).
+     */
+    private static int stamp(MinecraftServer server, Network network, boolean everySecond) {
+        if (everySecond) {
+            OVERFLOW_SHOWN.put(network.id(), network.overflowRevision());
+        }
+        int overflow = OVERFLOW_SHOWN.getOrDefault(network.id(), 0);
+        return java.util.Objects.hash(network.revision(), NetworkTicker.isRunning(server, network), overflow);
     }
 
     /** Sends a fresh snapshot of the network to every subscriber now. */
@@ -1287,7 +1317,7 @@ public final class WebApi {
             if (player == null || !subs.containsKey(network.id()) || !Security.canView(network, player)) {
                 continue;
             }
-            subs.put(network.id(), network.revision());
+            subs.put(network.id(), stamp(server, network, false));
             sendSnapshot(server, player, network);
         }
     }
@@ -1386,6 +1416,7 @@ public final class WebApi {
 
     public static void onServerStopped(ServerStoppedEvent event) {
         SUBSCRIPTIONS.clear();
+        OVERFLOW_SHOWN.clear();
         ALLOWANCE.clear();
         LIST_LISTENERS.clear();
     }

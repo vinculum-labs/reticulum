@@ -564,6 +564,17 @@ public final class Network {
     public record Home(Sheet sheet, io.github.leadassimilator.reticulum.graph.Node node) {
     }
 
+    /** Bumped when the overflow buffer changes (not saved): shown in the editor at most once a second. */
+    private int overflowRevision;
+
+    public int overflowRevision() {
+        return overflowRevision;
+    }
+
+    public void touchOverflow() {
+        overflowRevision++;
+    }
+
     public int revision() {
         return revision;
     }
