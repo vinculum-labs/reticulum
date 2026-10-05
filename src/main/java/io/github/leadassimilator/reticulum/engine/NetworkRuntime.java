@@ -421,6 +421,10 @@ public final class NetworkRuntime {
         Set<GlobalPos> reached = new java.util.HashSet<>();
         Set<GlobalPos> all = new java.util.HashSet<>();
         for (ConnectorRecord connector : network.connectors()) {
+            // Lifted by a contraption: not anywhere (no devices either), so neither reached nor paid for until set down.
+            if (connector.moving()) {
+                continue;
+            }
             Reach r = connector.pos().dimension().equals(controller.dimension()) && wired.contains(connector.pos().pos()) ? Reach.WIRED
                     : inRange(tier, controller, connector.pos()) ? Reach.WIRELESS : Reach.OUT_OF_RANGE;
             found.put(connector.id(), r);
