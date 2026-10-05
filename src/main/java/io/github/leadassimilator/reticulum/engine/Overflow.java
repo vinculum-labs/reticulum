@@ -118,10 +118,15 @@ final class Overflow {
             if (room <= 0) {
                 continue;
             }
+            // An operation like any other: paid for where power costs, and counted in rates and charts.
+            if (!ctx.runtime().canAffordOperation()) {
+                return changed;
+            }
             ItemStack offer = held.copyWithCount((int) Math.min(held.getCount(), room));
             int placed = offer.getCount() - to.insert(offer, false).getCount();
             if (placed > 0) {
-                ctx.runtime().consume(route.rateLimits(), placed);
+                ctx.runtime().chargeOperation();
+                ctx.runtime().delivered(route, placed, "item:" + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(held.getItem()));
                 held.shrink(placed);
                 changed = true;
                 if (held.isEmpty()) {
@@ -151,7 +156,7 @@ final class Overflow {
                 }
                 int filled = handler.fill(held.copyWithAmount((int) Math.min(held.getAmount(), room)), IFluidHandler.FluidAction.EXECUTE);
                 if (filled > 0) {
-                    ctx.runtime().consume(route.rateLimits(), filled);
+                    ctx.runtime().delivered(route, filled, ContinuousMover.FLUIDS.chartKey(held));
                     room -= filled;
                     held.shrink(filled);
                     changed = true;

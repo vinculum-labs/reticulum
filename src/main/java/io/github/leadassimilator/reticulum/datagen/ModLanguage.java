@@ -90,6 +90,8 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.too_many_members", "A network can have at most %s members");
         add("message.reticulum.password_empty", "The password can't be empty");
         add("message.reticulum.save_unreadable", "Reticulum couldn't read all of its saved networks — a copy was kept as %s (in the world's data folder). Those networks start empty; avoid rebuilding them until it's sorted.");
+        add("lookat.reticulum.reach.stopped", "Network stopped");
+        add("message.reticulum.merge_too_big", "%s can't be merged into %s: %s");
         add("message.reticulum.password_too_soon", "Wait a moment before setting the password again");
         add("message.reticulum.no_access_private", "That network is private");
         add("message.reticulum.already_member_role", "You're already a member of %s — an admin can change your role");

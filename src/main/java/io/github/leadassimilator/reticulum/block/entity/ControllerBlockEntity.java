@@ -135,8 +135,14 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         super.collectImplicitComponents(components);
         // The network it remembers, unless that is gone (an empty one is deleted as the block comes out, before the
         // drop is made): then it drops as a fresh controller.
-        boolean gone = level instanceof net.minecraft.server.level.ServerLevel server && networkId() != null
-                && io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId()) == null;
+        // An explosion or a machine makes the drop before the block comes out: a network about to go with it (empty,
+        // this its controller) counts as gone already.
+        boolean gone = false;
+        if (level instanceof net.minecraft.server.level.ServerLevel server && networkId() != null) {
+            var network = io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId());
+            gone = network == null || io.github.leadassimilator.reticulum.network.NetworkManager.isEmpty(network)
+                    && io.github.leadassimilator.reticulum.network.Devices.global(level, worldPosition).equals(network.controller());
+        }
         if (networkId() != null && !gone) {
             components.set(ModDataComponents.NETWORK_ID.get(), networkId());
         }

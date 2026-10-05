@@ -97,7 +97,9 @@ public final class LookAt {
             } else {
                 NetworkRuntime runtime = NetworkTicker.runtime(network.id());
                 NetworkRuntime.Reach reach = runtime == null ? null : runtime.reach(connector.connectorId());
-                if (reach != null && record != null) {
+                if (!NetworkTicker.isRunning(level.getServer(), network)) {
+                    lines.add(reachLine("lookat.reticulum.reach.stopped", ChatFormatting.GRAY));
+                } else if (reach != null && record != null) {
                     lines.add(reachLine(reach, runtime.antennaTier(), network.controller(), record.pos()));
                 }
             }
@@ -122,7 +124,8 @@ public final class LookAt {
                     .withStyle(ChatFormatting.GRAY));
             lines.add(antennaLine(controller.antennaTier()));
             NetworkRuntime runtime = NetworkTicker.runtime(network.id());
-            if (runtime != null) {
+            // Stopped, its power state is as of when it stopped: not shown.
+            if (runtime != null && NetworkTicker.isRunning(level.getServer(), network)) {
                 NetworkRuntime.PowerState power = runtime.powerState(level.getServer(), network);
                 if (power.enabled()) {
                     lines.add(Component.translatable(power.powered() ? "lookat.reticulum.power" : "lookat.reticulum.no_power",

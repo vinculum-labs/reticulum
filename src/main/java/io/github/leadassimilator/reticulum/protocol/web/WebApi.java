@@ -162,7 +162,7 @@ public final class WebApi {
             }
             case "subscribe" -> {
                 Network network = viewable(player, request);
-                SUBSCRIPTIONS.computeIfAbsent(player.getUUID(), k -> new HashMap<>()).put(network.id(), stamp(server, network, true));
+                SUBSCRIPTIONS.computeIfAbsent(player.getUUID(), k -> new HashMap<>()).put(network.id(), stamp(server, network, player, true));
                 JsonObject out = ok(id);
                 out.add("network", Snapshots.full(server, network, player));
                 yield out;
@@ -417,6 +417,15 @@ public final class WebApi {
                     for (Node node : sheet.nodes()) {
                         checkHome(network, sheet, node, null);
                     }
+                    // A placed blueprint whose blueprint isn't on this network (or that would hold the sheet it's on) is
+                    // dropped, with its wires, as the editor says when importing; it would only show an error.
+                    for (Node node : List.copyOf(sheet.nodes())) {
+                        try {
+                            checkInstance(network, sheet, node);
+                        } catch (RequestException missing) {
+                            sheet.remove(node.id());
+                        }
+                    }
                     if (!sheet.blueprint()) {
                         place(network, sheet, parentOf(network, edit), edit);
                     }
@@ -637,6 +646,10 @@ public final class WebApi {
                 }
                 case "deleteOrphan" -> {
                     GlobalPos pos = decode(server, GlobalPos.CODEC, edit.get("device"), "device");
+                    // Not while a node or slot uses it: they would point at nothing. Relink it, or remove them first.
+                    if (NetworkManager.inUse(network, pos)) {
+                        throw new RequestException("Nodes still use this device: remove them, or relink it to another device, first");
+                    }
                     if (!NetworkManager.deleteOrphan(server, network, pos)) {
                         throw new RequestException("Only orphaned or missing devices can be deleted");
                     }
@@ -663,9 +676,19 @@ public final class WebApi {
                     network.charts().removeIf(c -> c.key().equals(key));
                 }
                 case "setFilter" -> {
-                    String name = Limits.name(string(edit, "name"));
+                    String asked = string(edit, "name");
+                    String name = Limits.name(asked);
                     if (name == null) {
                         throw new RequestException("A filter template needs a name");
+                    }
+                    // A new one named as a rename would allow (an existing one is only being changed or removed).
+                    if (!network.filters().containsKey(name)) {
+                        if (!name.equals(asked)) {
+                            throw new RequestException("That name is too long, or starts or ends with a space");
+                        }
+                        if (name.contains("\"") || name.contains("\\")) {
+                            throw new RequestException("A template name can't hold \" or \\");
+                        }
                     }
                     if (edit.has("expression") && !edit.get("expression").isJsonNull()) {
                         String expression = edit.get("expression").getAsString();
@@ -1271,7 +1294,7 @@ public final class WebApi {
                 // Building a snapshot reads other mods' blocks: one that throws must not take the server down (as a tick
                 // of the network itself wouldn't).
                 try {
-                    int stamp = stamp(server, network, metricsDue);
+                    int stamp = stamp(server, network, player, metricsDue);
                     if (subs.get(networkId) != stamp) {
                         sendSnapshot(server, player, network);
                         // Only once sent: one that failed is tried again on the next pass.
@@ -1311,6 +1334,12 @@ public final class WebApi {
         return network.revision() * 1_000_003 + overflow * 2 + (NetworkTicker.isRunning(server, network) ? 1 : 0);
     }
 
+    /** {@link #stamp(MinecraftServer, Network, boolean)} for one player: what they may do too (op/deop, a role changed). */
+    private static int stamp(MinecraftServer server, Network network, ServerPlayer player, boolean everySecond) {
+        int may = (Security.could(network, player, Role.EDITOR) ? 1 : 0) | (Security.could(network, player, Role.ADMIN) ? 2 : 0);
+        return stamp(server, network, everySecond) * 4 + may;
+    }
+
     /** Sends a fresh snapshot of the network to every subscriber now. */
     private static void pushSnapshots(MinecraftServer server, Network network) {
         for (Map.Entry<UUID, Map<UUID, Integer>> entry : SUBSCRIPTIONS.entrySet()) {
@@ -1319,7 +1348,7 @@ public final class WebApi {
             if (player == null || !subs.containsKey(network.id()) || !Security.canView(network, player)) {
                 continue;
             }
-            subs.put(network.id(), stamp(server, network, false));
+            subs.put(network.id(), stamp(server, network, player, false));
             sendSnapshot(server, player, network);
         }
     }

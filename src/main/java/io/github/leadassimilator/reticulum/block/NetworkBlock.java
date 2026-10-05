@@ -108,7 +108,7 @@ public abstract class NetworkBlock extends BaseEntityBlock {
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
         if (removed != null) {
-            Topology.onRemoved(serverLevel, pos, removed);
+            Topology.onRemoved(serverLevel, pos, removed, movedByPiston);
         }
     }
 

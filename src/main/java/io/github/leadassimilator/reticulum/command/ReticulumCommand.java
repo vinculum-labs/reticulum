@@ -141,6 +141,10 @@ public final class ReticulumCommand {
         if (from.controller() != null) {
             throw new SimpleCommandExceptionType(Component.translatable("command.reticulum.merge_has_controller", from.name())).create();
         }
+        String tooBig = NetworkManager.mergeRefusal(into, from);
+        if (tooBig != null) {
+            throw new SimpleCommandExceptionType(Component.translatable("message.reticulum.merge_too_big", from.name(), into.name(), tooBig)).create();
+        }
         Role cap = player == null ? Role.ADMIN : Security.role(into, player).orElse(Role.ADMIN);
         NetworkManager.absorb(ctx.getSource().getServer(), into, from, cap);
         ctx.getSource().sendSuccess(() -> Component.translatable("command.reticulum.merged", from.name(), into.name()), true);

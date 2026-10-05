@@ -145,7 +145,7 @@ public final class NetworkManager {
      * chart does: such a record is kept when the block goes, so its flows and charts can be moved onto the block that
      * replaces it.
      */
-    static boolean inUse(Network network, GlobalPos pos) {
+    public static boolean inUse(Network network, GlobalPos pos) {
         for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
                 if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance
@@ -288,6 +288,32 @@ public final class NetworkManager {
      * player doing the merge) and never above admin, so a merge can't hand anyone more than its maker has. Members
      * {@code into} already has keep their role.
      */
+    /**
+     * Why merging {@code from} into {@code into} would go past a network's limits (sheets, members, filter templates),
+     * or null when it fits.
+     */
+    @Nullable
+    public static String mergeRefusal(Network into, Network from) {
+        if (into.sheets().size() + from.sheets().size() > Limits.SHEETS) {
+            return "together they would have more than " + Limits.SHEETS + " sheets";
+        }
+        java.util.Set<UUID> members = new java.util.HashSet<>(into.members().keySet());
+        members.addAll(from.members().keySet());
+        if (from.owner() != null) {
+            members.add(from.owner());
+        }
+        members.remove(into.owner());
+        if (members.size() > Limits.MEMBERS) {
+            return "together they would have more than " + Limits.MEMBERS + " members";
+        }
+        java.util.Set<String> filters = new java.util.HashSet<>(into.filters().keySet());
+        filters.addAll(from.filters().keySet());
+        if (filters.size() > Limits.FILTER_TEMPLATES) {
+            return "together they would have more than " + Limits.FILTER_TEMPLATES + " filter templates";
+        }
+        return null;
+    }
+
     public static void absorb(MinecraftServer server, Network into, Network from, Role cap) {
         if (into == from) {
             return;

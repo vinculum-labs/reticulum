@@ -46,6 +46,13 @@ public final class ReticulumSavedData extends SavedData {
     public static ReticulumSavedData get(MinecraftServer server) {
         ReticulumSavedData data = server.overworld().getDataStorage().computeIfAbsent(
                 new SavedData.Factory<>(ReticulumSavedData::new, ReticulumSavedData::load), FILE_NAME);
+        // Made fresh although the file is there: Minecraft couldn't read it at all (a broken file), so load never ran.
+        if (!data.checkedFile) {
+            data.checkedFile = true;
+            if (!data.loaded && java.nio.file.Files.exists(file(server))) {
+                data.loadError = "the file itself couldn't be read";
+            }
+        }
         if (data.loadError != null) {
             data.keepUnreadable(server);
         }
@@ -60,7 +67,7 @@ public final class ReticulumSavedData extends SavedData {
     private void keepUnreadable(MinecraftServer server) {
         String error = loadError;
         loadError = null;
-        java.nio.file.Path file = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("data").resolve(FILE_NAME + ".dat");
+        java.nio.file.Path file = file(server);
         String stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
         java.nio.file.Path copy = file.resolveSibling(FILE_NAME + ".dat.unreadable-" + stamp);
         try {
@@ -73,6 +80,14 @@ public final class ReticulumSavedData extends SavedData {
             Reticulum.LOGGER.error("Reticulum couldn't read all of its saved networks ({}), nor copy the file aside", error, e);
         }
     }
+
+    private static java.nio.file.Path file(MinecraftServer server) {
+        return server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("data").resolve(FILE_NAME + ".dat");
+    }
+
+    /** Whether this came from the file (load ran), and whether that was checked after it was first asked for. */
+    private boolean loaded;
+    private boolean checkedFile;
 
     /** Operators joining are told when the saved networks couldn't be read, and where the copy is. */
     public static void onLoggedIn(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
@@ -88,6 +103,7 @@ public final class ReticulumSavedData extends SavedData {
 
     private static ReticulumSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         ReticulumSavedData data = new ReticulumSavedData();
+        data.loaded = true;
         Contents.CODEC.parse(RegistryOps.create(NbtOps.INSTANCE, registries), tag)
                 .resultOrPartial(err -> data.loadError = err)
                 .ifPresent(contents -> {

@@ -564,7 +564,7 @@ public final class Topology {
         return comp.network();
     }
 
-    public static void onRemoved(ServerLevel level, BlockPos pos, Removed removed) {
+    public static void onRemoved(ServerLevel level, BlockPos pos, Removed removed, boolean moving) {
         Network network = NetworkManager.network(level.getServer(), removed.networkId());
         touch(network == null ? removed.networkId() : network.id());
         if (network != null) {
@@ -573,7 +573,8 @@ public final class Topology {
             }
             if (removed.controller() && Devices.global(level, pos).equals(network.controller())) {
                 network.setController(null);
-                if (NetworkManager.isEmpty(network)) {
+                // Moved (a contraption), it comes back with its network: kept even empty, so it stays the owner's.
+                if (NetworkManager.isEmpty(network) && !moving) {
                     // Nothing to keep: don't leave an unused network behind (e.g. a controller placed by mistake).
                     NetworkManager.delete(level.getServer(), network);
                 } else {
@@ -821,7 +822,9 @@ public final class Topology {
         }
         connector.refreshEndpoints();
         Network network = NetworkManager.network(level.getServer(), networkOf(level, connector));
-        if (network == null) {
+        // A neighbor not loaded would read as no device, and its record (names and all) be let go: the rolling
+        // rescan comes back once it is.
+        if (network == null || !level.isAreaLoaded(pos, 1)) {
             return;
         }
         List<GlobalPos> devices = scanDevices(level, pos, connector);
@@ -922,6 +925,12 @@ public final class Topology {
         if (!pieceOnly && player != null && absorbedNetwork != null && targetNetwork != null && absorbedNetwork != targetNetwork
                 && !Security.mayAbsorb(absorbedNetwork, targetNetwork, player)) {
             return Component.translatable("message.reticulum.merge_needs_owner", absorbedNetwork.name());
+        }
+        if (!pieceOnly && absorbedNetwork != null && targetNetwork != null && absorbedNetwork != targetNetwork) {
+            String tooBig = NetworkManager.mergeRefusal(targetNetwork, absorbedNetwork);
+            if (tooBig != null) {
+                return Component.translatable("message.reticulum.merge_too_big", absorbedNetwork.name(), targetNetwork.name(), tooBig);
+            }
         }
         a.clearDisconnects(side);
         b.clearDisconnects(side.getOpposite());

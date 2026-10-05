@@ -152,7 +152,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             return;
         }
         WebSocketServerHandshakerFactory factory = new WebSocketServerHandshakerFactory(
-                WebBridge.baseUrl().replaceFirst("^http", "ws") + "/ws", null, false, 64 * 1024);
+                WebBridge.baseUrl().replaceFirst("^http", "ws") + "/ws", null, false, 128 * 1024);
         WebSocketServerHandshaker handshaker = factory.newHandshaker(request);
         if (handshaker == null) {
             WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel());

@@ -66,8 +66,6 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
 - Redstone outputs and ME links keep working while a network is unpowered (only item, fluid, chemical and kit moves
   stop). By design: redstone often switches the generator that would refill it, and ME links already draw AE2 power.
 - Deliveries from the overflow buffer cost no power per operation and don't show in rates or charts.
-- While the overflow buffer holds something, each retry bumps the network's revision, which redoes the cable walk
-  (and, with ME ports, a recompile) about once a second.
 - The look-at overlay shows the last reach and power of a network that has since stopped.
 - A connector lifted by a contraption keeps serving the devices at its old spot until it is set down; one that never
   is (contraption destroyed) leaves its record moving forever.
