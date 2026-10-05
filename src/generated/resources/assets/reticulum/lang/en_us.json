@@ -4,6 +4,7 @@
   "block.reticulum.controller": "Network Controller",
   "block.reticulum.status_beacon": "Status Beacon",
   "command.reticulum.already_member": "You already have access to %s",
+  "command.reticulum.ambiguous_network": "More than one network goes by that — use more of its id (/reticulum list shows them)",
   "command.reticulum.deleted": "Deleted network %s",
   "command.reticulum.joined": "Joined %s",
   "command.reticulum.list_empty": "No networks you can see",

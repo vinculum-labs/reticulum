@@ -115,7 +115,8 @@ public final class Screens {
         }
         io.github.leadassimilator.reticulum.network.Network network = beacon.watch(player.serverLevel()).network();
         if (network != null && !io.github.leadassimilator.reticulum.security.Security.canUse(network, player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.no_access", network.name()), true);
+            // Not named to someone who can't see it.
+            player.displayClientMessage(Access.refusal(network, player, Role.USER), true);
             return false;
         }
         return true;

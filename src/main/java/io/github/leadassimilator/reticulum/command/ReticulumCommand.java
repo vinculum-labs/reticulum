@@ -35,11 +35,12 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public final class ReticulumCommand {
     private static final SimpleCommandExceptionType UNKNOWN_NETWORK = new SimpleCommandExceptionType(Component.translatable("command.reticulum.unknown_network"));
+    private static final SimpleCommandExceptionType AMBIGUOUS = new SimpleCommandExceptionType(Component.translatable("command.reticulum.ambiguous_network"));
     private static final SimpleCommandExceptionType NO_ACCESS = new SimpleCommandExceptionType(Component.translatable("command.reticulum.no_access"));
 
     private static final SuggestionProvider<CommandSourceStack> NETWORKS = (ctx, builder) -> SharedSuggestionProvider.suggest(
             NetworkManager.data(ctx.getSource().getServer()).networks().stream()
-                    .filter(n -> ctx.getSource().getPlayer() == null || Security.canView(n, ctx.getSource().getPlayer())
+                    .filter(n -> ctx.getSource().getPlayer() == null || Security.could(n, ctx.getSource().getPlayer(), Role.VIEWER)
                             || n.accessMode() == AccessMode.PASSWORD)
                     .map(n -> StringArgumentType.escapeIfRequired(n.name())), builder);
     private static final SuggestionProvider<CommandSourceStack> ROLES = (ctx, builder) -> SharedSuggestionProvider.suggest(
@@ -77,7 +78,7 @@ public final class ReticulumCommand {
         ServerPlayer player = ctx.getSource().getPlayer();
         List<Network> visible = new ArrayList<>();
         for (Network network : NetworkManager.data(ctx.getSource().getServer()).networks()) {
-            if (player == null || Security.canView(network, player) || network.accessMode() == AccessMode.PASSWORD) {
+            if (player == null || Security.could(network, player, Role.VIEWER) || network.accessMode() == AccessMode.PASSWORD) {
                 visible.add(network);
             }
         }
@@ -205,17 +206,32 @@ public final class ReticulumCommand {
         return network;
     }
 
+    /**
+     * The network a name or id (or id start, 4+ characters) names. By name, those the player can see (or join with a
+     * password) come first, so a hidden network of the same name never takes theirs. More than one match is refused
+     * rather than picking one (deleting or merging the wrong network).
+     */
     @Nullable
-    private static Network find(CommandSourceStack source, String query) {
-        Network byPrefix = null;
+    private static Network find(CommandSourceStack source, String query) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayer();
+        List<Network> named = new ArrayList<>();
+        List<Network> prefixed = new ArrayList<>();
         for (Network network : NetworkManager.data(source.getServer()).networks()) {
             if (network.name().equalsIgnoreCase(query)) {
-                return network;
+                named.add(network);
             }
             if (query.length() >= 4 && network.id().toString().startsWith(query.toLowerCase(Locale.ROOT))) {
-                byPrefix = network;
+                prefixed.add(network);
             }
         }
-        return byPrefix;
+        if (player != null && named.size() > 1) {
+            List<Network> seen = named.stream().filter(n -> Security.could(n, player, Role.VIEWER) || n.accessMode() == AccessMode.PASSWORD).toList();
+            named = seen.isEmpty() ? named.subList(0, 1) : seen;
+        }
+        List<Network> found = !named.isEmpty() ? named : prefixed;
+        if (found.size() > 1) {
+            throw AMBIGUOUS.create();
+        }
+        return found.isEmpty() ? null : found.getFirst();
     }
 }

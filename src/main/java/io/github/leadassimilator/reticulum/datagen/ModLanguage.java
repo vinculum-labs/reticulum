@@ -156,6 +156,7 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.editor_link_hover", "Click to open the editor in your browser");
 
         add("command.reticulum.unknown_network", "No network with that name or id");
+        add("command.reticulum.ambiguous_network", "More than one network goes by that — use more of its id (/reticulum list shows them)");
         add("command.reticulum.no_access", "Access denied");
         add("command.reticulum.unknown_role", "Role must be viewer, user, editor or admin");
         add("command.reticulum.list_empty", "No networks you can see");

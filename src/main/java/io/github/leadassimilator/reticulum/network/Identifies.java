@@ -89,7 +89,7 @@ public final class Identifies {
     public static List<Payloads.IdentifyMarker> markersFor(ServerPlayer player) {
         List<Payloads.IdentifyMarker> markers = new ArrayList<>();
         for (Network network : NetworkManager.data(player.server).networks()) {
-            if (network.identified().isEmpty() || !Security.canView(network, player)) {
+            if (network.identified().isEmpty() || !Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
                 continue;
             }
             for (Identify identify : network.identified()) {

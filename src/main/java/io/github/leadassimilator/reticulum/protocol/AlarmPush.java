@@ -75,14 +75,18 @@ public final class AlarmPush {
      * nobody owns), plus any other they may view (the network tool may be linked to it). Networks with nothing going off
      * are left out.
      */
+    /** The most networks' alarm states sent (the packet's own limit is 4096). */
+    private static final int STATES_LIMIT = 4096;
+
     private static Map<UUID, Integer> states(MinecraftServer server, ServerPlayer player) {
         Map<UUID, Integer> out = new HashMap<>();
         for (Network network : NetworkManager.data(server).networks()) {
-            if (!Security.canView(network, player)) {
+            if (!Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
                 continue;
             }
             AlarmSeverity worst = Alarms.worst(Alarms.cached(server, network));
-            if (worst != null) {
+            // Within what the packet carries (an operator seeing every network on a huge server).
+            if (worst != null && out.size() < STATES_LIMIT) {
                 out.put(network.id(), (worst == AlarmSeverity.CRITICAL ? 1 : 0) | (belongs(network, player) ? 0 : 2));
             }
         }
@@ -108,7 +112,7 @@ public final class AlarmPush {
         List<Payloads.StatusMarker> markers = new ArrayList<>();
         Set<String> marked = new HashSet<>();
         for (Network network : NetworkManager.data(server).networks()) {
-            if (!Security.canView(network, player) || markers.size() >= MARKER_LIMIT) {
+            if (!Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER) || markers.size() >= MARKER_LIMIT) {
                 continue;
             }
             NetworkRuntime runtime = NetworkTicker.runtime(network.id());
