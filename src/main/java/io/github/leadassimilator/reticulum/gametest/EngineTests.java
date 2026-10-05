@@ -488,6 +488,31 @@ public final class EngineTests {
                 .thenSucceed();
     }
 
+    /**
+     * A Status Beacon only watches networks whoever placed it may view: against a private network's connector, one
+     * placed by a stranger (or a machine) stays quiet; one placed by the owner shows its alarm.
+     */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void statusBeaconWatchesOnlyNetworksItsPlacerMayView(GameTestHelper helper) {
+        Rig rig = rig(helper, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
+        UUID owner = UUID.randomUUID();
+        rig.network().setOwner(owner, "owner");
+        rig.network().setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PRIVATE);
+        Node level = rig.node(new NodeSettings.ConstantSettings(1));
+        Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL, "Meltdown", java.util.Optional.empty(), 0, 0));
+        rig.signal(level, alarm, 0);
+        BlockPos at = rig.devices().get(0);
+        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at);
+        beacon.setPlacer(UUID.randomUUID());
+        var shown = io.github.leadassimilator.reticulum.block.StatusBeaconBlock.SHOWN;
+        helper.startSequence()
+                .thenExecuteAfter(40, () -> check(helper, helper.getBlockState(at).getValue(shown) == 0, "a stranger's beacon shows a private network's alarm"))
+                .thenExecute(() -> beacon.setPlacer(owner))
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.CRITICAL,
+                        "the owner's beacon doesn't show the alarm"))
+                .thenSucceed();
+    }
+
     /** A Status Beacon in Redstone mode shows each signal level's look (by default 1 to 7 a warning's, 8 to 15 critical's); an Alarm node drives it by its severity. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void statusBeaconInRedstoneModeFollowsTheSignal(GameTestHelper helper) {

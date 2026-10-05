@@ -177,13 +177,38 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     public record Watch(@Nullable Network network, boolean reachable) {
     }
 
+    /**
+     * Who placed it (or last saved its settings, if nobody had): it only watches networks that player may view, so a
+     * beacon put against someone's private connector doesn't show their alarms to everyone. Null (placed by a machine):
+     * public and ownerless networks only. Kept in the block's data only, never on the item, so beacons stack.
+     */
+    @Nullable
+    private java.util.UUID placer;
+
+    @Nullable
+    public java.util.UUID placer() {
+        return placer;
+    }
+
+    public void setPlacer(@Nullable java.util.UUID placer) {
+        this.placer = placer;
+        setChanged();
+    }
+
+    private boolean mayWatch(Network network) {
+        if (network.owner() == null || network.accessMode() == io.github.leadassimilator.reticulum.security.AccessMode.PUBLIC) {
+            return true;
+        }
+        return placer != null && (placer.equals(network.owner()) || network.members().containsKey(placer));
+    }
+
     public Watch watch(ServerLevel level) {
         GlobalPos at = Devices.global(level, worldPosition);
         Network best = null;
         boolean reached = false;
         for (Network network : NetworkManager.networksWith(level.getServer(), at)) {
             DeviceRecord record = network.device(at);
-            if (record == null || record.state() != DeviceRecord.State.ACTIVE) {
+            if (record == null || record.state() != DeviceRecord.State.ACTIVE || !mayWatch(network)) {
                 continue;
             }
             boolean reachable = NetworkTicker.isRunning(level.getServer(), network) && !NetworkTicker.runtime(network.id()).outOfRange(at);
@@ -287,6 +312,9 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         tag.put("settings", settings());
+        if (placer != null) {
+            tag.putUUID("placer", placer);
+        }
     }
 
     @Override
@@ -294,6 +322,10 @@ public class StatusBeaconBlockEntity extends BlockEntity {
         super.loadAdditional(tag, registries);
         if (tag.contains("settings")) {
             readSettings(tag.getCompound("settings"));
+        }
+        // Only from the saved block (the update sent to clients leaves it out).
+        if (tag.hasUUID("placer")) {
+            placer = tag.getUUID("placer");
         }
         if (tag.contains("alarm_texts")) {
             List<String> texts = new java.util.ArrayList<>();

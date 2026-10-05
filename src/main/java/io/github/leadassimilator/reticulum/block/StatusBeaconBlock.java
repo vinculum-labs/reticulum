@@ -60,6 +60,15 @@ public class StatusBeaconBlock extends BaseEntityBlock {
         return RenderShape.MODEL;
     }
 
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable net.minecraft.world.entity.LivingEntity placer, net.minecraft.world.item.ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        // Always set here, over anything the item carried (a creative copy of another's beacon).
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon) {
+            beacon.setPlacer(placer instanceof ServerPlayer player && !(player instanceof net.neoforged.neoforge.common.util.FakePlayer) ? player.getUUID() : null);
+        }
+    }
+
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {

@@ -131,6 +131,10 @@ public final class Screens {
             return;
         }
         beacon.applySettings(payload.settings());
+        // A beacon nobody placed (a machine did, or placed before beacons remembered) becomes the one of whoever sets it up.
+        if (beacon.placer() == null && !(player instanceof net.neoforged.neoforge.common.util.FakePlayer)) {
+            beacon.setPlacer(player.getUUID());
+        }
         // Sent back as kept (within the server's limits), and a new mode shows something else. Only to a screen still
         // open: closing it sends what was typed, and the answer mustn't open it again.
         openBeacon(player, payload.pos(), true);
