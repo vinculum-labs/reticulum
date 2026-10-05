@@ -368,7 +368,13 @@ public class StatusBeaconScreen extends QuickScreen {
         return colorTop + 1 + row * 18;
     }
 
-    /** The text row's "automatic" swatch, just before the dyes. */
+    /** The color the state being edited has by default: amber for warnings (levels 0 to 7), red for critical (8 to 15). */
+    private int defaultColor() {
+        boolean critical = selected == StatusBeaconBlock.CRITICAL || selected >= 8 && selected <= 15;
+        return (critical ? BeaconLook.CRITICAL : BeaconLook.WARNING).color();
+    }
+
+    /** Each row's "automatic" swatch, just before the dyes. */
     private int autoX() {
         return left + SWATCHES_LEFT - (SWATCH + 2);
     }
@@ -396,10 +402,12 @@ public class StatusBeaconScreen extends QuickScreen {
                 if (mouseY < swatchY(row) || mouseY >= swatchY(row) + SWATCH) {
                     continue;
                 }
-                if (row == 1 && mouseX >= autoX() && mouseX < autoX() + SWATCH) {
-                    change(t -> t.putInt("text_color", BeaconLook.AUTO));
+                if (mouseX >= autoX() && mouseX < autoX() + SWATCH) {
+                    // The color back to this state's usual one; the text's to automatic (blank box).
+                    int value = row == 0 ? defaultColor() : BeaconLook.AUTO;
+                    change(t -> t.putInt(key, value));
                     if (box != null) {
-                        box.setValue("");
+                        box.setValue(row == 0 ? String.format(Locale.ROOT, "#%06X", value) : "");
                     }
                     return true;
                 }
@@ -479,18 +487,22 @@ public class StatusBeaconScreen extends QuickScreen {
                 graphics.fill(x, y, x + SWATCH, y + SWATCH, 0xFF000000 | color);
             }
         }
-        // "Automatic": white, struck through with a red line from the bottom left to the top right.
-        int ax = autoX();
-        int ay = swatchY(1);
-        if (textColorNow == BeaconLook.AUTO) {
-            graphics.fill(ax - 1, ay - 1, ax + SWATCH + 1, ay + SWATCH + 1, 0xFFFFC040);
-        }
-        graphics.fill(ax, ay, ax + SWATCH, ay + SWATCH, 0xFFFFFFFF);
-        for (int i = 0; i < SWATCH; i++) {
-            graphics.fill(ax + i, ay + SWATCH - 1 - i, ax + i + 1, ay + SWATCH - i, 0xFFE0302A);
-        }
-        if (mouseX >= ax && mouseX < ax + SWATCH && mouseY >= ay && mouseY < ay + SWATCH) {
-            graphics.renderTooltip(font, Component.translatable("screen.reticulum.beacon_text_color_auto_hint"), mouseX, mouseY);
+        // "Automatic" on each row: white, struck through with a red line from the bottom left to the top right.
+        for (int row = 0; row < 2; row++) {
+            int ax = autoX();
+            int ay = swatchY(row);
+            boolean on = row == 0 ? look.getInt("color") == defaultColor() : textColorNow == BeaconLook.AUTO;
+            if (on) {
+                graphics.fill(ax - 1, ay - 1, ax + SWATCH + 1, ay + SWATCH + 1, 0xFFFFFFFF);
+            }
+            graphics.fill(ax, ay, ax + SWATCH, ay + SWATCH, 0xFFFFFFFF);
+            for (int i = 0; i < SWATCH; i++) {
+                graphics.fill(ax + i, ay + SWATCH - 1 - i, ax + i + 1, ay + SWATCH - i, 0xFFE0302A);
+            }
+            if (mouseX >= ax && mouseX < ax + SWATCH && mouseY >= ay && mouseY < ay + SWATCH) {
+                graphics.renderTooltip(font, Component.translatable(row == 0 ? "screen.reticulum.beacon_color_auto_hint"
+                        : "screen.reticulum.beacon_text_color_auto_hint"), mouseX, mouseY);
+            }
         }
         if (pitch != null) {
             graphics.drawString(font, Component.translatable("screen.reticulum.beacon_pitch"), pitch.getX(), pitch.getY() - 10, 0xE0E0E0);

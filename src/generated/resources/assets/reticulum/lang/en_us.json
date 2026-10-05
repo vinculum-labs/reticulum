@@ -186,6 +186,7 @@
   "screen.reticulum.beacon_beam_through": "↔ Blocks",
   "screen.reticulum.beacon_beam_through_hint": "The beam goes on through solid blocks (otherwise it stops at the first)",
   "screen.reticulum.beacon_color": "Color",
+  "screen.reticulum.beacon_color_auto_hint": "Automatic: this state's usual color (amber for warnings, red for critical)",
   "screen.reticulum.beacon_critical": "Critical",
   "screen.reticulum.beacon_glow": "Glow",
   "screen.reticulum.beacon_glow_hint": "A pulsing glow around the beacon",
