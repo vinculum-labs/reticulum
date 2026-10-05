@@ -42,7 +42,9 @@ public class ReticulumJadePlugin implements IWailaPlugin {
 
         @Override
         public void appendServerData(CompoundTag data, BlockAccessor accessor) {
-            if (!(accessor.getLevel() instanceof ServerLevel level)) {
+            // Holding the network tool, the lines show under the crosshair (for every block): not here as well.
+            if (!(accessor.getLevel() instanceof ServerLevel level)
+                    || !io.github.leadassimilator.reticulum.item.NetworkToolItem.held(accessor.getPlayer()).isEmpty()) {
                 return;
             }
             ListTag lines = new ListTag();
@@ -57,10 +59,6 @@ public class ReticulumJadePlugin implements IWailaPlugin {
         @Override
         public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
             ListTag lines = accessor.getServerData().getList(KEY, Tag.TAG_STRING);
-            if (!lines.isEmpty()) {
-                // Our own HUD would say the same under the crosshair.
-                io.github.leadassimilator.reticulum.client.LookHud.coveredByJade(accessor.getPosition());
-            }
             for (int i = 0; i < lines.size(); i++) {
                 Component line = Component.Serializer.fromJson(lines.getString(i), accessor.getLevel().registryAccess());
                 if (line != null) {
