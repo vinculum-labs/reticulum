@@ -343,6 +343,55 @@ public final class TopologyTests {
         });
     }
 
+    /**
+     * A structure placed turned (as a schematic or a structure block does it): joints cut by hand and device sides switched
+     * off turn with the blocks, rather than staying on the sides of the world they had.
+     */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void cutsTurnWithAStructure(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CABLE.get(), null);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(1, 1, 2), ModBlocks.CONNECTOR.get(), Direction.NORTH);
+        var level = helper.getLevel();
+        Topology.toggle(level, helper.absolutePos(new BlockPos(1, 1, 1)), Direction.EAST, null);
+        ((io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(1, 1, 2))).setDeviceEnabled(Direction.WEST, false);
+        check(helper, !Topology.connected(level, helper.absolutePos(new BlockPos(1, 1, 1)), Direction.EAST), "the joint wasn't cut");
+
+        var template = new net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate();
+        template.fillFromWorld(level, helper.absolutePos(new BlockPos(1, 1, 1)), new net.minecraft.core.Vec3i(2, 1, 2), false, null);
+        // Turned a quarter clockwise: x becomes z, so the cut joint (east of the first cable) now lies south of it.
+        BlockPos at = helper.absolutePos(new BlockPos(5, 1, 1));
+        var settings = new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings()
+                .setRotation(net.minecraft.world.level.block.Rotation.CLOCKWISE_90);
+        template.placeInWorld(level, at, at, settings, level.getRandom(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        helper.runAfterDelay(5, () -> {
+            check(helper, be(helper, new BlockPos(5, 1, 1)).isManuallyDisconnected(Direction.SOUTH), "the cut didn't turn with the cable");
+            check(helper, !be(helper, new BlockPos(5, 1, 1)).isManuallyDisconnected(Direction.EAST), "the cut stayed on its old side");
+            check(helper, !Topology.connected(level, at, Direction.SOUTH), "the turned cables are joined");
+            // The connector stood south of the first cable: turned, it is west of it, its switched-off side (west) now north.
+            var connector = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(4, 1, 1));
+            check(helper, !connector.isDeviceEnabled(Direction.NORTH) && connector.isDeviceEnabled(Direction.WEST), "the device side didn't turn");
+            helper.succeed();
+        });
+    }
+
+    /** Turning or mirroring an orientation moves every side as the game turns or mirrors that side. */
+    @GameTest(template = "empty")
+    public static void orientationsFollowTheGamesTurns(GameTestHelper helper) {
+        for (var o : io.github.leadassimilator.reticulum.block.Orientation.values()) {
+            for (Direction d : Direction.values()) {
+                check(helper, o.toLaid(o.toWorld(d)) == d, o + " doesn't turn back");
+                for (var r : net.minecraft.world.level.block.Rotation.values()) {
+                    check(helper, o.rotate(r).toWorld(d) == r.rotate(o.toWorld(d)), o + " turned " + r);
+                }
+                for (var m : net.minecraft.world.level.block.Mirror.values()) {
+                    check(helper, o.mirror(m).toWorld(d) == m.mirror(o.toWorld(d)), o + " mirrored " + m);
+                }
+            }
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void differentNetworksDoNotJoin(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);

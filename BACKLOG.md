@@ -31,7 +31,10 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   made by hand is meant.
 - Server bookkeeping: finding whether a block is reached scans linearly, and the version and alias maps are never
   pruned. Fine at today's sizes.
-- Cut joints aren't rotated with a block: a rotated contraption or a rotated paste keeps the cuts on the old faces.
+- Cut joints and switched-off device sides turn with a block only through the game's own turns (around the vertical
+  axis, and mirrors): a Create bearing turning sideways leaves them on the sides of the world they had (Create's own
+  hook would fix it; left out to need no mod-specific code). A block copied with ctrl+pick-block from a turned one
+  gets them turned back.
 - Redstone outputs and ME links keep working while a network is unpowered (only item, fluid, chemical and kit moves
   stop). By design: redstone often switches the generator that would refill it, and ME links already draw AE2 power.
 - A connector lifted by a contraption that never sets it down (the contraption destroyed) leaves its record behind,

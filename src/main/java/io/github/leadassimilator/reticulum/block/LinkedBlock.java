@@ -23,6 +23,8 @@ import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
@@ -33,12 +35,15 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 /** A network block with a {@link Link} property per side (cables and connectors). */
 public abstract class LinkedBlock extends NetworkBlock {
+    /** How far it was turned since its per-side data (joints cut, device sides off) was written. */
+    public static final EnumProperty<Orientation> ORIENTATION = EnumProperty.create("orientation", Orientation.class);
+
     private final Map<Direction, EnumProperty<Link>> links;
 
     protected LinkedBlock(Properties properties) {
         super(properties);
         this.links = linkPropertiesFor(this);
-        BlockState state = stateDefinition.any();
+        BlockState state = stateDefinition.any().setValue(ORIENTATION, Orientation.TURN_0);
         for (EnumProperty<Link> property : links.values()) {
             state = state.setValue(property, Link.NONE);
         }
@@ -213,6 +218,27 @@ public abstract class LinkedBlock extends NetworkBlock {
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(linkPropertiesFor(this).values().toArray(EnumProperty[]::new));
+        builder.add(ORIENTATION);
+    }
+
+    // Turned or mirrored (a structure, a schematic, a contraption): its sides go with it, and so does its per-side data,
+    // read through its orientation.
+    @Override
+    protected BlockState rotate(BlockState state, Rotation rotation) {
+        return turned(state, state.getValue(ORIENTATION).rotate(rotation), rotation::rotate);
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, Mirror mirror) {
+        return turned(state, state.getValue(ORIENTATION).mirror(mirror), mirror::mirror);
+    }
+
+    private BlockState turned(BlockState state, Orientation orientation, java.util.function.UnaryOperator<Direction> side) {
+        BlockState out = state.setValue(ORIENTATION, orientation);
+        for (Map.Entry<Direction, EnumProperty<Link>> entry : links.entrySet()) {
+            out = out.setValue(links.get(side.apply(entry.getKey())), state.getValue(entry.getValue()));
+        }
+        return out;
     }
 
     // Called from createBlockStateDefinition before fields are set, so it must not rely on instance state.

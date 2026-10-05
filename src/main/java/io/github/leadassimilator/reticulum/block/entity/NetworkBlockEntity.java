@@ -185,8 +185,15 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         }
     }
 
-    protected static int bit(Direction side) {
-        return 1 << side.get3DDataValue();
+    /**
+     * The bit kept for a side of the world: per-side data is kept by the sides as they were laid out, so it follows the
+     * block when a structure, schematic or contraption turns it (see {@link io.github.leadassimilator.reticulum.block.Orientation}).
+     */
+    protected int bit(Direction side) {
+        BlockState state = getBlockState();
+        Direction laid = state.hasProperty(io.github.leadassimilator.reticulum.block.LinkedBlock.ORIENTATION)
+                ? state.getValue(io.github.leadassimilator.reticulum.block.LinkedBlock.ORIENTATION).toLaid(side) : side;
+        return 1 << laid.get3DDataValue();
     }
 
     @Override
