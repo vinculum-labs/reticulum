@@ -28,6 +28,7 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   made by hand is meant.
 - Server bookkeeping: finding whether a block is reached scans linearly, and the version and alias maps are never
   pruned. Fine at today's sizes.
+- A facade doesn't turn with its block: stairs or logs worn by a cable in a turned structure keep their old facing.
 - Cut joints and switched-off device sides turn with a block only through the game's own turns (around the vertical
   axis, and mirrors): a Create bearing turning sideways leaves them on the sides of the world they had (Create's own
   hook would fix it; left out to need no mod-specific code). A block copied with ctrl+pick-block from a turned one
