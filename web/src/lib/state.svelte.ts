@@ -843,16 +843,35 @@ export function setSheetEnabled(sheet: Sheet, on: boolean) {
   return edit([{ type: "updateSheet", sheet: sheet.id, enabled: on }], [{ type: "updateSheet", sheet: sheet.id, enabled: sheet.enabled !== false }], "sheet on/off");
 }
 
+/** Where a new node goes in a sheet so it covers nothing: right of what is there, level with the top one. */
+export function freeSpot(sheet: Sheet | null | undefined): { x: number; y: number } {
+  const nodes = sheet?.nodes ?? [];
+  return {
+    x: nodes.length ? Math.max(...nodes.map((n) => n.x ?? 0)) + 260 : 40,
+    y: nodes.length ? Math.min(...nodes.map((n) => n.y ?? 0)) : 40,
+  };
+}
+
+/** "Sheet 3" (or "Blueprint 3"): the first number not taken by one of that name. */
+export function nextName(prefix: string): string {
+  const taken = new Set((app.snapshot?.sheets ?? []).map((s) => s.name));
+  let n = 1;
+  while (taken.has(`${prefix} ${n}`)) n++;
+  return `${prefix} ${n}`;
+}
+
 /**
  * Makes a new sheet inside {@code parent} (a sheet node there, at {@code at}), opening it unless told not to.
  * Returns its id.
  */
 export async function createSheet(parent: Sheet | null, name: string, at?: { x: number; y: number }, open = true): Promise<string | null> {
+  const network = app.current;
   const results = await edit([
     { type: "createSheet", name, ...(parent ? { parent: parent.id } : {}), ...(at ? { x: Math.round(at.x), y: Math.round(at.y) } : {}) },
   ]);
   const id = (results?.[0] as string | undefined) ?? null;
-  if (id && open) openSheet(id);
+  // Not opened if another network is shown by now (its id means nothing there).
+  if (id && open && app.current === network) openSheet(id);
   return id;
 }
 
@@ -894,7 +913,11 @@ export async function moveSheet(sheet: Sheet, parent: Sheet) {
     if (!ok || app.current !== network) return null;
   }
   const undo: Edit[] = from ? [{ type: "moveSheet", sheet: sheet.id, parent: from.id }, ...dropped.map((wire) => ({ type: "connect", sheet: from.id, wire }) as Edit)] : [];
-  return edit([{ type: "moveSheet", sheet: sheet.id, parent: parent.id }], from ? undo : undefined, "move sheet");
+  // Its node at a free spot in the new parent (its old place there was in the old parent's space, maybe on another node).
+  const at = freeSpot(parent);
+  const back = sheet.node ? from?.nodes?.find((n) => n.id === sheet.node) : undefined;
+  if (back && undo.length) undo[0] = { ...undo[0], x: back.x ?? 0, y: back.y ?? 0 };
+  return edit([{ type: "moveSheet", sheet: sheet.id, parent: parent.id, x: at.x, y: at.y }], from ? undo : undefined, "move sheet");
 }
 
 /** Shows a sheet, with nothing selected (or the given nodes), and the inspector for it. */
@@ -1068,8 +1091,9 @@ export async function copySheetJson(sheet: Sheet) {
 
 /** A new blueprint like this one, opened (to change without touching this one's instances). */
 export async function duplicateBlueprint(sheet: Sheet) {
+  const network = app.current;
   const results = await edit([{ type: "duplicateBlueprint", sheet: sheet.id }]);
-  if (results?.[0]) openSheet(results[0] as string);
+  if (results?.[0] && app.current === network) openSheet(results[0] as string);
 }
 
 /**
@@ -1102,7 +1126,7 @@ export function undoThis(): () => void {
  * Pastes a sheet or blueprint copied with "Copy as JSON" (from this or another world). A blueprint lands among the
  * blueprints wherever it is pasted; the Blueprints import takes only blueprints (a sheet's devices aren't slots).
  */
-export async function importSheet(what: "sheet" | "blueprint") {
+export async function importSheet(what: "sheet" | "blueprint", into?: Sheet | null) {
   const snapshot = app.snapshot;
   if (!snapshot) return;
   const network = snapshot.id;
@@ -1130,7 +1154,9 @@ export async function importSheet(what: "sheet" | "blueprint") {
   // A name already taken here gets marked, so the import can be told from what it came from.
   if (typeof sheet.name === "string" && snapshot.sheets.some((s) => s.name === sheet!.name)) sheet = { ...sheet, name: `${sheet.name} (imported)` };
   // Into the network it was asked on (its names checked against it), whatever is shown by now.
-  const results = await edit([{ type: "importSheet", sheet }], undefined, "import", network);
+  // A sheet goes into the one asked about (the open one), at a free spot there; a blueprint isn't placed anywhere.
+  const place = what === "sheet" && into ? { parent: into.id, ...freeSpot(into) } : {};
+  const results = await edit([{ type: "importSheet", sheet, ...place }], undefined, "import", network);
   if (!results?.[0] || app.current !== network) return;
   openSheet(results[0] as string);
   if (sheet.blueprint) {

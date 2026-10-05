@@ -22,8 +22,10 @@
     deleteSheet,
     duplicateBlueprint,
     edit,
+    freeSpot,
     importSheet,
     moveSheet,
+    nextName,
     openInstance,
     openSheet,
     setSheetEnabled,
@@ -61,18 +63,19 @@
    * tree) with its name box focused, to type the name straight away.
    */
   async function addSheet(parent: Sheet | null = newSheetParent) {
-    const nodes = parent?.nodes ?? [];
-    const right = nodes.length ? Math.max(...nodes.map((n) => n.x ?? 0)) + 260 : 40;
-    const top = nodes.length ? Math.min(...nodes.map((n) => n.y ?? 0)) : 40;
-    if (parent && collapsed.has(parent.id)) toggleCollapsed(parent.id);
-    const id = await createSheet(parent, `Sheet ${snapshot.sheets.length}`, { x: right, y: top });
+    // Every sheet above it opened, so its row (and name box) shows.
+    for (let at = parent; at; at = snapshot.sheets.find((s) => s.id === at!.parent) ?? null) {
+      if (collapsed.has(at.id)) toggleCollapsed(at.id);
+    }
+    const id = await createSheet(parent, nextName("Sheet"), freeSpot(parent));
     if (id) renaming = id;
   }
 
   /** A new blueprint, opened, its row's name box focused. */
   async function addBlueprint() {
-    const results = await edit([{ type: "createSheet", name: `Blueprint ${snapshot.sheets.filter((s) => s.blueprint).length + 1}`, blueprint: true }]);
-    if (results?.[0]) {
+    const network = app.current;
+    const results = await edit([{ type: "createSheet", name: nextName("Blueprint"), blueprint: true }]);
+    if (results?.[0] && app.current === network) {
       openSheet(results[0] as string);
       renaming = results[0] as string;
     }
@@ -196,7 +199,7 @@
     <h2 class="panel-title">Sheets</h2>
     {#if canEdit}
       <div class="flex items-center gap-1">
-        <AddButton icon={Import} label="Import sheet: paste one copied with “Copy as JSON”" onclick={() => importSheet("sheet")} />
+        <AddButton icon={Import} label="Import sheet: paste one copied with “Copy as JSON”" onclick={() => importSheet("sheet", newSheetParent)} />
         <AddButton label={`New sheet in ${newSheetParent?.name ?? "the network"}`} onclick={() => addSheet()} />
       </div>
     {/if}
