@@ -144,10 +144,22 @@ export function inInstance(instanceNode: string, id: string): string {
  * them in this instance "<instance node>/<blueprint node>" (as a name UUID), and keeps their activity under those names.
  * Statuses aren't moved: the server puts those on the instance node.
  */
-export function instanceActivity(activity: Activity, instanceNode: string, blueprint: Sheet): Activity {
+export function instanceActivity(activity: Activity, instanceNode: string, blueprint: Sheet, sheets: Sheet[] = []): Activity {
   const ids = [...(blueprint.nodes ?? []).map((n) => n.id), ...(blueprint.wires ?? []).map((w) => w.id)];
   // The instance's name for each blueprint id. A pin's value is under "<id>/out/<n>" or "<id>/in/<n>": moved with it.
   const own = new Map(ids.map((id) => [inInstance(instanceNode, id), id]));
+  // A blueprint placed in this one: its pins' values, by the name the canvas looks them up under (the inner placed
+  // blueprint's id here, then the pin's).
+  for (const n of blueprint.nodes ?? []) {
+    const s = n.settings;
+    if (s.kind !== "instance") continue;
+    const inner = sheets.find((x) => x.id === s.sheet);
+    for (const pin of inner?.nodes ?? []) {
+      if (pin.settings.kind === "sheet_input" || pin.settings.kind === "sheet_output") {
+        own.set(inInstance(inInstance(instanceNode, n.id), pin.id), inInstance(n.id, pin.id));
+      }
+    }
+  }
   function remap<T>(from: Record<string, T>): Record<string, T> {
     const out: Record<string, T> = {};
     for (const [key, value] of Object.entries(from)) {

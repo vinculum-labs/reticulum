@@ -174,7 +174,7 @@
     };
     // An open instance shows its blueprint's nodes: their activity is kept under this instance's names for them.
     // An instance that doesn't run itself (one inside a blueprint, opened on its own) shows no activity.
-    const activity = instance && s ? (instance.run ? instanceActivity(live, instance.run, s) : { ...live, rates: {}, fiveMinutes: {}, signals: {}, me: {} }) : live;
+    const activity = instance && s ? (instance.run ? instanceActivity(live, instance.run, s, app.snapshot?.sheets ?? []) : { ...live, rates: {}, fiveMinutes: {}, signals: {}, me: {} }) : live;
     // The selection is carried into the rebuilt nodes but isn't a reason to rebuild: the canvas already shows it.
     const selected = untrack(() => new Set([...app.selectedNodes, ...app.selectedEdges]));
     const unit = app.rateUnit;
