@@ -202,6 +202,7 @@ public final class WebApi {
                 }
                 JsonObject out = ok(id);
                 JsonArray created = new JsonArray();
+                JsonArray restore;
                 // All or nothing: the editor counts a refused batch (an undo, an import) as not made at all. Edits to
                 // what a checkpoint doesn't hold (device records, access, members) come on their own.
                 if (edits.size() > 1) {
@@ -213,6 +214,7 @@ public final class WebApi {
                     }
                 }
                 Network.Checkpoint before = network.checkpoint();
+                RESTORE.set(new JsonArray());
                 try {
                     for (int i = 0; i < edits.size(); i++) {
                         try {
@@ -230,6 +232,8 @@ public final class WebApi {
                     io.github.leadassimilator.reticulum.network.Identifies.syncAll(server);
                     throw e;
                 } finally {
+                    restore = RESTORE.get();
+                    RESTORE.remove();
                     // Saved and shown either way, with the tree put right.
                     network.ensureTree();
                     NetworkManager.changed(server, network);
@@ -237,6 +241,11 @@ public final class WebApi {
                     pushSnapshots(server, network);
                 }
                 out.add("results", created);
+                // What the server changed on the side (fillings dropped: their block lives elsewhere by now), to restore
+                // on undo after the batch's own reverse.
+                if (!restore.isEmpty()) {
+                    out.add("restore", restore);
+                }
                 yield out;
             }
             case "deleteNetwork" -> {
@@ -415,6 +424,9 @@ public final class WebApi {
     // ---------------------------------------------------------------- edits
 
     /** Edit commands. Each returns what it created (an id), or JSON null. */
+    /** Edits that undo what the server changed on the side during the batch being applied (see "restore"). */
+    private static final ThreadLocal<JsonArray> RESTORE = ThreadLocal.withInitial(JsonArray::new);
+
     static final class Edits {
         private Edits() {
         }
@@ -542,7 +554,10 @@ public final class WebApi {
                     check(Limits.check(node));
                     // A slot coming back to a blueprint (an undo, a placed blueprint switched back) brings back what
                     // placements filled it with: seen against before, so a block that lives elsewhere by now isn't doubled.
-                    Map<UUID, java.util.Set<UUID>> liveBefore = sheet.blueprint() ? liveSlots(network) : null;
+                    Node had = sheet.node(node.id());
+                    boolean slotsMayReturn = sheet.blueprint() && (node.settings() instanceof NodeSettings.DeviceSettings
+                            || node.settings() instanceof NodeSettings.InstanceSettings) && (had == null || !had.settings().equals(node.settings()));
+                    Map<UUID, java.util.Set<UUID>> liveBefore = slotsMayReturn ? liveSlots(network, sheet) : null;
                     if (type.equals("addNode")) {
                         // Sheets compile into one graph: a node id must be unique across the network.
                         if (network.sheets().stream().anyMatch(s -> s.node(node.id()) != null)) {
@@ -573,7 +588,7 @@ public final class WebApi {
                         sheet.replace(node);
                     }
                     if (liveBefore != null) {
-                        dropRevivedDoubles(network, liveBefore);
+                        dropRevivedDoubles(server, network, liveBefore);
                     }
                     return new com.google.gson.JsonPrimitive(node.id().toString());
                 }
@@ -1295,15 +1310,30 @@ public final class WebApi {
             return result;
         }
 
-        /** Each placed blueprint's slots that are filled and still there (by the placement's node id). */
-        private static Map<UUID, java.util.Set<UUID>> liveSlots(Network network) {
+        /**
+         * The slots filled and still there of each placement of a blueprint that holds {@code changed} (itself, or placed
+         * in it at any depth), by the placement's node id.
+         */
+        private static Map<UUID, java.util.Set<UUID>> liveSlots(Network network, Sheet changed) {
+            // The blueprints holding the changed one, outwards.
+            java.util.Set<UUID> holding = new java.util.HashSet<>(List.of(changed.id()));
+            for (boolean grew = true; grew; ) {
+                grew = false;
+                for (Sheet sheet : network.sheets()) {
+                    if (sheet.blueprint() && !holding.contains(sheet.id()) && sheet.nodes().stream().anyMatch(n ->
+                            n.settings() instanceof NodeSettings.InstanceSettings placed && holding.contains(placed.sheet()))) {
+                        holding.add(sheet.id());
+                        grew = true;
+                    }
+                }
+            }
             Map<UUID, java.util.Set<UUID>> out = new HashMap<>();
             for (Sheet sheet : network.sheets()) {
                 if (sheet.blueprint()) {
                     continue;
                 }
                 for (Node node : sheet.nodes()) {
-                    if (node.settings() instanceof NodeSettings.InstanceSettings instance) {
+                    if (node.settings() instanceof NodeSettings.InstanceSettings instance && holding.contains(instance.sheet())) {
                         out.put(node.id(), io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).keySet());
                     }
                 }
@@ -1315,13 +1345,13 @@ public final class WebApi {
          * Fillings that came back since {@code before} (their slot is there again) whose block lives elsewhere by now, or
          * fills another slot of the same placement: dropped, so a block keeps one home.
          */
-        private static void dropRevivedDoubles(Network network, Map<UUID, java.util.Set<UUID>> before) {
+        private static void dropRevivedDoubles(MinecraftServer server, Network network, Map<UUID, java.util.Set<UUID>> before) {
             for (Sheet sheet : network.sheets()) {
                 if (sheet.blueprint()) {
                     continue;
                 }
                 for (Node node : List.copyOf(sheet.nodes())) {
-                    if (!(node.settings() instanceof NodeSettings.InstanceSettings instance)) {
+                    if (!(node.settings() instanceof NodeSettings.InstanceSettings instance) || !before.containsKey(node.id())) {
                         continue;
                     }
                     Map<UUID, NodeSettings.Binding> live = io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance);
@@ -1340,6 +1370,12 @@ public final class WebApi {
                     }
                     if (kept.size() != instance.bindings().size()) {
                         sheet.replace(node.with(new NodeSettings.InstanceSettings(instance.sheet(), kept, instance.layout())));
+                        // Undone, the placement gets them back (its slot gone again, they count for nothing until it returns).
+                        JsonObject back = new JsonObject();
+                        back.addProperty("type", "updateNode");
+                        back.addProperty("sheet", sheet.id().toString());
+                        back.add("node", Snapshots.encode(server, Node.CODEC, node));
+                        RESTORE.get().add(back);
                     }
                 }
             }

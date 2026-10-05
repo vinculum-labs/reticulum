@@ -492,11 +492,31 @@ public final class WebApiTests {
         call(helper, player, edit + "{\"type\":\"removeNode\",\"sheet\":\"" + bp + "\",\"node\":\"" + slot + "\"}]}");
         String own = UUID.randomUUID().toString();
         call(helper, player, edit + "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + own + "\",\"settings\":{\"kind\":\"device\",\"device\":" + barrel + "}}}]}");
-        call(helper, player, edit + "{\"type\":\"addNode\",\"sheet\":\"" + bp + "\",\"node\":" + slotNode + "}]}");
+        JsonObject back = call(helper, player, edit + "{\"type\":\"addNode\",\"sheet\":\"" + bp + "\",\"node\":" + slotNode + "}]}");
         var t = network.sheet(UUID.fromString(sheet));
         var instance = (NodeSettings.InstanceSettings) t.node(UUID.fromString(placed)).settings();
         if (instance.bindings().containsKey(UUID.fromString(slot)) || t.node(UUID.fromString(own)) == null) {
             helper.fail("The barrel has two homes: " + instance.bindings());
+        }
+        // The answer says how to restore what was dropped: undone (the slot taken out again, that put back), then the
+        // barrel's own node undone and the slot restored, the placement has its barrel again.
+        if (!back.has("restore") || back.getAsJsonArray("restore").isEmpty()) {
+            helper.fail("The answer doesn't say what was dropped");
+            return;
+        }
+        JsonArray undo = new JsonArray();
+        undo.add(JsonParser.parseString("{\"type\":\"removeNode\",\"sheet\":\"" + bp + "\",\"node\":\"" + slot + "\"}"));
+        undo.addAll(back.getAsJsonArray("restore"));
+        JsonObject request = new JsonObject();
+        request.addProperty("op", "edit");
+        request.addProperty("network", id);
+        request.add("edits", undo);
+        call(helper, player, request.toString());
+        call(helper, player, edit + "{\"type\":\"removeNode\",\"sheet\":\"" + sheet + "\",\"node\":\"" + own + "\"}]}");
+        call(helper, player, edit + "{\"type\":\"addNode\",\"sheet\":\"" + bp + "\",\"node\":" + slotNode + "}]}");
+        var restored = (NodeSettings.InstanceSettings) t.node(UUID.fromString(placed)).settings();
+        if (!restored.bindings().containsKey(UUID.fromString(slot))) {
+            helper.fail("Undone back to the start, the slot came back empty: " + restored.bindings());
         }
         helper.succeed();
     }

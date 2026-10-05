@@ -579,6 +579,11 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
       // Made again on what the game has now: the edits before this one are answered.
       sending = replanned(edits, undo);
       const r = await connection.send({ op: "edit", network, edits: sending.edits });
+      // What the game changed on the side (fillings it dropped) comes back on undo too, after this change's reverse.
+      if (sending.undo && Array.isArray(r.restore)) {
+        for (const e of r.restore as Edit[]) restored.add(e);
+        sending.undo = [...sending.undo, ...(r.restore as Edit[])];
+      }
       for (const e of sending.edits) {
         if ((e.type === "updateNode" || e.type === "addNode") && e.node) confirmedNodes.set((e.node as GraphNode).id, e.node as GraphNode);
       }
@@ -719,6 +724,9 @@ function pushCapped(stack: Change[], change: Change): void {
   if (stack.length > HISTORY) stack.shift();
 }
 
+/** Undo edits that restore what the game changed on the side (told in an answer's "restore"), to replace on a redo. */
+const restored = new WeakSet<Edit>();
+
 /** The game may or may not have done it: the connection dropped, or no answer came in time (not a refusal). */
 function lostAnswer(e: unknown): boolean {
   const message = (e as Error)?.message;
@@ -785,7 +793,10 @@ export function redo(): Promise<void> {
     if (!change) return;
     app.busy++;
     try {
-      await connection.send({ op: "edit", network: change.network, edits: change.redo });
+      const r = await connection.send({ op: "edit", network: change.network, edits: change.redo });
+      // Done again, what the game changes on the side is restored on undo as it says now.
+      if (Array.isArray(r.restore)) change.undo = [...change.undo.filter((e) => !restored.has(e)), ...(r.restore as Edit[])];
+      for (const e of Array.isArray(r.restore) ? (r.restore as Edit[]) : []) restored.add(e);
       pushCapped(stacksOf(change.network).undo, Object.assign(change, { uncertain: false }));
     } catch (e) {
       if (notSent(e)) {
