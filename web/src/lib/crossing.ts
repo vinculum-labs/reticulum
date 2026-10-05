@@ -4,7 +4,7 @@
 import type { Edit, GraphNode, Resource, Sheet, Snapshot, Wire } from "./types";
 import { GATE, pinSlot, sheetPins } from "./types";
 import { ancestors } from "./tree";
-import { pinResource } from "./graph";
+import { pinResource, resources } from "./graph";
 import { isSignal } from "./kinds";
 
 export interface End {
@@ -57,13 +57,24 @@ export function crossWire(
   const source = nodeIn(from.sheet, from.node);
   const target = nodeIn(to.sheet, to.node);
   if (!source || !target) return null;
-  // What the new pins carry: what leaves the source when that is fixed; signals for signal nodes and gates.
-  const carried: Resource | undefined =
-    pinResource(source, "out", from.index, sheets) ??
-    (isSignal(source.settings.kind) || to.index === GATE ? "redstone" : undefined);
+  // What the wire carries, from either end (an untyped pin at one takes it from the other), as on one sheet: what leaves
+  // the source (signals for signal nodes), else what the target takes (signals for gates and signal nodes).
+  const sent = isSignal(source.settings.kind) ? "redstone" : (pinResource(source, "out", from.index, sheets) ?? resources(from.sheet, sheets).nodes.get(source.id));
+  const taken = to.index === GATE || isSignal(target.settings.kind) ? "redstone" : pinResource(target, "in", to.index, sheets);
+  const carried: Resource | undefined = sent ?? taken ?? undefined;
 
   const edits: Edit[] = [];
   const undo: Edit[] = [];
+  // The untyped pins at its ends take it too, as the pins it makes on the frame edges between them do.
+  const untype: Edit[] = [];
+  const typeEnd = (sheet: Sheet, pin: GraphNode) => {
+    const s = pin.settings;
+    if (!carried || (s.kind !== "sheet_input" && s.kind !== "sheet_output") || s.resource) return;
+    edits.push({ type: "updateNode", sheet: sheet.id, node: { ...pin, settings: { ...s, resource: carried } } });
+    untype.push({ type: "updateNode", sheet: sheet.id, node: pin });
+  };
+  if (source.settings.kind === "sheet_input") typeEnd(from.sheet, source);
+  if (target.settings.kind === "sheet_output") typeEnd(to.sheet, target);
   /** Whether a new wire can share the way out of {@code node}'s output that {@code only} already takes. */
   const shareable = (sheet: Sheet, node: string, output: number, only: (w: Wire) => boolean) => {
     if (carried === "redstone") return true;
@@ -138,5 +149,5 @@ export function crossWire(
     at = { node: pinId, output: 0, y: 0 };
   }
   connect(to.sheet, { from: at.node, output: at.output, to: to.node, input: to.index });
-  return { edits, undo };
+  return { edits, undo: [...undo, ...untype] };
 }
