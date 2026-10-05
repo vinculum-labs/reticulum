@@ -159,7 +159,8 @@ public final class NetworkManager {
         for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
                 if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance
-                        && instance.bindings().values().stream().anyMatch(b -> pos.equals(b.device()))) {
+                        && java.util.stream.Stream.concat(instance.bindings().values().stream(), instance.layout().values().stream())
+                                .anyMatch(b -> pos.equals(b.device()))) {
                     return true;
                 }
                 GlobalPos used = switch (node.settings()) {
@@ -245,11 +246,16 @@ public final class NetworkManager {
                             new io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneInSettings(to, r.faces(), r.comparator());
                     case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneOutSettings r when r.device().equals(from) ->
                             new io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneOutSettings(to, r.faces(), r.whileOff());
-                    // An instance whose slot the device filled: the new block fills it, turned the same.
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings c when c.bindings().values().stream().anyMatch(b -> from.equals(b.device())) -> {
-                        java.util.Map<UUID, io.github.leadassimilator.reticulum.graph.NodeSettings.Binding> bindings = new java.util.LinkedHashMap<>();
-                        c.bindings().forEach((slot, b) -> bindings.put(slot, from.equals(b.device()) ? new io.github.leadassimilator.reticulum.graph.NodeSettings.Binding(to, b.turns()) : b));
-                        yield new io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings(c.sheet(), bindings);
+                    // An instance whose slot the device filled: the new block fills it, turned the same. One placed in a
+                    // blueprint: its slots' layout measures from the new block, as the blueprint's own slots do.
+                    case io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings c when java.util.stream.Stream.concat(
+                            c.bindings().values().stream(), c.layout().values().stream()).anyMatch(b -> from.equals(b.device())) -> {
+                        java.util.function.UnaryOperator<java.util.Map<UUID, io.github.leadassimilator.reticulum.graph.NodeSettings.Binding>> relinked = map -> {
+                            java.util.Map<UUID, io.github.leadassimilator.reticulum.graph.NodeSettings.Binding> out = new java.util.LinkedHashMap<>();
+                            map.forEach((slot, b) -> out.put(slot, from.equals(b.device()) ? new io.github.leadassimilator.reticulum.graph.NodeSettings.Binding(to, b.turns()) : b));
+                            return out;
+                        };
+                        yield new io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings(c.sheet(), relinked.apply(c.bindings()), relinked.apply(c.layout()));
                     }
                     default -> null;
                 };
