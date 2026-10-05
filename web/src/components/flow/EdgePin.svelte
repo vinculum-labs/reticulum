@@ -52,7 +52,7 @@
   >
     <span class="text truncate">
       {#if data.problem}<TriangleAlert size={10} class="inline" />{/if}
-      {name}{#if data.signal !== undefined && resource === "redstone"}<span class="tabular-nums muted"> {data.signal}</span>{/if}
+      {name}{#if data.signal !== undefined && resource === "redstone"}<span class="ml-1 tabular-nums muted" title="Its signal now">{data.signal}</span>{/if}
     </span>
   </span>
 </div>
