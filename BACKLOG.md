@@ -24,8 +24,9 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   what is in flight; a proper fix means rebasing on each confirmed step.
 - A cable placed by a command or machine between blocks of a private network stays cut off from it, silently (no player
   to tell); someone with access can connect its joints by hand.
-- A contraption moving part of a network across unloaded chunks: the part left behind and the part moved may not
-  reconcile until both are loaded.
+- Networks are only worked out over loaded chunks: a section reaching into unloaded ones (a contraption's part left
+  behind there, neighbors of a block that left) is only rechecked once it is loaded and touched again; two controllers
+  meeting in one section there are found only then.
 - Joints cut by hand survive a merge of two networks (`/reticulum merge`): they stay cut on the merged one. Kept: a cut
   made by hand is meant.
 - Server bookkeeping: finding whether a block is reached scans linearly, and the version and alias maps are never

@@ -96,6 +96,11 @@ public abstract class NetworkBlockEntity extends BlockEntity {
 
     /** Loaded from data saved at another position (a copy), so it gets ids of its own. */
     protected boolean copied;
+    /**
+     * Arrived from somewhere else and not connected up yet. Unlike {@link #copied} it is saved: a block set down by a
+     * contraption whose chunk unloads (or the server stops) before it connects up still connects up as one moved in.
+     */
+    private boolean arrived;
 
     public boolean isRegistered() {
         return registered;
@@ -103,7 +108,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
 
     /** Arrived with data saved somewhere else: moved here by a piston or contraption, or copied. */
     public boolean arrivedFromElsewhere() {
-        return copied;
+        return arrived;
     }
 
     public void setRegistered() {
@@ -209,6 +214,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         // connector's id (see ConnectorBlockEntity).
         registered = wasRegistered && atOrigin;
         copied = wasRegistered && !atOrigin;
+        arrived = copied || (!wasRegistered && tag.getBoolean("arrived"));
         readFacade(tag, registries);
     }
 
@@ -221,6 +227,9 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         tag.putByte("disconnected", (byte) manualDisconnects);
         tag.putByte("auto_disconnected", (byte) autoDisconnects);
         tag.putBoolean("registered", registered);
+        if (arrived && !registered) {
+            tag.putBoolean("arrived", true);
+        }
         tag.putLong("registered_at", worldPosition.asLong());
         if (facade != null) {
             tag.put("facade", NbtUtils.writeBlockState(facade));

@@ -266,6 +266,40 @@ public final class TopologyTests {
     }
 
     /**
+     * A connector set down by a contraption whose chunk is saved and loaded again before it connects up still connects
+     * up as moved in: against its own private network it joins (a block placed by a machine wouldn't).
+     */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void aMovedConnectorSavedBeforeConnectingStillArrives(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
+        Network a = network(helper, new BlockPos(1, 1, 1));
+        a.setOwner(UUID.randomUUID(), "someone");
+        a.setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PRIVATE);
+        var connector = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(3, 1, 1));
+        UUID id = connector.connectorId();
+        var registries = helper.getLevel().registryAccess();
+        var data = connector.saveWithFullMetadata(registries);
+        var level = helper.getLevel();
+        level.setBlock(helper.absolutePos(new BlockPos(3, 1, 1)), Blocks.AIR.defaultBlockState(),
+                net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
+        BlockPos to = helper.absolutePos(new BlockPos(2, 1, 2));
+        level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        var landed = level.getBlockEntity(to);
+        landed.loadWithComponents(data, registries);
+        // Saved and loaded again where it landed, in the same tick: before it connects up.
+        landed.loadWithComponents(landed.saveWithFullMetadata(registries), registries);
+        helper.runAfterDelay(5, () -> {
+            var moved = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(2, 1, 2));
+            check(helper, id.equals(moved.connectorId()), "the moved connector got a new id");
+            check(helper, a.id().equals(net(helper, new BlockPos(2, 1, 2))), "the moved connector lost its network");
+            check(helper, Topology.connected(level, to, Direction.NORTH), "the moved connector was cut off from its own private network");
+            helper.succeed();
+        });
+    }
+
+    /**
      * A connector moved by a piston against a private network of another owner's cable keeps its own network (the
      * joint cut); against a public one it joins.
      */
