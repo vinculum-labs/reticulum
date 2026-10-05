@@ -63,3 +63,16 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   (or, if the block refuses extraction, part of it stays).
 - With "auto" faces, slot ranges index each face's own slots, while keep rules and caps count by the block's slots.
 - Fluid, energy and chemical caps aren't shared between two routes into the same sink in one tick.
+- A save file that fails to load starts the world with no networks, and the next change overwrites the file.
+- Redstone outputs and ME links keep working while a network is unpowered (only item, fluid, chemical and kit moves
+  stop). Possibly intended for redstone; undecided.
+- Deliveries from the overflow buffer cost no power per operation and don't show in rates or charts.
+- While the overflow buffer holds something, each retry bumps the network's revision, which redoes the cable walk
+  (and, with ME ports, a recompile) about once a second.
+- The look-at overlay shows the last reach and power of a network that has since stopped.
+- A connector lifted by a contraption keeps serving the devices at its old spot until it is set down; one that never
+  is (contraption destroyed) leaves its record moving forever.
+- Rescans after a toggle, merge or rebind still read a device in an unloaded chunk as gone (only the rolling rescan
+  waits for loaded neighbors): its names can stay behind on the old network.
+- A private controller with an empty network, moved by a contraption, comes back on a new ownerless public network.
+- A fresh controller broken by an explosion or a machine drops remembering a network that is deleted a moment later.
