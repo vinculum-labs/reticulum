@@ -70,7 +70,7 @@
 </fieldset>
 
 {#if side.resource === "item"}
-  <Field label="Slots" hint="Leave empty for all slots." group>
+  <Field label="Slots" hint="Leave empty for all slots — numbered as the block numbers them (with faces picked, as those faces number theirs)." group>
     <div class="flex items-center gap-2 text-sm">
       <NumberField value={side.slots?.first} min={0} max={9999} optional placeholder="first" {disabled} title="First slot"
         oncommit={(v) => setSlots(v, side.slots?.last)} />

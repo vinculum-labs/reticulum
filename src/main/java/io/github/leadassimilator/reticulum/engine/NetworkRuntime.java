@@ -848,7 +848,11 @@ public final class NetworkRuntime {
 
     /** An item port: handlers to move items through, and the view to count them with. */
     ItemPort itemPort(MinecraftServer server, Network network, NodeSettings.Port port) {
-        return new ItemPort(items(server, network, port), view(server, network, port, Capabilities.ItemHandler.BLOCK, ResourceKind.ITEM), port.slots());
+        List<IItemHandler> view = view(server, network, port, Capabilities.ItemHandler.BLOCK, ResourceKind.ITEM);
+        // A slot range with faces left to work out: the block's own slots, numbered as the block numbers them (each
+        // face's handler numbers only its own), so moving and counting (keep rules, caps) mean the same slots.
+        boolean blockSlots = port.slots().isPresent() && port.faces().isEmpty() && !view.isEmpty();
+        return new ItemPort(blockSlots ? view : items(server, network, port), view, port.slots());
     }
 
     public List<IFluidHandler> fluids(MinecraftServer server, Network network, NodeSettings.Port port) {
