@@ -81,8 +81,6 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   the parent canvas (color, layer, rate unit).
 - A network save that fails at the file level (bad gzip/NBT) isn't copied aside: Minecraft hands back nothing and the
   next save replaces it. Only files that read but don't decode are kept.
-- A switched-off signal node (or an unbound Level sensor) feeding a sheet or blueprint pin: the pin inside still counts
-  as unwired, not as carrying 0.
 - Dashboard "Busiest" lists a placed blueprint and the nodes inside it for the same flow; "Waiting" shows the placed
   blueprint, not the node inside that waits.
 - Admins can demote or remove other admins (only the owner is protected). Kept on purpose.
