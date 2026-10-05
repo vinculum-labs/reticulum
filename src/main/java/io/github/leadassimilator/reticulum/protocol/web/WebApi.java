@@ -92,7 +92,7 @@ public final class WebApi {
         } catch (IllegalStateException | UnsupportedOperationException | ClassCastException | NumberFormatException | JsonParseException e) {
             // A field of the wrong type (an object where a number goes, say): the request's fault, not the server's, so
             // no stack trace in the log for each one.
-            send(player, error(id, "Malformed request: " + e.getMessage()));
+            send(player, error(id, "Malformed request: a field has the wrong type"));
         } catch (RuntimeException | StackOverflowError | LinkageError e) {
             io.github.leadassimilator.reticulum.Reticulum.LOGGER.error("Web request failed: {}", json, e);
             send(player, error(id, "Internal error: " + e.getMessage()));
