@@ -14,7 +14,7 @@ class SeeThroughTextBox extends EditBox {
 
     private final int frameX;
     private final int frameY;
-    private final int frameWidth;
+    private int frameWidth;
     private final int frameHeight;
 
     SeeThroughTextBox(Font font, int x, int y, int width, int height, Component message) {
@@ -25,6 +25,13 @@ class SeeThroughTextBox extends EditBox {
         frameY = y;
         frameWidth = width;
         frameHeight = height;
+    }
+
+    /** Narrowed or widened, the frame (what is drawn and clicked) goes with the text area. */
+    @Override
+    public void setWidth(int width) {
+        super.setWidth(width);
+        frameWidth = width + 2 * PAD_X;
     }
 
     @Override

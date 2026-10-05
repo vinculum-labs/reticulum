@@ -44,6 +44,8 @@ public class NetworkPickerScreen extends QuickScreen {
         if (needsPassword != null) {
             password = new EditBox(font, left, y + 14, WIDTH, 18, Component.translatable("screen.reticulum.password"));
             password.setMaxLength(64);
+            // Shown as stars, as on the controller.
+            password.setFormatter((text, start) -> net.minecraft.util.FormattedCharSequence.forward("*".repeat(text.length()), net.minecraft.network.chat.Style.EMPTY));
             addRenderableWidget(password);
             setInitialFocus(password);
             addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.join"), b -> choose(needsPassword, password.getValue()))

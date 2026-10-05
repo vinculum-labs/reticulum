@@ -286,7 +286,8 @@ public class FacadeScreen extends QuickScreen {
         }
         int column = (int) Math.floor((mouseX - left - 8) / CELL);
         int row = (int) Math.floor((mouseY - gridTop()) / CELL);
-        if (column >= 0 && column < COLUMNS && row >= 0 && row < ROWS) {
+        // Only a left click paints (a right or middle click shouldn't pick and close).
+        if (button == 0 && column >= 0 && column < COLUMNS && row >= 0 && row < ROWS) {
             int index = (scroll + row) * COLUMNS + column;
             if (index < shown.size() && shown.get(index) instanceof BlockItem item) {
                 choose(item.getBlock());

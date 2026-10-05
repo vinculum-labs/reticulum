@@ -91,6 +91,12 @@ public abstract class QuickScreen extends Screen {
         }
     }
 
+    /** Resized (the window, the GUI scale): laid out again, keeping what was being typed. */
+    @Override
+    protected void repositionElements() {
+        rebuildKeepingInput();
+    }
+
     /** Whether {@link #built} has been read from the boxes since they were made (they are kept before their value is set). */
     private boolean builtRead;
 
@@ -167,6 +173,12 @@ public abstract class QuickScreen extends Screen {
             closeAll();
             return true;
         }
+        // Esc with a dropdown open closes the dropdown, not the screen.
+        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && overlay != null) {
+            removeWidget(overlay);
+            overlay = null;
+            return true;
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
@@ -194,10 +206,10 @@ public abstract class QuickScreen extends Screen {
         }
     }
 
-    /** A little beyond the server's interaction distance, so standing at its edge doesn't flicker the screen shut. */
+    /** The server's interaction distance: past it, the server refuses what the screen sends, so it closes. */
     private static double reach() {
         try {
-            return ReticulumConfig.MAX_INTERACT_DISTANCE.getAsInt() + 2;
+            return ReticulumConfig.MAX_INTERACT_DISTANCE.getAsInt();
         } catch (IllegalStateException notLoaded) {
             return 10;
         }

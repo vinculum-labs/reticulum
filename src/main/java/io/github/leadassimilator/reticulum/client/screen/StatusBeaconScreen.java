@@ -63,6 +63,14 @@ public class StatusBeaconScreen extends QuickScreen {
 
     /** New contents from the server (after a mode change): the status and alarms; the settings as the server kept them. */
     public void refresh(Payloads.OpenBeaconScreen next) {
+        // Each change sends the whole settings: an answer to an older one would put back what a newer one changed, so
+        // only the answer to the last one sent is taken.
+        // (A change the server refused gets no answer: after a moment, any answer is taken again.)
+        if (inFlight > 1 && System.currentTimeMillis() - lastSent < 2000) {
+            inFlight--;
+            return;
+        }
+        inFlight = 0;
         // Against what the server had before: the local copy already took the new mode when its button was pressed.
         boolean modeChanged = !view.settings().getString("mode").equals(next.settings().getString("mode"));
         view = next;
@@ -122,8 +130,14 @@ public class StatusBeaconScreen extends QuickScreen {
     }
 
     private void send() {
+        inFlight++;
+        lastSent = System.currentTimeMillis();
         PacketDistributor.sendToServer(new Payloads.BeaconSettings(view.pos(), settings));
     }
+
+    /** Settings sent whose answer hasn't come back yet, and when the last went. */
+    private int inFlight;
+    private long lastSent;
 
     /** Changes the edited look, sends it, and redraws. */
     private void change(java.util.function.Consumer<CompoundTag> edit) {
@@ -145,6 +159,8 @@ public class StatusBeaconScreen extends QuickScreen {
         top = Math.max(4, (this.height - 243) / 2);
         String mode = redstone() ? "redstone" : "network";
         Button modeButton = Button.builder(Component.translatable("screen.reticulum.beacon_mode_" + mode), b -> {
+                    // What was typed goes into the look it was typed for first (the boxes then show another look).
+                    commit();
                     settings.putString("mode", redstone() ? "network" : "redstone");
                     send();
                 })
@@ -232,6 +248,8 @@ public class StatusBeaconScreen extends QuickScreen {
             List<String> found = SoundSearch.matches(search);
             if (!found.isEmpty()) {
                 overlay(new SoundDropdown(font, left, y, 16, WIDTH, height, found, id -> {
+                    // What was typed is saved first: the rebuild shows what is saved.
+                    commit();
                     change(t -> t.putString("sound", id));
                     search = "";
                     rebuildWidgets();
@@ -314,7 +332,7 @@ public class StatusBeaconScreen extends QuickScreen {
             }
         }
         try {
-            float value = Float.parseFloat(pitch.getValue().trim());
+            float value = Float.parseFloat(pitch.getValue().trim().replace(',', '.'));
             if (Float.isFinite(value)) {
                 changed |= value != look.getFloat("pitch");
                 look.putFloat("pitch", value);
@@ -322,7 +340,7 @@ public class StatusBeaconScreen extends QuickScreen {
         } catch (NumberFormatException ignored) {
         }
         try {
-            float value = Float.parseFloat(pitch2.getValue().trim());
+            float value = Float.parseFloat(pitch2.getValue().trim().replace(',', '.'));
             if (Float.isFinite(value)) {
                 changed |= value != look.getFloat("pitch2");
                 look.putFloat("pitch2", value);

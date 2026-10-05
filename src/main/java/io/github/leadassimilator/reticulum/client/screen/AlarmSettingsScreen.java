@@ -152,7 +152,7 @@ public class AlarmSettingsScreen extends QuickScreen {
         box.setValue(String.format(Locale.ROOT, "%.2f", value.get()));
         box.setResponder(text -> {
             try {
-                double parsed = Double.parseDouble(text.trim());
+                double parsed = Double.parseDouble(text.trim().replace(',', '.'));
                 if (parsed >= 0.5 && parsed <= 2.0) {
                     value.set(parsed);
                     value.save();
