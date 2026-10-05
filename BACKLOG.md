@@ -64,7 +64,7 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
 - With "auto" faces, slot ranges index each face's own slots, while keep rules and caps count by the block's slots.
 - Fluid, energy and chemical caps aren't shared between two routes into the same sink in one tick.
 - Redstone outputs and ME links keep working while a network is unpowered (only item, fluid, chemical and kit moves
-  stop). Possibly intended for redstone; undecided.
+  stop). By design: redstone often switches the generator that would refill it, and ME links already draw AE2 power.
 - Deliveries from the overflow buffer cost no power per operation and don't show in rates or charts.
 - While the overflow buffer holds something, each retry bumps the network's revision, which redoes the cable walk
   (and, with ME ports, a recompile) about once a second.
