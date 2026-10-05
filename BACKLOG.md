@@ -85,3 +85,4 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   as unwired, not as carrying 0.
 - Dashboard "Busiest" lists a placed blueprint and the nodes inside it for the same flow; "Waiting" shows the placed
   blueprint, not the node inside that waits.
+- Admins can demote or remove other admins (only the owner is protected). Kept on purpose.
