@@ -113,7 +113,8 @@ public class ControllerBlock extends NetworkBlock {
         ItemStack old = ModItems.antenna(controller.antennaTier());
         controller.setAntennaTier(antenna.tier());
         stack.consume(1, player);
-        if (!old.isEmpty()) {
+        // In creative nothing was used up, so nothing is given back either.
+        if (!old.isEmpty() && !player.getAbilities().instabuild) {
             net.neoforged.neoforge.items.ItemHandlerHelper.giveItemToPlayer(player, old);
         }
         if (network != null) {

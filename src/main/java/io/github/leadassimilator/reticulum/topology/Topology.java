@@ -859,6 +859,11 @@ public final class Topology {
                 && reachesDevice(level, pos, side)) {
             return toggleDevice(level, pos, connector, side, player);
         }
+        // The same clicked from the controller's face.
+        if (a instanceof ControllerBlockEntity && b instanceof ConnectorBlockEntity connector && !connected(level, pos, side)
+                && reachesDevice(level, otherPos, side.getOpposite())) {
+            return toggleDevice(level, otherPos, connector, side.getOpposite(), player);
+        }
         Network netA = NetworkManager.network(level.getServer(), networkOf(level, a));
         Network netB = NetworkManager.network(level.getServer(), networkOf(level, b));
         if (player != null && (netA != null && !Security.canEdit(netA, player) || netB != null && !Security.canEdit(netB, player))) {
@@ -890,6 +895,12 @@ public final class Topology {
             }
             if (compatible(na, nb)) {
                 target = na != null ? na : nb;
+            } else if (!ctrlA && !ctrlB) {
+                // Neither piece holds a controller: the network that still has one (on another piece) takes the other,
+                // whichever side was clicked.
+                Network netNb = NetworkManager.network(level.getServer(), nb);
+                Network netNa = NetworkManager.network(level.getServer(), na);
+                target = netNb != null && netNb.controller() != null && (netNa == null || netNa.controller() == null) ? nb : na;
             } else if (!ctrlB) {
                 target = na;
             } else if (!ctrlA) {

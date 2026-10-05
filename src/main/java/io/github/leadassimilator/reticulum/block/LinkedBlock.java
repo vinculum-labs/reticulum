@@ -117,7 +117,8 @@ public abstract class LinkedBlock extends NetworkBlock {
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock()) && !level.isClientSide && facadeAt(level, pos) != null) {
+        // Moved (a contraption), not broken: the facade travels in its data and comes back with it.
+        if (!state.is(newState.getBlock()) && !movedByPiston && !level.isClientSide && facadeAt(level, pos) != null) {
             Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), FacadeItem.of(facadeAt(level, pos), 1));
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
