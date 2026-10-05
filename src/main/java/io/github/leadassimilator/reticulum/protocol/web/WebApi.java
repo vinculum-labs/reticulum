@@ -540,6 +540,9 @@ public final class WebApi {
                     checkInstance(network, sheet, node);
                     checkHome(network, sheet, node, type.equals("updateNode") ? sheet.node(node.id()) : null);
                     check(Limits.check(node));
+                    // A slot coming back to a blueprint (an undo, a placed blueprint switched back) brings back what
+                    // placements filled it with: seen against before, so a block that lives elsewhere by now isn't doubled.
+                    Map<UUID, java.util.Set<UUID>> liveBefore = sheet.blueprint() ? liveSlots(network) : null;
                     if (type.equals("addNode")) {
                         // Sheets compile into one graph: a node id must be unique across the network.
                         if (network.sheets().stream().anyMatch(s -> s.node(node.id()) != null)) {
@@ -568,6 +571,9 @@ public final class WebApi {
                             dropHolderWires(network, sheet, old);
                         }
                         sheet.replace(node);
+                    }
+                    if (liveBefore != null) {
+                        dropRevivedDoubles(network, liveBefore);
                     }
                     return new com.google.gson.JsonPrimitive(node.id().toString());
                 }
@@ -1120,11 +1126,6 @@ public final class WebApi {
         }
 
         /**
-         * A blueprint made from a sheet in the tree: its nodes and wires (new ids), its device nodes as slots for their
-         * kinds of blocks. Unless {@code keep}, the sheet becomes the blueprint's first instance, its slots filled with the
-         * sheet's own blocks, so nothing stops running. Sheets with sheets inside them are refused for now.
-         */
-        /**
          * A sheet or blueprint pasted as JSON (from another world, say), with what it brought along: the sheets inside
          * it, the blueprints placed in it (and in those), the filter templates they name. The sheet and the sheets inside
          * it come in with new ids (devices the same, by position), placed in the parent asked for (the root when none).
@@ -1294,6 +1295,61 @@ public final class WebApi {
             return result;
         }
 
+        /** Each placed blueprint's slots that are filled and still there (by the placement's node id). */
+        private static Map<UUID, java.util.Set<UUID>> liveSlots(Network network) {
+            Map<UUID, java.util.Set<UUID>> out = new HashMap<>();
+            for (Sheet sheet : network.sheets()) {
+                if (sheet.blueprint()) {
+                    continue;
+                }
+                for (Node node : sheet.nodes()) {
+                    if (node.settings() instanceof NodeSettings.InstanceSettings instance) {
+                        out.put(node.id(), io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).keySet());
+                    }
+                }
+            }
+            return out;
+        }
+
+        /**
+         * Fillings that came back since {@code before} (their slot is there again) whose block lives elsewhere by now, or
+         * fills another slot of the same placement: dropped, so a block keeps one home.
+         */
+        private static void dropRevivedDoubles(Network network, Map<UUID, java.util.Set<UUID>> before) {
+            for (Sheet sheet : network.sheets()) {
+                if (sheet.blueprint()) {
+                    continue;
+                }
+                for (Node node : List.copyOf(sheet.nodes())) {
+                    if (!(node.settings() instanceof NodeSettings.InstanceSettings instance)) {
+                        continue;
+                    }
+                    Map<UUID, NodeSettings.Binding> live = io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance);
+                    java.util.Set<UUID> had = before.getOrDefault(node.id(), java.util.Set.of());
+                    Map<UUID, NodeSettings.Binding> kept = new HashMap<>(instance.bindings());
+                    for (Map.Entry<UUID, NodeSettings.Binding> entry : live.entrySet()) {
+                        if (had.contains(entry.getKey())) {
+                            continue;
+                        }
+                        GlobalPos device = entry.getValue().device();
+                        boolean twice = live.entrySet().stream().anyMatch(other -> !other.getKey().equals(entry.getKey()) && other.getValue().device().equals(device)
+                                && (had.contains(other.getKey()) || other.getKey().compareTo(entry.getKey()) < 0));
+                        if (twice || network.home(device, node.id()) != null) {
+                            kept.remove(entry.getKey());
+                        }
+                    }
+                    if (kept.size() != instance.bindings().size()) {
+                        sheet.replace(node.with(new NodeSettings.InstanceSettings(instance.sheet(), kept, instance.layout())));
+                    }
+                }
+            }
+        }
+
+        /**
+         * A blueprint made from a sheet in the tree: its nodes and wires (new ids), its device nodes as slots for their
+         * kinds of blocks. Unless {@code keep}, the sheet becomes the blueprint's first instance, its slots filled with the
+         * sheet's own blocks, so nothing stops running. Sheets with sheets inside them are refused for now.
+         */
         private static Sheet makeBlueprint(MinecraftServer server, Network network, Sheet sheet, boolean keep) throws RequestException {
             if (sheet.root() || sheet.blueprint()) {
                 throw new RequestException("Only a sheet in the tree can become a blueprint");
@@ -1339,6 +1395,13 @@ public final class WebApi {
             for (Node node : List.copyOf(blueprint.nodes())) {
                 if (node.settings() instanceof NodeSettings.LevelSettings level && level.slot().isEmpty() && slotOf.containsKey(level.device())) {
                     blueprint.replace(node.with(level.readingSlot(slotOf.get(level.device()), level.device())));
+                }
+                // One reading a block in a slot of a blueprint placed on the sheet: every placement would read that one
+                // block, not its own (a Level sensor reads only its own blueprint's slots).
+                if (node.settings() instanceof NodeSettings.LevelSettings level && level.slot().isEmpty() && !slotOf.containsKey(level.device())
+                        && bindings.values().stream().anyMatch(b -> b.device().equals(level.device()))) {
+                    throw new RequestException("A Level sensor on this sheet reads a block filling a slot of a blueprint placed on it: "
+                            + "each placement would read that one block. Read it with a Level sensor inside that blueprint instead");
                 }
             }
             network.sheets().add(blueprint);

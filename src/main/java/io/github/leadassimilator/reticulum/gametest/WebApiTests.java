@@ -462,6 +462,45 @@ public final class WebApiTests {
         helper.succeed();
     }
 
+    /**
+     * A slot taken out of a blueprint and put back (an undo) doesn't bring back its filling when that block has lived
+     * elsewhere since: one block, one home.
+     */
+    @GameTest(template = "empty")
+    public static void aSlotPutBackDoesntDoubleItsBlock(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        helper.setBlock(new BlockPos(3, 1, 2), Blocks.BARREL);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.members().put(player.getUUID(), new Member(player.getUUID(), "test", Role.EDITOR));
+        String id = network.id().toString();
+        String edit = "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[";
+        String sheet = call(helper, player, edit + "{\"type\":\"createSheet\",\"name\":\"t\"}]}").getAsJsonArray("results").get(0).getAsString();
+        String bp = call(helper, player, edit + "{\"type\":\"createSheet\",\"name\":\"bp\",\"blueprint\":true}]}").getAsJsonArray("results").get(0).getAsString();
+        String barrel = pos(helper, new BlockPos(3, 1, 2));
+        String slot = UUID.randomUUID().toString();
+        String slotNode = "{\"id\":\"" + slot + "\",\"settings\":{\"kind\":\"device\",\"device\":" + pos(helper, new BlockPos(9, 1, 9)) + "}}";
+        String placed = UUID.randomUUID().toString();
+        call(helper, player, edit + "{\"type\":\"addNode\",\"sheet\":\"" + bp + "\",\"node\":" + slotNode + "},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + placed + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + bp
+                + "\",\"bindings\":{\"" + slot + "\":{\"device\":" + barrel + "}}}}}]}");
+        // The slot goes; the barrel, free now, gets a node of its own; the slot comes back.
+        call(helper, player, edit + "{\"type\":\"removeNode\",\"sheet\":\"" + bp + "\",\"node\":\"" + slot + "\"}]}");
+        String own = UUID.randomUUID().toString();
+        call(helper, player, edit + "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + own + "\",\"settings\":{\"kind\":\"device\",\"device\":" + barrel + "}}}]}");
+        call(helper, player, edit + "{\"type\":\"addNode\",\"sheet\":\"" + bp + "\",\"node\":" + slotNode + "}]}");
+        var t = network.sheet(UUID.fromString(sheet));
+        var instance = (NodeSettings.InstanceSettings) t.node(UUID.fromString(placed)).settings();
+        if (instance.bindings().containsKey(UUID.fromString(slot)) || t.node(UUID.fromString(own)) == null) {
+            helper.fail("The barrel has two homes: " + instance.bindings());
+        }
+        helper.succeed();
+    }
+
     /** Removing a blueprint's pin removes the wires on it on every instance of the blueprint. */
     @GameTest(template = "empty")
     public static void removingABlueprintPinRemovesItsWiresOnInstances(GameTestHelper helper) {
