@@ -32,7 +32,10 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     private int autoDisconnects;
     /** Whether topology has processed this block since it was placed. */
     private boolean registered;
-    /** The block a cable or connector looks like (a facade), or null for its own look. */
+    /**
+     * The block a cable or connector looks like (a facade), or null for its own look. Kept as laid out, as the cuts are,
+     * so a facade turns with its block (see {@link #facade()}).
+     */
     @Nullable
     private BlockState facade;
 
@@ -116,14 +119,22 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    /** The facade as it stands in the world: turned as its block has been since it was put on. */
     @Nullable
     public BlockState facade() {
-        return facade;
+        return facade == null ? null : orientation().toWorld(facade);
+    }
+
+    private io.github.leadassimilator.reticulum.block.Orientation orientation() {
+        BlockState state = getBlockState();
+        return state.hasProperty(io.github.leadassimilator.reticulum.block.LinkedBlock.ORIENTATION)
+                ? state.getValue(io.github.leadassimilator.reticulum.block.LinkedBlock.ORIENTATION)
+                : io.github.leadassimilator.reticulum.block.Orientation.TURN_0;
     }
 
     /** Sets or clears the facade and tells clients, which draw the block as the facade from then on. */
     public void setFacade(@Nullable BlockState facade) {
-        this.facade = facade;
+        this.facade = facade == null ? null : orientation().toLaid(facade);
         lightChanged();
         setChanged();
         if (level != null && !level.isClientSide) {
@@ -135,7 +146,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
 
     @Override
     public ModelData getModelData() {
-        return facade == null ? ModelData.EMPTY : ModelData.builder().with(FACADE, facade).build();
+        return facade == null ? ModelData.EMPTY : ModelData.builder().with(FACADE, facade()).build();
     }
 
     // Clients only need the facade.
@@ -204,6 +215,13 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     public void keepSides(io.github.leadassimilator.reticulum.block.Orientation was, io.github.leadassimilator.reticulum.block.Orientation now) {
         manualDisconnects = keptSides(manualDisconnects, was, now);
         autoDisconnects = keptSides(autoDisconnects, was, now);
+        if (facade != null) {
+            // Its facade stays as it stood too.
+            facade = now.toLaid(was.toWorld(facade));
+            if (level != null && !level.isClientSide) {
+                level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+            }
+        }
         setChanged();
     }
 

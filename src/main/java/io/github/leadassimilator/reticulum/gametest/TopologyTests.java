@@ -433,12 +433,59 @@ public final class TopologyTests {
         });
     }
 
+    /** A structure pasted turned turns a cable's facade (stairs) and a controller's cut joint with them. */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void aTurnedStructureTurnsFacadesAndControllerCuts(GameTestHelper helper) {
+        var level = helper.getLevel();
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        Topology.toggle(level, helper.absolutePos(new BlockPos(1, 1, 1)), Direction.EAST, null);
+        var stairs = net.minecraft.world.level.block.Blocks.OAK_STAIRS.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.StairBlock.FACING, Direction.NORTH);
+        be(helper, new BlockPos(2, 1, 1)).setFacade(stairs);
+        var template = new net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate();
+        template.fillFromWorld(level, helper.absolutePos(new BlockPos(1, 1, 1)), new net.minecraft.core.Vec3i(2, 1, 1), false, null);
+        BlockPos at = helper.absolutePos(new BlockPos(5, 1, 1));
+        var settings = new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings()
+                .setRotation(net.minecraft.world.level.block.Rotation.CLOCKWISE_90);
+        template.placeInWorld(level, at, at, settings, level.getRandom(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        helper.runAfterDelay(5, () -> {
+            // Turned a quarter clockwise: the cable east of the controller is now south of it, its stairs facing east.
+            var facade = be(helper, new BlockPos(5, 1, 2)).facade();
+            check(helper, facade != null && facade.getValue(net.minecraft.world.level.block.StairBlock.FACING) == Direction.EAST,
+                    "the facade didn't turn: " + facade);
+            check(helper, be(helper, new BlockPos(5, 1, 1)).isManuallyDisconnected(Direction.SOUTH), "the controller's cut didn't turn");
+            check(helper, !be(helper, new BlockPos(5, 1, 1)).isManuallyDisconnected(Direction.EAST), "the controller's cut stayed put");
+            helper.succeed();
+        });
+    }
+
+    /** A cable turned where it stands keeps its facade as it stood. */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void aCableTurnedInPlaceKeepsItsFacade(GameTestHelper helper) {
+        var level = helper.getLevel();
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CABLE.get(), null);
+        BlockPos at = helper.absolutePos(new BlockPos(1, 1, 1));
+        var stairs = net.minecraft.world.level.block.Blocks.OAK_STAIRS.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.StairBlock.FACING, Direction.NORTH);
+        be(helper, new BlockPos(1, 1, 1)).setFacade(stairs);
+        level.setBlock(at, level.getBlockState(at).rotate(level, at, net.minecraft.world.level.block.Rotation.CLOCKWISE_90),
+                net.minecraft.world.level.block.Block.UPDATE_ALL);
+        helper.runAfterDelay(3, () -> {
+            check(helper, stairs.equals(be(helper, new BlockPos(1, 1, 1)).facade()), "the facade turned in place: " + be(helper, new BlockPos(1, 1, 1)).facade());
+            helper.succeed();
+        });
+    }
+
     /** Turning or mirroring an orientation moves every side as the game turns or mirrors that side. */
     @GameTest(template = "empty")
     public static void orientationsFollowTheGamesTurns(GameTestHelper helper) {
         for (var o : io.github.leadassimilator.reticulum.block.Orientation.values()) {
             for (Direction d : Direction.values()) {
                 check(helper, o.toLaid(o.toWorld(d)) == d, o + " doesn't turn back");
+                var stairs = net.minecraft.world.level.block.Blocks.OAK_STAIRS.defaultBlockState()
+                        .setValue(net.minecraft.world.level.block.StairBlock.FACING, d.getAxis().isHorizontal() ? d : Direction.NORTH);
+                check(helper, o.toLaid(o.toWorld(stairs)) == stairs, o + " doesn't turn a block state back");
                 for (var r : net.minecraft.world.level.block.Rotation.values()) {
                     check(helper, o.rotate(r).toWorld(d) == r.rotate(o.toWorld(d)), o + " turned " + r);
                 }

@@ -51,6 +51,18 @@ public enum Orientation implements LowercaseName {
         throw new IllegalStateException();
     }
 
+    /** A block state as it was laid out, as it stands now (a facade's stairs or log turned along). */
+    public net.minecraft.world.level.block.state.BlockState toWorld(net.minecraft.world.level.block.state.BlockState laid) {
+        net.minecraft.world.level.block.state.BlockState state = mirrored ? laid.mirror(Mirror.LEFT_RIGHT) : laid;
+        return state.rotate(Rotation.values()[turns]);
+    }
+
+    /** A block state as it stands now, as it was laid out. */
+    public net.minecraft.world.level.block.state.BlockState toLaid(net.minecraft.world.level.block.state.BlockState world) {
+        net.minecraft.world.level.block.state.BlockState state = world.rotate(Rotation.values()[(4 - turns) % 4]);
+        return mirrored ? state.mirror(Mirror.LEFT_RIGHT) : state;
+    }
+
     public Orientation rotate(Rotation rotation) {
         return matching(this, rotation::rotate);
     }
