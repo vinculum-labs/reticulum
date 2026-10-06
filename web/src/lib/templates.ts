@@ -19,7 +19,7 @@ export function parseTemplates(text: string): [string, string][] {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
   if ("filterTemplates" in parsed) parsed = (parsed as { filterTemplates: unknown }).filterTemplates;
   // A plain name → filter map, else not a list, nor something else copied as JSON (a sheet has its id and name).
-  else if ("id" in parsed && "name" in parsed) return [];
+  else if (typeof (parsed as { id?: unknown }).id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test((parsed as { id: string }).id) && "name" in parsed) return [];
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
   return Object.entries(parsed).filter((e): e is [string, string] => typeof e[1] === "string");
 }

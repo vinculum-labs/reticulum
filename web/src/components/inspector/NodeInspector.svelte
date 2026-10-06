@@ -1,7 +1,7 @@
 <script lang="ts">
   import Help from "./Help.svelte";
   import Trash from "@lucide/svelte/icons/trash";
-  import { app, deviceAt, edit, nodeTitle, openInstance, openDevice, openSheet, rebase, updateNodeEdit } from "../../lib/state.svelte";
+  import { app, deviceAt, edit, nodeTitle, openInstance, openDevice, openSheet, rebase, updateNodeEdit, lastSent } from "../../lib/state.svelte";
   import { slotName, slotsOf, allSlotKeys } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
@@ -168,21 +168,25 @@
    */
   function switchBlueprint(to: string) {
     if (node.settings.kind !== "instance") return;
-    const was = app.snapshot?.sheets.find((x) => x.id === (node.settings as { sheet?: string }).sheet);
+    // From the placement as last sent (an earlier switch may not be back yet).
+    const current = lastSent(node);
+    const was = app.snapshot?.sheets.find((x) => x.id === (current.settings as { sheet?: string }).sheet);
     const next = app.snapshot?.sheets.find((x) => x.id === to);
     const old = was?.name;
-    const numbered = !!old && !!node.label?.startsWith(`${old} #`) && /^\d+$/.test(node.label.slice(old.length + 2));
-    const after = { ...node, label: numbered ? undefined : node.label, settings: { ...node.settings, sheet: to, bindings: undefined, layout: undefined } as NodeSettings };
-    // A wire stays where the new blueprint has a pin at its slot carrying the same as the old one's; the others go.
+    const numbered = !!old && !!current.label?.startsWith(`${old} #`) && /^\d+$/.test(current.label.slice(old.length + 2));
+    const after = { ...node, label: numbered ? undefined : current.label, settings: { ...node.settings, sheet: to, bindings: undefined, layout: undefined } as NodeSettings };
+    // A wire stays where the new blueprint has a pin at its slot that can take what it carried: untyped on either side,
+    // or the same kind; the others go.
     const carries = (bp: Sheet | undefined, input: boolean, slot: number) => {
       const pins = bp ? sheetPins(bp, input) : [];
       const pin = pins.find((p, i) => pinSlot(p, i) === slot);
       return pin ? ((pin.settings as { resource?: string }).resource ?? "any") : undefined;
     };
+    const takes = (a: string | undefined, b: string | undefined) => a !== undefined && b !== undefined && (a === "any" || b === "any" || a === b);
     const fits = (w: Wire) =>
       w.to === node.id
-        ? w.input === GATE || (carries(next, true, w.input ?? 0) !== undefined && carries(next, true, w.input ?? 0) === carries(was, true, w.input ?? 0))
-        : carries(next, false, w.output ?? 0) !== undefined && carries(next, false, w.output ?? 0) === carries(was, false, w.output ?? 0);
+        ? w.input === GATE || takes(carries(next, true, w.input ?? 0), carries(was, true, w.input ?? 0))
+        : takes(carries(next, false, w.output ?? 0), carries(was, false, w.output ?? 0));
     const gone = (sheet.wires ?? []).filter((w) => (w.to === node.id || w.from === node.id) && !fits(w));
     const { after: sent, before } = rebase(node, after);
     edit(

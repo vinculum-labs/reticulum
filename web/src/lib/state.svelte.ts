@@ -627,6 +627,11 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
  * however deep (a cap's amount inside an input), so typing an amount and then ticking a face keeps both. Returns the
  * node to send, and the one to restore on undo.
  */
+/** The node as last sent (an edit not back yet), else as the snapshot shows it. */
+export function lastSent(node: GraphNode): GraphNode {
+  return sentNodes.get(node.id) ?? node;
+}
+
 export function rebase(node: GraphNode, next: GraphNode): { after: GraphNode; before: GraphNode } {
   const before = sentNodes.get(node.id) ?? node;
   const after = before === node ? next : (merged(node, next, before) as GraphNode);

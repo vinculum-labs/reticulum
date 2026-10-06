@@ -91,10 +91,14 @@
       values = {};
       newest = {};
     }
-    // Switching, the charts listed are still the last network's: loaded once the new one is shown.
-    if (app.switching) return;
-    load(true);
+    // Switching, the charts listed are still the last network's: none loaded (nor the old timer's) until the new one is
+    // shown.
     clearInterval(timer);
+    if (app.switching) {
+      generation++;
+      return;
+    }
+    load(true);
     timer = setInterval(load, window_ === "second" ? 2000 : 30000);
   });
   onDestroy(() => {
