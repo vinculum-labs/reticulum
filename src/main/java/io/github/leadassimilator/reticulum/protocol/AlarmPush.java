@@ -130,7 +130,7 @@ public final class AlarmPush {
                         var watch = beacon.watch(level);
                         if (watch.network() == network && watch.reachable()) {
                             for (Alarms.Alarm alarm : alarms.subList(0, Math.min(10, alarms.size()))) {
-                                add(player, markers, marked, device.pos(), alarm.severity() == AlarmSeverity.CRITICAL ? 1 : 0, alarm.message());
+                                add(player, markers, marked, device.pos(), alarm.severity() == AlarmSeverity.CRITICAL ? 1 : 0, literal(alarm.message()));
                             }
                         }
                     }
@@ -138,13 +138,13 @@ public final class AlarmPush {
             }
             // What alarms going off read: the devices behind them, marked in the alarm's color, with its message.
             for (Alarms.Source source : Alarms.sources(server, network)) {
-                add(player, markers, marked, source.device(), source.severity() == AlarmSeverity.CRITICAL ? 1 : 0, source.message());
+                add(player, markers, marked, source.device(), source.severity() == AlarmSeverity.CRITICAL ? 1 : 0, literal(source.message()));
             }
             // Problems about a device's node (one device with two nodes, say): the device, with what is wrong.
             for (var problem : runtime.compiled(network.root(), network).errors()) {
                 GlobalPos device = problem.node() == null ? null : deviceOf(network, runtime.compiled(network.root(), network).owner(problem.node()));
                 if (device != null) {
-                    add(player, markers, marked, device, 0, problem.message());
+                    add(player, markers, marked, device, 0, literal(problem.message()));
                 }
             }
             boolean running = NetworkTicker.isRunning(server, network);
@@ -154,13 +154,15 @@ public final class AlarmPush {
                         : running && runtime.outOfRange(device.pos()) ? "unreachable" : null;
                 if (why != null) {
                     String name = device.name() != null ? device.name() : device.blockId().getPath().replace('_', ' ');
-                    add(player, markers, marked, device.pos(), 0, name + " — " + why);
+                    add(player, markers, marked, device.pos(), 0, net.minecraft.network.chat.Component.translatable("status.reticulum." + why, clip(name)));
                 }
             }
             if (running) {
                 for (ConnectorRecord connector : network.connectors()) {
                     if (runtime.reach(connector.id()) == NetworkRuntime.Reach.OUT_OF_RANGE) {
-                        add(player, markers, marked, connector.pos(), 0, (connector.name() != null ? connector.name() : "Connector") + " — unreachable");
+                        add(player, markers, marked, connector.pos(), 0, net.minecraft.network.chat.Component.translatable("status.reticulum.unreachable",
+                                connector.name() != null ? net.minecraft.network.chat.Component.literal(clip(connector.name()))
+                                        : net.minecraft.network.chat.Component.translatable("screen.reticulum.connector")));
                     }
                 }
             }
@@ -184,11 +186,21 @@ public final class AlarmPush {
         return null;
     }
 
-    private static void add(ServerPlayer player, List<Payloads.StatusMarker> markers, Set<String> marked, GlobalPos pos, int severity, String label) {
+    private static void add(ServerPlayer player, List<Payloads.StatusMarker> markers, Set<String> marked, GlobalPos pos, int severity,
+            net.minecraft.network.chat.Component label) {
         if (markers.size() >= MARKER_LIMIT || !pos.dimension().equals(player.level().dimension())
                 || pos.pos().distSqr(player.blockPosition()) > (double) MARKER_DISTANCE * MARKER_DISTANCE || !marked.add(pos.pos().asLong() + "/" + label)) {
             return;
         }
-        markers.add(new Payloads.StatusMarker(pos.pos(), severity, label.length() > 80 ? label.substring(0, 80) : label));
+        markers.add(new Payloads.StatusMarker(pos.pos(), severity, label));
+    }
+
+    /** Text as written (a message, a name), cut to fit a marker. */
+    private static net.minecraft.network.chat.Component literal(String text) {
+        return net.minecraft.network.chat.Component.literal(clip(text));
+    }
+
+    private static String clip(String text) {
+        return text.length() > 80 ? text.substring(0, 80) : text;
     }
 }

@@ -350,11 +350,12 @@ public final class Payloads {
     }
 
     /** A block with something wrong, for the network tool's Status mode: 0 a warning, 1 critical. */
-    public record StatusMarker(BlockPos pos, int severity, String label) {
+    /** A block with something wrong; its label is text the client puts in its own language. */
+    public record StatusMarker(BlockPos pos, int severity, net.minecraft.network.chat.Component label) {
         public static final StreamCodec<RegistryFriendlyByteBuf, StatusMarker> STREAM_CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, StatusMarker::pos,
                 ByteBufCodecs.VAR_INT, StatusMarker::severity,
-                ByteBufCodecs.stringUtf8(256), StatusMarker::label,
+                net.minecraft.network.chat.ComponentSerialization.TRUSTED_STREAM_CODEC, StatusMarker::label,
                 StatusMarker::new);
     }
 

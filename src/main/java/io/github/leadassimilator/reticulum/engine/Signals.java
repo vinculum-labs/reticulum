@@ -61,6 +61,11 @@ final class Signals {
     /** Device nodes gated off as of last tick: their redstone outputs give nothing, as when switched off. */
     private Set<UUID> gatedOff = Set.of();
     private final Set<UUID> pulsed = new HashSet<>();
+    /**
+     * Sheet and instance nodes back on this tick after sleeping: their routes wait one more tick, while the logic inside
+     * wakes and reads afresh (it gave what it held while off this tick), so nothing moves on an old reading.
+     */
+    private final Set<UUID> waking = new HashSet<>();
     /** Alarms whose test passes, and since which tick (to wait out their delay). */
     private final Map<UUID, Long> alarmSince = new HashMap<>();
     /** An alarm node that has gone off: where it is compiled, its settings and when (wall clock, ms) it went off. */
@@ -117,6 +122,7 @@ final class Signals {
     void startTick() {
         off.clear();
         pulsed.clear();
+        waking.clear();
     }
 
     // ---------------------------------------------------------------- reading the world
@@ -263,12 +269,12 @@ final class Signals {
         // then would flicker its outputs and freeze its timers.
         Set<UUID> now = new HashSet<>();
         for (UUID holder : sheet.sheetNodes().values()) {
-            if (off.contains(holder) && !sheet.pulses(holder)) {
+            if (off.contains(holder) && !sheet.pulses(holder) && !waking.contains(holder)) {
                 now.add(holder);
             }
         }
         for (UUID holder : sheet.instanceNodes()) {
-            if (off.contains(holder) && !sheet.pulses(holder)) {
+            if (off.contains(holder) && !sheet.pulses(holder) && !waking.contains(holder)) {
                 now.add(holder);
             }
         }
@@ -684,6 +690,13 @@ final class Signals {
                 }
             } else if (!high) {
                 off.add(node);
+            }
+        }
+        // Asleep last tick, on now: off one tick more (see waking).
+        for (UUID holder : asleep) {
+            if (!off.contains(holder) && (sheet.sheetNodes().containsValue(holder) || sheet.instanceNodes().contains(holder))) {
+                waking.add(holder);
+                off.add(holder);
             }
         }
     }

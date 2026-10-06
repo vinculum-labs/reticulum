@@ -273,7 +273,7 @@ public final class AlarmClient {
             Payloads.StatusMarker marker = here.get((int) (turn % here.size()));
             String count = here.size() > 1 ? " (" + (here.indexOf(marker) + 1) + "/" + here.size() + ")" : "";
             int color = marker.severity() == 1 ? StatusBeaconRenderer.CRITICAL_COLOR : StatusBeaconRenderer.WARNING_COLOR;
-            WorldLabel.draw(pose, event.getCamera(), buffers, font, Vec3.atCenterOf(entry.getKey()).add(0, 0.9, 0), "⚠ " + marker.label() + count, color, true);
+            WorldLabel.draw(pose, event.getCamera(), buffers, font, Vec3.atCenterOf(entry.getKey()).add(0, 0.9, 0), "⚠ " + marker.label().getString() + count, color, true);
         }
         WorldLabel.endThroughWalls(buffers);
         pose.popPose();

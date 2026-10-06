@@ -373,6 +373,9 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.connector_and_device", "the connector and its device");
         add("message.reticulum.identify_full", "Can't light up more — %s things are lit on this network already");
         add("message.reticulum.too_far", "Too far away to open that");
+        add("status.reticulum.orphaned", "%s — orphaned");
+        add("status.reticulum.missing", "%s — missing");
+        add("status.reticulum.unreachable", "%s — unreachable");
         add("screen.reticulum.alarm_both", "%s critical, %s warning");
         add("screen.reticulum.alarm_critical", "%s critical");
         add("screen.reticulum.alarm_warning", "%s warning");
