@@ -202,6 +202,24 @@ public final class WebApiTests {
         if (!innerName.apply(e).equals(was) || nameOf.apply(back).equals(was)) {
             helper.fail("A returning name took the number: inner " + innerName.apply(e) + ", returning " + nameOf.apply(back));
         }
+        // A placement renamed onto another's numbered name is numbered again; the other keeps it, whatever the sheet order.
+        String cName = nameOf.apply(c);
+        call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"updateNode\",\"sheet\":\"" + inner
+                + "\",\"node\":{\"id\":\"" + e + "\",\"label\":\"" + cName + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + blueprint + "\"}}}]}");
+        if (!nameOf.apply(c).equals(cName) || innerName.apply(e).equals(cName)) {
+            helper.fail("A rename onto a taken number: kept " + nameOf.apply(c) + ", renamed " + innerName.apply(e));
+        }
+        // Imported twice onto a taken name: "(imported)", then "(imported 2)".
+        String pasted = "{\"id\":\"" + UUID.randomUUID() + "\",\"name\":\"inner\",\"nodes\":[]}";
+        String first = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"importSheet\",\"sheet\":" + pasted + "}]}")
+                .getAsJsonArray("results").get(0).getAsJsonObject().get("sheet").getAsString();
+        String second = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"importSheet\",\"sheet\":" + pasted + "}]}")
+                .getAsJsonArray("results").get(0).getAsJsonObject().get("sheet").getAsString();
+        String firstName = network.sheet(UUID.fromString(first)).name();
+        String secondName = network.sheet(UUID.fromString(second)).name();
+        if (!firstName.equals("inner (imported)") || !secondName.equals("inner (imported 2)")) {
+            helper.fail("Imported names: " + firstName + ", " + secondName);
+        }
         helper.succeed();
     }
 

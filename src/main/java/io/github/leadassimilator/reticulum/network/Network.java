@@ -469,7 +469,7 @@ public final class Network {
     }
 
     /** The placed blueprints there were when names were last worked out: not saved (all are new after a load). */
-    private java.util.Set<UUID> knownPlacements = java.util.Set.of();
+    private Map<UUID, String> knownNames = Map.of();
 
     /** A placed blueprint's numbered name: "Smelter #2". */
     private static final java.util.regex.Pattern NUMBERED = java.util.regex.Pattern.compile(".* #([0-9]{1,6})$");
@@ -485,14 +485,14 @@ public final class Network {
         // Placements of each blueprint by numbered name: where two share one, the one placed here longest keeps it.
         Map<UUID, Map<String, List<Placement>>> numberedNames = new java.util.HashMap<>();
         List<Placement> unnamed = new ArrayList<>();
-        java.util.Set<UUID> placements = new java.util.HashSet<>();
+        Map<UUID, String> labels = new java.util.HashMap<>();
         for (Sheet sheet : sheets) {
             for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
                 if (!(node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance)) {
                     continue;
                 }
-                placements.add(node.id());
                 String label = node.label().map(String::strip).orElse("");
+                labels.put(node.id(), label);
                 if (label.isEmpty()) {
                     unnamed.add(new Placement(sheet, node));
                     continue;
@@ -510,12 +510,16 @@ public final class Network {
                 if (sharing.size() < 2) {
                     continue;
                 }
-                // The one that was here before (not the one an undo or paste just brought) keeps the name.
-                Placement keeps = sharing.stream().filter(p -> knownPlacements.contains(p.node().id())).findFirst().orElse(sharing.get(0));
+                // The one that had the name before keeps it (not one renamed onto it, nor one an undo or paste just
+                // brought); else one that was here before.
+                String name = sharing.getFirst().node().label().map(String::strip).orElse("");
+                Placement keeps = sharing.stream().filter(p -> name.equals(knownNames.get(p.node().id()))).findFirst()
+                        .or(() -> sharing.stream().filter(p -> knownNames.containsKey(p.node().id())).findFirst())
+                        .orElse(sharing.get(0));
                 sharing.stream().filter(p -> p != keeps).forEach(unnamed::add);
             }
         }
-        knownPlacements = placements;
+        knownNames = labels;
         for (Placement placement : unnamed) {
             UUID blueprint = ((io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings) placement.node().settings()).sheet();
             java.util.Set<Integer> used = taken.computeIfAbsent(blueprint, k -> new java.util.HashSet<>());
@@ -529,6 +533,7 @@ public final class Network {
             String base = held != null ? held.name() : "Blueprint";
             base = base.length() + suffix.length() > Limits.NAME ? base.substring(0, Limits.NAME - suffix.length()) : base;
             placement.parent().replace(placement.node().withLabel(Optional.of(base + suffix)));
+            labels.put(placement.node().id(), base + suffix);
         }
         return !unnamed.isEmpty();
     }

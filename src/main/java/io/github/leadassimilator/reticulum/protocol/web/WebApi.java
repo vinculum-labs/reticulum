@@ -1216,8 +1216,7 @@ public final class WebApi {
                     ids.put(sheet.id(), sheet.id());
                     continue;
                 }
-                String own = Limits.name(sheet.name()) == null ? "Imported blueprint" : Limits.name(sheet.name());
-                String name = names.contains(own) ? Limits.name(own + " (imported)") : own;
+                String name = importedName(names, Limits.name(sheet.name()), "Imported blueprint");
                 boolean free = here == null && sheet.nodes().stream().noneMatch(node -> nodeIds.contains(node.id()));
                 Sheet copy;
                 if (free) {
@@ -1232,12 +1231,10 @@ public final class WebApi {
                 copy.setRoot(false);
                 ids.put(sheet.id(), copy.id());
                 copy.nodes().forEach(node -> nodeIds.add(node.id()));
-                names.add(name);
                 blueprints.add(copy);
             }
             // The pasted sheet and the sheets inside it (as its sheet nodes reach them): always new.
-            String pastedName = Limits.name(pasted.name());
-            Sheet top = pasted.copyWithNewIds(pastedName == null ? "Imported sheet" : pastedName);
+            Sheet top = pasted.copyWithNewIds(importedName(names, Limits.name(pasted.name()), "Imported sheet"));
             top.setRoot(false);
             ids.put(pasted.id(), top.id());
             List<Sheet> inside = new ArrayList<>();
@@ -1249,8 +1246,7 @@ public final class WebApi {
                 for (Node node : at.nodes()) {
                     if (node.settings() instanceof NodeSettings.SheetSettings child && brought.get(child.sheet()) instanceof Sheet sheet
                             && !sheet.blueprint() && !ids.containsKey(sheet.id())) {
-                        String name = Limits.name(sheet.name());
-                        Sheet copy = sheet.copyWithNewIds(name == null ? "Imported sheet" : name, new HashMap<>());
+                        Sheet copy = sheet.copyWithNewIds(importedName(names, Limits.name(sheet.name()), "Imported sheet"), new HashMap<>());
                         copy.setRoot(false);
                         ids.put(sheet.id(), copy.id());
                         insideIds.add(copy.id());
@@ -1311,6 +1307,21 @@ public final class WebApi {
         }
 
         /**
+         * A name for a sheet an import brings, none of {@code names} (which it joins): its own, else with " (imported)",
+         * then " (imported 2)" and on, cut to fit.
+         */
+        private static String importedName(java.util.Set<String> names, @Nullable String wanted, String fallback) {
+            String base = wanted == null ? fallback : wanted;
+            String name = base;
+            for (int n = 1; names.contains(name); n++) {
+                String suffix = n == 1 ? " (imported)" : " (imported " + n + ")";
+                name = (base.length() + suffix.length() > Limits.NAME ? base.substring(0, Limits.NAME - suffix.length()).stripTrailing() : base) + suffix;
+            }
+            names.add(name);
+            return name;
+        }
+
+        /**
          * The slots filled and still there of each placement of a blueprint that holds {@code changed} (itself, or placed
          * in it at any depth), by the placement's node id.
          */
@@ -1357,15 +1368,22 @@ public final class WebApi {
                     Map<UUID, NodeSettings.Binding> live = io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance);
                     java.util.Set<UUID> had = before.getOrDefault(node.id(), java.util.Set.of());
                     Map<UUID, NodeSettings.Binding> kept = new HashMap<>(instance.bindings());
-                    for (Map.Entry<UUID, NodeSettings.Binding> entry : live.entrySet()) {
+                    // The blocks this placement's live fillings hold: those it had, then each one coming back that is kept.
+                    java.util.Set<GlobalPos> held = new java.util.HashSet<>();
+                    live.forEach((key, binding) -> {
+                        if (had.contains(key)) {
+                            held.add(binding.device());
+                        }
+                    });
+                    for (Map.Entry<UUID, NodeSettings.Binding> entry : live.entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
                         if (had.contains(entry.getKey())) {
                             continue;
                         }
                         GlobalPos device = entry.getValue().device();
-                        boolean twice = live.entrySet().stream().anyMatch(other -> !other.getKey().equals(entry.getKey()) && other.getValue().device().equals(device)
-                                && (had.contains(other.getKey()) || other.getKey().compareTo(entry.getKey()) < 0));
-                        if (twice || network.home(device, node.id()) != null) {
+                        if (held.contains(device) || network.home(device, node.id()) != null) {
                             kept.remove(entry.getKey());
+                        } else {
+                            held.add(device);
                         }
                     }
                     if (kept.size() != instance.bindings().size()) {

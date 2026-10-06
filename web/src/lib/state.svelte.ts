@@ -1442,8 +1442,7 @@ export async function importSheet(what: "sheet" | "blueprint", into?: Sheet | nu
     toast("That's a sheet, not a blueprint — import it with the Sheets import (or make a blueprint from it once it's in).");
     return;
   }
-  // A name already taken here gets marked, so the import can be told from what it came from.
-  if (typeof sheet.name === "string" && snapshot.sheets.some((s) => s.name === sheet!.name)) sheet = { ...sheet, name: `${sheet.name} (imported)` };
+  // (A name already taken here gets marked by the game, "(imported)", so the import can be told from what it came from.)
   // Into the network it was asked on (its names checked against it), whatever is shown by now.
   // A sheet goes into the one asked about (the open one), at a free spot there; a blueprint isn't placed anywhere.
   const place = what === "sheet" && into ? { parent: into.id, ...freeSpot(into) } : {};
