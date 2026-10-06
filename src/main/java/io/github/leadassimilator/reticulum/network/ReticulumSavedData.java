@@ -113,6 +113,7 @@ public final class ReticulumSavedData extends SavedData {
     private static ReticulumSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         ReticulumSavedData data = new ReticulumSavedData();
         data.loaded = true;
+        data.lastGood = tag.copy();
         Ids.leftOut = false;
         Contents.CODEC.parse(RegistryOps.create(NbtOps.INSTANCE, registries), tag)
                 .resultOrPartial(err -> data.loadError = err)
@@ -134,11 +135,24 @@ public final class ReticulumSavedData extends SavedData {
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         Contents contents = new Contents(SCHEMA_VERSION, List.copyOf(networks.values()), Map.copyOf(aliases));
-        Contents.CODEC.encodeStart(RegistryOps.create(NbtOps.INSTANCE, registries), contents)
-                .resultOrPartial(err -> Reticulum.LOGGER.error("Failed to save Reticulum networks: {}", err))
-                .ifPresent(encoded -> tag.merge((CompoundTag) encoded));
+        var encoded = Contents.CODEC.encodeStart(RegistryOps.create(NbtOps.INSTANCE, registries), contents);
+        if (encoded.result().isPresent()) {
+            lastGood = ((CompoundTag) encoded.result().get()).copy();
+        } else {
+            // Something the save can't hold: the last save that worked is written again, rather than a partial (or
+            // empty) one losing networks.
+            Reticulum.LOGGER.error("Failed to save Reticulum networks, keeping the last good save: {}",
+                    encoded.error().map(e -> e.message()).orElse("?"));
+        }
+        if (lastGood != null) {
+            tag.merge(lastGood.copy());
+        }
         return tag;
     }
+
+    /** What was last saved (or loaded) whole. */
+    @Nullable
+    private CompoundTag lastGood;
 
     /** The network with this id, or the one it was merged into. */
     @Nullable

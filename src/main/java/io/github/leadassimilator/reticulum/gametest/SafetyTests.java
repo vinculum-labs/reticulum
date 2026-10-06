@@ -89,6 +89,22 @@ public final class SafetyTests {
         return network;
     }
 
+    /** More of one item than a stack holds goes into overflow as whole stacks, so the save (99 at most a stack) holds it. */
+    @GameTest(template = "empty")
+    public static void overflowKeepsStacksASaveCanHold(GameTestHelper helper) {
+        io.github.leadassimilator.reticulum.network.OverflowBuffer buffer = new io.github.leadassimilator.reticulum.network.OverflowBuffer();
+        buffer.items().add(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COBBLESTONE, 10));
+        io.github.leadassimilator.reticulum.network.OverflowBuffer.addItem(buffer.items(), new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COBBLESTONE, 400));
+        int total = buffer.items().stream().mapToInt(net.minecraft.world.item.ItemStack::getCount).sum();
+        boolean whole = buffer.items().stream().allMatch(stack -> stack.getCount() <= stack.getMaxStackSize());
+        var ops = net.minecraft.resources.RegistryOps.create(net.minecraft.nbt.NbtOps.INSTANCE, helper.getLevel().registryAccess());
+        boolean saves = io.github.leadassimilator.reticulum.network.OverflowBuffer.CODEC.encodeStart(ops, buffer).result().isPresent();
+        if (total != 410 || !whole || buffer.items().size() != 7 || !saves) {
+            helper.fail("Total " + total + ", whole stacks " + whole + ", entries " + buffer.items().size() + ", saves " + saves);
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void longNamesAreCutAndMarkersStaySendable(GameTestHelper helper) {
         ServerPlayer owner = player(helper, "owner");

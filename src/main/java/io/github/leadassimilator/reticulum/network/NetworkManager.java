@@ -485,7 +485,7 @@ public final class NetworkManager {
                 device.setState(DeviceRecord.State.ACTIVE);
             }
         }
-        into.overflowItems().addAll(from.overflowItems());
+        from.overflowItems().forEach(stack -> OverflowBuffer.addItem(into.overflowItems(), stack));
         into.overflowFluids().addAll(from.overflowFluids());
         from.overflow().chemicals().forEach((id, amount) -> into.overflow().chemicals().merge(id, amount, Long::sum));
         delete(server, from);

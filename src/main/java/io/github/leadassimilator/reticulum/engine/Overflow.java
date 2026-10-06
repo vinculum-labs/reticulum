@@ -23,18 +23,7 @@ final class Overflow {
     }
 
     static void add(NetworkRuntime.Context ctx, ItemStack stack) {
-        List<ItemStack> items = ctx.network().overflowItems();
-        ItemStack left = stack.copy();
-        for (ItemStack held : items) {
-            if (ItemStack.isSameItemSameComponents(held, left) && held.getCount() < held.getMaxStackSize()) {
-                int moved = Math.min(left.getCount(), held.getMaxStackSize() - held.getCount());
-                held.grow(moved);
-                left.shrink(moved);
-            }
-        }
-        if (!left.isEmpty()) {
-            items.add(left);
-        }
+        io.github.leadassimilator.reticulum.network.OverflowBuffer.addItem(ctx.network().overflowItems(), stack);
         NetworkManager.overflowChanged(ctx.server(), ctx.network());
     }
 

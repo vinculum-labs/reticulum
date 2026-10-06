@@ -18,7 +18,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
  */
 public final class OverflowBuffer {
     public static final Codec<OverflowBuffer> CODEC = RecordCodecBuilder.create(i -> i.group(
-            ItemStack.CODEC.listOf().optionalFieldOf("items", List.of()).forGetter(b -> List.copyOf(b.items)),
+            ItemStack.CODEC.listOf().optionalFieldOf("items", List.of()).forGetter(b -> stacked(b.items)),
             FluidStack.CODEC.listOf().optionalFieldOf("fluids", List.of()).forGetter(b -> List.copyOf(b.fluids)),
             Codec.unboundedMap(ResourceLocation.CODEC, Codec.LONG).optionalFieldOf("chemicals", Map.of()).forGetter(b -> b.chemicals)
     ).apply(i, OverflowBuffer::new));
@@ -46,6 +46,39 @@ public final class OverflowBuffer {
 
     public Map<ResourceLocation, Long> chemicals() {
         return chemicals;
+    }
+
+    /**
+     * Adds {@code stack} to {@code items}: topping up stacks of the same item, the rest as whole stacks. A stack is never
+     * kept larger than the item stacks to (a save can't hold one, and would fail whole).
+     */
+    public static void addItem(List<ItemStack> items, ItemStack stack) {
+        ItemStack left = stack.copy();
+        for (ItemStack held : items) {
+            if (left.isEmpty()) {
+                return;
+            }
+            if (ItemStack.isSameItemSameComponents(held, left) && held.getCount() < held.getMaxStackSize()) {
+                int moved = Math.min(left.getCount(), held.getMaxStackSize() - held.getCount());
+                held.grow(moved);
+                left.shrink(moved);
+            }
+        }
+        while (!left.isEmpty()) {
+            items.add(left.split(Math.max(1, left.getMaxStackSize())));
+        }
+    }
+
+    /** {@code items} as stacks no larger than their items stack to, for saving. */
+    private static List<ItemStack> stacked(List<ItemStack> items) {
+        List<ItemStack> out = new ArrayList<>();
+        for (ItemStack stack : items) {
+            ItemStack left = stack.copy();
+            while (!left.isEmpty()) {
+                out.add(left.split(Math.max(1, left.getMaxStackSize())));
+            }
+        }
+        return out;
     }
 
     public boolean isEmpty() {
