@@ -50,7 +50,30 @@ public final class Metrics {
      * nothing shown changes, and they stop being rolled and sent every second. Levels are kept (set every second).
      */
     void prune(long now) {
-        series.values().removeIf(s -> !s.sampled && now - Math.max(0, s.lastMovedTick) > DAY_TICKS + 20 * 60);
+        series.entrySet().removeIf(e -> {
+            Series s = e.getValue();
+            if (s.sampled || now - Math.max(0, s.lastMovedTick) <= DAY_TICKS + 20 * 60) {
+                return false;
+            }
+            if (s.lastMovedTick >= 0) {
+                movedLongAgo.put(e.getKey(), s.lastMovedTick);
+            }
+            return true;
+        });
+    }
+
+    /** When pruned series last moved, so "last moved" still says it (rather than "never"). */
+    private final Map<UUID, Long> movedLongAgo = new HashMap<>();
+
+    /** The series to add to (made when missing: then no longer one that moved long ago). */
+    private Series fresh(UUID id) {
+        Series s = series.get(id);
+        if (s == null) {
+            s = new Series();
+            series.put(id, s);
+            movedLongAgo.remove(id);
+        }
+        return s;
     }
 
     void record(CompiledSheet.Route route, long amount, long tick) {
@@ -58,12 +81,12 @@ public final class Metrics {
             return;
         }
         for (UUID node : route.path()) {
-            Series s = series.computeIfAbsent(node, k -> new Series());
+            Series s = fresh(node);
             s.current += amount;
             s.lastMovedTick = tick;
         }
         for (UUID wire : route.wires()) {
-            Series s = series.computeIfAbsent(wire, k -> new Series());
+            Series s = fresh(wire);
             s.current += amount;
             s.lastMovedTick = tick;
         }
@@ -71,7 +94,7 @@ public final class Metrics {
         // per-side rates; not when that is a node already counted on the path.
         for (UUID side : new UUID[] {route.source().id(), route.sink().id()}) {
             if (!route.path().contains(side)) {
-                Series s = series.computeIfAbsent(side, k -> new Series());
+                Series s = fresh(side);
                 s.current += amount;
                 s.lastMovedTick = tick;
             }
@@ -83,7 +106,7 @@ public final class Metrics {
         if (amount <= 0) {
             return;
         }
-        Series s = series.computeIfAbsent(id, k -> new Series());
+        Series s = fresh(id);
         s.current += amount;
         s.lastMovedTick = tick;
     }
@@ -116,6 +139,7 @@ public final class Metrics {
     /** Ticks since each id last moved anything. */
     public Map<UUID, Long> ticksSinceMoved(long now) {
         Map<UUID, Long> out = new HashMap<>();
+        movedLongAgo.forEach((id, tick) -> out.put(id, now - tick));
         series.forEach((id, s) -> {
             if (s.lastMovedTick >= 0) {
                 out.put(id, now - s.lastMovedTick);

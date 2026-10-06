@@ -599,16 +599,21 @@ public final class WebApi {
                     // nowhere else (else it stays dropped).
                     Sheet sheet = sheet(network, edit);
                     Node node = sheet.node(uuid(edit, "node"));
-                    if (node != null && node.settings() instanceof NodeSettings.InstanceSettings instance && edit.has("bindings")
+                    if (!sheet.blueprint() && node != null && node.settings() instanceof NodeSettings.InstanceSettings instance && edit.has("bindings")
                             && edit.get("bindings").isJsonObject()) {
                         Map<UUID, NodeSettings.Binding> bindings = new HashMap<>(instance.bindings());
                         java.util.Set<UUID> live = io.github.leadassimilator.reticulum.graph.Blueprints.slots(network, network.sheet(instance.sheet())).keySet();
                         for (Map.Entry<String, JsonElement> entry : edit.getAsJsonObject("bindings").entrySet()) {
                             NodeSettings.Binding binding = decode(server, NodeSettings.Binding.CODEC, entry.getValue(), "binding");
-                            UUID key = UUID.fromString(entry.getKey());
+                            UUID key;
+                            try {
+                                key = UUID.fromString(entry.getKey());
+                            } catch (IllegalArgumentException e) {
+                                throw new RequestException("Not a slot id: " + entry.getKey());
+                            }
                             boolean free = network.home(binding.device(), node.id()) == null
                                     && bindings.values().stream().noneMatch(b -> b.device().equals(binding.device()));
-                            if (!bindings.containsKey(key) && (!live.contains(key) || free)) {
+                            if (!bindings.containsKey(key) && (!live.contains(key) || free) && bindings.size() < Limits.BINDINGS) {
                                 bindings.put(key, binding);
                             }
                         }

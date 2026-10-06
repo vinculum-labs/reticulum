@@ -54,6 +54,9 @@ public final class Limits {
 
     /** Why a node can't be stored, or null when it can. */
     @Nullable
+    /** The most slot fillings (and kept layout positions) one placed blueprint holds. */
+    public static final int BINDINGS = 1024;
+
     public static String check(Node node) {
         if (node.label().isPresent() && node.label().get().length() > NAME) {
             return "A node's label can be at most " + NAME + " characters";
@@ -78,6 +81,8 @@ public final class Limits {
                     "An input or output can have at most " + SIDE_LIMITS + " caps or keep rules";
             case NodeSettings.SheetPinSettings s when s.name().length() > NAME -> "A pin name can be at most " + NAME + " characters";
             case NodeSettings.KitSettings s when s.lines().size() > KIT_LINES -> "A kit can have at most " + KIT_LINES + " lines";
+            case NodeSettings.InstanceSettings s when s.bindings().size() > BINDINGS || s.layout().size() > BINDINGS ->
+                    "A placed blueprint can fill at most " + BINDINGS + " slots";
             case NodeSettings.KitSettings s when s.maxKits() > KITS_PER_OPERATION -> "A kit can move at most " + KITS_PER_OPERATION + " kits at a time";
             case NodeSettings.SplitterSettings s when s.weights().values().stream().anyMatch(w -> w < 0 || w > SPLITTER_WEIGHT) ->
                     "A splitter output's weight must be 0 to " + SPLITTER_WEIGHT;
