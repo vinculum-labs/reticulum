@@ -93,7 +93,7 @@
       {/snippet}
       {#snippet hint()}
         <p class="text-xs muted">
-          Click something to see its tags and mod. Double-click includes it in the filter; alt-click or right-click excludes it. Included things match
+          Click something to see its tags and mod. Double-click includes it in the filter — alt-click or right-click excludes it. Included things match
           if any of them does.
         </p>
       {/snippet}

@@ -359,6 +359,11 @@ export async function loadNetworks(focus: string | null, resubscribe = false): P
     const listed = (id: string | null) => !!id && app.networks.some((n) => n.id === id);
     const target = listed(focus) ? focus : listed(app.current) ? app.current : (app.networks[0]?.id ?? null);
     if (target && (target !== app.current || resubscribe)) await selectNetwork(target);
+    else if (!target && app.current) {
+      // None here (another world): the one shown stays behind, not mistaken later for one whose access was lost.
+      app.current = null;
+      app.snapshot = null;
+    }
   } catch (e) {
     toast((e as Error).message);
   }

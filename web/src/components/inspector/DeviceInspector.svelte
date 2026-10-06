@@ -86,7 +86,7 @@
   {#if device.state !== "active"}
     <div class="box box-warn flex flex-col gap-2 text-sm" role="status">
       <span>
-        {device.state === "orphaned" ? "No connector reaches this device any more." : "The block is gone."}
+        {device.state === "orphaned" ? "No connector reaches this device anymore." : "The block is gone."}
         It is kept because it has a name or flows use it{canEdit ? " — forget it when you no longer need it." : "."}
       </span>
       {#if canEdit}

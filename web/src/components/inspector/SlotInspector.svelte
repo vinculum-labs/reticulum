@@ -71,7 +71,7 @@
   {#if binding && !filler}
     <p class="box box-warn text-sm" role="status">The block filling it is gone from the network.</p>
   {:else if filler && block && filler.block !== block}
-    <p class="box box-warn text-sm" role="status">It takes {blockName(block)}; {deviceName(filler)} is a {blockName(filler.block)}. Its flows may not fit it.</p>
+    <p class="box box-warn text-sm" role="status">It takes {blockName(block)} — {deviceName(filler)} is {blockName(filler.block)} instead. Its flows may not fit it.</p>
   {/if}
   {#if binding}
     <Field label="Turned" hint="For a set built facing another way: the slot's faces turn with it (seen from above, clockwise).">

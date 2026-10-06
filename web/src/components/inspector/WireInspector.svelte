@@ -26,6 +26,9 @@
   {#snippet actions()}
     {#if app.snapshot?.canEdit}<button class="btn btn-danger px-2" onclick={remove} title="Delete this wire" aria-label="Delete wire"><Trash size={16} /></button>{/if}
   {/snippet}
-  <ThroughputSummary id={wire.id} />
-  <Chart item={wire.id} unit="" />
+  <!-- A blueprint itself never runs: its placed copies' activity is theirs. -->
+  {#if !sheet.blueprint}
+    <ThroughputSummary id={wire.id} />
+    <Chart item={wire.id} unit="" />
+  {/if}
 </InspectorPanel>

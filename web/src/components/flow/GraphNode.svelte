@@ -115,7 +115,7 @@
         ? (data.holder?.outputs ?? []).map((pin) => holderRow(pin, false))
         : s.kind === "sequencer"
           ? [
-              { label: "step", title: "The step playing (1 on; 0 once stopped)", color, handle: "out:0", layer: "redstone" as Layer },
+              { label: "step", title: "The step playing (1 on, 0 once stopped)", color, handle: "out:0", layer: "redstone" as Layer },
               ...(s.tracks ?? []).map((t, i) => ({ label: t.name || `track ${i + 1}`, title: `Track ${i + 1}${t.name ? `: ${t.name}` : ""}`, color, handle: `out:${i + 1}`, layer: "redstone" as Layer })),
             ]
           : signal
@@ -383,7 +383,7 @@ ${idleTitle}` : idleTitle}
   <span class="problem-badge" title={data.problem} role="img" aria-label={`Error: ${data.problem}`}><TriangleAlert size={12} /></span>
 {:else if offline}
   <!-- Not an error in the sheet, but it does nothing until its block is back in reach: a warning on the same corner. -->
-  {@const why = data.device?.outOfRange ? unreachable(app.snapshot?.antenna).why : data.device?.state === "orphaned" ? "Orphaned — no connector reaches it any more" : "Missing — the block is gone"}
+  {@const why = data.device?.outOfRange ? unreachable(app.snapshot?.antenna).why : data.device?.state === "orphaned" ? "Orphaned — no connector reaches it anymore" : "Missing — the block is gone"}
   <span class="problem-badge warn" title={why} role="img" aria-label={`Warning: ${why}`}><TriangleAlert size={12} /></span>
 {/if}
 
