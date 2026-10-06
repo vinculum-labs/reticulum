@@ -236,7 +236,7 @@ final class KitMover {
             }
         }
         for (Map.Entry<Node, Long> entry : perLimit.entrySet()) {
-            if (ctx.runtime().available(List.of(entry.getKey())) < entry.getValue()) {
+            if (!ctx.runtime().mayPass(entry.getKey(), entry.getValue())) {
                 return false;
             }
         }

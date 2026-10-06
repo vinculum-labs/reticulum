@@ -82,12 +82,14 @@ final class ItemMover {
     private static void runSource(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, List<CompiledSheet.Route> direct) {
         int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.intervalOf(source.node().id());
         UUID id = source.node().id();
-        if (due(ctx, id, (long) interval * ctx.runtime().backoff(id)) || ctx.runtime().forced(sheet, direct)) {
+        boolean isDue = due(ctx, id, (long) interval * ctx.runtime().backoff(id));
+        if (isDue || ctx.runtime().forced(sheet, direct)) {
             if (!ctx.runtime().canAffordOperation()) {
                 ctx.runtime().status(sheet.owner(id), Status.NO_POWER);
                 return;
             }
-            boolean moved = operate(ctx, sheet, source, ctx.runtime().ordered(direct)) > 0;
+            // Run by a pulse (not due): the routes the pulse gates only.
+            boolean moved = operate(ctx, sheet, source, ctx.runtime().ordered(isDue ? direct : ctx.runtime().pulsedRoutes(direct))) > 0;
             if (moved) {
                 ctx.runtime().chargeOperation();
             }

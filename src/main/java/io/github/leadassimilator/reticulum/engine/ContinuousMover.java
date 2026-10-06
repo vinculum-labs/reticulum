@@ -253,18 +253,31 @@ final class ContinuousMover {
         return false;
     }
 
-    /** Each route's weight: the product of its weighted splitters' output weights (1 without any). */
+    /**
+     * Each route's weight: for each weighted splitter on it, its output's weight shared by the routes going out of that
+     * output (so an output weighted 3 that fans out to two sinks gives each 1.5, together 3, as items get). 1 without
+     * any. Scaled to whole numbers.
+     */
     static long[] weights(List<CompiledSheet.Route> routes) {
-        long[] weights = new long[routes.size()];
-        for (int i = 0; i < weights.length; i++) {
-            long weight = 1;
-            for (CompiledSheet.Branch branch : routes.get(i).branches()) {
+        // How many routes go out of each weighted splitter's output.
+        Map<java.util.List<Object>, Integer> sharing = new java.util.HashMap<>();
+        for (CompiledSheet.Route route : routes) {
+            for (CompiledSheet.Branch branch : route.branches()) {
                 if (branch.mode() == NodeSettings.SplitMode.WEIGHTED) {
-                    // Held below what a sum of many could overflow (nested splitters with large weights).
-                    weight = Math.min(weight * Math.max(0, branch.weight()), 1L << 40);
+                    sharing.merge(java.util.List.of(branch.node(), branch.index()), 1, Integer::sum);
                 }
             }
-            weights[i] = weight;
+        }
+        long[] weights = new long[routes.size()];
+        for (int i = 0; i < weights.length; i++) {
+            double weight = 1;
+            for (CompiledSheet.Branch branch : routes.get(i).branches()) {
+                if (branch.mode() == NodeSettings.SplitMode.WEIGHTED) {
+                    weight *= Math.max(0, branch.weight()) / (double) sharing.getOrDefault(java.util.List.of(branch.node(), branch.index()), 1);
+                }
+            }
+            // Held below what a sum of many could overflow (nested splitters with large weights).
+            weights[i] = (long) Math.min(Math.round(weight * 1_000_000), 1L << 40);
         }
         return weights;
     }

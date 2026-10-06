@@ -308,7 +308,18 @@ public final class NetworkRuntime {
      * Takes FE from sources next to the controller, then pays this tick's upkeep. When the controller can't pay it, the
      * network is unpowered: only energy flows run (so it can recover), everything else waits.
      */
+    /** Whether the network was powered last tick (see payUpkeep). */
+    private boolean wasPowered = true;
+
     private void payUpkeep(MinecraftServer server, Network network) {
+        try {
+            payUpkeepNow(server, network);
+        } finally {
+            wasPowered = powered;
+        }
+    }
+
+    private void payUpkeepNow(MinecraftServer server, Network network) {
         power = Power.current();
         powered = true;
         powerSource = null;
@@ -331,7 +342,11 @@ public final class NetworkRuntime {
                 + wirelessDistance * power.perBlock() + crossDimensionConnectors * power.crossDimension();
         upkeepOwed += lastUpkeep;
         long whole = (long) upkeepOwed;
-        if (controller.draw(whole)) {
+        if (!wasPowered && controller.energy() < Math.min(ControllerBlockEntity.capacity(), whole * 20L)) {
+            // Unpowered: back on once a second's upkeep is in hand, not every tick it scrapes one together.
+            upkeepOwed -= whole;
+            powered = false;
+        } else if (controller.draw(whole)) {
             upkeepOwed -= whole;
         } else {
             // Not charged while unpowered, so the buffer can fill up again.
@@ -585,6 +600,11 @@ public final class NetworkRuntime {
         return false;
     }
 
+    /** The routes a pulse this tick gates (those a forced operation runs). */
+    List<CompiledSheet.Route> pulsedRoutes(List<CompiledSheet.Route> routes) {
+        return routes.stream().filter(route -> !disjoint(route.controls(), signals.pulsed())).toList();
+    }
+
     private static boolean disjoint(Set<UUID> a, Set<UUID> b) {
         Set<UUID> small = a.size() <= b.size() ? a : b;
         Set<UUID> large = small == a ? b : a;
@@ -655,21 +675,42 @@ public final class NetworkRuntime {
     // ---------------------------------------------------------------- rate limits
 
     private void refillTokens(List<CompiledSheet> sheets) {
-        Set<UUID> seen = new java.util.HashSet<>();
+        // The longest interval among the sources through each limit: one moving every 2 s may move 2 s worth at once.
+        Map<UUID, Integer> slowest = new HashMap<>();
+        Map<UUID, NodeSettings.RateLimitSettings> limits = new java.util.LinkedHashMap<>();
         for (CompiledSheet sheet : sheets) {
             for (CompiledSheet.Source source : sheet.sources()) {
+                int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.intervalOf(source.node().id());
                 for (CompiledSheet.Route route : source.routes()) {
                     for (Node node : route.rateLimits()) {
-                        if (seen.add(node.id()) && node.settings() instanceof NodeSettings.RateLimitSettings rate) {
-                            double perTick = rate.perSecond() / 20.0;
-                            // Bursts are limited to one second's worth.
-                            double capacity = Math.max(rate.perSecond(), perTick);
-                            tokens.merge(node.id(), perTick, (a, b) -> Math.min(capacity, a + b));
+                        if (node.settings() instanceof NodeSettings.RateLimitSettings rate) {
+                            limits.putIfAbsent(node.id(), rate);
+                            slowest.merge(node.id(), interval, Math::max);
                         }
                     }
                 }
             }
         }
+        rateCapacity.clear();
+        limits.forEach((id, rate) -> {
+            double perTick = rate.perSecond() / 20.0;
+            // Bursts are limited to one second's worth, or one interval's for a source slower than that.
+            double capacity = Math.max(rate.perSecond(), perTick) * Math.max(1, slowest.getOrDefault(id, 20) / 20.0);
+            rateCapacity.put(id, capacity);
+            tokens.merge(id, perTick, (a, b) -> Math.min(capacity, a + b));
+        });
+    }
+
+    /** Each rate limit's most tokens, as last refilled. */
+    private final Map<UUID, Double> rateCapacity = new HashMap<>();
+
+    /**
+     * Whether {@code amount} may pass a rate limit now: its tokens cover it, or (more than it ever holds, a kit bigger
+     * than a burst) it is full; it then goes below zero and waits that much longer.
+     */
+    public boolean mayPass(Node rateLimit, long amount) {
+        double have = tokens.getOrDefault(rateLimit.id(), 0.0);
+        return have >= amount || have >= rateCapacity.getOrDefault(rateLimit.id(), Double.MAX_VALUE) - 1e-9;
     }
 
     /** How much may pass through all the rate limits on a route right now. */
