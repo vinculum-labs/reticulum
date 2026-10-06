@@ -9,6 +9,8 @@ import javax.annotation.Nullable;
 import io.github.leadassimilator.reticulum.filter.FilterException;
 import io.github.leadassimilator.reticulum.filter.FilterExpr;
 import io.github.leadassimilator.reticulum.filter.Filters;
+import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
+import mekanism.api.Action;
 import mekanism.api.MekanismAPI;
 import mekanism.api.chemical.Chemical;
 import mekanism.api.chemical.ChemicalStack;
@@ -18,6 +20,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.neoforged.neoforge.capabilities.BlockCapability;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 
 /**
  * Mekanism chemicals (gases, infusion types, pigments and slurries, one type since Mekanism 10.7). Loaded only when
@@ -31,8 +34,49 @@ public final class MekanismChemicals {
     private MekanismChemicals() {
     }
 
+    /** No tanks: what a connector offers on its device sides (see ConnectorBlockEntity.registerCapabilities). */
+    private static final IChemicalHandler NONE = new IChemicalHandler() {
+        @Override
+        public int getChemicalTanks() {
+            return 0;
+        }
+
+        @Override
+        public ChemicalStack getChemicalInTank(int tank) {
+            return ChemicalStack.EMPTY;
+        }
+
+        @Override
+        public void setChemicalInTank(int tank, ChemicalStack stack) {
+        }
+
+        @Override
+        public long getChemicalTankCapacity(int tank) {
+            return 0;
+        }
+
+        @Override
+        public boolean isValid(int tank, ChemicalStack stack) {
+            return false;
+        }
+
+        @Override
+        public ChemicalStack insertChemical(int tank, ChemicalStack stack, Action action) {
+            return stack;
+        }
+
+        @Override
+        public ChemicalStack extractChemical(int tank, long amount, Action action) {
+            return ChemicalStack.EMPTY;
+        }
+    };
+
     public static void init() {
         Filters.setChemicalCompiler(MekanismChemicals::compile);
+    }
+
+    public static void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerBlockEntity(CAPABILITY, ModBlockEntities.CONNECTOR.get(), (connector, side) -> connector.facesDevice(side) ? NONE : null);
     }
 
     public static ResourceLocation id(ChemicalStack stack) {

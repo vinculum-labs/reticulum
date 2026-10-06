@@ -49,6 +49,20 @@ final class MekanismTestSupport {
         level.invalidateCapabilities(pos);
     }
 
+    /**
+     * Whether a Mekanism cable, pipe or tube is connected (draws its arm) toward {@code side}. Only Mekanism's API is
+     * compiled against, so its transmitter is read by name.
+     */
+    static boolean transmitterConnects(Level level, BlockPos pos, Direction side) {
+        try {
+            Object transmitter = level.getBlockEntity(pos).getClass().getMethod("getTransmitter").invoke(level.getBlockEntity(pos));
+            byte connections = (byte) transmitter.getClass().getMethod("getAllCurrentConnections").invoke(transmitter);
+            return (connections & (1 << side.ordinal())) != 0;
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("can't read the Mekanism transmitter at " + pos, e);
+        }
+    }
+
     /** Total chemical held, counted through the first face that answers. */
     static long stored(Level level, BlockPos pos) {
         IChemicalHandler handler = handler(level, pos);

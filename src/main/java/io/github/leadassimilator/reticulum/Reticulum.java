@@ -45,7 +45,9 @@ public class Reticulum {
         modEventBus.addListener(DataGenerators::gatherData);
         if (Mods.MEKANISM) {
             MekanismChemicals.init();
+            modEventBus.addListener(MekanismChemicals::registerCapabilities);
         }
+        modEventBus.addListener(io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity::registerCapabilities);
         modEventBus.addListener((net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent event) -> event.registerBlockEntity(
                 net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, io.github.leadassimilator.reticulum.registry.ModBlockEntities.CONTROLLER.get(),
                 (controller, side) -> controller.energyStorage()));

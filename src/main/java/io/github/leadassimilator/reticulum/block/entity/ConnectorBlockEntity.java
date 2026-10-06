@@ -4,6 +4,8 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import io.github.leadassimilator.reticulum.block.ConnectorBlock;
+import io.github.leadassimilator.reticulum.block.Link;
 import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
@@ -13,6 +15,11 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.energy.EmptyEnergyStorage;
+import net.neoforged.neoforge.fluids.capability.templates.EmptyFluidHandler;
+import net.neoforged.neoforge.items.wrapper.EmptyItemHandler;
 
 public class ConnectorBlockEntity extends NetworkBlockEntity {
     private UUID connectorId = UUID.randomUUID();
@@ -39,6 +46,25 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     public void setDeviceEnabled(Direction side, boolean enabled) {
         disabledDevices = enabled ? disabledDevices & ~bit(side) : disabledDevices | bit(side);
         setChanged();
+    }
+
+    /** Whether this connector shows a device on that side: one there, and the side attached. */
+    public boolean facesDevice(@Nullable Direction side) {
+        return side != null && getBlockState().getValue(ConnectorBlock.LINKS.get(side)) == Link.DEVICE;
+    }
+
+    /**
+     * Empty handlers on the sides facing a device, and only there: cables that show an arm toward what has a handler
+     * (Mekanism's) then meet the connector's, and a detached side offers nothing. They hold nothing and take nothing;
+     * the connector moves things through the device's own handlers.
+     */
+    public static void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.CONNECTOR.get(),
+                (connector, side) -> connector.facesDevice(side) ? EmptyItemHandler.INSTANCE : null);
+        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, ModBlockEntities.CONNECTOR.get(),
+                (connector, side) -> connector.facesDevice(side) ? EmptyFluidHandler.INSTANCE : null);
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.CONNECTOR.get(),
+                (connector, side) -> connector.facesDevice(side) ? EmptyEnergyStorage.INSTANCE : null);
     }
 
     @Override

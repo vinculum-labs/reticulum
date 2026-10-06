@@ -47,6 +47,17 @@ public class ConnectorBlock extends LinkedBlock {
     }
 
     @Override
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+        super.onPlace(state, level, pos, oldState, movedByPiston);
+        // Its device sides offer empty handlers (ConnectorBlockEntity.registerCapabilities): neighbors that keep what
+        // they found (Mekanism's cables) look again when a side starts or stops facing a device.
+        if (!level.isClientSide && LINKS.values().stream().anyMatch(link -> !oldState.hasProperty(link)
+                || (oldState.getValue(link) == Link.DEVICE) != (state.getValue(link) == Link.DEVICE))) {
+            level.invalidateCapabilities(pos);
+        }
+    }
+
+    @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
         // A neighbor becoming or ceasing to be a device does not always change its shape, so rescan here too.
