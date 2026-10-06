@@ -173,7 +173,7 @@ final class ItemPort {
                     ItemStack present = handler.getStackInSlot(slot);
                     boolean matching = !present.isEmpty() && ItemStack.isSameItemSameComponents(present, remaining);
                     if (pass == 0 ? matching : present.isEmpty()) {
-                        remaining = handler.insertItem(slot, remaining, simulate);
+                        remaining = Handlers.insert(handler, slot, remaining, simulate);
                     }
                 }
             }

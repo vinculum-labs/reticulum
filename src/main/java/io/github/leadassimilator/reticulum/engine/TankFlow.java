@@ -128,10 +128,9 @@ final class TankFlow {
         List<Long> demands = new ArrayList<>();
         // Room left in each target this tick: several routes may end at the same block (two inputs of one machine).
         // Free room as each set of faces sees it (a machine's input side may have room its output side hasn't), less
-        // what is already planned into that device through any faces (one store reached several ways counts once).
+        // what is already planned into the same handlers (one store reached several ways counts once).
         Map<java.util.List<Object>, Long> room = new HashMap<>();
-        Map<GlobalPos, Long> planned = new HashMap<>();
-        Map<java.util.List<Object>, Long> plannedThrough = new HashMap<>();
+        Map<Object, Long> plannedInto = new java.util.IdentityHashMap<>();
         // What each sink node's caps still allow this tick, once a route into it has asked.
         Map<java.util.UUID, Long> capLeft = new HashMap<>();
         for (CompiledSheet.Route route : ordered) {
@@ -164,15 +163,17 @@ final class TankFlow {
                 }
                 return best;
             });
-            // Planned already into what these faces reach: through the same faces, or through all of them (auto); with
-            // all faces, everything planned into the device. Different faces of one machine may be separate tanks.
-            java.util.List<Object> auto = java.util.List.of(port.device(), java.util.Set.of());
-            long already = port.faces().isEmpty() ? planned.getOrDefault(port.device(), 0L)
-                    : plannedThrough.getOrDefault(through, 0L) + plannedThrough.getOrDefault(auto, 0L);
+            // Planned already into what these handlers reach: a handler another route uses too is the same store (one
+            // tank seen through two faces), a different one may be a separate tank (a machine's two inputs).
+            long already = 0;
+            for (H handler : to) {
+                already = Math.max(already, plannedInto.getOrDefault(handler, 0L));
+            }
             long free = seen - already;
             long demand = Math.max(0, Math.min(max, free));
-            planned.merge(port.device(), demand, Long::sum);
-            plannedThrough.merge(through, demand, Long::sum);
+            for (H handler : to) {
+                plannedInto.merge(handler, demand, Long::sum);
+            }
             if (!route.sinkSettings().caps().isEmpty()) {
                 capLeft.put(route.sink().id(), capRoom - demand);
             }

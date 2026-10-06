@@ -11,7 +11,6 @@ import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemHandlerHelper;
 
 /**
  * Item operations. Each source runs once per interval: it walks its slots, and every stack goes down the first
@@ -217,7 +216,7 @@ final class ItemMover {
 
     /** Moves up to {@code amount} from one slot into the sink. Returns how many arrived. */
     static int transfer(NetworkRuntime.Context ctx, IItemHandler handler, int slot, int amount, ItemPort to) {
-        ItemStack simulated = handler.extractItem(slot, amount, true);
+        ItemStack simulated = Handlers.extract(handler, slot, amount, true);
         if (simulated.isEmpty()) {
             return 0;
         }
@@ -225,19 +224,12 @@ final class ItemMover {
         if (accepted <= 0) {
             return 0;
         }
-        ItemStack extracted = handler.extractItem(slot, accepted, false);
+        ItemStack extracted = Handlers.extract(handler, slot, accepted, false);
         if (extracted.isEmpty()) {
             return 0;
         }
-        ItemStack refused;
-        try {
-            refused = to.insert(extracted, false);
-        } catch (RuntimeException e) {
-            // Another mod's sink failed partway: what it may not have taken is given back (none lost; at worst some
-            // is in both, which the failing mod's own handler decided).
-            io.github.leadassimilator.reticulum.Reticulum.LOGGER.warn("Inserting into a device failed in another mod's handler; the items go back", e);
-            refused = extracted;
-        }
+        // (Each slot's insert is guarded: one failing takes nothing, so what is refused is known exactly.)
+        ItemStack refused = to.insert(extracted, false);
         if (!refused.isEmpty()) {
             giveBack(ctx, handler, slot, refused);
         }
@@ -246,14 +238,9 @@ final class ItemMover {
 
     /** Returns items to where they came from; anything the source refuses goes to the overflow buffer. */
     static void giveBack(NetworkRuntime.Context ctx, IItemHandler handler, int slot, ItemStack stack) {
-        ItemStack left;
-        try {
-            left = handler.insertItem(slot, stack, false);
-            if (!left.isEmpty()) {
-                left = ItemHandlerHelper.insertItemStacked(handler, left, false);
-            }
-        } catch (RuntimeException e) {
-            left = stack;
+        ItemStack left = Handlers.insert(handler, slot, stack, false);
+        if (!left.isEmpty()) {
+            left = Handlers.insertAnywhere(handler, left);
         }
         if (!left.isEmpty()) {
             Overflow.add(ctx, left);

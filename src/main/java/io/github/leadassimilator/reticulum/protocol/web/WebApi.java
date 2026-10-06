@@ -1108,37 +1108,52 @@ public final class WebApi {
                 }
             }
             // Deeper than the engine fills in: it would never run.
-            if (blueprintHeight(network, used, 0) + depthAbove(network, sheet, 0) > 8) {
+            if (blueprintHeight(network, used, 0, new HashMap<>()) + depthAbove(network, sheet, 0, new HashMap<>()) > 8) {
                 throw new RequestException("Blueprints can be placed in blueprints at most 8 deep");
             }
         }
 
-        /** How many blueprints deep {@code sheet} sits where it is placed deepest, itself counted (0 for a sheet in the tree). */
-        private static int depthAbove(Network network, Sheet sheet, int depth) {
+        /**
+         * How many blueprints deep {@code sheet} sits where it is placed deepest, itself counted (0 for a sheet in the
+         * tree). Each blueprint worked out once ({@code seen}), so shared nesting costs no more than the blueprints.
+         */
+        private static int depthAbove(Network network, Sheet sheet, int depth, Map<UUID, Integer> seen) {
             if (!sheet.blueprint() || depth > 8) {
                 return 0;
+            }
+            Integer known = seen.get(sheet.id());
+            if (known != null) {
+                return known;
             }
             int deepest = 1;
             for (Sheet holder : network.sheets()) {
                 if (holder.blueprint() && holder.nodes().stream().anyMatch(n -> n.settings() instanceof NodeSettings.InstanceSettings placed
                         && placed.sheet().equals(sheet.id()))) {
-                    deepest = Math.max(deepest, 1 + depthAbove(network, holder, depth + 1));
+                    deepest = Math.max(deepest, 1 + depthAbove(network, holder, depth + 1, seen));
                 }
             }
+            seen.put(sheet.id(), deepest);
             return deepest;
         }
 
-        /** How many blueprints deep {@code blueprint} goes, itself counted (loops stop at the limit). */
-        private static int blueprintHeight(Network network, Sheet blueprint, int depth) {
+        /** How many blueprints deep {@code blueprint} goes, itself counted (loops stop at the limit), each worked out once. */
+        private static int blueprintHeight(Network network, Sheet blueprint, int depth, Map<UUID, Integer> seen) {
             if (depth > 8) {
                 return depth;
             }
+            Integer known = seen.get(blueprint.id());
+            if (known != null) {
+                return known;
+            }
             int deepest = 1;
+            java.util.Set<UUID> placed = new java.util.HashSet<>();
             for (Node inner : blueprint.nodes()) {
-                if (inner.settings() instanceof NodeSettings.InstanceSettings nested && network.sheet(nested.sheet()) instanceof Sheet held) {
-                    deepest = Math.max(deepest, 1 + blueprintHeight(network, held, depth + 1));
+                if (inner.settings() instanceof NodeSettings.InstanceSettings nested && placed.add(nested.sheet())
+                        && network.sheet(nested.sheet()) instanceof Sheet held) {
+                    deepest = Math.max(deepest, 1 + blueprintHeight(network, held, depth + 1, seen));
                 }
             }
+            seen.put(blueprint.id(), deepest);
             return deepest;
         }
 

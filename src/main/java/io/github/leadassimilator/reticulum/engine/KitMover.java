@@ -352,7 +352,7 @@ final class KitMover {
         Map<IItemHandler, Map<Integer, Integer>> totals = new HashMap<>();
         for (Take take : takes) {
             totals.computeIfAbsent(take.handler, h -> new HashMap<>()).merge(take.slot, take.stack.getCount(), Integer::sum);
-            if (take.handler.extractItem(take.slot, take.stack.getCount(), true).getCount() != take.stack.getCount()) {
+            if (Handlers.extract(take.handler, take.slot, take.stack.getCount(), true).getCount() != take.stack.getCount()) {
                 return false;
             }
         }
@@ -364,7 +364,7 @@ final class KitMover {
             }
         }
         for (Put put : puts) {
-            if (!put.handler.insertItem(put.slot, put.incoming, true).isEmpty()) {
+            if (!Handlers.insert(put.handler, put.slot, put.incoming, true).isEmpty()) {
                 return false;
             }
         }
@@ -373,34 +373,11 @@ final class KitMover {
 
     // ---------------------------------------------------------------- step 4: commit, or roll back
 
+    /** Every call into a handler is guarded (Handlers): one that fails did nothing, so what is in hand stays exact. */
     private static boolean commit(NetworkRuntime.Context ctx, List<Take> takes, List<Put> puts) {
         List<ItemStack> extracted = new ArrayList<>();
-        List<ItemStack> placed = new ArrayList<>();
-        try {
-            return commit(ctx, takes, puts, extracted, placed);
-        } catch (RuntimeException e) {
-            // Another mod's handler failed partway: what was taken out and not put in isn't lost.
-            List<ItemStack> held = new ArrayList<>();
-            extracted.forEach(s -> held.add(s.copy()));
-            for (ItemStack in : placed) {
-                int left = in.getCount();
-                for (ItemStack h : held) {
-                    if (left > 0 && ItemStack.isSameItemSameComponents(h, in)) {
-                        int take = Math.min(left, h.getCount());
-                        h.shrink(take);
-                        left -= take;
-                    }
-                }
-            }
-            held.stream().filter(s -> !s.isEmpty()).forEach(s -> Overflow.add(ctx, s));
-            Reticulum.LOGGER.warn("A kit move failed in another mod's handler; what it held went to the overflow buffer", e);
-            return false;
-        }
-    }
-
-    private static boolean commit(NetworkRuntime.Context ctx, List<Take> takes, List<Put> puts, List<ItemStack> extracted, List<ItemStack> placed) {
         for (Take take : takes) {
-            ItemStack got = take.handler.extractItem(take.slot, take.stack.getCount(), false);
+            ItemStack got = Handlers.extract(take.handler, take.slot, take.stack.getCount(), false);
             extracted.add(got);
             if (got.getCount() != take.stack.getCount()) {
                 returnAll(ctx, takes, extracted);
@@ -410,9 +387,8 @@ final class KitMover {
         List<ItemStack> inserted = new ArrayList<>();
         for (int i = 0; i < puts.size(); i++) {
             Put put = puts.get(i);
-            ItemStack refused = put.handler.insertItem(put.slot, put.incoming, false);
+            ItemStack refused = Handlers.insert(put.handler, put.slot, put.incoming, false);
             inserted.add(put.incoming.copyWithCount(put.incoming.getCount() - refused.getCount()));
-            placed.add(inserted.getLast());
             if (!refused.isEmpty()) {
                 // The sink changed its mind after a successful simulation: take back what this kit put in.
                 List<ItemStack> back = new ArrayList<>();
@@ -420,7 +396,7 @@ final class KitMover {
                     Put done = puts.get(j);
                     int count = inserted.get(j).getCount();
                     if (count > 0) {
-                        back.add(done.handler.extractItem(done.slot, count, false));
+                        back.add(Handlers.extract(done.handler, done.slot, count, false));
                     }
                 }
                 int stuck = countAll(inserted) - countAll(back);
@@ -456,7 +432,7 @@ final class KitMover {
                     break;
                 }
                 if (ItemStack.isSameItemSameComponents(take.stack, left)) {
-                    left = take.handler.insertItem(take.slot, left, false);
+                    left = Handlers.insert(take.handler, take.slot, left, false);
                 }
             }
             if (!left.isEmpty()) {

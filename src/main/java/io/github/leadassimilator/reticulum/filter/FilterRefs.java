@@ -51,6 +51,8 @@ public final class FilterRefs {
                     name = expression.substring(nameStart, nameEnd);
                 }
                 out.append('@').append(name.equals(from) ? spelled(to) : expression.substring(nameStart, nameEnd));
+                // Past a quoted name the parser starts a new term too.
+                afterLiteral = nameStart < n && expression.charAt(nameStart) == '"';
                 i = nameEnd;
                 continue;
             }
