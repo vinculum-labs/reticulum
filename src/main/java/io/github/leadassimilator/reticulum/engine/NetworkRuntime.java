@@ -713,7 +713,7 @@ public final class NetworkRuntime {
     /**
      * An item source operating every {@code interval} ticks starts an operation: a limit it goes through that is full is
      * topped up to an interval's worth for it (a source slower than a second moves its rate, not a second's worth per
-     * interval). What is left over goes when the limit next fills.
+     * interval). What it leaves unused goes at {@link #endOperation}, so no other flow through the limit gets it.
      */
     public void beginOperation(java.util.Collection<Node> rateLimits, int interval) {
         if (interval <= 20) {
@@ -723,6 +723,16 @@ public final class NetworkRuntime {
             double capacity = rateCapacity.getOrDefault(node.id(), 0.0);
             if (capacity > 0 && tokens.getOrDefault(node.id(), 0.0) >= capacity - 1e-9) {
                 tokens.put(node.id(), capacity * interval / 20.0);
+            }
+        }
+    }
+
+    /** Ends an operation begun by {@link #beginOperation}: a limit holds no more than it can again. */
+    public void endOperation(java.util.Collection<Node> rateLimits) {
+        for (Node node : rateLimits) {
+            double capacity = rateCapacity.getOrDefault(node.id(), 0.0);
+            if (capacity > 0) {
+                tokens.computeIfPresent(node.id(), (k, have) -> Math.min(have, capacity));
             }
         }
     }

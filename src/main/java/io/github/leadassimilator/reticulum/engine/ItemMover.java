@@ -122,11 +122,19 @@ final class ItemMover {
 
     /** Returns how many items moved. */
     private static long operate(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, List<CompiledSheet.Route> routes) {
-        UUID owner = sheet.owner(source.node().id());
         int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.intervalOf(source.node().id());
         java.util.Set<io.github.leadassimilator.reticulum.graph.Node> limits = new java.util.LinkedHashSet<>();
         routes.forEach(route -> limits.addAll(route.rateLimits()));
         ctx.runtime().beginOperation(limits, interval);
+        try {
+            return move(ctx, sheet, source, routes);
+        } finally {
+            ctx.runtime().endOperation(limits);
+        }
+    }
+
+    private static long move(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, List<CompiledSheet.Route> routes) {
+        UUID owner = sheet.owner(source.node().id());
         ItemPort from = ctx.runtime().itemPort(ctx.server(), ctx.network(), source.settings().port());
         if (from.isEmpty()) {
             ctx.runtime().status(owner, Status.DEVICE_OFFLINE);
