@@ -372,6 +372,7 @@ public class ModLanguage extends LanguageProvider {
         add("message.reticulum.connector_and_devices", "the connector and its %s devices");
         add("message.reticulum.connector_and_device", "the connector and its device");
         add("message.reticulum.identify_full", "Can't light up more — %s things are lit on this network already");
+        add("message.reticulum.identify_some", "Lit up the connector and %s devices — %s more couldn't be, %s things are lit already");
         add("message.reticulum.not_a_device_of_yours", "That block isn't a device of a network you can use");
         add("screen.reticulum.identify_on", "Light it up in the world until turned off");
         add("screen.reticulum.identify_off", "Stop lighting it up");

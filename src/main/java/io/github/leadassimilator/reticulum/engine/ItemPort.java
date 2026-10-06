@@ -88,13 +88,18 @@ final class ItemPort {
     double fullness(Predicate<ItemStack> which, boolean[] any) {
         double sum = 0;
         int slots = 0;
+        java.util.Set<ItemStack> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         for (IItemHandler handler : view) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 if (!inRange(slot)) {
                     continue;
                 }
-                slots++;
                 ItemStack stack = handler.getStackInSlot(slot);
+                // A slot several faces show: its live stack is counted once (empty ones can't be told apart).
+                if (view.size() > 1 && !stack.isEmpty() && !seen.add(stack)) {
+                    continue;
+                }
+                slots++;
                 if (!stack.isEmpty() && which.test(stack)) {
                     sum += stack.getCount() / (double) Math.max(1, Math.min(handler.getSlotLimit(slot), stack.getMaxStackSize()));
                     any[0] = true;

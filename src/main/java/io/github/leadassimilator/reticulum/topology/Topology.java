@@ -1059,14 +1059,17 @@ public final class Topology {
         return best;
     }
 
-    /** The arm (or plug) of a cable or connector a look hits before its core, or null when it hits the core (or misses). */
+    /**
+     * The arm (or plug, on the sides in {@code plugs}) of a cable or connector a look hits before its core, or null when it
+     * hits the core (or misses).
+     */
     @Nullable
-    public static Direction armHit(BlockPos pos, boolean connector, Vec3 from, Vec3 to) {
+    public static Direction armHit(BlockPos pos, boolean connector, Vec3 from, Vec3 to, java.util.Set<Direction> plugs) {
         Direction best = null;
         double bestDistance = Double.MAX_VALUE;
         for (Direction dir : Direction.values()) {
             // A connector's plug plate is wider than its arm: aimed at its rim, that's the plug too.
-            List<AABB> boxes = connector ? List.of(jointBox(dir, true), plugPlate(dir)) : List.of(jointBox(dir, false));
+            List<AABB> boxes = connector && plugs.contains(dir) ? List.of(jointBox(dir, true), plugPlate(dir)) : List.of(jointBox(dir, connector));
             for (AABB box : boxes) {
                 Optional<Vec3> point = box.move(pos).clip(from, to);
                 if (point.isPresent() && from.distanceToSqr(point.get()) < bestDistance) {

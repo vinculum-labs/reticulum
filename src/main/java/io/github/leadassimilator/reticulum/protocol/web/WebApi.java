@@ -592,6 +592,29 @@ public final class WebApi {
                     }
                     return new com.google.gson.JsonPrimitive(node.id().toString());
                 }
+                case "restoreBindings" -> {
+                    // Fillings the game dropped as a side effect, given back on undo: added to the placement if it is
+                    // still there. One whose slot is gone again (the usual case: the undo took it out) counts for nothing
+                    // until it returns, so it comes back as it was; one whose slot is there only where its block lives
+                    // nowhere else (else it stays dropped).
+                    Sheet sheet = sheet(network, edit);
+                    Node node = sheet.node(uuid(edit, "node"));
+                    if (node != null && node.settings() instanceof NodeSettings.InstanceSettings instance && edit.has("bindings")
+                            && edit.get("bindings").isJsonObject()) {
+                        Map<UUID, NodeSettings.Binding> bindings = new HashMap<>(instance.bindings());
+                        java.util.Set<UUID> live = io.github.leadassimilator.reticulum.graph.Blueprints.slots(network, network.sheet(instance.sheet())).keySet();
+                        for (Map.Entry<String, JsonElement> entry : edit.getAsJsonObject("bindings").entrySet()) {
+                            NodeSettings.Binding binding = decode(server, NodeSettings.Binding.CODEC, entry.getValue(), "binding");
+                            UUID key = UUID.fromString(entry.getKey());
+                            boolean free = network.home(binding.device(), node.id()) == null
+                                    && bindings.values().stream().noneMatch(b -> b.device().equals(binding.device()));
+                            if (!bindings.containsKey(key) && (!live.contains(key) || free)) {
+                                bindings.put(key, binding);
+                            }
+                        }
+                        sheet.replace(node.with(new NodeSettings.InstanceSettings(instance.sheet(), bindings, instance.layout())));
+                    }
+                }
                 case "removeNode" -> {
                     UUID id = uuid(edit, "node");
                     Sheet sheet = sheet(network, edit);
@@ -1274,10 +1297,12 @@ public final class WebApi {
                 }
             }
 
+            Map<UUID, java.util.Set<UUID>> liveBefore = liveSlots(network, null);
             for (Sheet sheet : sheets) {
                 roomForSheet(network);
                 network.sheets().add(sheet);
             }
+            dropRevivedDoubles(server, network, liveBefore);
             // A device of this network keeps its one node: pasting a sheet of this world again is refused.
             for (Sheet sheet : sheets) {
                 for (Node node : sheet.nodes()) {
@@ -1325,7 +1350,19 @@ public final class WebApi {
          * The slots filled and still there of each placement of a blueprint that holds {@code changed} (itself, or placed
          * in it at any depth), by the placement's node id.
          */
-        private static Map<UUID, java.util.Set<UUID>> liveSlots(Network network, Sheet changed) {
+        private static Map<UUID, java.util.Set<UUID>> liveSlots(Network network, @Nullable Sheet changed) {
+            if (changed == null) {
+                // Every placement (what changed isn't one blueprint).
+                Map<UUID, java.util.Set<UUID>> out = new HashMap<>();
+                for (Sheet sheet : network.sheets()) {
+                    for (Node node : sheet.blueprint() ? List.<Node>of() : sheet.nodes()) {
+                        if (node.settings() instanceof NodeSettings.InstanceSettings instance) {
+                            out.put(node.id(), io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).keySet());
+                        }
+                    }
+                }
+                return out;
+            }
             // The blueprints holding the changed one, outwards.
             java.util.Set<UUID> holding = new java.util.HashSet<>(List.of(changed.id()));
             for (boolean grew = true; grew; ) {
@@ -1389,10 +1426,17 @@ public final class WebApi {
                     if (kept.size() != instance.bindings().size()) {
                         sheet.replace(node.with(new NodeSettings.InstanceSettings(instance.sheet(), kept, instance.layout())));
                         // Undone, the placement gets them back (its slot gone again, they count for nothing until it returns).
+                        JsonObject dropped = new JsonObject();
+                        instance.bindings().forEach((key, binding) -> {
+                            if (!kept.containsKey(key)) {
+                                dropped.add(key.toString(), Snapshots.encode(server, NodeSettings.Binding.CODEC, binding));
+                            }
+                        });
                         JsonObject back = new JsonObject();
-                        back.addProperty("type", "updateNode");
+                        back.addProperty("type", "restoreBindings");
                         back.addProperty("sheet", sheet.id().toString());
-                        back.add("node", Snapshots.encode(server, Node.CODEC, node));
+                        back.addProperty("node", node.id().toString());
+                        back.add("bindings", dropped);
                         RESTORE.get().add(back);
                     }
                 }

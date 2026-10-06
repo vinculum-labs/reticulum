@@ -87,6 +87,7 @@
   "message.reticulum.facade_removed": "Facade taken off",
   "message.reticulum.identified": "Lit up %s",
   "message.reticulum.identify_full": "Can't light up more — %s things are lit on this network already",
+  "message.reticulum.identify_some": "Lit up the connector and %s devices — %s more couldn't be, %s things are lit already",
   "message.reticulum.leads_to_controller": "Its cable leads to %s's controller — connect it to the other network's cable instead",
   "message.reticulum.member_is_owner": "%s owns the network",
   "message.reticulum.merge_needs_owner": "That would merge %s in — only its owner can",

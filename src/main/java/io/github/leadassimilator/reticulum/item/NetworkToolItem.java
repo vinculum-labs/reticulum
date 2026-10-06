@@ -170,9 +170,17 @@ public class NetworkToolItem extends Item {
     private static Direction plugAimedAt(ServerLevel level, ServerPlayer player, BlockPos pos) {
         Vec3 from = player.getEyePosition(1.0f);
         Vec3 to = from.add(player.getViewVector(1.0f).scale(player.blockInteractionRange() + 1));
-        Direction side = Topology.armHit(pos, true, from, to);
-        if (side == null || !(level.getBlockState(pos).getBlock() instanceof ConnectorBlock block)
-                || level.getBlockState(pos).getValue(block.linkProperties().get(side)) != io.github.leadassimilator.reticulum.block.Link.DEVICE) {
+        if (!(level.getBlockState(pos).getBlock() instanceof ConnectorBlock block)) {
+            return null;
+        }
+        java.util.Set<Direction> plugs = java.util.EnumSet.noneOf(Direction.class);
+        for (Direction dir : Direction.values()) {
+            if (level.getBlockState(pos).getValue(block.linkProperties().get(dir)) == io.github.leadassimilator.reticulum.block.Link.DEVICE) {
+                plugs.add(dir);
+            }
+        }
+        Direction side = Topology.armHit(pos, true, from, to, plugs);
+        if (side == null || !plugs.contains(side)) {
             return null;
         }
         return deviceNetwork(level, player, Devices.global(level, pos.relative(side))) != null ? side : null;
@@ -197,6 +205,12 @@ public class NetworkToolItem extends Item {
             return;
         }
         int devices = changed.size() - (changed.contains(self) ? 1 : 0);
+        long refused = on ? targets.stream().filter(t -> !Identifies.isOn(network, t)).count() : 0;
+        if (refused > 0) {
+            player.displayClientMessage(Component.translatable("message.reticulum.identify_some", devices, refused,
+                    io.github.leadassimilator.reticulum.network.Limits.IDENTIFIES), true);
+            return;
+        }
         Component what = devices == 0 ? Component.translatable("screen.reticulum.connector")
                 : devices == 1 ? Component.translatable("message.reticulum.connector_and_device")
                 : Component.translatable("message.reticulum.connector_and_devices", devices);
