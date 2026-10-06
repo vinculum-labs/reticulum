@@ -1089,6 +1089,24 @@ public final class WebApi {
                     }
                 }
             }
+            // Deeper than the engine fills in: it would never run.
+            if (blueprintHeight(network, used, 0) + (sheet.blueprint() ? 1 : 0) > 8) {
+                throw new RequestException("Blueprints can be placed in blueprints at most 8 deep");
+            }
+        }
+
+        /** How many blueprints deep {@code blueprint} goes, itself counted (loops stop at the limit). */
+        private static int blueprintHeight(Network network, Sheet blueprint, int depth) {
+            if (depth > 8) {
+                return depth;
+            }
+            int deepest = 1;
+            for (Node inner : blueprint.nodes()) {
+                if (inner.settings() instanceof NodeSettings.InstanceSettings nested && network.sheet(nested.sheet()) instanceof Sheet held) {
+                    deepest = Math.max(deepest, 1 + blueprintHeight(network, held, depth + 1));
+                }
+            }
+            return deepest;
         }
 
         /** A position from the editor: a finite number (NaN or infinity would break every snapshot of the network). */
@@ -1559,7 +1577,9 @@ public final class WebApi {
                     bound = new NodeSettings.InstanceSettings(nested.sheet(),
                             io.github.leadassimilator.reticulum.graph.Blueprints.inner(network, instance.bindings(), inner.id(), network.sheet(nested.sheet())));
                 }
-                sheet.replace(made.with(bound));
+                if (bound != null && !bound.equals(inner.settings())) {
+                    sheet.replace(made.with(bound));
+                }
                 // What it remembered in the instance, now under its own id.
                 moveRunning(network, inInstance(node.id().toString(), inner.id()), ids.get(inner.id()).toString(), inner, 0);
             }

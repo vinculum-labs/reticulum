@@ -166,11 +166,30 @@
    * Places another blueprint here (its slots start empty). A numbered name the old blueprint gave it ("Smelter #2") goes,
    * so the game numbers it for the new one; a name typed in stays.
    */
-  function switchBlueprint(sheet: string) {
+  function switchBlueprint(to: string) {
     if (node.settings.kind !== "instance") return;
-    const old = app.snapshot?.sheets.find((x) => x.id === (node.settings as { sheet?: string }).sheet)?.name;
+    const was = app.snapshot?.sheets.find((x) => x.id === (node.settings as { sheet?: string }).sheet);
+    const next = app.snapshot?.sheets.find((x) => x.id === to);
+    const old = was?.name;
     const numbered = !!old && !!node.label?.startsWith(`${old} #`) && /^\d+$/.test(node.label.slice(old.length + 2));
-    save({ ...node, label: numbered ? undefined : node.label, settings: { ...node.settings, sheet, bindings: undefined, layout: undefined } as NodeSettings }, "change blueprint");
+    const after = { ...node, label: numbered ? undefined : node.label, settings: { ...node.settings, sheet: to, bindings: undefined, layout: undefined } as NodeSettings };
+    // A wire stays where the new blueprint has a pin at its slot carrying the same as the old one's; the others go.
+    const carries = (bp: Sheet | undefined, input: boolean, slot: number) => {
+      const pins = bp ? sheetPins(bp, input) : [];
+      const pin = pins.find((p, i) => pinSlot(p, i) === slot);
+      return pin ? ((pin.settings as { resource?: string }).resource ?? "any") : undefined;
+    };
+    const fits = (w: Wire) =>
+      w.to === node.id
+        ? w.input === GATE || (carries(next, true, w.input ?? 0) !== undefined && carries(next, true, w.input ?? 0) === carries(was, true, w.input ?? 0))
+        : carries(next, false, w.output ?? 0) !== undefined && carries(next, false, w.output ?? 0) === carries(was, false, w.output ?? 0);
+    const gone = (sheet.wires ?? []).filter((w) => (w.to === node.id || w.from === node.id) && !fits(w));
+    const { after: sent, before } = rebase(node, after);
+    edit(
+      [...gone.map((w) => ({ type: "disconnect", sheet: sheet.id, wire: w.id })), { type: "updateNode", sheet: sheet.id, node: sent }],
+      [{ type: "updateNode", sheet: sheet.id, node: before }, ...gone.map((w) => ({ type: "connect", sheet: sheet.id, wire: w }))],
+      "change blueprint",
+    );
   }
 
   /** Another placement of the same blueprint with this one's name. */

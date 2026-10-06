@@ -479,6 +479,18 @@ public final class CompiledSheet {
      * wires still count, carrying 0, so what they gate is off and what they feed sees 0 rather than nothing wired.
      */
     private final Set<UUID> silent = new HashSet<>();
+    /** Switched-off device nodes among {@link #silent}: silent only on their redstone outputs (their others just stop). */
+    private final Map<UUID, NodeSettings.DeviceSettings> silentDevices = new java.util.HashMap<>();
+
+    /** Whether a wire leaves a silent signal output: a switched-off signal node, or a switched-off device's redstone side. */
+    private boolean silentSignal(Wire wire) {
+        if (!silent.contains(wire.from())) {
+            return false;
+        }
+        NodeSettings.DeviceSettings device = silentDevices.get(wire.from());
+        return device == null || wire.output() >= 0 && wire.output() < device.outputs().size()
+                && device.outputs().get(wire.output()).resource() == ResourceKind.REDSTONE;
+    }
     /** Nodes (by compiled id, including instance nodes) whose gate runs them once per pulse. */
     private final Set<UUID> pulseGates = new java.util.HashSet<>();
 
@@ -542,7 +554,7 @@ public final class CompiledSheet {
             grew = false;
             for (Wire wire : wires) {
                 Node to = byId.get(wire.to());
-                boolean signalIn = carriers.contains(wire.from()) || silent.contains(wire.from());
+                boolean signalIn = carriers.contains(wire.from()) || silentSignal(wire);
                 if (signalIn && to != null && to.settings() instanceof NodeSettings.SheetPinSettings && carriers.add(to.id())) {
                     grew = true;
                 }
@@ -550,7 +562,7 @@ public final class CompiledSheet {
         }
         if (carriers.isEmpty()) {
             for (Wire wire : wires) {
-                if (wire.input() == Wire.GATE && silent.contains(wire.from())) {
+                if (wire.input() == Wire.GATE && silentSignal(wire)) {
                     switchedBy.computeIfAbsent(wire.to(), k -> new ArrayList<>()).add(outputKey(wire.from(), wire.output()));
                 } else if (wire.input() == Wire.GATE) {
                     error(byId.get(wire.to()), "Only signal wires can switch a node on and off");
@@ -562,6 +574,10 @@ public final class CompiledSheet {
         // Output keys (see outputKey) back to their nodes.
         Map<UUID, UUID> keyOwners = new java.util.HashMap<>();
         for (Wire wire : wires) {
+            if (silent.contains(wire.from()) && !silentSignal(wire)) {
+                // A switched-off device's item, fluid or energy side: nothing goes out of it.
+                continue;
+            }
             if (silent.contains(wire.from())) {
                 // Never worked out, so it reads 0; not in keyOwners, so nothing waits on it.
                 UUID key = outputKey(wire.from(), wire.output());
@@ -805,6 +821,9 @@ public final class CompiledSheet {
                 if (node.kind().signal() || node.settings() instanceof NodeSettings.DeviceSettings) {
                     silent.add(node.id());
                 }
+                if (node.settings() instanceof NodeSettings.DeviceSettings device) {
+                    silentDevices.put(node.id(), device);
+                }
                 continue;
             }
             if (!node.enabled()) {
@@ -829,8 +848,12 @@ public final class CompiledSheet {
                 continue;
             }
             long instanceDepth = using.stream().map(network::sheet).filter(s -> s != null && s.blueprint()).count();
-            if (using.contains(used.id()) || (!child && instanceDepth >= MAX_INSTANCE_DEPTH)) {
+            if (using.contains(used.id())) {
                 error(node, describe(node) + ": " + (child ? "sheet" : "blueprint") + " '" + used.name() + "' contains itself");
+                continue;
+            }
+            if (!child && instanceDepth >= MAX_INSTANCE_DEPTH) {
+                error(node, describe(node) + ": blueprints can be placed in blueprints at most " + MAX_INSTANCE_DEPTH + " deep");
                 continue;
             }
             dependencies.put(used.id(), used.revision());
@@ -853,6 +876,15 @@ public final class CompiledSheet {
                     if (bound == null) {
                         UUID needed = io.github.leadassimilator.reticulum.graph.Blueprints.slotNeeded(inner);
                         Node slot = needed == null ? null : used.node(needed);
+                        // Checking a blueprint on its own (not running it), blueprints placed in it are filled by each of its
+                        // placements, at any depth: nothing to fill here.
+                        boolean filledElsewhere = slot != null && sheet.blueprint();
+                        if (filledElsewhere) {
+                            if (inner.kind().signal()) {
+                                silent.add(pasted.id());
+                            }
+                            continue;
+                        }
                         error(node, describe(node) + (slot == null
                                 ? ": a Level sensor in it reads a slot the blueprint no longer has"
                                 : ": its slot " + io.github.leadassimilator.reticulum.graph.Blueprints.slotName(slot)
@@ -1006,6 +1038,11 @@ public final class CompiledSheet {
                 return;
             }
             case NodeSettings.RateLimitSettings rate -> walk.rateLimits.add(node);
+            case NodeSettings.SheetPinSettings pin when pin.resource().isPresent() && pin.resource().get() != resource -> {
+                error(node, describe(node) + " carries " + pin.resource().get().getSerializedName() + " but gets "
+                        + resource.getSerializedName());
+                return;
+            }
             case NodeSettings.KitSettings kit -> {
                 if (resource != ResourceKind.ITEM) {
                     error(node, describe(node) + ": kits only move items");

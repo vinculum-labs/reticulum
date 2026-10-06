@@ -539,6 +539,41 @@ public final class WebApiTests {
         helper.succeed();
     }
 
+    /** A placed blueprint turned into a sheet keeps its weighted splitter's weights, on the sheet's own wires. */
+    @GameTest(template = "empty")
+    public static void aDetachedSplitterKeepsItsWeights(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.members().put(player.getUUID(), new Member(player.getUUID(), "test", Role.EDITOR));
+        var bp = new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "bp");
+        bp.setBlueprint(true);
+        var a = bp.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetPinSettings(false, "a")));
+        var b = bp.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetPinSettings(false, "b")));
+        UUID toA = UUID.randomUUID();
+        UUID toB = UUID.randomUUID();
+        var splitter = bp.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SplitterSettings(NodeSettings.SplitMode.WEIGHTED,
+                java.util.Map.of(toA, 3, toB, 1))));
+        bp.connect(new io.github.leadassimilator.reticulum.graph.Wire(toA, splitter.id(), 0, a.id(), 0, 0));
+        bp.connect(new io.github.leadassimilator.reticulum.graph.Wire(toB, splitter.id(), 0, b.id(), 0, 1));
+        bp.assignPinSlots();
+        network.sheets().add(bp);
+        var placed = network.root().add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.InstanceSettings(bp.id())));
+        String made = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + network.id() + "\",\"edits\":[{\"type\":\"detachInstance\",\"sheet\":\""
+                + network.root().id() + "\",\"node\":\"" + placed.id() + "\"}]}").getAsJsonArray("results").get(0).getAsString();
+        var sheet = network.sheet(UUID.fromString(made));
+        var copy = sheet.nodes().stream().filter(n -> n.settings() instanceof NodeSettings.SplitterSettings).findFirst().orElseThrow();
+        var weights = ((NodeSettings.SplitterSettings) copy.settings()).weights();
+        java.util.Set<UUID> leaving = new java.util.HashSet<>();
+        sheet.wires().stream().filter(w -> w.from().equals(copy.id())).forEach(w -> leaving.add(w.id()));
+        if (!weights.keySet().equals(leaving) || !new java.util.HashSet<>(weights.values()).equals(java.util.Set.of(3, 1))) {
+            helper.fail("Weights " + weights + " for wires " + leaving);
+        }
+        helper.succeed();
+    }
+
     /** Removing a blueprint's pin removes the wires on it on every instance of the blueprint. */
     @GameTest(template = "empty")
     public static void removingABlueprintPinRemovesItsWiresOnInstances(GameTestHelper helper) {
