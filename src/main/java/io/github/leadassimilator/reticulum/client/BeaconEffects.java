@@ -188,7 +188,8 @@ public final class BeaconEffects {
                 continue;
             }
             int interval = Math.max(1, look.interval());
-            if (time % interval != 0) {
+            // (Frozen, /tick freeze: time stands still, so a matching tick would sound every client tick.)
+            if (time % interval != 0 || !mc.level.tickRateManager().runsNormally()) {
                 continue;
             }
             SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(look.sound());

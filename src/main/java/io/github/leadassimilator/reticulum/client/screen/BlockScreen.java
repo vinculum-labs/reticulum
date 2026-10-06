@@ -132,17 +132,20 @@ public class BlockScreen extends QuickScreen {
 
     /** A small ID toggle: lights up the connector, a device or a face in the world until switched off. */
     private Button idButton(int x, int y, boolean on, java.util.Optional<Direction> side, java.util.Optional<io.github.leadassimilator.reticulum.network.FaceKey> face) {
-        return idButton(this, view.pos(), x, y, on, side, face);
+        return idButton(this, view.pos(), x, y, on, side, face, view.canUse());
     }
 
     /** The ID toggle for any of the connector screens; it saves what that screen has typed first. */
     static Button idButton(QuickScreen screen, BlockPos pos, int x, int y, boolean on, java.util.Optional<Direction> side,
-            java.util.Optional<io.github.leadassimilator.reticulum.network.FaceKey> face) {
-        return new IconButton(x, y, 22, 20, on ? "identify_on" : "identify_off", Component.literal("ID"),
+            java.util.Optional<io.github.leadassimilator.reticulum.network.FaceKey> face, boolean canUse) {
+        Button button = new IconButton(x, y, 22, 20, on ? "identify_on" : "identify_off", Component.literal("ID"),
                 Component.translatable(on ? "screen.reticulum.identify_off" : "screen.reticulum.identify_on"), b -> {
                     screen.commit();
                     PacketDistributor.sendToServer(new Payloads.ToggleIdentify(pos, side, face));
                 });
+        // Lighting things up takes a user's access (a viewer can only look).
+        button.active = canUse;
+        return button;
     }
 
     private void toggle(Direction side) {

@@ -233,7 +233,7 @@ public final class IdentifyRenderer {
             y += 10;
         }
         if (entries.size() > HUD_LINES) {
-            graphics.drawString(mc.font, "+" + (entries.size() - HUD_LINES) + " more", 11, y, 0xA0A0A0, true);
+            graphics.drawString(mc.font, net.minecraft.network.chat.Component.translatable("screen.reticulum.more", entries.size() - HUD_LINES), 11, y, 0xA0A0A0, true);
         }
     }
 }

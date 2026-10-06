@@ -73,8 +73,13 @@ public final class Screens {
     }
 
     private static void openBeacon(ServerPlayer player, BlockPos pos, boolean refresh) {
-        if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, pos)
-                || !(player.serverLevel().getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
+        if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, pos)) {
+            if (!refresh) {
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.too_far"), true);
+            }
+            return;
+        }
+        if (!(player.serverLevel().getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
             return;
         }
         var watch = beacon.watch(player.serverLevel());
@@ -146,6 +151,11 @@ public final class Screens {
     }
 
     public static void open(ServerPlayer player, BlockPos pos) {
+        // Farther than the server lets a screen stay open: said, rather than opened and closed again at once.
+        if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, pos)) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.too_far"), true);
+            return;
+        }
         // Claimed: not opened this time, so the message saying so (in chat) isn't hidden behind the screen.
         if (claim(player, pos)) {
             return;
@@ -207,7 +217,7 @@ public final class Screens {
     private static Views.ControllerView controllerView(ServerPlayer player, BlockPos pos, Network network) {
         return new Views.ControllerView(pos, network.id(), network.name(), network.ownerName(), network.accessMode(), network.passwordHash() != null,
                 network.connectors().size(), network.devices().size(), NetworkManager.orphanCount(network),
-                Security.canEdit(network, player), Security.canAdmin(network, player),
+                Security.could(network, player, Role.EDITOR), Security.could(network, player, Role.ADMIN),
                 player.serverLevel().getBlockEntity(pos) instanceof ControllerBlockEntity controller ? controller.antennaTier() : 0,
                 network.enabled(), io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(player.server, network),
                 network.switches().redstone(), sheetEntries(player, network), overflowLines(player, network), powerLine(player, network));
@@ -301,11 +311,12 @@ public final class Screens {
                 customName = record.name();
             }
         }
-        boolean canEdit = network == null || Security.canEdit(network, player);
+        boolean canEdit = network == null || Security.could(network, player, Role.EDITOR);
+        boolean canUse = network == null || Security.could(network, player, Role.USER);
         boolean identified = network != null && be instanceof ConnectorBlockEntity c2
                 && Identifies.isOn(network, Identify.connector(c2.connectorId(), 0));
         return new Views.BlockView(pos, connector, network == null ? "" : network.name(), defaultName, customName, sides, canEdit,
-                java.util.Optional.of(Topology.rebindHint(level, pos)), identified);
+                java.util.Optional.of(Topology.rebindHint(level, pos)), identified, canUse);
     }
 
     private static Views.SideView sideView(ServerLevel level, BlockPos pos, NetworkBlockEntity be, Direction dir, @Nullable Network network) {

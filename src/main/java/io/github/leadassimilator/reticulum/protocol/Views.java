@@ -76,7 +76,7 @@ public final class Views {
     /** Connector and cable screens share this view; cables have no connector name. */
     /** {@code bindable}: a connector no cable joins, so its network is picked in its screen. */
     public record BlockView(BlockPos pos, boolean connector, String networkName, String defaultName, String customName,
-            List<SideView> sides, boolean canEdit, java.util.Optional<net.minecraft.network.chat.Component> pickHint, boolean identified) {
+            List<SideView> sides, boolean canEdit, java.util.Optional<net.minecraft.network.chat.Component> pickHint, boolean identified, boolean canUse) {
         public static final StreamCodec<RegistryFriendlyByteBuf, BlockView> STREAM_CODEC = StreamCodec.of(
                 (buf, v) -> {
                     buf.writeBlockPos(v.pos);
@@ -88,11 +88,12 @@ public final class Views {
                     buf.writeBoolean(v.canEdit);
                     buf.writeOptional(v.pickHint, (b, c) -> net.minecraft.network.chat.ComponentSerialization.TRUSTED_STREAM_CODEC.encode((RegistryFriendlyByteBuf) b, c));
                     buf.writeBoolean(v.identified);
+                    buf.writeBoolean(v.canUse);
                 },
                 buf -> new BlockView(buf.readBlockPos(), buf.readBoolean(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
                         buf.readList(b -> SideView.STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)), buf.readBoolean(),
                         buf.readOptional(b -> net.minecraft.network.chat.ComponentSerialization.TRUSTED_STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)),
-                        buf.readBoolean()));
+                        buf.readBoolean(), buf.readBoolean()));
 
         public SideView side(Direction dir) {
             for (SideView s : sides) {

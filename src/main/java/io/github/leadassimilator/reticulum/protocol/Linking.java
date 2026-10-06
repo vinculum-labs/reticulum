@@ -44,7 +44,7 @@ public final class Linking {
         }
         List<Payloads.NetworkChoice> choices = new ArrayList<>();
         for (Network network : NetworkManager.data(player.server).networks()) {
-            boolean member = Security.canUse(network, player);
+            boolean member = Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.USER);
             boolean password = !member && network.accessMode() == AccessMode.PASSWORD && network.passwordHash() != null;
             if (member || password) {
                 choices.add(new Payloads.NetworkChoice(network.id(), network.name(), network.ownerName(), password));

@@ -30,6 +30,8 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   pruned. Fine at today's sizes.
 - A sheet whose gate turns back on runs its routes that tick, while the signal nodes inside it still give what they
   held when it went off (they wake the tick after): an inner gate can let one tick through on an old reading.
+- Status-marker labels ("orphaned", "missing", "unreachable") and "Missing connector" are English strings the server
+  sends: they can't be translated until the packets carry components.
 - A facade doesn't turn with its block: stairs or logs worn by a cable in a turned structure keep their old facing.
 - Cut joints and switched-off device sides turn with a block only through the game's own turns (around the vertical
   axis, and mirrors): a Create bearing turning sideways leaves them on the sides of the world they had (Create's own

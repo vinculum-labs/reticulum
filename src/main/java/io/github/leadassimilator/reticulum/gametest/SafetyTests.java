@@ -397,7 +397,7 @@ public final class SafetyTests {
                 io.github.leadassimilator.reticulum.protocol.Views.JointView.CONNECTED, true, net.minecraft.world.item.ItemStack.EMPTY, "Barrel", "Logs",
                 List.of("", "In", "", "", "", "", "Out"), 0b1000_0010);
         var block = new io.github.leadassimilator.reticulum.protocol.Views.BlockView(new BlockPos(1, 2, 3), true, "Base", "Connector (1, 2, 3)", "Main",
-                List.of(side), true, java.util.Optional.of(net.minecraft.network.chat.Component.translatable("screen.reticulum.rebind_piece", 3)), true);
+                List.of(side), true, java.util.Optional.of(net.minecraft.network.chat.Component.translatable("screen.reticulum.rebind_piece", 3)), true, false);
         var buffer = new RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), access);
         io.github.leadassimilator.reticulum.protocol.Views.BlockView.STREAM_CODEC.encode(buffer, block);
         check(helper, io.github.leadassimilator.reticulum.protocol.Views.BlockView.STREAM_CODEC.decode(buffer).equals(block), "the block view changed on the way");

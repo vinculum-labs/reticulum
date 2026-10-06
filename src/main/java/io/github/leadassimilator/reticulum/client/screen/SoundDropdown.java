@@ -62,7 +62,7 @@ final class SoundDropdown extends AbstractWidget {
             int thumb = Math.max(6, trackHeight * rows / items.size());
             int thumbTop = trackTop + (trackHeight - thumb) * scroll / Math.max(1, items.size() - rows);
             graphics.fill(x + width - 4, thumbTop, x + width - 1, thumbTop + thumb, 0xFF808080);
-            String more = (scroll + 1) + "–" + Math.min(items.size(), scroll + rows) + " of " + items.size() + " — scroll for more";
+            String more = Component.translatable("screen.reticulum.sound_more", scroll + 1, Math.min(items.size(), scroll + rows), items.size()).getString();
             graphics.drawString(font, font.plainSubstrByWidth(more, width - 8), x + 4, y + 2 + rows * ROW + 2, 0x808080);
         }
         graphics.pose().popPose();

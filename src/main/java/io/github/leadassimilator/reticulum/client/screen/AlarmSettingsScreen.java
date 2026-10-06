@@ -198,8 +198,10 @@ public class AlarmSettingsScreen extends QuickScreen {
         graphics.drawString(font, title, left, top, 0xFFFFFF);
         int[] counts = AlarmClient.counts();
         Component now = counts[0] + counts[1] == 0 ? Component.translatable("screen.reticulum.alarm_none")
-                : Component.translatable("screen.reticulum.alarm_now", (counts[1] > 0 ? counts[1] + " critical" : "")
-                        + (counts[0] > 0 && counts[1] > 0 ? ", " : "") + (counts[0] > 0 ? counts[0] + " warning" : ""));
+                : Component.translatable("screen.reticulum.alarm_now", counts[1] > 0 && counts[0] > 0
+                        ? Component.translatable("screen.reticulum.alarm_both", counts[1], counts[0])
+                        : counts[1] > 0 ? Component.translatable("screen.reticulum.alarm_critical", counts[1])
+                        : Component.translatable("screen.reticulum.alarm_warning", counts[0]));
         graphics.drawString(font, now, left, top + 14, counts[1] > 0 ? 0xFF5050 : counts[0] > 0 ? 0xFFC040 : 0x80C080);
         graphics.drawString(font, Component.translatable("screen.reticulum.beacon_warning"), left + COLUMN, top + 34, 0xFFC040);
         graphics.drawString(font, Component.translatable("screen.reticulum.beacon_critical"), left + COLUMN + 56, top + 34, 0xFF5050);

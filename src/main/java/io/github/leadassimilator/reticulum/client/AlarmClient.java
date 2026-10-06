@@ -159,7 +159,7 @@ public final class AlarmClient {
         }
         // Status mode: where things are wrong, asked for every two seconds while held.
         if (holdingStatusTool(player)) {
-            if (time % 40 == 0) {
+            if (time % 40 == 0 && player.level().tickRateManager().runsNormally()) {
                 PacketDistributor.sendToServer(new Payloads.RequestStatusMarkers());
             }
         } else if (!markers.isEmpty()) {
@@ -173,6 +173,10 @@ public final class AlarmClient {
      */
     private static void playToolSound(Minecraft mc, long time, String id, double pitch, double pitch2, boolean twoTone, int everySeconds,
             net.minecraft.sounds.SoundEvent fallback) {
+        // The game frozen (/tick freeze): its time stands still, so a matching tick would play every client tick.
+        if (mc.level == null || !mc.level.tickRateManager().runsNormally()) {
+            return;
+        }
         long cycle = Math.max(twoTone ? 40 : 1, everySeconds * 20L);
         long phase = time % cycle;
         if (twoTone ? phase >= 40 || phase % 10 != 0 : phase != 0) {
