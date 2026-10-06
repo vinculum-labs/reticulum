@@ -13,6 +13,8 @@ public final class Metrics {
     public static final int MINUTES = 1440;
 
     private static final class Series {
+        /** A level (a device's contents), set every second, rather than something moved. */
+        boolean sampled;
         long current;
         long lastMovedTick = -1;
         long lastSecond;
@@ -39,6 +41,17 @@ public final class Metrics {
     }
 
     private final Map<UUID, Series> series = new HashMap<>();
+
+    /** Ticks in the longest window: a series that moved nothing for that long holds nothing but zeros. */
+    private static final long DAY_TICKS = MINUTES * 60L * 20L;
+
+    /**
+     * Drops series that moved nothing for a whole day (a wire or node long gone, or idle): all they hold is zeros, so
+     * nothing shown changes, and they stop being rolled and sent every second. Levels are kept (set every second).
+     */
+    void prune(long now) {
+        series.values().removeIf(s -> !s.sampled && now - Math.max(0, s.lastMovedTick) > DAY_TICKS + 20 * 60);
+    }
 
     void record(CompiledSheet.Route route, long amount, long tick) {
         if (amount <= 0) {
@@ -77,7 +90,9 @@ public final class Metrics {
 
     /** Sets a level series for this second (a device's contents): a minute's value is then the sum of 60 samples. */
     void sample(UUID id, long value) {
-        series.computeIfAbsent(id, k -> new Series()).current = value;
+        Series s = series.computeIfAbsent(id, k -> new Series());
+        s.sampled = true;
+        s.current = value;
     }
 
     /** Forgets series no longer charted. */
@@ -113,6 +128,9 @@ public final class Metrics {
     void tick(long ticks) {
         if (ticks % 20 == 0) {
             series.values().forEach(Series::rollSecond);
+        }
+        if (ticks % 1200 == 0) {
+            prune(ticks);
         }
     }
 

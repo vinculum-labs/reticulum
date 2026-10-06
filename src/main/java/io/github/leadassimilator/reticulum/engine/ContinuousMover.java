@@ -260,7 +260,8 @@ final class ContinuousMover {
             long weight = 1;
             for (CompiledSheet.Branch branch : routes.get(i).branches()) {
                 if (branch.mode() == NodeSettings.SplitMode.WEIGHTED) {
-                    weight *= branch.weight();
+                    // Held below what a sum of many could overflow (nested splitters with large weights).
+                    weight = Math.min(weight * Math.max(0, branch.weight()), 1L << 40);
                 }
             }
             weights[i] = weight;

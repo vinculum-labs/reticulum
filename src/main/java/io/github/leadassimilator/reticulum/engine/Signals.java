@@ -655,6 +655,8 @@ final class Signals {
         delays.clear();
         pulseLeft.clear();
         timerStart.clear();
+        // A Timer counts from when it starts running: started again, it starts again (its "running" edge forgotten).
+        wasOn.keySet().removeIf(key -> key.endsWith("/run"));
     }
 
     // ---------------------------------------------------------------- switching

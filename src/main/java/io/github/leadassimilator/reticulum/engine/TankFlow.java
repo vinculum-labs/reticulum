@@ -127,7 +127,9 @@ final class TankFlow {
         List<List<H>> sinks = new ArrayList<>();
         List<Long> demands = new ArrayList<>();
         // Room left in each target this tick: several routes may end at the same block (two inputs of one machine).
-        Map<GlobalPos, Long> room = new HashMap<>();
+        // Free room per device and the faces reached through (one store through several faces counts once; another face
+        // set may see room a first one doesn't, a machine's input side and its output side).
+        Map<java.util.List<Object>, Long> room = new HashMap<>();
         // What each sink node's caps still allow this tick, once a route into it has asked.
         Map<java.util.UUID, Long> capLeft = new HashMap<>();
         for (CompiledSheet.Route route : ordered) {
@@ -152,7 +154,8 @@ final class TankFlow {
                 why = Status.furthest(why, capRoom <= 0 ? Status.CAP_REACHED : Status.RATE_LIMITED);
                 continue;
             }
-            long free = room.computeIfAbsent(port.device(), device -> {
+            java.util.List<Object> through = java.util.List.of(port.device(), port.faces());
+            long free = room.computeIfAbsent(through, key -> {
                 long best = 0;
                 for (H handler : to) {
                     best = Math.max(best, tank.insert(handler, kind, Long.MAX_VALUE, true));
@@ -160,7 +163,7 @@ final class TankFlow {
                 return best;
             });
             long demand = Math.max(0, Math.min(max, free));
-            room.put(port.device(), free - demand);
+            room.put(through, free - demand);
             if (!route.sinkSettings().caps().isEmpty()) {
                 capLeft.put(route.sink().id(), capRoom - demand);
             }

@@ -173,7 +173,8 @@ final class ChemicalMover {
             }
             long placed = offered - left.getAmount();
             if (placed > 0) {
-                ctx.runtime().consume(route.rateLimits(), placed);
+                // Counted as delivered (rates, totals, charts), as items and fluids from the overflow are.
+                ctx.runtime().delivered(route, placed, CHEMICALS.chartKey(stack));
                 changed = true;
                 if (placed == held.getValue()) {
                     it.remove();
