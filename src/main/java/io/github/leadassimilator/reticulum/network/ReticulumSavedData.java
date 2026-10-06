@@ -40,6 +40,13 @@ public final class ReticulumSavedData extends SavedData {
     /** The copy kept of a file that couldn't be read, told to operators as they join. */
     @Nullable
     private String keptAs;
+    /** The unreadable file couldn't be copied aside: it is never saved over (see keepUnreadable). */
+    private boolean refuseSave;
+
+    @Override
+    public boolean isDirty() {
+        return !refuseSave && super.isDirty();
+    }
     /** Networks merged into others: old id to the id that absorbed it. Blocks still carrying an old id follow it. */
     private final Map<UUID, UUID> aliases = new LinkedHashMap<>();
 
@@ -77,7 +84,9 @@ public final class ReticulumSavedData extends SavedData {
                     + "the networks that couldn't be read start empty.", error, copy);
         } catch (java.io.IOException e) {
             keptAs = null;
-            Reticulum.LOGGER.error("Reticulum couldn't read all of its saved networks ({}), nor copy the file aside", error, e);
+            refuseSave = true;
+            Reticulum.LOGGER.error("Reticulum couldn't read all of its saved networks ({}), nor copy the file aside: nothing is saved over it "
+                    + "this session (changes are lost on stop)", error, e);
         }
     }
 
@@ -104,6 +113,7 @@ public final class ReticulumSavedData extends SavedData {
     private static ReticulumSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         ReticulumSavedData data = new ReticulumSavedData();
         data.loaded = true;
+        Ids.leftOut = false;
         Contents.CODEC.parse(RegistryOps.create(NbtOps.INSTANCE, registries), tag)
                 .resultOrPartial(err -> data.loadError = err)
                 .ifPresent(contents -> {
@@ -114,6 +124,10 @@ public final class ReticulumSavedData extends SavedData {
                             .forEach(n -> data.networks.put(n.id(), n));
                     data.aliases.putAll(contents.aliases());
                 });
+        // Something left out (a node or a chart it couldn't read): the file is kept as it was, as for a failed read.
+        if (Ids.leftOut && data.loadError == null) {
+            data.loadError = "some entries couldn't be read (see the log)";
+        }
         return data;
     }
 

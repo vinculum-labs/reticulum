@@ -310,7 +310,8 @@ public final class NetworkManager {
      */
     public static boolean isEmpty(Network network) {
         return network.sheets().stream().allMatch(sheet -> sheet.root() && sheet.nodes().isEmpty()) && network.devices().isEmpty()
-                && network.connectors().isEmpty() && network.filters().isEmpty() && network.overflow().isEmpty();
+                && network.connectors().isEmpty() && network.filters().isEmpty() && network.overflow().isEmpty()
+                && network.members().isEmpty() && network.passwordHash() == null;
     }
 
     /**
@@ -372,6 +373,33 @@ public final class NetworkManager {
         io.github.leadassimilator.reticulum.graph.Sheet fromRoot = from.root();
         fromRoot.setName(from.name());
         fromRoot.setRoot(false);
+        for (Map.Entry<String, String> template : List.copyOf(from.filters().entrySet())) {
+            String name = template.getKey();
+            String here = into.filters().get(name);
+            if (here == null || here.equals(template.getValue())) {
+                continue;
+            }
+            String renamed = name;
+            for (int n = 2; into.filters().containsKey(renamed) || from.filters().containsKey(renamed); n++) {
+                String suffix = " " + n;
+                renamed = (name.length() + suffix.length() > Limits.NAME ? name.substring(0, Limits.NAME - suffix.length()).stripTrailing() : name) + suffix;
+            }
+            String to = renamed;
+            from.filters().remove(name);
+            from.filters().put(to, template.getValue());
+            from.filters().replaceAll((k, v) -> io.github.leadassimilator.reticulum.filter.FilterRefs.rename(v, name, to));
+            for (io.github.leadassimilator.reticulum.graph.Sheet sheet : from.sheets()) {
+                for (io.github.leadassimilator.reticulum.graph.Node node : List.copyOf(sheet.nodes())) {
+                    var settings = io.github.leadassimilator.reticulum.filter.FilterRefs.rename(node.settings(),
+                            e -> e == null ? null : io.github.leadassimilator.reticulum.filter.FilterRefs.rename(e, name, to));
+                    if (!settings.equals(node.settings())) {
+                        sheet.replace(node.with(settings));
+                    }
+                }
+            }
+            io.github.leadassimilator.reticulum.Reticulum.LOGGER.info("Merging {} into {}: its filter template @{} is @{} now ({} has its own @{})",
+                    from.name(), into.name(), name, to, into.name(), name);
+        }
         into.sheets().addAll(from.sheets());
         into.ensureTree();
         // Switched off, it stays off: as a sheet now, by its sheet node's switch.
@@ -391,15 +419,28 @@ public final class NetworkManager {
             }
         }
         from.signalMemory().forEach(into.signalMemory()::putIfAbsent);
+        int leftOut = 0;
         for (io.github.leadassimilator.reticulum.network.Identify identify : from.identified()) {
-            if (into.identified().size() < Limits.IDENTIFIES && into.identified().stream().noneMatch(identify::sameTarget)) {
-                into.identified().add(identify);
+            if (into.identified().stream().noneMatch(identify::sameTarget)) {
+                if (into.identified().size() < Limits.IDENTIFIES) {
+                    into.identified().add(identify);
+                } else {
+                    leftOut++;
+                }
             }
         }
         for (ChartSeries chart : from.charts()) {
-            if (into.charts().size() < Limits.CHARTS && into.charts().stream().noneMatch(c -> c.key().equals(chart.key()))) {
-                into.charts().add(chart);
+            if (into.charts().stream().noneMatch(c -> c.key().equals(chart.key()))) {
+                if (into.charts().size() < Limits.CHARTS) {
+                    into.charts().add(chart);
+                } else {
+                    leftOut++;
+                }
             }
+        }
+        if (leftOut > 0) {
+            io.github.leadassimilator.reticulum.Reticulum.LOGGER.warn("Merging {} into {}: {} identifies or charts didn't fit (limits) and were left out",
+                    from.name(), into.name(), leftOut);
         }
         for (ConnectorRecord connector : from.connectors()) {
             into.connectorMap().putIfAbsent(connector.id(), connector);

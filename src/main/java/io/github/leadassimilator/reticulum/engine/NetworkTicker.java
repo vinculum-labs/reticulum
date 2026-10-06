@@ -57,6 +57,7 @@ public final class NetworkTicker {
     public static void onServerStopped(ServerStoppedEvent event) {
         RUNTIMES.clear();
         LAST_FAILURE_LOGGED.clear();
+        io.github.leadassimilator.reticulum.topology.Topology.forgetAll();
     }
 
     /**

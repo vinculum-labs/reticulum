@@ -539,6 +539,28 @@ public final class WebApiTests {
         helper.succeed();
     }
 
+    /** Merging two networks with a filter template of the same name but different filters keeps both: the absorbed one renamed, its uses with it. */
+    @GameTest(template = "empty")
+    public static void aMergeKeepsBothTemplatesOfOneName(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        Network into = NetworkManager.create(server, null);
+        Network from = NetworkManager.create(server, null);
+        into.filters().put("ores", "tag:c:ores");
+        from.filters().put("ores", "id:minecraft:iron_ore");
+        from.filters().put("more", "@ores | id:minecraft:gold_ore");
+        var filter = from.root().add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.FilterSettings("@ores")));
+        NetworkManager.absorb(server, into, from, io.github.leadassimilator.reticulum.security.Role.OWNER);
+        boolean kept = "tag:c:ores".equals(into.filters().get("ores")) && "id:minecraft:iron_ore".equals(into.filters().get("ores 2"))
+                && "@\"ores 2\" | id:minecraft:gold_ore".equals(into.filters().get("more"));
+        var moved = into.sheets().stream().flatMap(sh -> sh.nodes().stream()).filter(n -> n.id().equals(filter.id())).findFirst().orElseThrow();
+        boolean used = moved.settings() instanceof NodeSettings.FilterSettings f && f.expression().equals("@\"ores 2\"");
+        if (!kept || !used) {
+            helper.fail("Templates " + into.filters() + ", filter " + moved.settings());
+        }
+        NetworkManager.delete(server, into);
+        helper.succeed();
+    }
+
     /** A card moved to another sheet (removed and added back in one batch) keeps what it remembers; deleted, it forgets. */
     @GameTest(template = "empty")
     public static void aMovedCardKeepsItsMemory(GameTestHelper helper) {

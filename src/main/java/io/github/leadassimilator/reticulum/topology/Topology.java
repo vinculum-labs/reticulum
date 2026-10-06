@@ -72,6 +72,12 @@ public final class Topology {
     /** Network blocks that appeared without a player and still need connecting up, per dimension. */
     private static final Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, Set<BlockPos>> PENDING = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** The server stopped: nothing waits to be connected up, nor any version kept, in the next world. */
+    public static void forgetAll() {
+        PENDING.clear();
+        VERSIONS.clear();
+    }
+
     public static void queue(ServerLevel level, BlockPos pos) {
         PENDING.computeIfAbsent(level.dimension(), k -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(pos.immutable());
     }

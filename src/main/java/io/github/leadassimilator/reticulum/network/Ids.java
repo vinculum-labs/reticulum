@@ -21,6 +21,9 @@ public final class Ids {
     private Ids() {
     }
 
+    /** Set when a lenient list left something out (see ReticulumSavedData.load). */
+    public static volatile boolean leftOut;
+
     /**
      * A list that loads the elements it can and leaves out (and logs) the ones it can't, e.g. nodes of a kind that
      * no longer exists, so one stale element doesn't lose the whole sheet. Written like any list.
@@ -32,7 +35,10 @@ public final class Ids {
                 return ops.getStream(input).map(stream -> {
                     List<T> out = new ArrayList<>();
                     stream.forEach(item -> element.parse(ops, item)
-                            .resultOrPartial(error -> Reticulum.LOGGER.warn("Left out a {} that can't be loaded: {}", what, error))
+                            .resultOrPartial(error -> {
+                                leftOut = true;
+                                Reticulum.LOGGER.warn("Left out a {} that can't be loaded: {}", what, error);
+                            })
                             .ifPresent(out::add));
                     return Pair.of(out, input);
                 });
