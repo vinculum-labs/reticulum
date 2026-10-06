@@ -411,19 +411,73 @@ public final class Filters {
 
     /** Glob over the full id; a pattern without a namespace matches any namespace. */
     public static Predicate<String> idMatcher(String pattern) {
-        String full = pattern.contains(":") ? pattern : "*:" + pattern;
-        StringBuilder regex = new StringBuilder();
-        for (char ch : full.toLowerCase(Locale.ROOT).toCharArray()) {
-            if (ch == '*') {
-                regex.append(".*");
-            } else if (ch == '?') {
-                regex.append('.');
+        String full = (pattern.contains(":") ? pattern : "*:" + pattern).toLowerCase(Locale.ROOT);
+        return id -> glob(full, id);
+    }
+
+    /**
+     * Whether {@code text} matches a glob ({@code *} any run, {@code ?} one character), in time linear in their lengths
+     * times a small factor: no backtracking regex, so no pattern can stall the server.
+     */
+    static boolean glob(String pattern, String text) {
+        int p = 0;
+        int t = 0;
+        int star = -1;
+        int resume = 0;
+        while (t < text.length()) {
+            if (p < pattern.length() && (pattern.charAt(p) == '?' || pattern.charAt(p) == text.charAt(t))) {
+                p++;
+                t++;
+            } else if (p < pattern.length() && pattern.charAt(p) == '*') {
+                star = p++;
+                resume = t;
+            } else if (star >= 0) {
+                p = star + 1;
+                t = ++resume;
             } else {
-                regex.append(Pattern.quote(String.valueOf(ch)));
+                return false;
             }
         }
-        Pattern compiled = Pattern.compile(regex.toString());
-        return id -> compiled.matcher(id).matches();
+        while (p < pattern.length() && pattern.charAt(p) == '*') {
+            p++;
+        }
+        return p == pattern.length();
+    }
+
+    /** How many characters a regex may look at in one test before it gives up (no match). */
+    private static final int REGEX_STEPS = 200_000;
+
+    /** Thrown by {@link Budgeted} when a regex has looked too long. */
+    private static final class TooLong extends RuntimeException {
+        TooLong() {
+            super(null, null, false, false);
+        }
+    }
+
+    /** Text a regex reads through a budget: a pattern that backtracks without end stops instead of stalling the server. */
+    private record Budgeted(String text, int[] left) implements CharSequence {
+        @Override
+        public int length() {
+            return text.length();
+        }
+
+        @Override
+        public char charAt(int index) {
+            if (--left[0] < 0) {
+                throw new TooLong();
+            }
+            return text.charAt(index);
+        }
+
+        @Override
+        public CharSequence subSequence(int start, int end) {
+            return new Budgeted(text.substring(start, end), left);
+        }
+
+        @Override
+        public String toString() {
+            return text;
+        }
     }
 
     /** {@code /regex/} searches; any other value is a case-insensitive "contains". */
@@ -431,7 +485,16 @@ public final class Filters {
         if (atom.regex()) {
             try {
                 Pattern pattern = Pattern.compile(atom.value());
-                return text -> pattern.matcher(text).find();
+                return text -> {
+                    try {
+                        return pattern.matcher(new Budgeted(text, new int[] {REGEX_STEPS})).find();
+                    } catch (TooLong e) {
+                        // Too costly a pattern for this text: no match, rather than a stalled server.
+                        return false;
+                    } catch (StackOverflowError e) {
+                        return false;
+                    }
+                };
             } catch (PatternSyntaxException e) {
                 throw new FilterException("Bad regex: " + e.getDescription(), -1);
             }

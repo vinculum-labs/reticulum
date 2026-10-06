@@ -1655,6 +1655,21 @@ public final class EngineTests {
         });
     }
 
+    /** Filters can't stall the server: a glob full of stars and a backtracking regex both answer at once. */
+    @GameTest(template = "empty")
+    public static void filtersCantStallTheServer(GameTestHelper helper) throws Exception {
+        long start = System.nanoTime();
+        String id = "minecraft:" + "a".repeat(40);
+        boolean glob = io.github.leadassimilator.reticulum.filter.Filters.idMatcher("********************q").test(id);
+        boolean globHit = io.github.leadassimilator.reticulum.filter.Filters.idMatcher("*:a*a?a").test(id);
+        boolean regex = io.github.leadassimilator.reticulum.filter.Filters.textMatcher(
+                new io.github.leadassimilator.reticulum.filter.FilterExpr.Atom("name", "^(a|aa)+$", true)).test("a".repeat(49) + "b");
+        long ms = (System.nanoTime() - start) / 1_000_000;
+        check(helper, !glob && globHit && !regex, "wrong answers: " + glob + " " + globHit + " " + regex);
+        check(helper, ms < 1000, "filters took " + ms + " ms");
+        helper.succeed();
+    }
+
     /** FE stored in a block, read once (through its unsided handler, or the first face that answers). */
     private static long energyStored(GameTestHelper helper, BlockPos rel) {
         BlockPos pos = helper.absolutePos(rel);
