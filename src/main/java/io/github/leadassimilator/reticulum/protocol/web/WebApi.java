@@ -1898,8 +1898,51 @@ public final class WebApi {
         return power;
     }
 
+    /** Pieces of large requests being received, by player, then by message id. */
+    private static final Map<UUID, Map<Integer, byte[][]>> PARTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * A piece of a large request (see WebPayloads.RequestPart). Once all of it is in, it is handled as any request. At most
+     * a few are put together at once per player (older ones dropped), each within the piece and size limits.
+     */
+    public static void onRequestPart(ServerPlayer player, WebPayloads.RequestPart part) {
+        if (part.total() < 1 || part.total() > WebPayloads.MAX_PARTS || part.index() < 0 || part.index() >= part.total()) {
+            send(player, error(null, "Request too large"));
+            return;
+        }
+        Map<Integer, byte[][]> mine = PARTS.computeIfAbsent(player.getUUID(), k -> new java.util.LinkedHashMap<>());
+        byte[][] pieces;
+        synchronized (mine) {
+            pieces = mine.computeIfAbsent(part.message(), k -> new byte[part.total()][]);
+            while (mine.size() > 4) {
+                mine.remove(mine.keySet().iterator().next());
+            }
+        }
+        if (pieces.length != part.total()) {
+            return;
+        }
+        pieces[part.index()] = part.data();
+        for (byte[] piece : pieces) {
+            if (piece == null) {
+                return;
+            }
+        }
+        synchronized (mine) {
+            mine.remove(part.message());
+        }
+        String json;
+        try {
+            json = WebPayloads.join(java.util.Arrays.asList(pieces), WebPayloads.MAX_REQUEST_BYTES);
+        } catch (java.util.zip.DataFormatException e) {
+            send(player, error(null, "Request too large"));
+            return;
+        }
+        onRequest(player, json);
+    }
+
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         SUBSCRIPTIONS.remove(event.getEntity().getUUID());
+        PARTS.remove(event.getEntity().getUUID());
         ALLOWANCE.remove(event.getEntity().getUUID());
         LIST_LISTENERS.remove(event.getEntity().getUUID());
     }

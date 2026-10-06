@@ -87,7 +87,9 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             ctx.writeAndFlush(new TextWebSocketFrame(done.toString()));
             return;
         }
-        if (json.length() > WebPayloads.MAX_REQUEST_CHARS) {
+        // Too large for one packet (an undo bringing many cards back, an import): compressed and sent in pieces.
+        boolean large = json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > WebPayloads.MAX_REQUEST_CHARS;
+        if (large && json.length() > WebPayloads.MAX_REQUEST_BYTES) {
             reply(ctx, id, "Request too large");
             return;
         }
@@ -112,9 +114,18 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
                 reply(ctx, id, "Not in a world");
                 return;
             }
-            PacketDistributor.sendToServer(new WebPayloads.Request(json));
+            if (large) {
+                for (WebPayloads.RequestPart part : WebPayloads.splitRequest(NEXT_LARGE.incrementAndGet(), json)) {
+                    PacketDistributor.sendToServer(part);
+                }
+            } else {
+                PacketDistributor.sendToServer(new WebPayloads.Request(json));
+            }
         });
     }
+
+    /** Ids for large requests sent in pieces. */
+    private static final java.util.concurrent.atomic.AtomicInteger NEXT_LARGE = new java.util.concurrent.atomic.AtomicInteger();
 
     /** A page closed: the networks no other page shows are unsubscribed. */
     @Override

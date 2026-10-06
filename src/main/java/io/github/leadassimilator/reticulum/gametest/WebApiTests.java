@@ -539,6 +539,26 @@ public final class WebApiTests {
         helper.succeed();
     }
 
+    /** A request too large for one packet goes in pieces, each within a packet, and comes back whole. */
+    @GameTest(template = "empty")
+    public static void aLargeRequestGoesInPiecesAndComesBackWhole(GameTestHelper helper) throws Exception {
+        StringBuilder json = new StringBuilder("{\"op\":\"edit\",\"edits\":[");
+        java.util.Random random = new java.util.Random(7);
+        for (int i = 0; i < 3000; i++) {
+            json.append(i == 0 ? "" : ",").append("{\"type\":\"addNode\",\"node\":{\"id\":\"").append(new UUID(random.nextLong(), random.nextLong()))
+                    .append("\",\"x\":").append(random.nextInt(5000)).append("}}");
+        }
+        json.append("]}");
+        var parts = io.github.leadassimilator.reticulum.protocol.web.WebPayloads.splitRequest(1, json.toString());
+        boolean small = parts.stream().allMatch(p -> p.data().length <= io.github.leadassimilator.reticulum.protocol.web.WebPayloads.PART_BYTES);
+        String back = io.github.leadassimilator.reticulum.protocol.web.WebPayloads.join(parts.stream().map(p -> p.data()).toList(),
+                io.github.leadassimilator.reticulum.protocol.web.WebPayloads.MAX_REQUEST_BYTES);
+        if (parts.size() < 2 || !small || !back.equals(json.toString())) {
+            helper.fail("Pieces " + parts.size() + ", within a packet " + small + ", whole again " + back.equals(json.toString()));
+        }
+        helper.succeed();
+    }
+
     /** Merging two networks with a filter template of the same name but different filters keeps both: the absorbed one renamed, its uses with it. */
     @GameTest(template = "empty")
     public static void aMergeKeepsBothTemplatesOfOneName(GameTestHelper helper) {
