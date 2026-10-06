@@ -76,6 +76,25 @@ public final class Topology {
     public static void forgetAll() {
         PENDING.clear();
         VERSIONS.clear();
+        REACH.clear();
+    }
+
+    /** Per network, the blocks joined to its controller by cable, as of a version (the look HUD asks often). */
+    private record Reach(long version, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension, BlockPos controller,
+            Set<BlockPos> blocks) {
+    }
+
+    private static final Map<UUID, Reach> REACH = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Whether {@code pos} is joined by cable to {@code network}'s controller at {@code controller}, worked out once per change. */
+    public static boolean reachesController(ServerLevel level, UUID network, BlockPos controller, BlockPos pos) {
+        long version = version(network);
+        Reach reach = REACH.get(network);
+        if (reach == null || reach.version() != version || !reach.dimension().equals(level.dimension()) || !reach.controller().equals(controller)) {
+            reach = new Reach(version, level.dimension(), controller, Set.copyOf(component(level, controller, null).blocks()));
+            REACH.put(network, reach);
+        }
+        return reach.blocks().contains(pos);
     }
 
     public static void queue(ServerLevel level, BlockPos pos) {

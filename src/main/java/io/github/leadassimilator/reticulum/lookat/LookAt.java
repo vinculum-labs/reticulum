@@ -140,8 +140,8 @@ public final class LookAt {
             // A cable joins things by cable only: cut off from its controller, it says so.
             if (network.controller() == null) {
                 lines.add(reachLine("lookat.reticulum.reach.no_controller", ChatFormatting.RED));
-            } else if (!Topology.component(level, be.getBlockPos(), null).controllers().contains(network.controller().pos())
-                    || !network.controller().dimension().equals(level.dimension())) {
+            } else if (!network.controller().dimension().equals(level.dimension())
+                    || !Topology.reachesController(level, network.id(), network.controller().pos(), be.getBlockPos())) {
                 lines.add(reachLine("lookat.reticulum.reach.unreachable", ChatFormatting.RED));
             }
         }
