@@ -167,6 +167,10 @@ public abstract class NetworkBlockEntity extends BlockEntity {
 
     private void readFacade(CompoundTag tag, HolderLookup.Provider registries) {
         facade = tag.contains("facade") ? NbtUtils.readBlockState(registries.lookupOrThrow(Registries.BLOCK), tag.getCompound("facade")) : null;
+        // A block from a mod since removed reads as air: no facade (an invisible block with a full outline otherwise).
+        if (facade != null && facade.isAir()) {
+            facade = null;
+        }
         lightChanged();
     }
 

@@ -162,6 +162,8 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         antennaTier = input.getOrDefault(ModDataComponents.ANTENNA_TIER.get(), 0);
         // Within what it holds now (the capacity may have been lowered since it was charged).
         energy = Math.min(capacity(), Math.max(0, input.getOrDefault(ModDataComponents.STORED_ENERGY.get(), 0L)));
+        // Read so the block doesn't keep it: the name it drops with is the network's as it is then, or none.
+        input.get(ModDataComponents.NETWORK_NAME.get());
     }
 
     @Override
