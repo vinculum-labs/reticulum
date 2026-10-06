@@ -201,6 +201,11 @@ public final class NetworkManager {
             return;
         }
         ServerLevel level = server.getLevel(pos.dimension());
+        // Its chunk not loaded: not looked at (that would load it); taken as still there, the block not known gone.
+        if (level != null && !level.isLoaded(pos.pos())) {
+            record.setState(DeviceRecord.State.ORPHANED);
+            return;
+        }
         boolean present = level != null && (Devices.isDevice(level, pos.pos())
                 || level.getBlockEntity(pos.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity)
                 && Objects.equals(Devices.blockId(level, pos.pos()), record.blockId());

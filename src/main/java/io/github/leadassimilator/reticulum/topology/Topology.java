@@ -355,11 +355,21 @@ public final class Topology {
         boolean ambiguous = false;
         if (primary == null) {
             Section against = placedAgainst == null ? null : sides.get(placedAgainst);
+            Set<UUID> carried = new HashSet<>();
+            if (carriesNetwork) {
+                UUID mine = networkOf(level, be);
+                if (mine != null) {
+                    carried.add(mine);
+                }
+            }
             if (against != null && against.network() != null) {
                 primary = against.network();
             } else {
                 Set<UUID> distinct = new HashSet<>();
                 sides.values().forEach(c -> distinct.addAll(c.networks()));
+                // Moved in with its network (a contraption carrying two touching networks): it stays on its own where it
+                // touches it, the other cut again, rather than cut off from both.
+                distinct.retainAll(carried.isEmpty() || java.util.Collections.disjoint(distinct, carried) ? distinct : carried);
                 if (distinct.size() == 1) {
                     primary = distinct.iterator().next();
                 } else {
@@ -522,7 +532,16 @@ public final class Topology {
      */
     public static UUID reclaimController(ServerLevel level, BlockPos pos, @Nullable ServerPlayer player) {
         ControllerBlockEntity controller = (ControllerBlockEntity) blockEntity(level, pos);
-        UUID id = claimControllerNetwork(level, pos, controller, player, player == null);
+        // Its network's owner, when someone else opens it: the new network is theirs (private), not the opener's, so a
+        // deleted network's base doesn't pass to whoever comes by.
+        java.util.UUID owner = controller.lastOwner();
+        boolean theirs = owner != null && (player == null || !owner.equals(player.getUUID()));
+        UUID id = claimControllerNetwork(level, pos, controller, theirs ? null : player, player == null || theirs);
+        Network made = NetworkManager.network(level.getServer(), id);
+        if (theirs && made != null && made.owner() == null) {
+            made.setOwner(owner, controller.lastOwnerName());
+            made.setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PRIVATE);
+        }
         Section comp = component(level, pos, null);
         Set<BlockPos> unowned = new HashSet<>();
         for (BlockPos block : comp.blocks()) {

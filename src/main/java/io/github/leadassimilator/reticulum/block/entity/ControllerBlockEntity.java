@@ -107,11 +107,27 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         }
     }
 
+    /** Its network's owner when last saved: a network deleted from under it goes back to them (see Topology.reclaimController). */
+    @javax.annotation.Nullable
+    private java.util.UUID lastOwner;
+    private String lastOwnerName = "";
+
+    @javax.annotation.Nullable
+    public java.util.UUID lastOwner() {
+        return lastOwner;
+    }
+
+    public String lastOwnerName() {
+        return lastOwnerName;
+    }
+
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         antennaTier = tag.getByte("antenna");
         energy = tag.getLong("energy");
+        lastOwner = tag.hasUUID("owner") ? tag.getUUID("owner") : null;
+        lastOwnerName = tag.getString("owner_name");
     }
 
     @Override
@@ -119,6 +135,17 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         super.saveAdditional(tag, registries);
         tag.putByte("antenna", (byte) antennaTier);
         tag.putLong("energy", energy);
+        if (level instanceof net.minecraft.server.level.ServerLevel server && networkId() != null) {
+            var network = io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId());
+            if (network != null && network.owner() != null) {
+                lastOwner = network.owner();
+                lastOwnerName = network.ownerName();
+            }
+        }
+        if (lastOwner != null) {
+            tag.putUUID("owner", lastOwner);
+            tag.putString("owner_name", lastOwnerName);
+        }
     }
 
     @Override
@@ -154,7 +181,7 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         }
         if (level instanceof net.minecraft.server.level.ServerLevel server && networkId() != null) {
             var network = io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId());
-            if (network != null) {
+            if (network != null && !gone) {
                 components.set(ModDataComponents.NETWORK_NAME.get(), network.name());
             }
         }

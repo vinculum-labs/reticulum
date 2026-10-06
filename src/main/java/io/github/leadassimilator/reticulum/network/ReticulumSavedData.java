@@ -110,7 +110,7 @@ public final class ReticulumSavedData extends SavedData {
                     // A network with no controller and nothing in it is left over (a controller placed and broken while
                     // an empty top sheet kept it from being deleted): dropped.
                     contents.networks().stream()
-                            .filter(n -> n.controller() != null || !NetworkManager.isEmpty(n))
+                            .filter(n -> n.controller() != null || n.owner() != null || !NetworkManager.isEmpty(n))
                             .forEach(n -> data.networks.put(n.id(), n));
                     data.aliases.putAll(contents.aliases());
                 });

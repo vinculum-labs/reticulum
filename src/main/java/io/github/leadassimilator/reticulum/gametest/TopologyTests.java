@@ -300,6 +300,41 @@ public final class TopologyTests {
     }
 
     /**
+     * A cable moved in with its network, landing against it and against another network of the same owner (both carried
+     * by one contraption): it stays on its own, cut from the other, rather than cut off from both.
+     */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void aMovedCableStaysOnItsOwnNetworkBesideAnother(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(3, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(1, 1, 4), ModBlocks.CONTROLLER.get(), null);
+        place(helper, new BlockPos(2, 1, 4), ModBlocks.CABLE.get(), Direction.WEST);
+        place(helper, new BlockPos(2, 1, 3), ModBlocks.CABLE.get(), Direction.SOUTH);
+        Network a = network(helper, new BlockPos(1, 1, 1));
+        Network b = network(helper, new BlockPos(1, 1, 4));
+        UUID owner = UUID.randomUUID();
+        for (Network n : java.util.List.of(a, b)) {
+            n.setOwner(owner, "someone");
+            n.setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PRIVATE);
+        }
+        var registries = helper.getLevel().registryAccess();
+        var data = be(helper, new BlockPos(3, 1, 1)).saveWithFullMetadata(registries);
+        var level = helper.getLevel();
+        level.setBlock(helper.absolutePos(new BlockPos(3, 1, 1)), Blocks.AIR.defaultBlockState(),
+                net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
+        BlockPos to = helper.absolutePos(new BlockPos(2, 1, 2));
+        level.setBlock(to, ModBlocks.CABLE.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        level.getBlockEntity(to).loadWithComponents(data, registries);
+        helper.runAfterDelay(5, () -> {
+            check(helper, a.id().equals(net(helper, new BlockPos(2, 1, 2))), "the moved cable left its network");
+            check(helper, Topology.connected(level, to, Direction.NORTH), "the moved cable was cut from its own network");
+            check(helper, !Topology.connected(level, to, Direction.SOUTH), "the moved cable joined the other network");
+            helper.succeed();
+        });
+    }
+
+    /**
      * A connector moved by a piston against a private network of another owner's cable keeps its own network (the
      * joint cut); against a public one it joins.
      */

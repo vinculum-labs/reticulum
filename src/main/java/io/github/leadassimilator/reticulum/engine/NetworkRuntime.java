@@ -470,6 +470,13 @@ public final class NetworkRuntime {
             ServerLevel level = server.getLevel(connector.pos().dimension());
             // Its neighbors loaded too: one not yet loaded would read as no device, and the device be let go.
             if (level != null && level.isAreaLoaded(connector.pos().pos(), 1)) {
+                // Not lifted by a contraption, and no such connector there: it went without the game telling (a crash
+                // between saves): its record goes, so it costs nothing and keeps nothing alive.
+                if (!connector.moving() && !(level.getBlockEntity(connector.pos().pos())
+                        instanceof io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity there && there.connectorId().equals(connector.id()))) {
+                    NetworkManager.removeConnector(server, network, connector.id());
+                    continue;
+                }
                 Topology.rescanConnector(level, connector.pos().pos());
             }
         }
