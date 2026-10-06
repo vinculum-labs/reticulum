@@ -32,6 +32,7 @@ import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
 import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
+import io.github.leadassimilator.reticulum.protocol.web.WebPayloads;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -152,13 +153,16 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             return;
         }
         WebSocketServerHandshakerFactory factory = new WebSocketServerHandshakerFactory(
-                WebBridge.baseUrl().replaceFirst("^http", "ws") + "/ws", null, false, 128 * 1024);
+                // Room past the largest request, so one a little over it gets an answer rather than a dropped page.
+                WebBridge.baseUrl().replaceFirst("^http", "ws") + "/ws", null, false, 2 * WebPayloads.MAX_REQUEST_BYTES);
         WebSocketServerHandshaker handshaker = factory.newHandshaker(request);
         if (handshaker == null) {
             WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel());
             return;
         }
         ctx.pipeline().replace(ctx.handler(), "ws", new SocketHandler(handshaker));
+        // Browsers send a large message as several frames: joined into one before it is read.
+        ctx.pipeline().addBefore("ws", "wsjoin", new io.netty.handler.codec.http.websocketx.WebSocketFrameAggregator(2 * WebPayloads.MAX_REQUEST_BYTES));
         handshaker.handshake(ctx.channel(), request).addListener(future -> {
             if (future.isSuccess()) {
                 WebBridge.sockets().add(ctx.channel());

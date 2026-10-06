@@ -88,8 +88,9 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             return;
         }
         // Too large for one packet (an undo bringing many cards back, an import): compressed and sent in pieces.
-        boolean large = json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > WebPayloads.MAX_REQUEST_CHARS;
-        if (large && json.length() > WebPayloads.MAX_REQUEST_BYTES) {
+        int bytes = json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        boolean large = bytes > WebPayloads.MAX_REQUEST_CHARS;
+        if (bytes > WebPayloads.MAX_REQUEST_BYTES) {
             reply(ctx, id, "Request too large");
             return;
         }
@@ -115,7 +116,7 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
                 return;
             }
             if (large) {
-                for (WebPayloads.RequestPart part : WebPayloads.splitRequest(NEXT_LARGE.incrementAndGet(), json)) {
+                for (WebPayloads.RequestPart part : WebPayloads.splitRequest(NEXT_LARGE.incrementAndGet(), id, json)) {
                     PacketDistributor.sendToServer(part);
                 }
             } else {

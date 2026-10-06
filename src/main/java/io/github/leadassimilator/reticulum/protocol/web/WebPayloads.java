@@ -45,11 +45,15 @@ public final class WebPayloads {
     public static final int MAX_PARTS = 256;
     public static final int MAX_REQUEST_BYTES = 8 * 1024 * 1024;
 
-    /** One piece of a large compressed request. The server joins pieces with the same {@code message} id. */
-    public record RequestPart(int message, int index, int total, byte[] data) implements CustomPacketPayload {
+    /**
+     * One piece of a large compressed request. The server joins pieces with the same {@code message} id; {@code id} is the
+     * request's own id ("" for none), for answering one refused before it is joined.
+     */
+    public record RequestPart(int message, String id, int index, int total, byte[] data) implements CustomPacketPayload {
         public static final Type<RequestPart> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "web_request_part"));
         public static final StreamCodec<ByteBuf, RequestPart> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.VAR_INT, RequestPart::message,
+                ByteBufCodecs.stringUtf8(256), RequestPart::id,
                 ByteBufCodecs.VAR_INT, RequestPart::index,
                 ByteBufCodecs.VAR_INT, RequestPart::total,
                 ByteBufCodecs.byteArray(PART_BYTES), RequestPart::data,
@@ -62,7 +66,8 @@ public final class WebPayloads {
     }
 
     /** A large request, compressed and split into pieces for the server. */
-    public static List<RequestPart> splitRequest(int message, String json) {
+    public static List<RequestPart> splitRequest(int message, String id, String json) {
+        String requestId = id == null ? "" : id.length() > 256 ? id.substring(0, 256) : id;
         byte[] compressed = deflate(json.getBytes(StandardCharsets.UTF_8));
         int total = Math.max(1, (compressed.length + PART_BYTES - 1) / PART_BYTES);
         List<RequestPart> parts = new ArrayList<>(total);
@@ -71,7 +76,7 @@ public final class WebPayloads {
             int to = Math.min(compressed.length, from + PART_BYTES);
             byte[] part = new byte[to - from];
             System.arraycopy(compressed, from, part, 0, part.length);
-            parts.add(new RequestPart(message, i, total, part));
+            parts.add(new RequestPart(message, requestId, i, total, part));
         }
         return parts;
     }

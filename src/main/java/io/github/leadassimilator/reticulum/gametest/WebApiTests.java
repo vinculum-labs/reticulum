@@ -549,7 +549,7 @@ public final class WebApiTests {
                     .append("\",\"x\":").append(random.nextInt(5000)).append("}}");
         }
         json.append("]}");
-        var parts = io.github.leadassimilator.reticulum.protocol.web.WebPayloads.splitRequest(1, json.toString());
+        var parts = io.github.leadassimilator.reticulum.protocol.web.WebPayloads.splitRequest(1, "r1", json.toString());
         boolean small = parts.stream().allMatch(p -> p.data().length <= io.github.leadassimilator.reticulum.protocol.web.WebPayloads.PART_BYTES);
         String back = io.github.leadassimilator.reticulum.protocol.web.WebPayloads.join(parts.stream().map(p -> p.data()).toList(),
                 io.github.leadassimilator.reticulum.protocol.web.WebPayloads.MAX_REQUEST_BYTES);

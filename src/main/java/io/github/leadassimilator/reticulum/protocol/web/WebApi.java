@@ -72,6 +72,11 @@ public final class WebApi {
     // ---------------------------------------------------------------- transport
 
     public static void onRequest(ServerPlayer player, String json) {
+        onRequest(player, json, false);
+    }
+
+    /** {@code charged}: the request was taken from the player's allowance already (a large one, at its first piece). */
+    private static void onRequest(ServerPlayer player, String json, boolean charged) {
         JsonObject request;
         try {
             request = JsonParser.parseString(json).getAsJsonObject();
@@ -81,7 +86,7 @@ public final class WebApi {
         }
         JsonElement rawId = request.get("id");
         String id = rawId != null && rawId.isJsonPrimitive() ? rawId.getAsString() : null;
-        if (!allowance(player)) {
+        if (!charged && !allowance(player)) {
             send(player, error(id, "Too many requests — slow down"));
             return;
         }
@@ -104,11 +109,21 @@ public final class WebApi {
     private static final double BURST = 60;
     private static final double PER_SECOND = 20;
 
+    /**
+     * Large requests (sent in pieces, up to 8 MB to unpack and read) a player may still make: an import or a big undo is
+     * now and then, so far fewer.
+     */
+    private static final Map<UUID, double[]> LARGE_ALLOWANCE = new HashMap<>();
+
     /** Takes one request from the player's allowance (each subscribe or edit makes the server build and send snapshots). */
     private static boolean allowance(ServerPlayer player) {
+        return take(ALLOWANCE, player, BURST, PER_SECOND);
+    }
+
+    private static boolean take(Map<UUID, double[]> allowances, ServerPlayer player, double burst, double perSecond) {
         long now = System.nanoTime();
-        double[] state = ALLOWANCE.computeIfAbsent(player.getUUID(), k -> new double[] {BURST, now});
-        state[0] = Math.min(BURST, state[0] + (now - state[1]) / 1e9 * PER_SECOND);
+        double[] state = allowances.computeIfAbsent(player.getUUID(), k -> new double[] {burst, now});
+        state[0] = Math.min(burst, state[0] + (now - state[1]) / 1e9 * perSecond);
         state[1] = now;
         if (state[0] < 1) {
             return false;
@@ -1906,17 +1921,30 @@ public final class WebApi {
      * a few are put together at once per player (older ones dropped), each within the piece and size limits.
      */
     public static void onRequestPart(ServerPlayer player, WebPayloads.RequestPart part) {
+        String id = part.id().isEmpty() ? null : part.id();
         if (part.total() < 1 || part.total() > WebPayloads.MAX_PARTS || part.index() < 0 || part.index() >= part.total()) {
-            send(player, error(null, "Request too large"));
+            send(player, error(id, "Request too large"));
             return;
         }
         Map<Integer, byte[][]> mine = PARTS.computeIfAbsent(player.getUUID(), k -> new java.util.LinkedHashMap<>());
         byte[][] pieces;
+        boolean refused = false;
         synchronized (mine) {
-            pieces = mine.computeIfAbsent(part.message(), k -> new byte[part.total()][]);
+            pieces = mine.get(part.message());
+            if (pieces == null) {
+                // Charged once, at its first piece, before any work: a refused one keeps an empty entry so its other
+                // pieces are dropped.
+                refused = !take(LARGE_ALLOWANCE, player, 4, 0.5) || !allowance(player);
+                pieces = refused ? new byte[0][] : new byte[part.total()][];
+                mine.put(part.message(), pieces);
+            }
             while (mine.size() > 4) {
                 mine.remove(mine.keySet().iterator().next());
             }
+        }
+        if (refused) {
+            send(player, error(id, "Too many requests — slow down"));
+            return;
         }
         if (pieces.length != part.total()) {
             return;
@@ -1934,16 +1962,17 @@ public final class WebApi {
         try {
             json = WebPayloads.join(java.util.Arrays.asList(pieces), WebPayloads.MAX_REQUEST_BYTES);
         } catch (java.util.zip.DataFormatException e) {
-            send(player, error(null, "Request too large"));
+            send(player, error(id, "Request too large"));
             return;
         }
-        onRequest(player, json);
+        onRequest(player, json, true);
     }
 
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         SUBSCRIPTIONS.remove(event.getEntity().getUUID());
         PARTS.remove(event.getEntity().getUUID());
         ALLOWANCE.remove(event.getEntity().getUUID());
+        LARGE_ALLOWANCE.remove(event.getEntity().getUUID());
         LIST_LISTENERS.remove(event.getEntity().getUUID());
     }
 
@@ -1951,6 +1980,7 @@ public final class WebApi {
         SUBSCRIPTIONS.clear();
         SHOWN.clear();
         ALLOWANCE.clear();
+        LARGE_ALLOWANCE.clear();
         LIST_LISTENERS.clear();
     }
 
