@@ -184,7 +184,11 @@ final class KitMover {
                         } else {
                             shadow.computeIfAbsent(handler, h -> new HashMap<>()).merge(slot, take, Integer::sum);
                         }
-                        takes.add(new Take(handler, slot, stack.copyWithCount(take), route));
+                        // At most a stack per take: a handler gives at most that much in one extraction.
+                        for (int left = take, piece; left > 0; left -= piece) {
+                            piece = Math.min(left, Math.max(1, stack.getMaxStackSize()));
+                            takes.add(new Take(handler, slot, stack.copyWithCount(piece), route));
+                        }
                         needed -= take;
                     }
                 }
@@ -348,10 +352,13 @@ final class KitMover {
         Map<IItemHandler, Map<Integer, Integer>> totals = new HashMap<>();
         for (Take take : takes) {
             totals.computeIfAbsent(take.handler, h -> new HashMap<>()).merge(take.slot, take.stack.getCount(), Integer::sum);
+            if (take.handler.extractItem(take.slot, take.stack.getCount(), true).getCount() != take.stack.getCount()) {
+                return false;
+            }
         }
         for (Map.Entry<IItemHandler, Map<Integer, Integer>> handler : totals.entrySet()) {
             for (Map.Entry<Integer, Integer> slot : handler.getValue().entrySet()) {
-                if (handler.getKey().extractItem(slot.getKey(), slot.getValue(), true).getCount() != slot.getValue()) {
+                if (handler.getKey().getStackInSlot(slot.getKey()).getCount() < slot.getValue()) {
                     return false;
                 }
             }
@@ -368,6 +375,30 @@ final class KitMover {
 
     private static boolean commit(NetworkRuntime.Context ctx, List<Take> takes, List<Put> puts) {
         List<ItemStack> extracted = new ArrayList<>();
+        List<ItemStack> placed = new ArrayList<>();
+        try {
+            return commit(ctx, takes, puts, extracted, placed);
+        } catch (RuntimeException e) {
+            // Another mod's handler failed partway: what was taken out and not put in isn't lost.
+            List<ItemStack> held = new ArrayList<>();
+            extracted.forEach(s -> held.add(s.copy()));
+            for (ItemStack in : placed) {
+                int left = in.getCount();
+                for (ItemStack h : held) {
+                    if (left > 0 && ItemStack.isSameItemSameComponents(h, in)) {
+                        int take = Math.min(left, h.getCount());
+                        h.shrink(take);
+                        left -= take;
+                    }
+                }
+            }
+            held.stream().filter(s -> !s.isEmpty()).forEach(s -> Overflow.add(ctx, s));
+            Reticulum.LOGGER.warn("A kit move failed in another mod's handler; what it held went to the overflow buffer", e);
+            return false;
+        }
+    }
+
+    private static boolean commit(NetworkRuntime.Context ctx, List<Take> takes, List<Put> puts, List<ItemStack> extracted, List<ItemStack> placed) {
         for (Take take : takes) {
             ItemStack got = take.handler.extractItem(take.slot, take.stack.getCount(), false);
             extracted.add(got);
@@ -381,6 +412,7 @@ final class KitMover {
             Put put = puts.get(i);
             ItemStack refused = put.handler.insertItem(put.slot, put.incoming, false);
             inserted.add(put.incoming.copyWithCount(put.incoming.getCount() - refused.getCount()));
+            placed.add(inserted.getLast());
             if (!refused.isEmpty()) {
                 // The sink changed its mind after a successful simulation: take back what this kit put in.
                 List<ItemStack> back = new ArrayList<>();

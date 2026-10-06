@@ -21,6 +21,8 @@ public final class FilterRefs {
         StringBuilder out = new StringBuilder(expression.length());
         int i = 0;
         int n = expression.length();
+        // Just past quoted text or a regex: the parser starts a new term there, so '@' is a reference.
+        boolean afterLiteral = false;
         while (i < n) {
             char c = expression.charAt(i);
             // Quoted text and a /regex/ after "name:" are copied as they are (a quote anywhere else is plain text, as
@@ -29,9 +31,11 @@ public final class FilterRefs {
                 int end = closing(expression, i, c);
                 out.append(expression, i, end);
                 i = end;
+                afterLiteral = true;
                 continue;
             }
-            boolean termStart = i == 0 || boundary(expression.charAt(i - 1));
+            boolean termStart = i == 0 || boundary(expression.charAt(i - 1)) || afterLiteral;
+            afterLiteral = false;
             if (c == '@' && termStart) {
                 int nameStart = i + 1;
                 int nameEnd;
@@ -119,6 +123,10 @@ public final class FilterRefs {
 
     /** A name as written after '@': bare when it can be, quoted when it holds a space or an operator. */
     private static String spelled(String name) {
+        // Quoted too where a bare name would be read as ending early (":/" or ':"' starts a regex or quoted text).
+        if (name.contains(":/") || name.contains(":\"")) {
+            return "\"" + name.replace("\"", "\\\"") + "\"";
+        }
         for (int i = 0; i < name.length(); i++) {
             if (boundary(name.charAt(i)) || name.charAt(i) == '"') {
                 return "\"" + name.replace("\"", "\\\"") + "\"";

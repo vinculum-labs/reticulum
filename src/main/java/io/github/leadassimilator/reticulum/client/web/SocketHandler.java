@@ -51,8 +51,9 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             reply(ctx, null, "Malformed request");
             return;
         }
-        String id = request.has("id") ? request.get("id").getAsString() : null;
-        if (request.has("op") && "hello".equals(request.get("op").getAsString())) {
+        String id = request.has("id") && request.get("id").isJsonPrimitive() ? request.get("id").getAsString() : null;
+        String op = request.has("op") && request.get("op").isJsonPrimitive() ? request.get("op").getAsString() : "";
+        if ("hello".equals(op)) {
             JsonObject hello = new JsonObject();
             hello.addProperty("type", "hello");
             hello.addProperty("connected", Minecraft.getInstance().getConnection() != null);
@@ -62,7 +63,6 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             ctx.writeAndFlush(new TextWebSocketFrame(hello.toString()));
             return;
         }
-        String op = request.has("op") ? request.get("op").getAsString() : "";
         if (op.equals("closeEditor") || op.equals("toggleFullscreen")) {
             Minecraft.getInstance().execute(() -> {
                 Minecraft mc = Minecraft.getInstance();

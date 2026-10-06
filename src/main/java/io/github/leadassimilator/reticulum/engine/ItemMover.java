@@ -229,7 +229,15 @@ final class ItemMover {
         if (extracted.isEmpty()) {
             return 0;
         }
-        ItemStack refused = to.insert(extracted, false);
+        ItemStack refused;
+        try {
+            refused = to.insert(extracted, false);
+        } catch (RuntimeException e) {
+            // Another mod's sink failed partway: what it may not have taken is given back (none lost; at worst some
+            // is in both, which the failing mod's own handler decided).
+            io.github.leadassimilator.reticulum.Reticulum.LOGGER.warn("Inserting into a device failed in another mod's handler; the items go back", e);
+            refused = extracted;
+        }
         if (!refused.isEmpty()) {
             giveBack(ctx, handler, slot, refused);
         }
@@ -238,9 +246,14 @@ final class ItemMover {
 
     /** Returns items to where they came from; anything the source refuses goes to the overflow buffer. */
     static void giveBack(NetworkRuntime.Context ctx, IItemHandler handler, int slot, ItemStack stack) {
-        ItemStack left = handler.insertItem(slot, stack, false);
-        if (!left.isEmpty()) {
-            left = ItemHandlerHelper.insertItemStacked(handler, left, false);
+        ItemStack left;
+        try {
+            left = handler.insertItem(slot, stack, false);
+            if (!left.isEmpty()) {
+                left = ItemHandlerHelper.insertItemStacked(handler, left, false);
+            }
+        } catch (RuntimeException e) {
+            left = stack;
         }
         if (!left.isEmpty()) {
             Overflow.add(ctx, left);
