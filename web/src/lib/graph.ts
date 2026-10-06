@@ -57,9 +57,12 @@ export const PIN_H = 20;
 /** From an edge pin's top to its dot (which sits on the wire's line, the pin's y: the label is centered on it); and the dot's size. */
 export const PIN_DOT = 10;
 export const PIN_KNOB = 10;
-/** Room around a frame's contents, and between edge pins and the cards. */
+/**
+ * Room around a frame's contents, and between edge pins and the cards. The pin gap is well over twice the 20px a square
+ * or rounded wire runs straight out of each end: under that, it turns back halfway down instead of making one bus.
+ */
 const FRAME_PAD = 24;
-const PIN_GAP = 40;
+const PIN_GAP = 60;
 /** Where the contents start below a frame's top edge: under its header (a sheet node's) or its title line (the open sheet's). */
 const FRAME_TOP = CARD_HEADER + FRAME_PAD;
 const SHEET_TOP = 28 + FRAME_PAD;
