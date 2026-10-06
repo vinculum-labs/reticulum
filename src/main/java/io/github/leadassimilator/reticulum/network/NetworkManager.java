@@ -2,6 +2,7 @@ package io.github.leadassimilator.reticulum.network;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -84,6 +85,28 @@ public final class NetworkManager {
             }
         }
         changed(level.getServer(), network);
+    }
+
+    /**
+     * A connector taken onto {@code network} without being scanned (its neighbors not loaded): its record with the devices it
+     * had, and records for those (active, as it still touches them), from {@code from} where it has one, so their names
+     * can follow; the rolling rescan puts it right once the area loads.
+     */
+    public static void adoptConnector(MinecraftServer server, Network network, UUID connectorId, GlobalPos connectorPos, List<GlobalPos> devices,
+            Map<GlobalPos, DeviceRecord> from) {
+        ConnectorRecord record = network.connectorMap().computeIfAbsent(connectorId, id -> new ConnectorRecord(id, connectorPos));
+        for (GlobalPos device : devices) {
+            if (!record.devices().contains(device)) {
+                record.devices().add(device);
+            }
+            DeviceRecord old = from.get(device);
+            if (old != null && !network.deviceMap().containsKey(device)) {
+                DeviceRecord copy = new DeviceRecord(device, old.blockId());
+                copy.setState(DeviceRecord.State.ACTIVE);
+                network.deviceMap().put(device, copy);
+            }
+        }
+        changed(server, network);
     }
 
     /** A connector's devices let go (it was lifted by a contraption): its record stays, with none. */

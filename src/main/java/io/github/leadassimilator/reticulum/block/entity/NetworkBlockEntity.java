@@ -124,6 +124,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     /** Sets or clears the facade and tells clients, which draw the block as the facade from then on. */
     public void setFacade(@Nullable BlockState facade) {
         this.facade = facade;
+        lightChanged();
         setChanged();
         if (level != null && !level.isClientSide) {
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
@@ -166,6 +167,12 @@ public abstract class NetworkBlockEntity extends BlockEntity {
 
     private void readFacade(CompoundTag tag, HolderLookup.Provider registries) {
         facade = tag.contains("facade") ? NbtUtils.readBlockState(registries.lookupOrThrow(Registries.BLOCK), tag.getCompound("facade")) : null;
+        lightChanged();
+    }
+
+    /** Tells the light engine (which can't read block entities) the light its facade gives. */
+    private void lightChanged() {
+        io.github.leadassimilator.reticulum.block.FacadeLight.set(level, worldPosition, facade == null ? 0 : facade.getLightEmission());
     }
 
     /** On the client: draw the block again with its new look, and keep track of it for the network tool's X-ray. */
@@ -180,6 +187,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     @Override
     public void setRemoved() {
         super.setRemoved();
+        io.github.leadassimilator.reticulum.block.FacadeLight.set(level, worldPosition, 0);
         if (level != null && level.isClientSide) {
             io.github.leadassimilator.reticulum.client.FacadeXray.track(net.minecraft.core.GlobalPos.of(level.dimension(), worldPosition), false);
         }
@@ -220,6 +228,8 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     @Override
     public void onLoad() {
         super.onLoad();
+        // Loaded with its chunk (before it had a world): its facade's light is told now.
+        lightChanged();
         // Blocks placed without a player (commands, structures, other mods) are connected up at the start of the next
         // server tick. (A scheduled block tick would be lost when this runs while its chunk is still loading.)
         if (!registered && level instanceof net.minecraft.server.level.ServerLevel serverLevel) {

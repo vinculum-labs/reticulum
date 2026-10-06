@@ -1635,6 +1635,26 @@ public final class EngineTests {
         });
     }
 
+    /**
+     * A glowstone facade lights the world as the server sees it: around it right away, and as a light source when its chunk
+     * is loaded again (found among the chunk's light sources).
+     */
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void aGlowingFacadeLightsTheServersWorld(GameTestHelper helper) {
+        place(helper, new BlockPos(2, 1, 2), ModBlocks.CABLE.get(), null);
+        BlockPos at = helper.absolutePos(new BlockPos(2, 1, 2));
+        var be = (io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity) helper.getLevel().getBlockEntity(at);
+        be.setFacade(Blocks.GLOWSTONE.defaultBlockState());
+        helper.runAfterDelay(20, () -> {
+            int light = helper.getLevel().getBrightness(net.minecraft.world.level.LightLayer.BLOCK, at.above());
+            check(helper, light >= 13, "beside the glowstone facade the block light is " + light);
+            boolean[] source = {false};
+            helper.getLevel().getChunkAt(at).findBlockLightSources((pos, state) -> source[0] |= pos.equals(at));
+            check(helper, source[0], "the facade isn't among its chunk's light sources (dark after a reload)");
+            helper.succeed();
+        });
+    }
+
     /** FE stored in a block, read once (through its unsided handler, or the first face that answers). */
     private static long energyStored(GameTestHelper helper, BlockPos rel) {
         BlockPos pos = helper.absolutePos(rel);

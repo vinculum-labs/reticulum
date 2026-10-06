@@ -136,10 +136,21 @@ public abstract class LinkedBlock extends NetworkBlock {
         return facade != null ? facade.getSoundType(level, pos, entity) : super.getSoundType(state, level, pos, entity);
     }
 
+    /** Its light is its facade's: not known from its state alone, so the light engine asks for it where it stands. */
+    @Override
+    public boolean hasDynamicLightEmission(BlockState state) {
+        return true;
+    }
+
     @Override
     public int getLightEmission(BlockState state, BlockGetter level, BlockPos pos) {
         BlockState facade = facadeAt(level, pos);
-        return facade != null ? facade.getLightEmission(level, pos) : super.getLightEmission(state, level, pos);
+        if (facade != null) {
+            return facade.getLightEmission(level, pos);
+        }
+        // The light engine's own thread gets no block entity: it reads what the facade's block entity told.
+        int light = FacadeLight.get(level, pos);
+        return light > 0 ? light : super.getLightEmission(state, level, pos);
     }
 
     // ---------------------------------------------------------------- shape

@@ -28,11 +28,6 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   made by hand is meant.
 - Server bookkeeping: finding whether a block is reached scans linearly, and the version and alias maps are never
   pruned. Fine at today's sizes.
-- A facade's light (glowstone) is seen only by clients: the server's light engine can't read block entities, so after a
-  relog or chunk reload it is dark, and mobs spawn as if it weren't there. Fixing it means the light level in the block
-  state.
-- A connector changing networks at the edge of the loaded area (a merge) can't rescan its devices there: their names
-  stay on the old network as orphans until the area loads and they are named again.
 - A facade doesn't turn with its block: stairs or logs worn by a cable in a turned structure keep their old facing.
 - Cut joints and switched-off device sides turn with a block only through the game's own turns (around the vertical
   axis, and mirrors): a Create bearing turning sideways leaves them on the sides of the world they had (Create's own

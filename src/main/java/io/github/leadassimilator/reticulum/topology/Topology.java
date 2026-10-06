@@ -660,6 +660,11 @@ public final class Topology {
             }
             rescanConnector(level, pos);
             Network newNetwork = NetworkManager.network(level.getServer(), to);
+            if (newNetwork != null && oldRecord != null && newNetwork.connector(connector.connectorId()) == null) {
+                // Not rescanned (its neighbors not loaded, at the edge of what is): it takes its devices along as they
+                // were, so their names come too; the rolling rescan puts them right once the area loads.
+                NetworkManager.adoptConnector(level.getServer(), newNetwork, connector.connectorId(), Devices.global(level, pos), oldRecord.devices(), named);
+            }
             if (newNetwork != null) {
                 var newRecord = newNetwork.connector(connector.connectorId());
                 if (newRecord != null && newRecord.name() == null && name != null) {
