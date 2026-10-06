@@ -691,23 +691,21 @@ function matchList(base: unknown[], list: unknown[]): { k: number; exact: boolea
     if (i - bi === j - li) {
       for (let d = 0; d < i - bi; d++) out[li + d] = { k: bi + d, exact: false };
     } else {
-      // Not as many: an original is the item after the last one paired that shares the most of its fields with it
-      // (settings objects: the same resource, the same faces), if any does.
-      let from = li;
+      // Not as many: the pairs sharing the most fields (settings objects: the same resource, the same faces) are taken
+      // first, across the whole gap, each keeping the order of those taken before.
+      const pairs: { b: number; l: number; shared: number }[] = [];
       for (let b = bi; b < i; b++) {
-        let best = -1;
-        let bestShared = 0;
-        for (let l = from; l < j; l++) {
+        for (let l = li; l < j; l++) {
           const shared = sharedFields(base[b], list[l]);
-          if (shared > bestShared) {
-            best = l;
-            bestShared = shared;
-          }
+          if (shared > 0) pairs.push({ b, l, shared });
         }
-        if (best >= 0) {
-          out[best] = { k: b, exact: false };
-          from = best + 1;
-        }
+      }
+      pairs.sort((x, y) => y.shared - x.shared || x.b - y.b || x.l - y.l);
+      const taken: { b: number; l: number }[] = [];
+      for (const p of pairs) {
+        if (taken.some((t) => t.b === p.b || t.l === p.l || t.b < p.b !== t.l < p.l)) continue;
+        taken.push(p);
+        out[p.l] = { k: p.b, exact: false };
       }
     }
     bi = i + 1;
@@ -781,7 +779,10 @@ function lostAnswer(e: unknown): boolean {
 
 /** Refused because it is so already (what it adds is there): a step tried before with no answer was done then. */
 function alreadyDone(e: unknown): boolean {
-  return /already exists/i.test((e as Error)?.message ?? "");
+  // Adding what is there ("already exists", "charted already"), or acting on what is gone (a sheet deleted, a template
+  // renamed away).
+  // (A batch's refusal is "Edit n: …"; "already lives in" is something else living there, not this done.)
+  return /already exists|charted already|No such sheet|There's no filter template/i.test((e as Error)?.message ?? "");
 }
 
 /** It never reached a network: not connected, or the game not in a world (out to the title screen, loading). */
@@ -811,7 +812,11 @@ export function undo(only?: (typeof app.undo)[number]): Promise<void> {
     if (!change) return;
     app.busy++;
     try {
-      await connection.send({ op: "edit", network: change.network, edits: change.undo });
+      const r = await connection.send({ op: "edit", network: change.network, edits: change.undo });
+      // What the game changed on the side while undoing comes back on redo, after the change itself.
+      const back = Array.isArray(r.restore) ? (r.restore as Edit[]) : [];
+      change.redo = [...change.redo.filter((e) => !restored.has(e)), ...back];
+      for (const e of back) restored.add(e);
       pushCapped(stacksOf(change.network).redo, Object.assign(change, { uncertain: false }));
     } catch (e) {
       if (notSent(e)) {
@@ -846,8 +851,9 @@ export function redo(): Promise<void> {
     try {
       const r = await connection.send({ op: "edit", network: change.network, edits: change.redo });
       // Done again, what the game changes on the side is restored on undo as it says now.
-      if (Array.isArray(r.restore)) change.undo = [...change.undo.filter((e) => !restored.has(e)), ...(r.restore as Edit[])];
-      for (const e of Array.isArray(r.restore) ? (r.restore as Edit[]) : []) restored.add(e);
+      const back = Array.isArray(r.restore) ? (r.restore as Edit[]) : [];
+      change.undo = [...change.undo.filter((e) => !restored.has(e)), ...back];
+      for (const e of back) restored.add(e);
       pushCapped(stacksOf(change.network).undo, Object.assign(change, { uncertain: false }));
     } catch (e) {
       if (notSent(e)) {
@@ -1035,7 +1041,9 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
       }
       // A blueprint placed in a blueprint keeps where its slots were laid out (its layout measures from those blocks).
       if (s.kind === "instance" && sheet.blueprint) {
-        for (const binding of Object.values(s.layout ?? {})) {
+        const keys = new Set(allSlotKeys(snapshot.sheets.find((b) => b.id === s.sheet), snapshot.sheets));
+        for (const [key, binding] of Object.entries(s.layout ?? {})) {
+          if (!keys.has(key)) continue;
           add(binding.device, { label: `${label} › ${nodeTitle(node)}: a slot laid out on it (where its layout measures from)`, sheetId: sheet.id, nodeId: node.id });
         }
       }
@@ -1233,7 +1241,12 @@ export function scopedBindings(scope: BindingScope | null, blueprint: Sheet): Re
 }
 
 /** {@link setBindings} for the open instance's slots, written into the placement it runs in. */
-export function setScopedBindings(scope: BindingScope, blueprint: Sheet, change: (bindings: Record<string, Binding>) => Record<string, Binding>, label = "fill slot") {
+export function setScopedBindings(
+  scope: BindingScope,
+  blueprint: Sheet,
+  change: (bindings: Record<string, Binding>, all: Record<string, Binding>) => Record<string, Binding>,
+  label = "fill slot",
+) {
   const keys = allSlotKeys(blueprint, app.snapshot?.sheets ?? []);
   return setBindings(
     scope.holder,
@@ -1241,7 +1254,7 @@ export function setScopedBindings(scope: BindingScope, blueprint: Sheet, change:
     (all) => {
       const view: Record<string, Binding> = {};
       for (const key of keys) if (all[scope.key(key)]) view[key] = all[scope.key(key)];
-      const next = change(view);
+      const next = change(view, all);
       const out = { ...all };
       for (const key of keys) delete out[scope.key(key)];
       for (const [key, b] of Object.entries(next)) out[scope.key(key)] = b;
@@ -1525,12 +1538,12 @@ export async function fillSlot(scope: BindingScope, blueprint: Sheet, slot: Grap
   const ok = await setScopedBindings(
     scope,
     blueprint,
-    (bindings) => {
-      // Turned as the slot already was, else as the placement is (from any slot it fills, the outer blueprint's too:
-      // each as it was laid out there).
+    (bindings, all) => {
+      // Turned as the slot already was, else as the placement is (from any slot it fills, the outer blueprint's too,
+      // as last sent: each as it was laid out there).
       const outer = app.snapshot!.sheets.find((s) => s.id === scope.node.settings.sheet);
       const laid = outer ? layoutSlots(outer, app.snapshot!.sheets) : [];
-      const placement = placementTurns(laid, scope.node.settings.bindings ?? {});
+      const placement = placementTurns(laid, all);
       const own = laid.find((s) => s.key === scope.key(slot.id))?.turns ?? 0;
       const turns = bindings[slot.id]?.turns ?? (placement === undefined ? undefined : (placement + own) % 4);
       const result = fillOne(blueprint, bindings, slot.id, { device: device.pos, ...(turns ? { turns } : {}) }, app.snapshot!.devices, homed, app.snapshot!.sheets);
