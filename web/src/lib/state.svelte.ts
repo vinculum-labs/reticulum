@@ -827,7 +827,9 @@ export function undo(only?: (typeof app.undo)[number]): Promise<void> {
         pushCapped(stacksOf(change.network).undo, Object.assign(change, { uncertain: true }));
         toast(`No answer about undoing “${change.label}” (${(e as Error).message}) — it's kept: Undo again once the game is back.`);
       } else if (change.uncertain && alreadyDone(e)) {
-        // Tried before with no answer, refused now as done already: that first try was done.
+        // Tried before with no answer, refused now as done already: that first try was done. What it restored on the
+        // side then isn't known: none is kept for the redo.
+        change.redo = change.redo.filter((x) => !restored.has(x));
         pushCapped(stacksOf(change.network).redo, Object.assign(change, { uncertain: false }));
         toast(`“${change.label}” was undone already (the game says: ${(e as Error).message}).`, "info");
       } else {
@@ -863,6 +865,7 @@ export function redo(): Promise<void> {
         pushCapped(stacksOf(change.network).redo, Object.assign(change, { uncertain: true }));
         toast(`No answer about redoing “${change.label}” (${(e as Error).message}) — it's kept: Redo again once the game is back.`);
       } else if (change.uncertain && alreadyDone(e)) {
+        change.undo = change.undo.filter((x) => !restored.has(x));
         pushCapped(stacksOf(change.network).undo, Object.assign(change, { uncertain: false }));
         toast(`“${change.label}” was redone already (the game says: ${(e as Error).message}).`, "info");
       } else {

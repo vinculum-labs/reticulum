@@ -135,17 +135,18 @@
    * Saves a device node. Removed inputs and outputs (by their old index) lose their wires, and wires on the ones
    * after them are renumbered (the server identifies them by number).
    */
-  function saveDevice(next: DeviceNodeSettings, removed?: { in?: number[]; out?: number[] }, label = "edit device") {
-    // The graph shown follows its side when sides before it are removed (and goes when its own is).
-    const [direction, at] = graphSide.split(":");
+  async function saveDevice(next: DeviceNodeSettings, removed?: { in?: number[]; out?: number[] }, label = "edit device") {
+    const shown = graphSide;
+    const { after, before } = rebase(node, { ...node, settings: next });
+    const { edits, undo } = deviceChange(sheet, before, after, removed);
+    const ok = await edit(edits, undo, label);
+    // Done: the graph shown follows its side when sides before it went (and goes when its own did).
+    const [direction, at] = shown.split(":");
     const gone = direction === "in" ? removed?.in : direction === "out" ? removed?.out : undefined;
-    if (gone?.length && at !== undefined) {
+    if (ok && graphSide === shown && gone?.length && at !== undefined) {
       const index = Number(at);
       graphSide = gone.includes(index) ? "" : `${direction}:${index - gone.filter((i) => i < index).length}`;
     }
-    const { after, before } = rebase(node, { ...node, settings: next });
-    const { edits, undo } = deviceChange(sheet, before, after, removed);
-    edit(edits, undo, label);
   }
 
   function save(next: GraphNode, label = "edit node") {

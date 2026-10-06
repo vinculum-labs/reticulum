@@ -183,4 +183,9 @@
   .cell.playing {
     outline: 1px solid var(--accent);
   }
+  /* After the play head's outline, so a cell reached by the keyboard always shows it. */
+  .cell:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
 </style>

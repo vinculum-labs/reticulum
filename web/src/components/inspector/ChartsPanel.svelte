@@ -91,6 +91,8 @@
       values = {};
       newest = {};
     }
+    // Switching, the charts listed are still the last network's: loaded once the new one is shown.
+    if (app.switching) return;
     load(true);
     clearInterval(timer);
     timer = setInterval(load, window_ === "second" ? 2000 : 30000);
