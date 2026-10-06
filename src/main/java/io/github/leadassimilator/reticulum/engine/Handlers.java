@@ -33,6 +33,16 @@ final class Handlers {
         }
     }
 
+    /** A fluid, energy or chemical amount moved by another mod's handler: none if the call fails. */
+    static long amount(java.util.function.LongSupplier call) {
+        try {
+            return Math.max(0, call.getAsLong());
+        } catch (RuntimeException e) {
+            warn(e);
+            return 0;
+        }
+    }
+
     static int slots(IItemHandler handler) {
         try {
             return handler.getSlots();

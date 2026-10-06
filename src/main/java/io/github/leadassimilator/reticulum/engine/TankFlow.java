@@ -210,6 +210,19 @@ final class TankFlow {
 
     /** Takes {@code amount} from the source and puts it in the sink; what the sink refuses goes back, else to overflow. */
     private static <H, S> long move(NetworkRuntime.Context ctx, Tank<H, S> tank, List<H> from, List<H> to, S kind, long amount) {
+        // The room asked again now: an earlier route may have filled what this one was promised (two sinks sharing one
+        // buffer), and what is taken without room may have nowhere to go.
+        long room = 0;
+        for (H handler : to) {
+            if (room >= amount) {
+                break;
+            }
+            room += tank.insert(handler, kind, amount - room, true);
+        }
+        amount = Math.min(amount, room);
+        if (amount <= 0) {
+            return 0;
+        }
         long taken = 0;
         for (H handler : from) {
             if (taken >= amount) {

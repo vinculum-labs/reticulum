@@ -56,12 +56,12 @@ final class ChemicalMover {
 
         @Override
         public long extract(IChemicalHandler handler, ChemicalStack kind, long max, boolean simulate) {
-            return handler.extractChemical(kind.copyWithAmount(max), action(simulate)).getAmount();
+            return Handlers.amount(() -> handler.extractChemical(kind.copyWithAmount(max), action(simulate)).getAmount());
         }
 
         @Override
         public long insert(IChemicalHandler handler, ChemicalStack kind, long amount, boolean simulate) {
-            return amount - handler.insertChemical(kind.copyWithAmount(amount), action(simulate)).getAmount();
+            return Handlers.amount(() -> amount - handler.insertChemical(kind.copyWithAmount(amount), action(simulate)).getAmount());
         }
 
         @Override

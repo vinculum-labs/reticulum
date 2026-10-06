@@ -76,12 +76,12 @@ final class ContinuousMover {
 
         @Override
         public long extract(IEnergyStorage handler, Energy kind, long max, boolean simulate) {
-            return handler.extractEnergy((int) Math.min(max, Integer.MAX_VALUE), simulate);
+            return Handlers.amount(() -> handler.extractEnergy((int) Math.min(max, Integer.MAX_VALUE), simulate));
         }
 
         @Override
         public long insert(IEnergyStorage handler, Energy kind, long amount, boolean simulate) {
-            return handler.receiveEnergy((int) Math.min(amount, Integer.MAX_VALUE), simulate);
+            return Handlers.amount(() -> handler.receiveEnergy((int) Math.min(amount, Integer.MAX_VALUE), simulate));
         }
 
         @Override
@@ -156,12 +156,12 @@ final class ContinuousMover {
 
         @Override
         public long extract(IFluidHandler handler, FluidStack kind, long max, boolean simulate) {
-            return handler.drain(kind.copyWithAmount((int) Math.min(max, Integer.MAX_VALUE)), action(simulate)).getAmount();
+            return Handlers.amount(() -> handler.drain(kind.copyWithAmount((int) Math.min(max, Integer.MAX_VALUE)), action(simulate)).getAmount());
         }
 
         @Override
         public long insert(IFluidHandler handler, FluidStack kind, long amount, boolean simulate) {
-            return handler.fill(kind.copyWithAmount((int) Math.min(amount, Integer.MAX_VALUE)), action(simulate));
+            return Handlers.amount(() -> handler.fill(kind.copyWithAmount((int) Math.min(amount, Integer.MAX_VALUE)), action(simulate)));
         }
 
         @Override
