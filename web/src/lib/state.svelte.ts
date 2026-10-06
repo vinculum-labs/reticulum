@@ -621,17 +621,20 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
   });
 }
 
+/** The node as last sent (an edit not back yet), else as the snapshot shows it. */
+export function lastSent(node: GraphNode): GraphNode {
+  return sentNodes.get(node.id) ?? node;
+}
+
+/** Wires an edit not back yet takes off (the snapshot still shows them). */
+export const pendingDisconnects = new Set<string>();
+
 /**
  * A node edit made from {@code node} (as the snapshot shows it) turned into {@code next}, rebased onto the version
  * last sent for that node if its answer hasn't come back yet. Only what this edit changed is taken from {@code next},
  * however deep (a cap's amount inside an input), so typing an amount and then ticking a face keeps both. Returns the
  * node to send, and the one to restore on undo.
  */
-/** The node as last sent (an edit not back yet), else as the snapshot shows it. */
-export function lastSent(node: GraphNode): GraphNode {
-  return sentNodes.get(node.id) ?? node;
-}
-
 export function rebase(node: GraphNode, next: GraphNode): { after: GraphNode; before: GraphNode } {
   const before = sentNodes.get(node.id) ?? node;
   const after = before === node ? next : (merged(node, next, before) as GraphNode);

@@ -349,6 +349,12 @@
         resync.count++;
         return;
       }
+      // Wired that way already: nothing to send, and the wire Svelte Flow drew goes.
+      if (!crossing.edits.length) {
+        toast("Those two are wired together already.", "info");
+        resync.count++;
+        return;
+      }
       // (The pins it makes and the untyped ones at its ends take what it carries: crossWire.)
       await edit(crossing.edits, crossing.undo, "connect across sheets");
       return;

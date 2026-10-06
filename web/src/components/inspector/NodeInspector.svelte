@@ -1,7 +1,7 @@
 <script lang="ts">
   import Help from "./Help.svelte";
   import Trash from "@lucide/svelte/icons/trash";
-  import { app, deviceAt, edit, nodeTitle, openInstance, openDevice, openSheet, rebase, updateNodeEdit, lastSent } from "../../lib/state.svelte";
+  import { app, deviceAt, edit, nodeTitle, openInstance, openDevice, openSheet, rebase, updateNodeEdit, lastSent, pendingDisconnects } from "../../lib/state.svelte";
   import { slotName, slotsOf, allSlotKeys } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
@@ -29,7 +29,7 @@
   import Field from "./Field.svelte";
   import FilterField from "./FilterField.svelte";
   import { catalogKind } from "../../lib/catalog";
-  import { resources, splitterBranches, upstreamDevices } from "../../lib/graph";
+  import { pinResource, resources, splitterBranches, upstreamDevices } from "../../lib/graph";
   import { useSvelteFlow } from "@xyflow/svelte";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
@@ -183,17 +183,35 @@
       return pin ? ((pin.settings as { resource?: string }).resource ?? "any") : undefined;
     };
     const takes = (a: string | undefined, b: string | undefined) => a !== undefined && b !== undefined && (a === "any" || b === "any" || a === b);
+    // What a wire carried where the old pin didn't say: what its other end gives or takes (a signal from a signal node).
+    const sheets = app.snapshot?.sheets ?? [];
+    const actual = (w: Wire): string | undefined => {
+      const other = (sheet.nodes ?? []).find((n) => n.id === (w.to === node.id ? w.from : w.to));
+      if (!other) return undefined;
+      if (isSignal(other.settings.kind)) return "redstone";
+      return w.to === node.id
+        ? (pinResource(other, "out", w.output ?? 0, sheets) ?? resources(sheet, sheets).nodes.get(other.id) ?? undefined)
+        : (pinResource(other, "in", w.input ?? 0, sheets) ?? undefined);
+    };
+    const carried = (w: Wire, input: boolean, slot: number) => {
+      const old = carries(was, input, slot);
+      return old === "any" ? (actual(w) ?? "any") : old;
+    };
     const fits = (w: Wire) =>
       w.to === node.id
-        ? w.input === GATE || takes(carries(next, true, w.input ?? 0), carries(was, true, w.input ?? 0))
-        : takes(carries(next, false, w.output ?? 0), carries(was, false, w.output ?? 0));
-    const gone = (sheet.wires ?? []).filter((w) => (w.to === node.id || w.from === node.id) && !fits(w));
+        ? w.input === GATE || takes(carries(next, true, w.input ?? 0), carried(w, true, w.input ?? 0))
+        : takes(carries(next, false, w.output ?? 0), carried(w, false, w.output ?? 0));
+    // Not those an earlier switch, not back yet, already takes off.
+    const gone = (sheet.wires ?? []).filter((w) => (w.to === node.id || w.from === node.id) && !pendingDisconnects.has(w.id) && !fits(w));
     const { after: sent, before } = rebase(node, after);
+    for (const w of gone) pendingDisconnects.add(w.id);
     edit(
       [...gone.map((w) => ({ type: "disconnect", sheet: sheet.id, wire: w.id })), { type: "updateNode", sheet: sheet.id, node: sent }],
       [{ type: "updateNode", sheet: sheet.id, node: before }, ...gone.map((w) => ({ type: "connect", sheet: sheet.id, wire: w }))],
       "change blueprint",
-    );
+    ).finally(() => {
+      for (const w of gone) pendingDisconnects.delete(w.id);
+    });
   }
 
   /** Another placement of the same blueprint with this one's name. */

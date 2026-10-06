@@ -212,7 +212,9 @@ public final class NetworkRuntime {
                 signals.switchNodes(context, sheet);
                 for (UUID node : signals.off()) {
                     if (sheet.switchedBy().containsKey(node)) {
-                        statuses.put(sheet.owner(node), Status.SWITCHED_OFF);
+                        // Under the id it runs under (a node inside a placed blueprint has its own): the placement itself
+                        // isn't gated because something in it is.
+                        statuses.put(node, Status.SWITCHED_OFF);
                     }
                 }
             }
