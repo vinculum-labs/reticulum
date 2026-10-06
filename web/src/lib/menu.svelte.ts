@@ -5,7 +5,7 @@
 import Lightbulb from "@lucide/svelte/icons/lightbulb";
 import LightbulbOff from "@lucide/svelte/icons/lightbulb-off";
 import type { Component } from "svelte";
-import { isIdentified, toggleIdentify } from "./state.svelte";
+import { app, isIdentified, toggleIdentify } from "./state.svelte";
 import type { GlobalPos } from "./types";
 
 export interface MenuItem {
@@ -63,7 +63,8 @@ export function shown(items: MenuEntry[]): (MenuItem | "-")[] {
 /** Identify for a device: lights it up in the world, or, while it is lit, stops. */
 export function identifyItem(device: GlobalPos): MenuItem {
   const target = { kind: "device" as const, device };
+  const disabled = !app.snapshot?.canEdit;
   return isIdentified(target)
-    ? { label: "Stop identifying", icon: LightbulbOff, run: () => toggleIdentify(target) }
-    : { label: "Identify", icon: Lightbulb, run: () => toggleIdentify(target) };
+    ? { label: "Stop identifying", icon: LightbulbOff, run: () => toggleIdentify(target), disabled }
+    : { label: "Identify", icon: Lightbulb, run: () => toggleIdentify(target), disabled };
 }

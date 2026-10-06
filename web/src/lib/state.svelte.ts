@@ -265,8 +265,10 @@ async function onMessage(m: any): Promise<void> {
       app.networks = m.networks;
       forgetUnlisted();
       if (app.current && !app.networks.some((n) => n.id === app.current)) {
+        connection.send({ op: "unsubscribe", network: app.current }).catch(() => {});
         app.current = null;
         app.snapshot = null;
+        toast("You no longer have access to that network", "info");
       }
       if (!app.current && app.networks.length) await selectNetwork(app.networks[0].id);
       break;
@@ -279,6 +281,7 @@ async function onMessage(m: any): Promise<void> {
       break;
     case "removed":
       if (m.network === app.current) {
+        connection.send({ op: "unsubscribe", network: m.network }).catch(() => {});
         app.current = null;
         app.snapshot = null;
         toast("You no longer have access to that network", "info");
@@ -802,8 +805,9 @@ function alreadyDone(e: unknown): boolean {
 
 /** It never reached a network: not connected, or the game not in a world (out to the title screen, loading). */
 function notSent(e: unknown): boolean {
-  const message = (e as Error)?.message;
-  return message === "Not connected to the game" || message === "Not in a world";
+  const message = (e as Error)?.message ?? "";
+  // Also refused before anything was tried: no edit access (now), or too many requests at once.
+  return message === "Not connected to the game" || message === "Not in a world" || /^Too many requests|have edit access/.test(message);
 }
 
 /**
@@ -1057,6 +1061,13 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
           if (keys.has(slot)) add(binding.device, { label: instanceLabel, sheetId: sheet.id, nodeId: node.id, home: true });
         }
       }
+      // Fillings of slots the blueprint no longer has (they come back with the slot): the game keeps the block for them.
+      if (s.kind === "instance" && !sheet.blueprint) {
+        const keys = new Set(allSlotKeys(snapshot.sheets.find((b) => b.id === s.sheet), snapshot.sheets));
+        for (const [slot, binding] of Object.entries(s.bindings ?? {})) {
+          if (!keys.has(slot)) add(binding.device, { label: `${label} › ${nodeTitle(node)}: a slot taken out of its blueprint`, sheetId: sheet.id, nodeId: node.id });
+        }
+      }
       // A blueprint placed in a blueprint keeps where its slots were laid out (its layout measures from those blocks).
       if (s.kind === "instance" && sheet.blueprint) {
         const keys = new Set(allSlotKeys(snapshot.sheets.find((b) => b.id === s.sheet), snapshot.sheets));
@@ -1066,6 +1077,10 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
         }
       }
     }
+  }
+  // Charts of what it holds.
+  for (const chart of snapshot.charts ?? []) {
+    if (chart.device) add(chart.device, { label: "A chart of it (Charts)" });
   }
   return uses;
 }

@@ -2,7 +2,7 @@
   import type { Snippet } from "svelte";
   import CircleHelp from "@lucide/svelte/icons/circle-help";
   import type { CatalogKind } from "../../lib/catalog";
-  import { request, resync } from "../../lib/state.svelte";
+  import { request, resync, app } from "../../lib/state.svelte";
   import FilterSyntax from "./FilterSyntax.svelte";
 
   /**
@@ -15,6 +15,7 @@
     value,
     kind = "item",
     anyResource = false,
+    template,
     oncommit,
     disabled = false,
     placeholder = "anything (e.g. tag:c:ores & !mod:create)",
@@ -28,6 +29,8 @@
     kind?: CatalogKind;
     /** Checked as fine when it works for any resource (a template: used by item, fluid and chemical filters alike). */
     anyResource?: boolean;
+    /** The template this is the filter of: checked as saving it would be (its new filter, with the others). */
+    template?: string;
     oncommit?: (value: string) => void;
     disabled?: boolean;
     placeholder?: string;
@@ -53,13 +56,15 @@
   $effect(() => {
     const expression = text;
     const resource = anyResource ? "any" : kind;
+    // Checked again when the templates change (one it names removed or renamed).
+    void JSON.stringify(app.snapshot?.filters ?? {});
     clearTimeout(timer);
     timer = setTimeout(async () => {
       try {
-        const r = await request("checkFilter", { expression, resource });
+        const r = await request("checkFilter", { expression, resource, ...(template ? { template } : {}) });
         if (expression === text) error = r.valid ? null : r.message;
       } catch {
-        error = null;
+        if (expression === text) error = null;
       }
     }, 250);
     return () => clearTimeout(timer);

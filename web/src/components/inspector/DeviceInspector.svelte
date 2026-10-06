@@ -16,7 +16,11 @@
   const uses = $derived(app.snapshot ? (deviceUses(app.snapshot).get(posKey(device.pos)) ?? []) : []);
   const home = $derived(uses.find((u) => u.home));
   const readBy = $derived(uses.filter((u) => !u.home));
-  const activeDevices = $derived((app.snapshot?.devices ?? []).filter((d) => d.state === "active"));
+  // Moving onto a block something already uses (a node, a slot, a chart) would give it two: offered only free ones.
+  const activeDevices = $derived.by(() => {
+    const all = app.snapshot ? deviceUses(app.snapshot) : new Map();
+    return (app.snapshot?.devices ?? []).filter((d) => d.state === "active" && !(all.get(posKey(d.pos)) ?? []).length);
+  });
 
   function rename(name: string) {
     const value = name || null;

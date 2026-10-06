@@ -35,7 +35,7 @@
 
   function onkeydown(e: KeyboardEvent) {
     // Not behind an open dialog either: undo would change the page under the question it asks.
-    if (!(e.ctrlKey || e.metaKey) || typing(e.target) || modals.open > 0) return;
+    if (!(e.ctrlKey || e.metaKey) || typing(e.target) || modals.open > 0 || !app.snapshot?.canEdit) return;
     const key = e.key.toLowerCase();
     if (key === "z" && !e.shiftKey) {
       e.preventDefault();

@@ -331,6 +331,10 @@ public final class WebApi {
                 if (network.device(device) == null) {
                     throw new RequestException("That device isn't on " + network.name());
                 }
+                // Orphaned or missing: whatever stands there now isn't this network's to look into.
+                if (network.device(device).state() != io.github.leadassimilator.reticulum.network.DeviceRecord.State.ACTIVE) {
+                    throw new RequestException("That device isn't reached by " + network.name() + " now");
+                }
                 net.minecraft.server.level.ServerLevel level = server.getLevel(device.dimension());
                 JsonObject out = level == null ? new JsonObject() : DeviceContents.read(level, device.pos(), string(request, "resource"));
                 if (!out.has("entries")) {
@@ -349,7 +353,8 @@ public final class WebApi {
                     switch (request.has("resource") ? request.get("resource").getAsString() : "item") {
                         case "fluid" -> Filters.fluids(expression, network.filters());
                         // A template: fine when items, fluids or chemicals take it (as setFilter checks).
-                        case "any" -> Filters.checkAny(expression, network.filters());
+                        case "any" -> Filters.checkAny(expression, request.has("template") && request.get("template").isJsonPrimitive()
+                                ? Edits.withTemplate(network, request.get("template").getAsString(), expression) : network.filters());
                         case "chemical" -> {
                             if (io.github.leadassimilator.reticulum.integration.Mods.MEKANISM) {
                                 Filters.chemicals(expression, network.filters());
@@ -1717,7 +1722,7 @@ public final class WebApi {
             var subs = entry.getValue();
             for (UUID networkId : List.copyOf(subs.keySet())) {
                 Network network = NetworkManager.network(server, networkId);
-                if (network == null || !Security.canView(network, player)) {
+                if (network == null || !Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
                     subs.remove(networkId);
                     JsonObject gone = new JsonObject();
                     gone.addProperty("type", "removed");

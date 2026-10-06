@@ -13,6 +13,7 @@
     placeholder,
     kind,
     anyResource = false,
+    template,
     devices = [],
   }: {
     value: string;
@@ -23,6 +24,7 @@
     kind?: CatalogKind;
     /** Checked as fine when it works for any resource (a filter template). */
     anyResource?: boolean;
+    template?: string;
     /** Devices whose contents the picker offers first (e.g. those feeding this node). */
     devices?: GlobalPos[];
   } = $props();
@@ -31,7 +33,7 @@
   let text = $state("");
 </script>
 
-<FilterInput bind:text {value} kind={kind ?? "item"} {anyResource} {disabled} {placeholder} oncommit={onchange}>
+<FilterInput bind:text {value} kind={kind ?? "item"} {anyResource} {template} {disabled} {placeholder} oncommit={onchange}>
   {#snippet extra()}
     <button type="button" class="btn flex shrink-0 items-center px-2" {disabled} title="Pick items, fluids or chemicals, their tags or mods" aria-label="Pick" onclick={() => (picking = true)}><Funnel size={14} /></button>
   {/snippet}

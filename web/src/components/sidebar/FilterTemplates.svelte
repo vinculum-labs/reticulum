@@ -140,7 +140,7 @@
         </div>
         {#if isOpen}
           <div class="px-2 pb-2">
-            <FilterField value={expression} anyResource disabled={!canEdit} placeholder="everything" onchange={(v) => save(name, v)} />
+            <FilterField value={expression} anyResource template={name} disabled={!canEdit} placeholder="everything" onchange={(v) => save(name, v)} />
           </div>
         {/if}
       </li>
