@@ -11,6 +11,8 @@ import { inInstance, slotName } from "./blueprints";
 /** How the layers are set. */
 export interface LayerView {
   modes: Partial<Record<Layer, LayerMode>>;
+  /** The pin under the pointer: its wires show as on a shown layer, whatever theirs is set to. */
+  reveal?: { node: string; handle: string } | null;
 }
 
 export interface NodeData extends Record<string, unknown> {
@@ -651,7 +653,11 @@ function sheetFlow(
     // Its layer. Hidden means hidden (wires coming and going with the selection looked like missing ones); only while
     // a new wire is drawn do hidden wires show faint (by their class).
     const layer: Layer | null = signal ? "redstone" : pin === "me" ? "me" : resource;
-    const mode = (layer && layers.modes[layer]) || "show";
+    const from = sourceHandle(fromNode, w.output ?? 0);
+    const to = targetHandle(byId.get(w.to), w.input ?? 0);
+    const reveal = layers.reveal;
+    const revealed = !!reveal && ((reveal.node === w.from && reveal.handle === from) || (reveal.node === w.to && reveal.handle === to));
+    const mode = (!revealed && layer && layers.modes[layer]) || "show";
     const faint = mode === "dim" ? "; opacity: 0.18" : "";
     const hidden = mode === "hide";
     return {
@@ -661,8 +667,8 @@ function sheetFlow(
       id: w.id,
       source: w.from,
       target: w.to,
-      sourceHandle: sourceHandle(byId.get(w.from), w.output ?? 0),
-      targetHandle: targetHandle(byId.get(w.to), w.input ?? 0),
+      sourceHandle: from,
+      targetHandle: to,
       type: wireStyle,
       selected: !hidden && selected.has(w.id),
       animated: rate > 0,

@@ -51,6 +51,24 @@
   let sizedWith = new Map<string, { width: number; height: number }>();
   let dragging = false;
   let wiring = $state(false);
+  /** The pin under the pointer while some layer is dimmed or hidden: its wires show anyway. */
+  let hoveredPin: { node: string; handle: string } | null = $state(null);
+
+  /** The pin {@code el} is part of: its knob, its row on a card, or a sheet pin's tag. */
+  function pinOf(el: Element | null): HTMLElement | null {
+    const knob = el?.closest<HTMLElement>(".svelte-flow__handle");
+    if (knob) return knob;
+    const row = el?.closest("[data-pin-row], .svelte-flow__node-pin");
+    return row?.querySelector<HTMLElement>(".svelte-flow__handle") ?? null;
+  }
+
+  function hoverPin(e: PointerEvent) {
+    const knob = Object.values(app.layers).some((m) => m === "dim" || m === "hide") ? pinOf(e.target as Element) : null;
+    const node = knob?.dataset.nodeid;
+    const handle = knob?.dataset.handleid;
+    const next = node && handle ? { node, handle } : null;
+    if (next?.node !== hoveredPin?.node || next?.handle !== hoveredPin?.handle) hoveredPin = next;
+  }
   let container: HTMLDivElement | undefined = $state();
   /**
    * Whether the Delete or Backspace being handled was pressed with focus off the canvas (a sidebar row, an inspector
@@ -168,6 +186,7 @@
     const bindings = scope ? scopedBindings(scope, s) : undefined;
     const built = toFlow(s, app.snapshot?.sheets ?? [], devices, activity, selected, unit, app.wireStyle, open, sizes, bindings, {
       modes: app.layers,
+      reveal: hoveredPin,
     });
     const before = view.owner;
     view = built;
@@ -1143,7 +1162,16 @@
 
 <!-- "wiring" while a new wire is being dragged, so pins that hide when unused (gates) show as drop targets. -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="h-full w-full" class:wiring bind:this={container} {ondragover} {ondrop} onkeydown={selectByKey}>
+<div
+  class="h-full w-full"
+  class:wiring
+  bind:this={container}
+  {ondragover}
+  {ondrop}
+  onkeydown={selectByKey}
+  onpointerover={hoverPin}
+  onpointerleave={() => (hoveredPin = null)}
+>
   <SvelteFlow
     bind:nodes
     bind:edges

@@ -324,7 +324,7 @@ ${idleTitle}` : idleTitle}
       <!-- Each pin inside its row, centered on it: level with its label whatever the border or display scale. -->
       <div class="flex flex-col">
         {#each leftRows as row (row.handle)}
-          <div class="relative" style="height: {ROW}px">
+          <div class="relative" data-pin-row style="height: {ROW}px">
             <div class="truncate pl-2" style="line-height: {ROW}px" title={row.title}>{row.label}</div>
             <Handle type="target" position={Position.Left} id={row.handle} title={row.title}
               style="top: 50%; left: {-BORDER}px; {inPin(row.color)}{layerPin(row.layer)}" />
@@ -333,7 +333,7 @@ ${idleTitle}` : idleTitle}
       </div>
       <div class="flex flex-col text-right">
         {#each rightRows as row (row.handle)}
-          <div class="relative" style="height: {ROW}px">
+          <div class="relative" data-pin-row style="height: {ROW}px">
             <div class="truncate pr-2" style="line-height: {ROW}px" title={row.title}>{row.label}</div>
             <Handle type="source" position={Position.Right} id={row.handle} title={row.title}
               style="top: 50%; right: {-BORDER}px; {outPin(row.color)}{layerPin(row.layer)}" />
@@ -357,7 +357,7 @@ ${idleTitle}` : idleTitle}
     <div class="grid grid-cols-2 gap-2" style="height: {flowRows * ROW}px; font-size: 10px">
       <div class="flex flex-col">
         {#if flowIn}
-          <div class="relative pl-2" style="height: {ROW}px; line-height: {ROW}px">
+          <div class="relative pl-2" data-pin-row style="height: {ROW}px; line-height: {ROW}px">
             in
             <Handle type="target" position={Position.Left} id="in" style="top: 50%; left: {-BORDER}px; {inPin(color)}" />
           </div>
@@ -365,7 +365,7 @@ ${idleTitle}` : idleTitle}
       </div>
       <div class="flex flex-col text-right">
         {#each flowOuts as out (out.id)}
-          <div class="relative pr-2" style="height: {ROW}px; line-height: {ROW}px; color: {out.color}">
+          <div class="relative pr-2" data-pin-row style="height: {ROW}px; line-height: {ROW}px; color: {out.color}">
             {out.label}
             <Handle type="source" position={Position.Right} id={out.id} style="top: 50%; right: {-BORDER}px; {outPin(out.color)}" />
           </div>
