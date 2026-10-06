@@ -166,11 +166,11 @@ final class ItemPort {
         ItemStack remaining = stack.copy();
         for (int pass = 0; pass < 2 && !remaining.isEmpty(); pass++) {
             for (IItemHandler handler : handlers) {
-                for (int slot = 0; slot < handler.getSlots() && !remaining.isEmpty(); slot++) {
+                for (int slot = 0; slot < Handlers.slots(handler) && !remaining.isEmpty(); slot++) {
                     if (!inRange(slot)) {
                         continue;
                     }
-                    ItemStack present = handler.getStackInSlot(slot);
+                    ItemStack present = Handlers.stack(handler, slot);
                     boolean matching = !present.isEmpty() && ItemStack.isSameItemSameComponents(present, remaining);
                     if (pass == 0 ? matching : present.isEmpty()) {
                         remaining = Handlers.insert(handler, slot, remaining, simulate);

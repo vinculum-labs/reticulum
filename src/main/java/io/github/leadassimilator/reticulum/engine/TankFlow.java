@@ -131,6 +131,8 @@ final class TankFlow {
         // what is already planned into the same handlers (one store reached several ways counts once).
         Map<java.util.List<Object>, Long> room = new HashMap<>();
         Map<Object, Long> plannedInto = new java.util.IdentityHashMap<>();
+        Map<GlobalPos, Long> plannedDevice = new HashMap<>();
+        Map<GlobalPos, Long> plannedAuto = new HashMap<>();
         // What each sink node's caps still allow this tick, once a route into it has asked.
         Map<java.util.UUID, Long> capLeft = new HashMap<>();
         for (CompiledSheet.Route route : ordered) {
@@ -169,10 +171,17 @@ final class TankFlow {
             for (H handler : to) {
                 already = Math.max(already, plannedInto.getOrDefault(handler, 0L));
             }
+            // Through all faces (auto): everything planned into the device; through some: what went through all of them.
+            already = Math.max(already, port.faces().isEmpty() ? plannedDevice.getOrDefault(port.device(), 0L)
+                    : plannedAuto.getOrDefault(port.device(), 0L));
             long free = seen - already;
             long demand = Math.max(0, Math.min(max, free));
             for (H handler : to) {
                 plannedInto.merge(handler, demand, Long::sum);
+            }
+            plannedDevice.merge(port.device(), demand, Long::sum);
+            if (port.faces().isEmpty()) {
+                plannedAuto.merge(port.device(), demand, Long::sum);
             }
             if (!route.sinkSettings().caps().isEmpty()) {
                 capLeft.put(route.sink().id(), capRoom - demand);
@@ -183,7 +192,7 @@ final class TankFlow {
         }
         long[] demand = demands.stream().mapToLong(Long::longValue).toArray();
         ContinuousMover.capByRateLimits(ctx.runtime(), routes, demand);
-        long[] share = ContinuousMover.share(supply, demand, ContinuousMover.anyPriority(routes), ContinuousMover.weights(routes));
+        long[] share = ContinuousMover.share(supply, demand, ContinuousMover.anyPriority(routes), ContinuousMover.weights(routes, demand));
         long total = 0;
         for (int i = 0; i < routes.size(); i++) {
             if (share[i] <= 0) {

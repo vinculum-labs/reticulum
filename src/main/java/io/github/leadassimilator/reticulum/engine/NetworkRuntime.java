@@ -342,7 +342,7 @@ public final class NetworkRuntime {
                 + wirelessDistance * power.perBlock() + crossDimensionConnectors * power.crossDimension();
         upkeepOwed += lastUpkeep;
         long whole = (long) upkeepOwed;
-        if (!wasPowered && controller.energy() < Math.min(ControllerBlockEntity.capacity(), whole * 20L)) {
+        if (!wasPowered && controller.energy() < Math.min(ControllerBlockEntity.capacity(), (long) Math.ceil(lastUpkeep * 20))) {
             // Unpowered: back on once a second's upkeep is in hand, not every tick it scrapes one together.
             upkeepOwed -= whole;
             powered = false;
@@ -694,8 +694,8 @@ public final class NetworkRuntime {
         rateCapacity.clear();
         limits.forEach((id, rate) -> {
             double perTick = rate.perSecond() / 20.0;
-            // Bursts are limited to one second's worth, or one interval's for a source slower than that.
-            double capacity = Math.max(rate.perSecond(), perTick) * Math.max(1, slowest.getOrDefault(id, 20) / 20.0);
+            // Bursts are limited to one second's worth (a source slower than that: see allowance).
+            double capacity = Math.max(rate.perSecond(), perTick);
             rateCapacity.put(id, capacity);
             tokens.merge(id, perTick, (a, b) -> Math.min(capacity, a + b));
         });
@@ -711,6 +711,25 @@ public final class NetworkRuntime {
     public boolean mayPass(Node rateLimit, long amount) {
         double have = tokens.getOrDefault(rateLimit.id(), 0.0);
         return have >= amount || have >= rateCapacity.getOrDefault(rateLimit.id(), Double.MAX_VALUE) - 1e-9;
+    }
+
+    /**
+     * How much an item source operating every {@code interval} ticks may move through the rate limits now: what they
+     * hold, or (a source slower than a second, the limit full) an interval's worth, the limit then waiting that long to
+     * fill again, so its rate holds.
+     */
+    public long allowance(List<Node> rateLimits, int interval) {
+        long allowed = Long.MAX_VALUE;
+        for (Node node : rateLimits) {
+            double have = tokens.getOrDefault(node.id(), 0.0);
+            double capacity = rateCapacity.getOrDefault(node.id(), Double.MAX_VALUE);
+            long can = (long) Math.floor(have);
+            if (interval > 20 && have >= capacity - 1e-9) {
+                can = Math.max(can, (long) Math.floor(capacity * interval / 20.0));
+            }
+            allowed = Math.min(allowed, can);
+        }
+        return allowed;
     }
 
     /** How much may pass through all the rate limits on a route right now. */

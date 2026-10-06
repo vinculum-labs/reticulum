@@ -33,12 +33,30 @@ final class Handlers {
         }
     }
 
+    static int slots(IItemHandler handler) {
+        try {
+            return handler.getSlots();
+        } catch (RuntimeException e) {
+            warn(e);
+            return 0;
+        }
+    }
+
+    static ItemStack stack(IItemHandler handler, int slot) {
+        try {
+            return handler.getStackInSlot(slot);
+        } catch (RuntimeException e) {
+            warn(e);
+            return ItemStack.EMPTY;
+        }
+    }
+
     /** Into any slot of the handler, filling stacks of the same item first; returns what didn't go in. */
     static ItemStack insertAnywhere(IItemHandler handler, ItemStack stack) {
         ItemStack left = stack;
         for (int pass = 0; pass < 2 && !left.isEmpty(); pass++) {
-            for (int slot = 0; slot < handler.getSlots() && !left.isEmpty(); slot++) {
-                ItemStack present = handler.getStackInSlot(slot);
+            for (int slot = 0; slot < slots(handler) && !left.isEmpty(); slot++) {
+                ItemStack present = stack(handler, slot);
                 if (pass == 0 ? !present.isEmpty() && ItemStack.isSameItemSameComponents(present, left) : present.isEmpty()) {
                     left = insert(handler, slot, left, false);
                 }

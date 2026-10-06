@@ -259,25 +259,40 @@ final class ContinuousMover {
      * any. Scaled to whole numbers.
      */
     static long[] weights(List<CompiledSheet.Route> routes) {
+        return weights(routes, null);
+    }
+
+    /** As {@link #weights(List)}, an output's weight shared only by the routes out of it that want something ({@code demand} > 0). */
+    static long[] weights(List<CompiledSheet.Route> routes, @javax.annotation.Nullable long[] demand) {
         // How many routes go out of each weighted splitter's output.
         Map<java.util.List<Object>, Integer> sharing = new java.util.HashMap<>();
-        for (CompiledSheet.Route route : routes) {
+        for (int r = 0; r < routes.size(); r++) {
+            if (demand != null && demand[r] <= 0) {
+                continue;
+            }
+            CompiledSheet.Route route = routes.get(r);
             for (CompiledSheet.Branch branch : route.branches()) {
                 if (branch.mode() == NodeSettings.SplitMode.WEIGHTED) {
                     sharing.merge(java.util.List.of(branch.node(), branch.index()), 1, Integer::sum);
                 }
             }
         }
-        long[] weights = new long[routes.size()];
-        for (int i = 0; i < weights.length; i++) {
+        double[] exact = new double[routes.size()];
+        double largest = 0;
+        for (int i = 0; i < exact.length; i++) {
             double weight = 1;
             for (CompiledSheet.Branch branch : routes.get(i).branches()) {
                 if (branch.mode() == NodeSettings.SplitMode.WEIGHTED) {
                     weight *= Math.max(0, branch.weight()) / (double) sharing.getOrDefault(java.util.List.of(branch.node(), branch.index()), 1);
                 }
             }
-            // Held below what a sum of many could overflow (nested splitters with large weights).
-            weights[i] = (long) Math.min(Math.round(weight * 1_000_000), 1L << 40);
+            exact[i] = weight;
+            largest = Math.max(largest, weight);
+        }
+        // Whole numbers keeping the ratios: the largest at 2^30 (a sum of many can't overflow), none above 0 rounded to 0.
+        long[] weights = new long[routes.size()];
+        for (int i = 0; i < weights.length; i++) {
+            weights[i] = exact[i] <= 0 || largest <= 0 ? 0 : Math.max(1, Math.round(exact[i] / largest * (1L << 30)));
         }
         return weights;
     }

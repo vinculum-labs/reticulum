@@ -93,7 +93,10 @@ final class ItemMover {
             if (moved) {
                 ctx.runtime().chargeOperation();
             }
-            ctx.runtime().recordOperation(id, moved);
+            // A pulse's extra run tried its routes only: moving nothing there says nothing about the source as a whole.
+            if (isDue || moved) {
+                ctx.runtime().recordOperation(id, moved);
+            }
         }
     }
 
@@ -120,6 +123,7 @@ final class ItemMover {
     /** Returns how many items moved. */
     private static long operate(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, List<CompiledSheet.Route> routes) {
         UUID owner = sheet.owner(source.node().id());
+        int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.intervalOf(source.node().id());
         ItemPort from = ctx.runtime().itemPort(ctx.server(), ctx.network(), source.settings().port());
         if (from.isEmpty()) {
             ctx.runtime().status(owner, Status.DEVICE_OFFLINE);
@@ -172,7 +176,7 @@ final class ItemMover {
                         why = Status.furthest(why, Status.FILTERED_OUT);
                         continue;
                     }
-                    long rate = ctx.runtime().available(route.rateLimits());
+                    long rate = ctx.runtime().allowance(route.rateLimits(), interval);
                     long room = to.limit(route.sinkSettings().caps(), sheet, stack, context, false);
                     long amount = Math.min(available, Math.min(rate, room));
                     if (amount <= 0) {
