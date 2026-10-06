@@ -222,7 +222,7 @@ export function allSlotKeys(blueprint: Sheet | undefined, sheets: Sheet[], depth
 /**
  * Activity as an open instance's nodes and wires show it. The canvas shows the blueprint's own nodes, but the server names
  * them in this instance "<instance node>/<blueprint node>" (as a name UUID), and keeps their activity under those names.
- * Statuses aren't moved: the server puts those on the instance node.
+ * Statuses move too: most are on the instance node (its owner), a node off by its gate under its own name here.
  */
 export function instanceActivity(activity: Activity, instanceNode: string, blueprint: Sheet, sheets: Sheet[] = []): Activity {
   const ids = [...(blueprint.nodes ?? []).map((n) => n.id), ...(blueprint.wires ?? []).map((w) => w.id)];
@@ -249,7 +249,14 @@ export function instanceActivity(activity: Activity, instanceNode: string, bluep
     }
     return out;
   }
-  return { ...activity, rates: remap(activity.rates), fiveMinutes: remap(activity.fiveMinutes), signals: remap(activity.signals), me: remap(activity.me) };
+  return {
+    ...activity,
+    rates: remap(activity.rates),
+    fiveMinutes: remap(activity.fiveMinutes),
+    signals: remap(activity.signals),
+    me: remap(activity.me),
+    status: remap(activity.status ?? {}),
+  };
 }
 
 /**

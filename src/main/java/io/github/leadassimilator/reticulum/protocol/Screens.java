@@ -84,7 +84,7 @@ public final class Screens {
         }
         var watch = beacon.watch(player.serverLevel());
         io.github.leadassimilator.reticulum.network.Network network = watch.network();
-        boolean canView = network != null && io.github.leadassimilator.reticulum.security.Security.canView(network, player);
+        boolean canView = network != null && io.github.leadassimilator.reticulum.security.Security.could(network, player, Role.VIEWER);
         java.util.List<String> alarms = new java.util.ArrayList<>();
         if (beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.NETWORK && canView && watch.reachable()) {
             for (var alarm : io.github.leadassimilator.reticulum.engine.Alarms.cached(player.server, network)) {
@@ -111,7 +111,7 @@ public final class Screens {
         if (watch.network() == null) {
             return net.minecraft.network.chat.Component.translatable("lookat.reticulum.beacon_no_connector");
         }
-        String name = io.github.leadassimilator.reticulum.security.Security.canView(watch.network(), player) ? watch.network().name() : "?";
+        String name = io.github.leadassimilator.reticulum.security.Security.could(watch.network(), player, Role.VIEWER) ? watch.network().name() : "?";
         return net.minecraft.network.chat.Component.translatable(watch.reachable() ? "lookat.reticulum.beacon_watching" : "lookat.reticulum.beacon_unreachable", name);
     }
 

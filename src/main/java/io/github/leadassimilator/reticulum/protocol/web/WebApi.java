@@ -372,7 +372,7 @@ public final class WebApi {
     private static JsonArray networkList(MinecraftServer server, ServerPlayer player) {
         JsonArray list = new JsonArray();
         for (Network network : NetworkManager.data(server).networks()) {
-            if (Security.canView(network, player)) {
+            if (Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
                 list.add(Snapshots.summary(server, network, Security.role(network, player)));
             }
         }
@@ -1799,7 +1799,7 @@ public final class WebApi {
         for (Map.Entry<UUID, Map<UUID, Integer>> entry : SUBSCRIPTIONS.entrySet()) {
             Map<UUID, Integer> subs = entry.getValue();
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            if (player == null || !subs.containsKey(network.id()) || !Security.canView(network, player)) {
+            if (player == null || !subs.containsKey(network.id()) || !Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
                 continue;
             }
             subs.put(network.id(), stamp(server, network, player, false));

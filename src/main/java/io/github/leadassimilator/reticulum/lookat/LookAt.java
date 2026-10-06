@@ -80,7 +80,7 @@ public final class LookAt {
             lines.add(Component.translatable("lookat.reticulum.no_network").withStyle(ChatFormatting.GRAY));
             return;
         }
-        if (!Security.canView(network, player)) {
+        if (!Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
             lines.add(Component.translatable("lookat.reticulum.private").withStyle(ChatFormatting.GRAY));
             return;
         }
@@ -150,7 +150,7 @@ public final class LookAt {
     private static void describeDevice(ServerLevel level, BlockPos pos, @Nullable Direction face, Player player, List<Component> lines) {
         GlobalPos global = Devices.global(level, pos);
         List<Network> networks = NetworkManager.networksWith(level.getServer(), global).stream()
-                .filter(network -> Security.canView(network, player)).toList();
+                .filter(network -> Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)).toList();
         boolean activeSomewhere = networks.stream().anyMatch(network -> network.device(global).state() == DeviceRecord.State.ACTIVE);
         for (Network network : networks) {
             DeviceRecord record = network.device(global);

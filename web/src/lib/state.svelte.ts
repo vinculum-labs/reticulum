@@ -511,6 +511,16 @@ function setSnapshot(snapshot: Snapshot): void {
 
 let queue: Promise<unknown> = Promise.resolve();
 
+/** Once every edit sent so far is answered (and the snapshot shows what it did). */
+export function settled(): Promise<void> {
+  return queue.then(() => undefined);
+}
+
+/** A sheet of the snapshot shown now, by id. */
+export function currentSheetById(id: string): Sheet | undefined {
+  return app.snapshot?.sheets.find((s) => s.id === id);
+}
+
 /** Runs edit requests one after another, in the order they were made. */
 function serially<T>(task: () => Promise<T>): Promise<T> {
   const run = queue.then(task, task);
@@ -625,9 +635,6 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
 export function lastSent(node: GraphNode): GraphNode {
   return sentNodes.get(node.id) ?? node;
 }
-
-/** Wires an edit not back yet takes off (the snapshot still shows them). */
-export const pendingDisconnects = new Set<string>();
 
 /**
  * A node edit made from {@code node} (as the snapshot shows it) turned into {@code next}, rebased onto the version
