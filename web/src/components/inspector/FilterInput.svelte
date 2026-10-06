@@ -51,13 +51,16 @@
     if (saved !== undefined && !focused) text = saved;
   });
 
+  /** The templates as text: changes only when they do (not with every snapshot). */
+  const templatesKey = $derived(JSON.stringify(app.snapshot?.filters ?? {}));
+
   // Checked a moment after the text stops changing, and once when shown.
   let timer: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     const expression = text;
     const resource = anyResource ? "any" : kind;
     // Checked again when the templates change (one it names removed or renamed).
-    void JSON.stringify(app.snapshot?.filters ?? {});
+    void templatesKey;
     clearTimeout(timer);
     timer = setTimeout(async () => {
       try {

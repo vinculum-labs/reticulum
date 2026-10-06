@@ -356,12 +356,30 @@ public final class NetworkManager {
         if (members.size() > Limits.MEMBERS) {
             return "together they would have more than " + Limits.MEMBERS + " members";
         }
-        java.util.Set<String> filters = new java.util.HashSet<>(into.filters().keySet());
-        filters.addAll(from.filters().keySet());
-        if (filters.size() > Limits.FILTER_TEMPLATES) {
+        // A template of the same name and filter is one; of the same name and another filter, two (renamed in the merge).
+        long templates = into.filters().size() + from.filters().entrySet().stream()
+                .filter(e -> !e.getValue().equals(into.filters().get(e.getKey()))).count();
+        if (templates > Limits.FILTER_TEMPLATES) {
             return "together they would have more than " + Limits.FILTER_TEMPLATES + " filter templates";
         }
         return null;
+    }
+
+    /** Whether any filter or template of the network names template {@code name}. */
+    private static boolean mentioned(Network network, String name) {
+        if (network.filters().values().stream().anyMatch(e -> io.github.leadassimilator.reticulum.filter.FilterRefs.mentions(e, name))) {
+            return true;
+        }
+        for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
+            for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
+                for (String filter : io.github.leadassimilator.reticulum.filter.FilterRefs.filters(node.settings())) {
+                    if (io.github.leadassimilator.reticulum.filter.FilterRefs.mentions(filter, name)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     public static void absorb(MinecraftServer server, Network into, Network from, Role cap) {
@@ -380,7 +398,9 @@ public final class NetworkManager {
                 continue;
             }
             String renamed = name;
-            for (int n = 2; into.filters().containsKey(renamed) || from.filters().containsKey(renamed); n++) {
+            // Not a name taken, nor one a filter still names (it would start matching this one).
+            for (int n = 2; into.filters().containsKey(renamed) || from.filters().containsKey(renamed) || mentioned(into, renamed)
+                    || mentioned(from, renamed); n++) {
                 String suffix = " " + n;
                 renamed = (name.length() + suffix.length() > Limits.NAME ? name.substring(0, Limits.NAME - suffix.length()).stripTrailing() : name) + suffix;
             }

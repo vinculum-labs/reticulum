@@ -586,7 +586,30 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
     }
   }
   app.busy++;
+  return serially(() => sendEdit(edits, undo, label, network, nodes));
+}
+
+/**
+ * An edit worked out when its turn to be sent comes, everything sent before it answered and shown: {@code plan} reads
+ * the snapshot as the game has it then (null: nothing to do). For a change built from the state of more than one node
+ * (switching a placed blueprint, its wires with it).
+ */
+export function editWhenDue(plan: () => { edits: Edit[]; undo?: Edit[]; label: string } | null, network = app.current): Promise<unknown[] | null> {
+  if (!network) return Promise.resolve(null);
+  app.busy++;
   return serially(async () => {
+    const made = app.current === network ? plan() : null;
+    if (!made || made.edits.length === 0) {
+      app.busy--;
+      return null;
+    }
+    return sendEdit(made.edits, made.undo, made.label, network, []);
+  });
+}
+
+/** Sends one edit (its turn come), keeping its undo step; see edit. Ends the busy count edit began. */
+async function sendEdit(edits: Edit[], undo: Edit[] | undefined, label: string, network: string, nodes: GraphNode[]): Promise<unknown[] | null> {
+  {
     let sending: { edits: Edit[]; undo?: Edit[] } = { edits, undo };
     try {
       // Made again on what the game has now: the edits before this one are answered.
@@ -631,7 +654,7 @@ export function edit(edits: Edit[], undo?: Edit[], label = "change", network = a
       for (const n of nodes) if (sentNodes.get(n.id) === n) sentNodes.delete(n.id);
       app.busy--;
     }
-  });
+  }
 }
 
 /** The node as last sent (an edit not back yet), else as the snapshot shows it. */
@@ -1070,9 +1093,8 @@ export function deviceUses(snapshot: Snapshot): Map<string, DeviceUse[]> {
       }
       // A blueprint placed in a blueprint keeps where its slots were laid out (its layout measures from those blocks).
       if (s.kind === "instance" && sheet.blueprint) {
-        const keys = new Set(allSlotKeys(snapshot.sheets.find((b) => b.id === s.sheet), snapshot.sheets));
-        for (const [key, binding] of Object.entries(s.layout ?? {})) {
-          if (!keys.has(key)) continue;
+        // (All of them, slots taken out since too: the game keeps the block for each.)
+        for (const binding of Object.values(s.layout ?? {})) {
           add(binding.device, { label: `${label} › ${nodeTitle(node)}: a slot laid out on it (where its layout measures from)`, sheetId: sheet.id, nodeId: node.id });
         }
       }

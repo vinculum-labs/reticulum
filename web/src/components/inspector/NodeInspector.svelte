@@ -1,7 +1,7 @@
 <script lang="ts">
   import Help from "./Help.svelte";
   import Trash from "@lucide/svelte/icons/trash";
-  import { app, deviceAt, edit, nodeTitle, openInstance, openDevice, openSheet, rebase, updateNodeEdit, settled, nodeById, currentSheetById } from "../../lib/state.svelte";
+  import { app, deviceAt, edit, nodeTitle, openInstance, openDevice, openSheet, rebase, updateNodeEdit, nodeById, currentSheetById, editWhenDue } from "../../lib/state.svelte";
   import { slotName, slotsOf, allSlotKeys } from "../../lib/blueprints";
   import { deviceChange } from "../../lib/prune";
   import { childSheets } from "../../lib/tree";
@@ -166,53 +166,55 @@
    * Places another blueprint here (its slots start empty). A numbered name the old blueprint gave it ("Smelter #2") goes,
    * so the game numbers it for the new one; a name typed in stays.
    */
-  async function switchBlueprint(to: string) {
+  function switchBlueprint(to: string) {
     if (node.settings.kind !== "instance") return;
-    // Once the edits sent before are answered (refused or done, undone or redone), its wires and placement are as the
-    // game has them: worked out from there.
-    await settled();
-    const fresh = app.snapshot ? nodeById(sheet, node.id) : undefined;
-    if (!fresh || fresh.settings.kind !== "instance") return;
-    const current = fresh;
-    const was = app.snapshot?.sheets.find((x) => x.id === (current.settings as { sheet?: string }).sheet);
-    const next = app.snapshot?.sheets.find((x) => x.id === to);
-    const old = was?.name;
-    const numbered = !!old && !!current.label?.startsWith(`${old} #`) && /^\d+$/.test(current.label.slice(old.length + 2));
-    const after = { ...current, label: numbered ? undefined : current.label, settings: { ...current.settings, sheet: to, bindings: undefined, layout: undefined } as NodeSettings };
-    // A wire stays where the new blueprint has a pin at its slot that can take what it carried: untyped on either side,
-    // or the same kind; the others go.
-    const carries = (bp: Sheet | undefined, input: boolean, slot: number) => {
-      const pins = bp ? sheetPins(bp, input) : [];
-      const pin = pins.find((p, i) => pinSlot(p, i) === slot);
-      return pin ? ((pin.settings as { resource?: string }).resource ?? "any") : undefined;
-    };
-    const takes = (a: string | undefined, b: string | undefined) => a !== undefined && b !== undefined && (a === "any" || b === "any" || a === b);
-    // What a wire carried where the old pin didn't say: what its other end gives or takes (a signal from a signal node).
-    const sheets = app.snapshot?.sheets ?? [];
-    const actual = (w: Wire): string | undefined => {
-      const other = (sheet.nodes ?? []).find((n) => n.id === (w.to === node.id ? w.from : w.to));
-      if (!other) return undefined;
-      if (isSignal(other.settings.kind)) return "redstone";
-      if (w.to !== node.id && w.input === GATE) return "redstone";
-      return w.to === node.id
-        ? (pinResource(other, "out", w.output ?? 0, sheets) ?? resources(sheet, sheets).nodes.get(other.id) ?? undefined)
-        : (pinResource(other, "in", w.input ?? 0, sheets) ?? resources(sheet, sheets).nodes.get(other.id) ?? undefined);
-    };
-    const carried = (w: Wire, input: boolean, slot: number) => {
-      const old = carries(was, input, slot);
-      return old === "any" ? (actual(w) ?? "any") : old;
-    };
-    const fits = (w: Wire) =>
-      w.to === node.id
-        ? w.input === GATE || takes(carries(next, true, w.input ?? 0), carried(w, true, w.input ?? 0))
-        : takes(carries(next, false, w.output ?? 0), carried(w, false, w.output ?? 0));
-    const holder = currentSheetById(sheet.id) ?? sheet;
-    const gone = (holder.wires ?? []).filter((w) => (w.to === node.id || w.from === node.id) && !fits(w));
-    edit(
-      [...gone.map((w) => ({ type: "disconnect", sheet: sheet.id, wire: w.id })), { type: "updateNode", sheet: sheet.id, node: after }],
-      [{ type: "updateNode", sheet: sheet.id, node: current }, ...gone.map((w) => ({ type: "connect", sheet: sheet.id, wire: w }))],
-      "change blueprint",
-    );
+    const id = node.id;
+    const sheetId = sheet.id;
+    // Worked out when its turn comes: the placement and its wires as the game has them then (an edit before it done,
+    // refused or undone), so nothing sent meanwhile is overwritten and two quick picks chain.
+    editWhenDue(() => {
+      const holder = currentSheetById(sheetId);
+      const current = holder ? nodeById(holder, id) : undefined;
+      if (!holder || !current || current.settings.kind !== "instance" || current.settings.sheet === to) return null;
+      const sheets = app.snapshot?.sheets ?? [];
+      const was = sheets.find((x) => x.id === (current.settings as { sheet?: string }).sheet);
+      const next = sheets.find((x) => x.id === to);
+      const old = was?.name;
+      const numbered = !!old && !!current.label?.startsWith(`${old} #`) && /^\d+$/.test(current.label.slice(old.length + 2));
+      const after = { ...current, label: numbered ? undefined : current.label, settings: { ...current.settings, sheet: to, bindings: undefined, layout: undefined } as NodeSettings };
+      // A wire stays where the new blueprint has a pin at its slot that can take what it carried: untyped on either side,
+      // or the same kind; the others go.
+      const carries = (bp: Sheet | undefined, input: boolean, slot: number) => {
+        const pins = bp ? sheetPins(bp, input) : [];
+        const pin = pins.find((p, i) => pinSlot(p, i) === slot);
+        return pin ? ((pin.settings as { resource?: string }).resource ?? "any") : undefined;
+      };
+      const takes = (a: string | undefined, b: string | undefined) => a !== undefined && b !== undefined && (a === "any" || b === "any" || a === b);
+      // What a wire carried where the old pin didn't say: what its other end gives or takes (a signal from a signal node).
+      const actual = (w: Wire): string | undefined => {
+        const other = (holder.nodes ?? []).find((n) => n.id === (w.to === id ? w.from : w.to));
+        if (!other) return undefined;
+        if (isSignal(other.settings.kind)) return "redstone";
+        if (w.to !== id && w.input === GATE) return "redstone";
+        return w.to === id
+          ? (pinResource(other, "out", w.output ?? 0, sheets) ?? resources(holder, sheets).nodes.get(other.id) ?? undefined)
+          : (pinResource(other, "in", w.input ?? 0, sheets) ?? resources(holder, sheets).nodes.get(other.id) ?? undefined);
+      };
+      const carried = (w: Wire, input: boolean, slot: number) => {
+        const before = carries(was, input, slot);
+        return before === "any" ? (actual(w) ?? "any") : before;
+      };
+      const fits = (w: Wire) =>
+        w.to === id
+          ? w.input === GATE || takes(carries(next, true, w.input ?? 0), carried(w, true, w.input ?? 0))
+          : takes(carries(next, false, w.output ?? 0), carried(w, false, w.output ?? 0));
+      const gone = (holder.wires ?? []).filter((w) => (w.to === id || w.from === id) && !fits(w));
+      return {
+        edits: [...gone.map((w) => ({ type: "disconnect", sheet: sheetId, wire: w.id })), { type: "updateNode", sheet: sheetId, node: after }],
+        undo: [{ type: "updateNode", sheet: sheetId, node: current }, ...gone.map((w) => ({ type: "connect", sheet: sheetId, wire: w }))],
+        label: "change blueprint",
+      };
+    });
   }
 
   /** Another placement of the same blueprint with this one's name. */
