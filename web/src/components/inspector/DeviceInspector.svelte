@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app, deviceUses, edit, deviceName, openSheet, showNode } from "../../lib/state.svelte";
-  import { RESOURCE_LABEL } from "../../lib/kinds";
+  import { RESOURCE_LABEL, NAME_LIMIT } from "../../lib/kinds";
   import { FACES, posKey, type Device, type Face, type Resource } from "../../lib/types";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import DeviceIcon from "../DeviceIcon.svelte";
@@ -118,7 +118,7 @@
   {/if}
 
   <Field label="Name">
-    <TextField value={device.name} placeholder={device.defaultName} disabled={!canEdit} oncommit={rename} />
+    <TextField maxlength={NAME_LIMIT} value={device.name} placeholder={device.defaultName} disabled={!canEdit} oncommit={rename} />
   </Field>
 
   <fieldset class="flex flex-col gap-1">
@@ -126,7 +126,7 @@
     {#each FACES as face}
       <div class="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-2 text-sm">
         <span class="muted">{face}</span>
-        <TextField class="w-full min-w-0" value={device.faceNames[face]} placeholder="—" disabled={!canEdit} title={`Name of the ${face} face`}
+        <TextField maxlength={NAME_LIMIT} class="w-full min-w-0" value={device.faceNames[face]} placeholder="—" disabled={!canEdit} title={`Name of the ${face} face`}
           oncommit={(v) => renameFace(face, v)} />
         {#if face !== "unsided"}
           <IdentifyToggle target={{ kind: "face", device: device.pos, face }} title="Light this face up in the world until turned off" />

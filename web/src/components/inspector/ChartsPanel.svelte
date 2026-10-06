@@ -80,9 +80,17 @@
     }
   }
 
+  /** The network the values are of: another one shown, they go (its totals have the same ids). */
+  let valuesOf = app.current;
   $effect(() => {
     void wanted.join();
     void window_;
+    if (app.current !== valuesOf) {
+      valuesOf = app.current;
+      generation++;
+      values = {};
+      newest = {};
+    }
     load(true);
     clearInterval(timer);
     timer = setInterval(load, window_ === "second" ? 2000 : 30000);

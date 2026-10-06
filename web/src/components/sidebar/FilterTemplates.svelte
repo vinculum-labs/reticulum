@@ -46,13 +46,14 @@
    * with another filter are replaced only when asked. One undoable change.
    */
   async function importSome() {
+    const network = app.current;
     const text = await promptDialog({
       title: "Import filter templates",
       message: "Paste templates copied with the templates' export, from this world or another.",
       confirm: "Import",
       multiline: true,
     });
-    if (!text?.trim()) return;
+    if (!text?.trim() || app.current !== network) return;
     const incoming = parseTemplates(text);
     if (!incoming.length) {
       toast("That isn't copied filter templates.");
@@ -66,7 +67,7 @@
         message: `${clashing.map(([n]) => "@" + n).join(", ")} already ${one ? "exists" : "exist"} here with another filter. Replace ${one ? "it" : "them"} with the imported ${one ? "one" : "ones"}? Cancel imports nothing.`,
         confirm: "Replace",
       });
-      if (!ok) return;
+      if (!ok || app.current !== network) return;
     }
     const todo = incoming.filter(([name, expression]) => snapshot.filters[name] !== expression);
     if (!todo.length) {
@@ -78,6 +79,7 @@
       ordered.map(([name, expression]) => ({ type: "setFilter", name, expression })),
       ordered.map(([name]) => ({ type: "setFilter", name, expression: snapshot.filters[name] ?? null })).reverse(),
       "import filter templates",
+      network,
     );
     if (ok) toast(`Imported ${ordered.length} template${ordered.length === 1 ? "" : "s"}.`, "info");
   }

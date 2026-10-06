@@ -17,7 +17,9 @@ export function parseTemplates(text: string): [string, string][] {
     return [];
   }
   const map = parsed && typeof parsed === "object" && "filterTemplates" in parsed ? (parsed as { filterTemplates: unknown }).filterTemplates : parsed;
-  return map && typeof map === "object" ? Object.entries(map).filter((e): e is [string, string] => typeof e[1] === "string") : [];
+  // A name → filter map: not a list, nor something else copied as JSON (a sheet: its id, name and nodes).
+  if (!map || typeof map !== "object" || Array.isArray(map) || "nodes" in map || "wires" in map || "bundle" in map) return [];
+  return Object.entries(map).filter((e): e is [string, string] => typeof e[1] === "string");
 }
 
 /**

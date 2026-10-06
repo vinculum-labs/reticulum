@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { NODES_PER_SHEET, SHEET_DEPTH } from "../../lib/kinds";
+  import { NODES_PER_SHEET, SHEET_DEPTH, NAME_LIMIT } from "../../lib/kinds";
   import { KIND_ICON } from "../../lib/icons";
   const BlueprintIcon = KIND_ICON.instance;
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
@@ -229,7 +229,7 @@
           <span class="w-4 shrink-0"></span>
           <StatusMark {status} />
           {#if renaming === row.node.id}
-            <TextField class="min-w-0 flex-1" value={row.node.label} placeholder={blueprintOf(row.node)?.name} autofocus oncommit={(v) => renameInstance(row.holder, row.node, v)} onfinish={() => (renaming = null)} />
+            <TextField maxlength={NAME_LIMIT} class="min-w-0 flex-1" value={row.node.label} placeholder={blueprintOf(row.node)?.name} autofocus oncommit={(v) => renameInstance(row.holder, row.node, v)} onfinish={() => (renaming = null)} />
           {:else}
             <button
               class="flex min-w-0 flex-1 items-center gap-1 text-left"
@@ -294,7 +294,7 @@
           <!-- How it is doing, left of its name: the network's state on the top row; a sheet's problems, why it is off, or running. -->
           <StatusMark status={treeStatus(sheet, off, snapshot.running, snapshot.enabled, unpowered, !!snapshot.controller, offlineUsed(snapshot, sheet), issuesInside(snapshot, sheet), alarmsIn(snapshot, sheet, app.networks.find((n) => n.id === snapshot.id)?.alarms ?? []))} />
           {#if renaming === sheet.id}
-            <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
+            <TextField maxlength={NAME_LIMIT} class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
           {:else}
             <button
               class="flex min-w-0 flex-1 items-center gap-1 text-left"
@@ -337,7 +337,7 @@
       <!-- Lit while the blueprint itself is open, not while one of its instances is (that one's row in the tree lights). -->
       <li class="group flex items-center gap-1.5 rounded-md py-1 pr-2 pl-2" style={sheet.id === app.sheetId && !app.instance ? "background: var(--panel-2)" : ""}>
         {#if renaming === sheet.id}
-          <TextField class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
+          <TextField maxlength={NAME_LIMIT} class="min-w-0 flex-1" value={sheet.name} required autofocus oncommit={(v) => renameSheet(sheet, v)} onfinish={() => (renaming = null)} />
         {:else}
           <button
             class="flex min-w-0 flex-1 items-center gap-1 text-left"

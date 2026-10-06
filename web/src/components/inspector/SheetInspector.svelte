@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { NAME_LIMIT } from "../../lib/kinds";
   import Help from "./Help.svelte";
   import Trash from "@lucide/svelte/icons/trash";
   import { app, copySheetJson, deleteSheet, duplicateBlueprint, edit, moveSheet, nodeTitle, openInstance, openSheet, setSheetEnabled, showNode, toast } from "../../lib/state.svelte";
@@ -58,8 +59,8 @@
       });
       if (!ok || app.current !== network) return;
     }
-    const results = await edit([{ type: "makeBlueprint", sheet: sheet.id, ...(keep ? { keep: true } : {}) }]);
-    if (results?.[0]) {
+    const results = await edit([{ type: "makeBlueprint", sheet: sheet.id, ...(keep ? { keep: true } : {}) }], undefined, "make blueprint", network);
+    if (results?.[0] && app.current === network) {
       openSheet(results[0] as string);
       toast(keep ? "Blueprint made — the sheet is as it was." : "Blueprint made — it is placed where the sheet was.", "info");
     }
@@ -103,7 +104,7 @@
   {/snippet}
 
   <Field label="Name">
-    <TextField value={sheet.name} required disabled={!canEdit} oncommit={(v) => update({ name: v }, { name: sheet.name }, "rename sheet")} />
+    <TextField maxlength={NAME_LIMIT} value={sheet.name} required disabled={!canEdit} oncommit={(v) => update({ name: v }, { name: sheet.name }, "rename sheet")} />
   </Field>
   {#if !sheet.blueprint}
     <Switch

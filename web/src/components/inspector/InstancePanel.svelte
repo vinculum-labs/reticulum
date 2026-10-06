@@ -36,8 +36,8 @@
       confirm: "Turn into a sheet",
     });
     if (!ok || app.current !== network) return;
-    const results = await edit([{ type: "detachInstance", sheet: sheet.id, node: instance.id }]);
-    if (results?.[0]) openSheet(results[0] as string);
+    const results = await edit([{ type: "detachInstance", sheet: sheet.id, node: instance.id }], undefined, "turn into a sheet", network);
+    if (results?.[0] && app.current === network) openSheet(results[0] as string);
   }
 </script>
 

@@ -54,6 +54,17 @@
     paint(track, step);
   }
 
+  /** Enter or Space on a cell: sets it to the brush value, or clears it when it has it (one change, as a click). */
+  function key(track: number, step: number, event: KeyboardEvent) {
+    if (!canEdit || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    painting = tracks.map((t) => t.cells ?? "");
+    paintTrack = track;
+    paintValue = cell(painting[track], step) === brush ? 0 : brush;
+    paint(track, step);
+    finish();
+  }
+
   function paint(track: number, step: number, event?: PointerEvent) {
     if (!painting || track !== paintTrack) return;
     // The button came up somewhere this page didn't hear (outside the window, a cancelled touch): the stroke is over.
@@ -114,8 +125,12 @@
                 class:beat={step % 4 === 0}
                 style={value ? `background: color-mix(in srgb, var(--c-signal) ${30 + value * 70 / 15}%, transparent)` : ""}
                 title={`Track ${i + 1}, step ${step + 1}: ${value || "nothing"}`}
+                role="gridcell"
+                tabindex={canEdit ? 0 : -1}
+                aria-label={`Track ${i + 1}, step ${step + 1}: ${value || "nothing"}`}
                 onpointerdown={(e) => start(i, step, e)}
                 onpointerenter={(e) => paint(i, step, e)}
+                onkeydown={(e) => key(i, step, e)}
               >{value && value !== 15 ? value.toString(16).toUpperCase() : ""}</td>
             {/each}
             <td>

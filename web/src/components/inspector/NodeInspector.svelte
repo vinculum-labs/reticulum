@@ -136,6 +136,13 @@
    * after them are renumbered (the server identifies them by number).
    */
   function saveDevice(next: DeviceNodeSettings, removed?: { in?: number[]; out?: number[] }, label = "edit device") {
+    // The graph shown follows its side when sides before it are removed (and goes when its own is).
+    const [direction, at] = graphSide.split(":");
+    const gone = direction === "in" ? removed?.in : direction === "out" ? removed?.out : undefined;
+    if (gone?.length && at !== undefined) {
+      const index = Number(at);
+      graphSide = gone.includes(index) ? "" : `${direction}:${index - gone.filter((i) => i < index).length}`;
+    }
     const { after, before } = rebase(node, { ...node, settings: next });
     const { edits, undo } = deviceChange(sheet, before, after, removed);
     edit(edits, undo, label);
@@ -259,7 +266,7 @@
       </div>
     </Field>
   {:else if s.kind === "instance"}
-    <Field label="Name" hint="Placed, it is numbered (“Smelter #2”) — rename it as you like; cleared, it gets a number again.">
+    <Field label="Name" hint="Placed, it is numbered (“Smelter #2”) — rename it as you like — cleared, it gets a number again.">
       <TextField autofocus={app.nameNode === node.id} onfinish={() => app.nameNode === node.id && (app.nameNode = null)} value={node.label} maxlength={NAME_LIMIT} disabled={!canEdit} placeholder={app.snapshot?.sheets.find((x) => x.id === s.sheet)?.name ?? "Optional"} oncommit={(v) => save({ ...node, label: v || undefined }, "rename instance")} />
       {#if sameName}
         <p class="text-xs text-warn" role="status">Another placement of this blueprint is also called “{node.label}” — on the dashboard and in the tree they look alike.</p>
@@ -669,7 +676,7 @@
       <FilterField
         value={s.expression}
         disabled={!canEdit}
-        kind={catalogKind(resources(sheet).nodes.get(node.id))}
+        kind={catalogKind(resources(sheet, app.snapshot?.sheets ?? []).nodes.get(node.id))}
         devices={upstreamDevices(sheet, node.id)}
         onchange={(expression) => settings({ expression })}
       />
