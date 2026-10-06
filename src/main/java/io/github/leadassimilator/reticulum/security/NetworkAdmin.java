@@ -80,6 +80,10 @@ public final class NetworkAdmin {
         if (password.isEmpty()) {
             throw new Refused("message.reticulum.password_empty", "The password can't be empty");
         }
+        if (password.length() > 64) {
+            // The in-game password box takes no more.
+            throw new Refused("message.reticulum.password_too_long", "The password can be at most 64 characters");
+        }
         if (!Passwords.maySet(player)) {
             throw new Refused("message.reticulum.password_too_soon", "Wait a moment before setting the password again");
         }

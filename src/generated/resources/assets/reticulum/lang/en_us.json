@@ -108,6 +108,7 @@
   "message.reticulum.nothing_to_connect": "Nothing to connect on that side",
   "message.reticulum.password_empty": "The password can't be empty",
   "message.reticulum.password_required": "Set a password before choosing Password access",
+  "message.reticulum.password_too_long": "The password can be at most 64 characters",
   "message.reticulum.password_too_soon": "Wait a moment before setting the password again",
   "message.reticulum.piece_moved": "Connected — this piece moved from %s to %s",
   "message.reticulum.protected": "%s is private — only members can break its blocks",

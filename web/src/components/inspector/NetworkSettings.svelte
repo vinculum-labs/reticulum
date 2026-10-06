@@ -118,7 +118,7 @@
   {#if canAdmin}
     <Field label={snapshot.hasPassword ? "Change password" : "Set a password"} hint="Stored salted and hashed — nobody can read it back.">
       <form class="flex gap-2" onsubmit={(e) => (e.preventDefault(), savePassword())}>
-        <input class="min-w-0 flex-1" type="password" autocomplete="new-password" bind:value={password} />
+        <input class="min-w-0 flex-1" type="password" autocomplete="new-password" maxlength="64" bind:value={password} />
         <button class="btn" type="submit" disabled={!password}>Save</button>
       </form>
     </Field>
