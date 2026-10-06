@@ -39,13 +39,15 @@ public class ControllerBlock extends NetworkBlock {
 
     public ControllerBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(ANTENNA, 0).setValue(FACING, net.minecraft.core.Direction.NORTH));
+        registerDefaultState(stateDefinition.any().setValue(ANTENNA, 0).setValue(FACING, net.minecraft.core.Direction.NORTH)
+                .setValue(LinkedBlock.ORIENTATION, Orientation.TURN_0));
     }
 
     @Override
     protected void createBlockStateDefinition(net.minecraft.world.level.block.state.StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(ANTENNA, FACING);
+        // Its cut joints are kept as laid out and turn with it, as a cable's do (see Orientation).
+        builder.add(ANTENNA, FACING, LinkedBlock.ORIENTATION);
     }
 
     @javax.annotation.Nullable
@@ -59,12 +61,14 @@ public class ControllerBlock extends NetworkBlock {
 
     @Override
     protected BlockState rotate(BlockState state, net.minecraft.world.level.block.Rotation rotation) {
-        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)))
+                .setValue(LinkedBlock.ORIENTATION, state.getValue(LinkedBlock.ORIENTATION).rotate(rotation));
     }
 
     @Override
     protected BlockState mirror(BlockState state, net.minecraft.world.level.block.Mirror mirror) {
-        return state.rotate(mirror.getRotation(state.getValue(FACING)));
+        return state.setValue(FACING, mirror.mirror(state.getValue(FACING)))
+                .setValue(LinkedBlock.ORIENTATION, state.getValue(LinkedBlock.ORIENTATION).mirror(mirror));
     }
 
     @Override
