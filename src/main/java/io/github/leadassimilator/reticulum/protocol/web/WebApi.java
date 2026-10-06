@@ -215,6 +215,17 @@ public final class WebApi {
                 }
                 Network.Checkpoint before = network.checkpoint();
                 RESTORE.set(new JsonArray());
+                // Nodes the batch removes and adds back (a card moved to another sheet): what they remember stays.
+                Map<String, String> readded = new HashMap<>();
+                for (JsonElement e : edits) {
+                    if (e.isJsonObject() && e.getAsJsonObject().get("type") instanceof JsonElement type && type.isJsonPrimitive()
+                            && "addNode".equals(type.getAsString()) && e.getAsJsonObject().get("node") instanceof JsonObject added
+                            && added.get("id") instanceof JsonElement nid && nid.isJsonPrimitive() && added.get("settings") instanceof JsonObject settings
+                            && settings.get("kind") instanceof JsonElement kind && kind.isJsonPrimitive()) {
+                        readded.put(nid.getAsString(), kind.getAsString());
+                    }
+                }
+                MOVED.set(readded);
                 try {
                     for (int i = 0; i < edits.size(); i++) {
                         try {
@@ -234,6 +245,7 @@ public final class WebApi {
                 } finally {
                     restore = RESTORE.get();
                     RESTORE.remove();
+                    MOVED.remove();
                     // Saved and shown either way, with the tree put right.
                     network.ensureTree();
                     NetworkManager.changed(server, network);
@@ -424,6 +436,9 @@ public final class WebApi {
     // ---------------------------------------------------------------- edits
 
     /** Edit commands. Each returns what it created (an id), or JSON null. */
+    /** The nodes the batch being applied adds, by id, with their kinds (see removeNode). */
+    private static final ThreadLocal<Map<String, String>> MOVED = ThreadLocal.withInitial(Map::of);
+
     /** Edits that undo what the server changed on the side during the batch being applied (see "restore"). */
     private static final ThreadLocal<JsonArray> RESTORE = ThreadLocal.withInitial(JsonArray::new);
 
@@ -629,7 +644,10 @@ public final class WebApi {
                         deleteSheet(server, network, network.sheet(child.sheet()));
                     }
                     if (node != null) {
-                        forgetNode(network, sheet, node);
+                        // Moved to another sheet in this batch (added back, the same kind): it keeps what it remembers.
+                        if (!node.kind().getSerializedName().equals(MOVED.get().get(id.toString()))) {
+                            forgetNode(network, sheet, node);
+                        }
                         dropHolderWires(network, sheet, node);
                     }
                     sheet.remove(id);

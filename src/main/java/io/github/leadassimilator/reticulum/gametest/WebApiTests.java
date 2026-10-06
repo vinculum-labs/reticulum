@@ -539,6 +539,36 @@ public final class WebApiTests {
         helper.succeed();
     }
 
+    /** A card moved to another sheet (removed and added back in one batch) keeps what it remembers; deleted, it forgets. */
+    @GameTest(template = "empty")
+    public static void aMovedCardKeepsItsMemory(GameTestHelper helper) {
+        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
+        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        Network network = NetworkManager.network(helper.getLevel().getServer(),
+                Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
+        network.members().put(player.getUUID(), new Member(player.getUUID(), "test", Role.EDITOR));
+        String id = network.id().toString();
+        String root = network.root().id().toString();
+        String edit = "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[";
+        String other = call(helper, player, edit + "{\"type\":\"createSheet\",\"name\":\"other\"}]}").getAsJsonArray("results").get(0).getAsString();
+        String latch = UUID.randomUUID().toString();
+        String node = "{\"id\":\"" + latch + "\",\"settings\":{\"kind\":\"latch\"}}";
+        call(helper, player, edit + "{\"type\":\"addNode\",\"sheet\":\"" + root + "\",\"node\":" + node + "}]}");
+        network.signalMemory().put(latch, 15L);
+        call(helper, player, edit + "{\"type\":\"removeNode\",\"sheet\":\"" + root + "\",\"node\":\"" + latch + "\"},"
+                + "{\"type\":\"addNode\",\"sheet\":\"" + other + "\",\"node\":" + node + "}]}");
+        if (!Long.valueOf(15L).equals(network.signalMemory().get(latch))) {
+            helper.fail("The moved latch forgot: " + network.signalMemory().get(latch));
+            return;
+        }
+        call(helper, player, edit + "{\"type\":\"removeNode\",\"sheet\":\"" + other + "\",\"node\":\"" + latch + "\"}]}");
+        if (network.signalMemory().containsKey(latch)) {
+            helper.fail("The deleted latch still remembers");
+        }
+        helper.succeed();
+    }
+
     /** A placed blueprint turned into a sheet keeps its weighted splitter's weights, on the sheet's own wires. */
     @GameTest(template = "empty")
     public static void aDetachedSplitterKeepsItsWeights(GameTestHelper helper) {
