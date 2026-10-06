@@ -52,11 +52,11 @@ public final class Limits {
     /** The longest note a node may have. */
     public static final int NOTE = 200;
 
+    /** The most slot fillings (and kept layout positions) one placed blueprint holds: as many nodes as the engine fills in. */
+    public static final int BINDINGS = 16_384;
+
     /** Why a node can't be stored, or null when it can. */
     @Nullable
-    /** The most slot fillings (and kept layout positions) one placed blueprint holds. */
-    public static final int BINDINGS = 1024;
-
     public static String check(Node node) {
         if (node.label().isPresent() && node.label().get().length() > NAME) {
             return "A node's label can be at most " + NAME + " characters";

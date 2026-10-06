@@ -536,11 +536,18 @@ public final class Topology {
         // deleted network's base doesn't pass to whoever comes by.
         java.util.UUID owner = controller.lastOwner();
         boolean theirs = owner != null && (player == null || !owner.equals(player.getUUID()));
-        UUID id = claimControllerNetwork(level, pos, controller, theirs ? null : player, player == null || theirs);
-        Network made = NetworkManager.network(level.getServer(), id);
-        if (theirs && made != null && made.owner() == null) {
+        UUID id;
+        if (theirs) {
+            // A network of their own, new (no neighbor's taken over for them).
+            Network made = NetworkManager.create(level.getServer(), null);
             made.setOwner(owner, controller.lastOwnerName());
             made.setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PRIVATE);
+            made.setController(Devices.global(level, pos));
+            controller.setNetworkId(made.id());
+            NetworkManager.changed(level.getServer(), made);
+            id = made.id();
+        } else {
+            id = claimControllerNetwork(level, pos, controller, player, player == null);
         }
         Section comp = component(level, pos, null);
         Set<BlockPos> unowned = new HashSet<>();

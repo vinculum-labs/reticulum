@@ -131,6 +131,7 @@ final class TankFlow {
         // what is already planned into that device through any faces (one store reached several ways counts once).
         Map<java.util.List<Object>, Long> room = new HashMap<>();
         Map<GlobalPos, Long> planned = new HashMap<>();
+        Map<java.util.List<Object>, Long> plannedThrough = new HashMap<>();
         // What each sink node's caps still allow this tick, once a route into it has asked.
         Map<java.util.UUID, Long> capLeft = new HashMap<>();
         for (CompiledSheet.Route route : ordered) {
@@ -163,9 +164,15 @@ final class TankFlow {
                 }
                 return best;
             });
-            long free = seen - planned.getOrDefault(port.device(), 0L);
+            // Planned already into what these faces reach: through the same faces, or through all of them (auto); with
+            // all faces, everything planned into the device. Different faces of one machine may be separate tanks.
+            java.util.List<Object> auto = java.util.List.of(port.device(), java.util.Set.of());
+            long already = port.faces().isEmpty() ? planned.getOrDefault(port.device(), 0L)
+                    : plannedThrough.getOrDefault(through, 0L) + plannedThrough.getOrDefault(auto, 0L);
+            long free = seen - already;
             long demand = Math.max(0, Math.min(max, free));
             planned.merge(port.device(), demand, Long::sum);
+            plannedThrough.merge(through, demand, Long::sum);
             if (!route.sinkSettings().caps().isEmpty()) {
                 capLeft.put(route.sink().id(), capRoom - demand);
             }

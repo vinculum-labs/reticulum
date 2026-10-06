@@ -318,6 +318,11 @@ public final class NetworkManager {
      * network gets a new one the next time it is opened.
      */
     public static void delete(MinecraftServer server, Network network) {
+        // Its controller, there still, remembers whose it was: opened again by someone else, it is theirs again.
+        var controller = controller(server, network);
+        if (controller != null) {
+            controller.rememberOwner(network.owner(), network.ownerName());
+        }
         network.bump();
         data(server).remove(network.id());
         io.github.leadassimilator.reticulum.engine.NetworkTicker.forget(server, network);

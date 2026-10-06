@@ -1090,9 +1090,24 @@ public final class WebApi {
                 }
             }
             // Deeper than the engine fills in: it would never run.
-            if (blueprintHeight(network, used, 0) + (sheet.blueprint() ? 1 : 0) > 8) {
+            if (blueprintHeight(network, used, 0) + depthAbove(network, sheet, 0) > 8) {
                 throw new RequestException("Blueprints can be placed in blueprints at most 8 deep");
             }
+        }
+
+        /** How many blueprints deep {@code sheet} sits where it is placed deepest, itself counted (0 for a sheet in the tree). */
+        private static int depthAbove(Network network, Sheet sheet, int depth) {
+            if (!sheet.blueprint() || depth > 8) {
+                return 0;
+            }
+            int deepest = 1;
+            for (Sheet holder : network.sheets()) {
+                if (holder.blueprint() && holder.nodes().stream().anyMatch(n -> n.settings() instanceof NodeSettings.InstanceSettings placed
+                        && placed.sheet().equals(sheet.id()))) {
+                    deepest = Math.max(deepest, 1 + depthAbove(network, holder, depth + 1));
+                }
+            }
+            return deepest;
         }
 
         /** How many blueprints deep {@code blueprint} goes, itself counted (loops stop at the limit). */

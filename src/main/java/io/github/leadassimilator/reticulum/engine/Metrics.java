@@ -60,6 +60,11 @@ public final class Metrics {
             }
             return true;
         });
+        // Held to a bound: the oldest go first (they then read as never moved).
+        if (movedLongAgo.size() > 4096) {
+            movedLongAgo.entrySet().stream().sorted(Map.Entry.comparingByValue()).limit(movedLongAgo.size() - 4096L)
+                    .map(Map.Entry::getKey).toList().forEach(movedLongAgo::remove);
+        }
     }
 
     /** When pruned series last moved, so "last moved" still says it (rather than "never"). */
@@ -121,6 +126,7 @@ public final class Metrics {
     /** Forgets series no longer charted. */
     void forget(UUID id) {
         series.remove(id);
+        movedLongAgo.remove(id);
     }
 
     /** Total moved over the last 5 minutes, per id. */

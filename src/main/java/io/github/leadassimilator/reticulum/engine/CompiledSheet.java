@@ -575,7 +575,11 @@ public final class CompiledSheet {
         Map<UUID, UUID> keyOwners = new java.util.HashMap<>();
         for (Wire wire : wires) {
             if (silent.contains(wire.from()) && !silentSignal(wire)) {
-                // A switched-off device's item, fluid or energy side: nothing goes out of it.
+                // A switched-off device's item, fluid or energy side: nothing goes out of it (into a gate it is wrong, on
+                // or off).
+                if (wire.input() == Wire.GATE) {
+                    error(byId.get(wire.to()), "Only signal wires can switch a node on and off");
+                }
                 continue;
             }
             if (silent.contains(wire.from())) {

@@ -121,6 +121,13 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         return lastOwnerName;
     }
 
+    /** Remembers whose its network is (or nobody's), as that network is deleted. */
+    public void rememberOwner(@javax.annotation.Nullable java.util.UUID owner, String name) {
+        lastOwner = owner;
+        lastOwnerName = owner == null ? "" : name;
+        setChanged();
+    }
+
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
