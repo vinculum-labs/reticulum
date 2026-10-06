@@ -148,6 +148,8 @@ export function crossWire(
     }
     at = { node: pinId, output: 0, y: 0 };
   }
-  connect(to.sheet, { from: at.node, output: at.output, to: to.node, input: to.index });
+  // The last wire, unless it is there already (the whole way was reused): nothing new then.
+  const there = (to.sheet.wires ?? []).some((w) => w.from === at.node && (w.output ?? 0) === at.output && w.to === to.node && (w.input ?? 0) === to.index);
+  if (!there) connect(to.sheet, { from: at.node, output: at.output, to: to.node, input: to.index });
   return { edits, undo: [...undo, ...untype] };
 }

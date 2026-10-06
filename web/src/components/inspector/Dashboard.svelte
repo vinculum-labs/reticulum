@@ -84,8 +84,16 @@
       return [{ sheet: s, node: undefined as GraphNode | undefined, why: text }];
     }),
     ...nodes
-      .filter((x) => x.node.settings.kind !== "sheet" && (x.node.enabled === false || app.status[x.node.id] === "switched_off"))
-      .map((x) => ({ sheet: x.sheet, node: x.node, why: x.node.enabled === false ? "node off" : "off by its gate" })),
+      .filter((x) => x.node.settings.kind !== "sheet" && x.node.enabled === false)
+      .map((x) => ({ sheet: x.sheet, node: x.node, why: "node off" })),
+    // Off by a gate, inside placed blueprints too (their nodes run under ids of their own).
+    ...runs
+      .filter((x) => x.node.settings.kind !== "sheet" && x.node.enabled !== false && app.status[x.run] === "switched_off")
+      .map((x) => ({
+        sheet: x.top,
+        node: (x.top.nodes ?? []).find((n) => n.id === x.select) ?? x.node,
+        why: x.sheet === x.top ? "off by its gate" : `${nodeTitle(x.node)} in it, off by its gate`,
+      })),
   ]);
   const overflow = $derived([
     ...snapshot.overflow.items.map((s) => `${s.count}× ${s.id}`),

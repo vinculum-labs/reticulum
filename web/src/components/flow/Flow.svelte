@@ -22,31 +22,7 @@
     type Connection,
     type OnConnectEnd,
   } from "@xyflow/svelte";
-  import {
-    savedView,
-    saveView,
-    app,
-    createSheet,
-    currentSheet,
-    deviceAt,
-    edit,
-    nodeTitle,
-    openInstanceFrom,
-    openInstanceNode,
-    openSheet,
-    resync,
-    showNode,
-    toast,
-    uuid,
-    holdMetrics,
-    deviceName,
-    onPlaceDevice,
-    fillSlot,
-    homeCheck,
-    overCanvas,
-    bindingScope,
-    scopedBindings,
-  } from "../../lib/state.svelte";
+  import { savedView, saveView, app, createSheet, currentSheet, deviceAt, edit, nodeTitle, openInstanceFrom, openInstanceNode, openSheet, resync, showNode, toast, uuid, holdMetrics, deviceName, onPlaceDevice, fillSlot, homeCheck, overCanvas, bindingScope, scopedBindings, deviceUses } from "../../lib/state.svelte";
   import { instancesOf, instanceActivity, nowhere, ownBlocks, slotsOf } from "../../lib/blueprints";
   import { confirmDialog } from "../../lib/dialog.svelte";
   import { heldSheet, descendants } from "../../lib/tree";
@@ -56,7 +32,7 @@
   import { moveAcross } from "../../lib/moveAcross";
   import { RESOURCE_VAR, defaultSettings, isSignal, offeredResources } from "../../lib/kinds";
   import type { InstanceSettings, Device, Edit, GraphNode, NodeKind, Resource, Sheet, Wire } from "../../lib/types";
-  import { GATE, pinSlot, sheetPins } from "../../lib/types";
+  import { GATE, pinSlot, sheetPins, posKey } from "../../lib/types";
   import GraphNodeView from "./GraphNode.svelte";
   import ConnectionLine from "./ConnectionLine.svelte";
   import { pinDrop } from "../../lib/pinDrop.svelte";
@@ -330,6 +306,16 @@
     const from = nodeOf(c.source);
     const to = nodeOf(c.target);
     if (!from || !to || c.source === c.target) return false;
+    // The same two handles wired already: nothing new to draw.
+    const same = sheetOf(c.source);
+    if (
+      same &&
+      same === sheetOf(c.target) &&
+      (same.wires ?? []).some(
+        (w) => w.from === c.source && w.to === c.target && (w.output ?? 0) === handleIndex(c.sourceHandle) && (w.input ?? 0) === (c.targetHandle === "gate" ? GATE : handleIndex(c.targetHandle)),
+      )
+    )
+      return false;
     // A frame's own handles are for wires outside it; inside, wire to the pins on its edges.
     if (framesAround(c.source).includes(c.target) || framesAround(c.target).includes(c.source)) return false;
     const sheets = app.snapshot?.sheets ?? [];
@@ -394,6 +380,7 @@
    */
   async function remove({ nodes: gone, edges: cut }: { nodes: Node[]; edges: Edge[] }) {
     if (!sheet) return;
+    const network = app.current;
     // The sheets deleted outright: an open frame's cards come along with it, and a sheet inside it isn't one more.
     const all = gone.map((n) => heldSheet(app.snapshot, nodeOf(n.id))).filter((x): x is NonNullable<typeof x> => !!x);
     const held = all.filter((h) => !all.some((other) => other !== h && descendants(app.snapshot!, other).includes(h)));
@@ -406,7 +393,7 @@
         danger: true,
       });
       // Answered after switching networks: the snapshot it asked about is gone.
-      if (!ok || !app.snapshot) {
+      if (!ok || !app.snapshot || app.current !== network || app.switching) {
         resync.count++;
         return;
       }
@@ -916,7 +903,19 @@
       return;
     }
     const into = sheetAt(e.clientX, e.clientY);
-    if (into) addNode("device", { x: into.x - 70, y: into.y - 17 }, device, into.sheet);
+    if (!into) return;
+    // A device lives on one sheet: on a sheet of the tree, one already there is shown rather than refused by the game.
+    const home = into.sheet.blueprint ? undefined : (deviceUses(app.snapshot!).get(posKey(device.pos)) ?? []).find((u) => u.home);
+    const homeSheet = home ? app.snapshot!.sheets.find((s) => s.id === home.sheetId) : undefined;
+    if (home && homeSheet) {
+      toast(
+        `${deviceName(device)} already lives in ${homeSheet.name} — a device has one node.`,
+        "info",
+        home.nodeId ? { label: "Go to its node", run: () => showNode(homeSheet.id, home.nodeId!) } : undefined,
+      );
+      return;
+    }
+    addNode("device", { x: into.x - 70, y: into.y - 17 }, device, into.sheet);
   }
 
   /**
@@ -1098,6 +1097,7 @@
    */
   async function tidy() {
     if (!sheet || tidying || !app.snapshot) return;
+    const network = app.current;
     tidying = true;
     try {
       const sizes = new Map(nodes.map((n) => [n.id, { width: n.measured?.width ?? 160, height: n.measured?.height ?? 60 }]));
@@ -1116,14 +1116,14 @@
       const { edits, undo } = await tidyMoves(laidOut, app.snapshot.sheets, view, sizes, pins, new Set(app.frames));
       // Laying out takes a moment; if the sheet changed meanwhile, these positions are for the one laid out.
       const now = currentSheet();
-      if (now?.id !== laidOut.id) return;
+      if (app.current !== network || app.switching || now?.id !== laidOut.id) return;
       // A card moved (or added or removed) while it ran: its layout would put that back. Asked again instead.
       const where = (s: typeof now) => JSON.stringify((s?.nodes ?? []).map((n) => [n.id, n.x ?? 0, n.y ?? 0]));
       if (where(now) !== where(laidOut)) {
         toast("The sheet changed while it was being tidied — Tidy up again to lay it out as it is now.", "info");
         return;
       }
-      await edit(edits, undo, "tidy up");
+      await edit(edits, undo, "tidy up", network);
       setTimeout(() => flow.fitView({ duration: 300 }), 100);
     } catch (e) {
       toast(`Couldn't tidy up: ${(e as Error).message}`);
