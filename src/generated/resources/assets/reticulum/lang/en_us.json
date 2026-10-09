@@ -296,7 +296,7 @@
   "screen.reticulum.faces_tip": "Name this device's faces",
   "screen.reticulum.faces_title": "Face names",
   "screen.reticulum.identify_off": "Stop lighting it up",
-  "screen.reticulum.identify_on": "Light it up in the world until turned off",
+  "screen.reticulum.identify_on": "Identify it in the world until turned off",
   "screen.reticulum.join": "Join",
   "screen.reticulum.joint.conflict": "Network Conflict",
   "screen.reticulum.joint.conflict_tip": "Different networks. Click to join them (not if both have a controller).",

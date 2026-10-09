@@ -384,7 +384,7 @@ public class ModLanguage extends LanguageProvider {
         add("screen.reticulum.more", "+%s more");
         add("message.reticulum.identify_some", "Identified the connector and %s devices (%s over the %s limit)");
         add("message.reticulum.not_a_device_of_yours", "Not a device on your networks");
-        add("screen.reticulum.identify_on", "Light it up in the world until turned off");
+        add("screen.reticulum.identify_on", "Identify it in the world until turned off");
         add("screen.reticulum.identify_off", "Stop lighting it up");
         add("reticulum.configuration.identifyThroughWalls", "Show identified blocks through walls");
         add("reticulum.configuration.identifyBeamDistance", "Identify beam distance");
