@@ -27,8 +27,7 @@ public class IconButton extends Button {
     @Override
     public void renderString(GuiGraphics graphics, Font font, int color) {
         float shade = active ? 1f : 0.5f;
-        graphics.setColor(shade, shade, shade, alpha);
-        graphics.blitSprite(icon, getX() + (getWidth() - SIZE) / 2, getY() + (getHeight() - SIZE) / 2, SIZE, SIZE);
-        graphics.setColor(1f, 1f, 1f, 1f);
+        graphics.blitSprite(net.minecraft.client.renderer.RenderType::guiTextured, icon, getX() + (getWidth() - SIZE) / 2,
+                getY() + (getHeight() - SIZE) / 2, SIZE, SIZE, net.minecraft.util.ARGB.colorFromFloat(alpha, shade, shade, shade));
     }
 }

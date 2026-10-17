@@ -11,7 +11,6 @@ import io.github.leadassimilator.reticulum.block.entity.BeaconLook;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
@@ -66,7 +65,7 @@ public final class BeaconEffects {
             double inner = 0.15 + 0.2 * (1 - pulse);
             fillBox(pose.last().pose(), buffers.getBuffer(quads), new AABB(pos).inflate(outer), r, g, b, 0.10f + 0.10f * (1 - pulse));
             fillBox(pose.last().pose(), buffers.getBuffer(quads), new AABB(pos).inflate(inner), r, g, b, 0.18f);
-            LevelRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(outer), r, g, b, 0.6f * (1 - pulse) + 0.2f);
+            net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(outer), r, g, b, 0.6f * (1 - pulse) + 0.2f);
             any = true;
         }
         if (any) {
@@ -192,7 +191,7 @@ public final class BeaconEffects {
             if (time % interval != 0 || !mc.level.tickRateManager().runsNormally()) {
                 continue;
             }
-            SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(look.sound());
+            SoundEvent sound = BuiltInRegistries.SOUND_EVENT.getValue(look.sound());
             if (sound == null) {
                 continue;
             }

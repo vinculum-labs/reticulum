@@ -58,8 +58,9 @@ public class ConnectorBlock extends LinkedBlock {
     }
 
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
-        super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+            @javax.annotation.Nullable net.minecraft.world.level.redstone.Orientation orientation, boolean movedByPiston) {
+        super.neighborChanged(state, level, pos, neighborBlock, orientation, movedByPiston);
         // A neighbor becoming or ceasing to be a device does not always change its shape, so rescan here too.
         if (level instanceof ServerLevel serverLevel) {
             Topology.rescanConnector(serverLevel, pos);

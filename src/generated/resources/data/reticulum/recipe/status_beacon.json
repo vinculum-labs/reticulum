@@ -2,18 +2,10 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "key": {
-    "C": {
-      "item": "reticulum:cable"
-    },
-    "G": {
-      "tag": "c:glass_blocks"
-    },
-    "I": {
-      "tag": "c:ingots/iron"
-    },
-    "L": {
-      "item": "minecraft:redstone_lamp"
-    }
+    "C": "reticulum:cable",
+    "G": "#c:glass_blocks",
+    "I": "#c:ingots/iron",
+    "L": "minecraft:redstone_lamp"
   },
   "pattern": [
     "GGG",

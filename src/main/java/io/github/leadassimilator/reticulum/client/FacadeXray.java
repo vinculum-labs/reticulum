@@ -12,7 +12,6 @@ import io.github.leadassimilator.reticulum.block.LinkedBlock;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -72,12 +71,12 @@ public final class FacadeXray {
             }
             boolean connector = block instanceof ConnectorBlock;
             // The cable's core, and an arm towards each side it joins, as drawn without the facade.
-            LevelRenderer.renderLineBox(pose, lines, Topology.coreBox(connector).move(pos), 0.55f, 0.85f, 1f, 0.9f);
+            net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, lines, Topology.coreBox(connector).move(pos), 0.55f, 0.85f, 1f, 0.9f);
             for (Direction side : Direction.values()) {
                 EnumProperty<Link> property = block.linkProperties().get(side);
                 if (property != null && state.getValue(property) != Link.NONE) {
                     AABB arm = Topology.jointBox(side, connector).move(pos);
-                    LevelRenderer.renderLineBox(pose, lines, arm, 0.55f, 0.85f, 1f, 0.9f);
+                    net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, lines, arm, 0.55f, 0.85f, 1f, 0.9f);
                 }
             }
         }

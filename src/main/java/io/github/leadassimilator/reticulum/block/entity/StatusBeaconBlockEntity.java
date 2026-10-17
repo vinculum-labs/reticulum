@@ -285,7 +285,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
 
     /** How many blocks the beam runs up ({@code step} 1) or down (-1): to the world's edge, or to the first solid block. */
     private static int reach(Level level, BlockPos pos, int step, boolean through) {
-        int edge = step > 0 ? level.getMaxBuildHeight() - pos.getY() - 1 : pos.getY() - level.getMinBuildHeight();
+        int edge = step > 0 ? level.getMaxY() - pos.getY() : pos.getY() - level.getMinY();
         if (through) {
             return Math.max(0, edge);
         }

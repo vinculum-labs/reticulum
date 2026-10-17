@@ -308,7 +308,7 @@ public final class Filters {
             }
             case "ench" -> enchantment(value);
             case "has" -> {
-                DataComponentType<?> type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(location(value));
+                DataComponentType<?> type = BuiltInRegistries.DATA_COMPONENT_TYPE.getValue(location(value));
                 if (type == null) {
                     throw new FilterException("Unknown data component " + value, -1);
                 }
@@ -348,13 +348,13 @@ public final class Filters {
 
     private static ItemFilter itemProperty(String value) throws FilterException {
         return switch (value) {
-            case "fuel" -> (s, c) -> s.getBurnTime(RecipeType.SMELTING) > 0;
+            case "fuel" -> (s, c) -> s.getBurnTime(RecipeType.SMELTING, c.level().fuelValues()) > 0;
             case "food" -> (s, c) -> s.has(DataComponents.FOOD);
             case "stackable" -> (s, c) -> s.isStackable();
             case "damaged" -> (s, c) -> s.isDamaged();
             case "enchanted" -> (s, c) -> s.isEnchanted();
-            case "smeltable" -> (s, c) -> c.level().getRecipeManager()
-                    .getRecipeFor(RecipeType.SMELTING, new SingleRecipeInput(s), c.level()).isPresent();
+            case "smeltable" -> (s, c) -> c.level() instanceof net.minecraft.server.level.ServerLevel server && server.recipeAccess()
+                    .getRecipeFor(RecipeType.SMELTING, new SingleRecipeInput(s), server).isPresent();
             default -> throw new FilterException("Unknown property is:" + value
                     + " (fuel, food, stackable, damaged, enchanted, smeltable)", -1);
         };

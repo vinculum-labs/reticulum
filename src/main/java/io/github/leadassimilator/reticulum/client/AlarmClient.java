@@ -15,7 +15,6 @@ import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
@@ -183,7 +182,7 @@ public final class AlarmClient {
             return;
         }
         net.minecraft.resources.ResourceLocation location = net.minecraft.resources.ResourceLocation.tryParse(id);
-        net.minecraft.sounds.SoundEvent sound = location == null ? null : net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.get(location);
+        net.minecraft.sounds.SoundEvent sound = location == null ? null : net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getValue(location);
         float at = (float) (twoTone && (phase / 10) % 2 == 1 ? pitch2 : pitch);
         mc.getSoundManager().play(SimpleSoundInstance.forUI(sound != null ? sound : fallback, at, 0.6f));
     }
@@ -263,7 +262,7 @@ public final class AlarmClient {
             float r = ((color >> 16) & 0xFF) / 255f;
             float g = ((color >> 8) & 0xFF) / 255f;
             float b = (color & 0xFF) / 255f;
-            LevelRenderer.renderLineBox(pose, buffers.getBuffer(IdentifyRenderer.LINES_THROUGH_WALLS), new AABB(entry.getKey()).inflate(0.03), r, g, b, pulse);
+            net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, buffers.getBuffer(IdentifyRenderer.LINES_THROUGH_WALLS), new AABB(entry.getKey()).inflate(0.03), r, g, b, pulse);
         }
         buffers.endBatch(IdentifyRenderer.LINES_THROUGH_WALLS);
         // A warning sign and what is wrong above each block, facing the camera and growing with distance.

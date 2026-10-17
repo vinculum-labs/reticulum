@@ -1090,7 +1090,7 @@ public final class Topology {
             double d = distanceSqr(coreBox(connector), p);
             if (d < bestDistance) {
                 bestDistance = d;
-                best = Direction.getNearest(p.x - 0.5, p.y - 0.5, p.z - 0.5);
+                best = Direction.getApproximateNearest(p.x - 0.5, p.y - 0.5, p.z - 0.5);
             }
         }
         return best;

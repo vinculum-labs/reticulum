@@ -30,7 +30,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -70,7 +69,7 @@ public class NetworkToolItem extends Item {
 
     @Override
     public Component getName(ItemStack stack) {
-        return Component.translatable(getDescriptionId(stack)).append(" (").append(Component.translatable(mode(stack).translationKey())).append(")");
+        return super.getName(stack).copy().append(" (").append(Component.translatable(mode(stack).translationKey())).append(")");
     }
 
     @Override
@@ -92,7 +91,7 @@ public class NetworkToolItem extends Item {
             if (context.getLevel().isClientSide && context.getPlayer() != null && !context.getPlayer().isShiftKeyDown()) {
                 io.github.leadassimilator.reticulum.client.AlarmClient.openSettings();
             }
-            return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
+            return InteractionResult.SUCCESS;
         }
         if (mode(stack) != ToolMode.IDENTIFY) {
             return InteractionResult.PASS;
@@ -100,7 +99,7 @@ public class NetworkToolItem extends Item {
         if (context.getLevel() instanceof ServerLevel level && context.getPlayer() instanceof ServerPlayer player) {
             identify(level, player, context.getClickedPos(), context.getClickedFace());
         }
-        return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
+        return InteractionResult.SUCCESS;
     }
 
     /** The network tool the player holds, in either hand (the main hand first), or empty. */
@@ -132,7 +131,7 @@ public class NetworkToolItem extends Item {
                 player.displayClientMessage(Topology.toggle(level, context.getClickedPos(), side, player), true);
             }
         }
-        return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
+        return InteractionResult.SUCCESS;
     }
 
     /**
@@ -325,7 +324,7 @@ public class NetworkToolItem extends Item {
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         // Sneak + right-click the air, in any mode: the editor, on the network the tool is linked to (or the last one
         // edited), so there's no need to go back to a controller.
@@ -333,21 +332,21 @@ public class NetworkToolItem extends Item {
             if (level.isClientSide) {
                 io.github.leadassimilator.reticulum.client.web.WebBridge.openEditor(stack.get(ModDataComponents.NETWORK_ID.get()));
             }
-            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
+            return InteractionResult.SUCCESS;
         }
         if (mode(stack) == ToolMode.STATUS) {
             if (level.isClientSide) {
                 io.github.leadassimilator.reticulum.client.AlarmClient.openSettings();
             }
-            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
+            return InteractionResult.SUCCESS;
         }
         if (mode(stack) != ToolMode.LINK) {
-            return InteractionResultHolder.pass(stack);
+            return InteractionResult.PASS;
         }
         if (player instanceof ServerPlayer serverPlayer) {
             Linking.openPicker(serverPlayer, Optional.empty());
         }
-        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
+        return InteractionResult.SUCCESS;
     }
 
     /** The side of a network block the player is aiming at. Used for both the click and the client outline. */

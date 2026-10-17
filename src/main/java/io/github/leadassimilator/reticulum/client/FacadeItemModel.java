@@ -7,7 +7,7 @@ import io.github.leadassimilator.reticulum.item.FacadeItem;
 import io.github.leadassimilator.reticulum.registry.ModItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.block.model.ItemOverrides;
+import net.minecraft.client.renderer.block.model.BakedOverrides;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.resources.ResourceLocation;
@@ -27,13 +27,14 @@ import net.neoforged.neoforge.client.model.BakedModelWrapper;
 public final class FacadeItemModel extends BakedModelWrapper<BakedModel> {
     private static final ResourceLocation BADGE = ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "textures/gui/facade_badge.png");
 
-    private final ItemOverrides overrides = new ItemOverrides() {
+    private final BakedOverrides overrides = new BakedOverrides() {
         @Override
-        public BakedModel resolve(BakedModel model, ItemStack stack, @Nullable ClientLevel level, @Nullable LivingEntity entity, int seed) {
+        @Nullable
+        public BakedModel findOverride(ItemStack stack, @Nullable ClientLevel level, @Nullable LivingEntity entity, int seed) {
             BlockState state = FacadeItem.state(stack);
             Item item = state == null ? Items.AIR : state.getBlock().asItem();
             if (item == Items.AIR) {
-                return originalModel.getOverrides().resolve(originalModel, stack, level, entity, seed);
+                return originalModel.overrides().findOverride(stack, level, entity, seed);
             }
             return Minecraft.getInstance().getItemRenderer().getModel(new ItemStack(item), level, entity, seed);
         }
@@ -44,7 +45,7 @@ public final class FacadeItemModel extends BakedModelWrapper<BakedModel> {
     }
 
     @Override
-    public ItemOverrides getOverrides() {
+    public BakedOverrides overrides() {
         return overrides;
     }
 
@@ -63,11 +64,7 @@ public final class FacadeItemModel extends BakedModelWrapper<BakedModel> {
             graphics.pose().pushPose();
             graphics.pose().translate(x, y, 200);
             graphics.pose().scale(0.75f, 0.75f, 1f);
-            com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-            graphics.setColor(1f, 1f, 1f, 0.5f);
-            graphics.blit(BADGE, 0, 0, 0, 0, 8, 8, 8, 8);
-            graphics.setColor(1f, 1f, 1f, 1f);
-            com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+            graphics.blit(net.minecraft.client.renderer.RenderType::guiTextured, BADGE, 0, 0, 0, 0, 8, 8, 8, 8, 0x80FFFFFF);
             graphics.pose().popPose();
             return true;
         });

@@ -12,7 +12,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -64,7 +64,7 @@ public abstract class LinkedBlock extends NetworkBlock {
 
     /** Right-click with a facade puts it on (handing back the one it had). */
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
             BlockHitResult hitResult) {
         BlockState facade = FacadeItem.state(stack);
         // Checked here too: a facade given by command could carry any block (one drawing nothing, but solid).
@@ -72,10 +72,10 @@ public abstract class LinkedBlock extends NetworkBlock {
             return super.useItemOn(stack, state, level, pos, player, hand, hitResult);
         }
         if (!(level.getBlockEntity(pos) instanceof NetworkBlockEntity be) || facade.equals(be.facade())) {
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
         if (!level.isClientSide && !mayChangeFacade(level, pos, player)) {
-            return ItemInteractionResult.CONSUME;
+            return InteractionResult.CONSUME;
         }
         if (!level.isClientSide) {
             BlockState old = be.facade();
@@ -88,7 +88,7 @@ public abstract class LinkedBlock extends NetworkBlock {
                 }
             }
         }
-        return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        return InteractionResult.SUCCESS;
     }
 
     /**

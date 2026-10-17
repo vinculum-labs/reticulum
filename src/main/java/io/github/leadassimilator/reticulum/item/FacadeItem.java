@@ -14,7 +14,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -85,11 +84,11 @@ public class FacadeItem extends Item {
 
     /** Opens the screen to pick what the stack in hand looks like. */
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
         if (level.isClientSide) {
             io.github.leadassimilator.reticulum.client.screen.FacadeScreen.open(hand);
         }
-        return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide);
+        return InteractionResult.SUCCESS;
     }
 
     /** Sneak + right-click a block: the stack takes on exactly how it looks (a faced cable gives its facade). */
@@ -108,7 +107,7 @@ public class FacadeItem extends Item {
                     ? Component.translatable("message.reticulum.facade_copied", state.getBlock().getName())
                     : Component.translatable("message.reticulum.not_facade_block", state.getBlock().getName()), true);
         }
-        return InteractionResult.sidedSuccess(level.isClientSide);
+        return InteractionResult.SUCCESS;
     }
 
     @Override

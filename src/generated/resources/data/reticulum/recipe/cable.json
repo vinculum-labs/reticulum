@@ -2,15 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "key": {
-    "G": {
-      "tag": "c:glass_panes"
-    },
-    "N": {
-      "tag": "c:nuggets/iron"
-    },
-    "R": {
-      "tag": "c:dusts/redstone"
-    }
+    "G": "#c:glass_panes",
+    "N": "#c:nuggets/iron",
+    "R": "#c:dusts/redstone"
   },
   "pattern": [
     "NNN",

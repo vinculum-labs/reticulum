@@ -2,12 +2,8 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "key": {
-    "C": {
-      "item": "reticulum:cable"
-    },
-    "H": {
-      "item": "minecraft:hopper"
-    }
+    "C": "reticulum:cable",
+    "H": "minecraft:hopper"
   },
   "pattern": [
     " C ",

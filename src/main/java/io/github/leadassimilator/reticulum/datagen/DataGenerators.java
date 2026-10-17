@@ -26,7 +26,7 @@ public final class DataGenerators {
 
         generator.addProvider(event.includeServer(), new LootTableProvider(output, Set.of(),
                 List.of(new LootTableProvider.SubProviderEntry(ModBlockLoot::new, LootContextParamSets.BLOCK)), lookup));
-        generator.addProvider(event.includeServer(), new ModRecipes(output, lookup));
+        generator.addProvider(event.includeServer(), new ModRecipes.Runner(output, lookup));
         generator.addProvider(event.includeServer(), new ModBlockTags(output, lookup, files));
     }
 }

@@ -172,7 +172,13 @@ public final class Devices {
     /** The side of {@code from} that faces {@code to}, when they touch (null otherwise). */
     @Nullable
     public static Direction facing(BlockPos from, BlockPos to) {
-        return Direction.fromDelta(to.getX() - from.getX(), to.getY() - from.getY(), to.getZ() - from.getZ());
+        int dx = to.getX() - from.getX(), dy = to.getY() - from.getY(), dz = to.getZ() - from.getZ();
+        for (Direction direction : Direction.values()) {
+            if (direction.getStepX() == dx && direction.getStepY() == dy && direction.getStepZ() == dz) {
+                return direction;
+            }
+        }
+        return null;
     }
 
     public static GlobalPos global(Level level, BlockPos pos) {

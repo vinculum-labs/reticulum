@@ -53,7 +53,7 @@ final class SoundSearch {
     /** Plays a sound once, as heard in a menu. */
     static void preview(String id, float pitch) {
         ResourceLocation location = ResourceLocation.tryParse(id);
-        SoundEvent sound = location == null ? null : BuiltInRegistries.SOUND_EVENT.get(location);
+        SoundEvent sound = location == null ? null : BuiltInRegistries.SOUND_EVENT.getValue(location);
         if (sound != null) {
             Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(sound, pitch, 1f));
         }

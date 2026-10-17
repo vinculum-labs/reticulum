@@ -40,7 +40,7 @@ public final class PlacementRedirect {
         if (side == face) {
             return;
         }
-        Vec3 onFace = Vec3.atCenterOf(pos).add(Vec3.atLowerCornerOf(side.getNormal()).scale(0.5));
+        Vec3 onFace = Vec3.atCenterOf(pos).add(Vec3.atLowerCornerOf(side.getUnitVec3i()).scale(0.5));
         BlockHitResult hit = new BlockHitResult(onFace, side, pos, false);
         // Through the stack, not the item: that is where adventure mode's can_place_on and NeoForge's placement event
         // (which claim mods use) apply.

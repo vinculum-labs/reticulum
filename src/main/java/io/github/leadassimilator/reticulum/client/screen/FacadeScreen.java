@@ -158,7 +158,7 @@ public class FacadeScreen extends QuickScreen {
     private void filter(String query) {
         String q = query.trim().toLowerCase(Locale.ROOT);
         shown = q.isEmpty() ? candidates : candidates.stream()
-                .filter(item -> item.getDescription().getString().toLowerCase(Locale.ROOT).contains(q)
+                .filter(item -> item.getName().getString().toLowerCase(Locale.ROOT).contains(q)
                         || BuiltInRegistries.ITEM.getKey(item).toString().contains(q))
                 .toList();
         scroll = 0;

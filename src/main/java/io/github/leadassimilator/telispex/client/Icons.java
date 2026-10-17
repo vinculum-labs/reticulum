@@ -1,6 +1,9 @@
 package io.github.leadassimilator.telispex.client;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -10,12 +13,15 @@ import javax.annotation.Nullable;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
+import org.lwjgl.stb.STBIWriteCallback;
+import org.lwjgl.stb.STBImageWrite;
+import org.lwjgl.system.MemoryUtil;
 
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexSorting;
+import com.mojang.blaze3d.ProjectionType;
 
 import io.github.leadassimilator.telispex.Telispex;
 import net.minecraft.client.Minecraft;
@@ -90,15 +96,8 @@ public final class Icons {
             return transparent();
         }
         var sprite = Minecraft.getInstance().getTextureAtlas(net.minecraft.world.inventory.InventoryMenu.BLOCK_ATLAS).apply(texture);
-        float a = (tint >>> 24) == 0 ? 1f : ((tint >>> 24) & 0xFF) / 255f;
-        float r = ((tint >> 16) & 0xFF) / 255f;
-        float g = ((tint >> 8) & 0xFF) / 255f;
-        float b = (tint & 0xFF) / 255f;
-        return draw(id, graphics -> {
-            RenderSystem.enableBlend();
-            graphics.blit(0, 0, 0, 16, 16, sprite, r, g, b, a);
-            RenderSystem.disableBlend();
-        });
+        int color = (tint >>> 24) == 0 ? 0xFF000000 | tint : tint;
+        return draw(id, graphics -> graphics.blitSprite(net.minecraft.client.renderer.RenderType::guiTextured, sprite, 0, 0, 16, 16, color));
     }
 
     /** One offscreen target, reused for every icon (making one per icon is slow when a picker loads dozens). */
@@ -107,7 +106,7 @@ public final class Icons {
 
     private static TextureTarget target() {
         if (target == null) {
-            target = new TextureTarget(SIZE, SIZE, true, Minecraft.ON_OSX);
+            target = new TextureTarget(SIZE, SIZE, true);
         }
         return target;
     }
@@ -124,12 +123,11 @@ public final class Icons {
         modelView.pushMatrix();
         try {
             target.setClearColor(0, 0, 0, 0);
-            target.clear(Minecraft.ON_OSX);
+            target.clear();
             target.bindWrite(true);
             float far = ClientHooks.getGuiFarPlane();
-            RenderSystem.setProjectionMatrix(new Matrix4f().setOrtho(0, 16, 16, 0, 1000, far), VertexSorting.ORTHOGRAPHIC_Z);
+            RenderSystem.setProjectionMatrix(new Matrix4f().setOrtho(0, 16, 16, 0, 1000, far), ProjectionType.ORTHOGRAPHIC);
             modelView.translation(0, 0, 10000F - far);
-            RenderSystem.applyModelViewMatrix();
             Lighting.setupFor3DItems();
             GuiGraphics graphics = new GuiGraphics(mc, mc.renderBuffers().bufferSource());
             draw.accept(graphics);
@@ -139,14 +137,13 @@ public final class Icons {
                 RenderSystem.bindTexture(target.getColorTextureId());
                 image.downloadTexture(0, false);
                 image.flipY();
-                return image.asByteArray();
+                return png(image);
             }
         } catch (IOException | RuntimeException e) {
             Telispex.LOGGER.warn("Could not render icon for {}", id, e);
             return transparent();
         } finally {
             modelView.popMatrix();
-            RenderSystem.applyModelViewMatrix();
             RenderSystem.restoreProjectionMatrix();
             mc.getMainRenderTarget().bindWrite(true);
         }
@@ -155,10 +152,33 @@ public final class Icons {
     /** A blank PNG, for an id with nothing to show. */
     public static byte[] transparent() {
         try (NativeImage image = new NativeImage(1, 1, true)) {
-            image.setPixelRGBA(0, 0, 0);
-            return image.asByteArray();
+            image.setPixel(0, 0, 0);
+            return png(image);
         } catch (IOException e) {
             return new byte[0];
         }
+    }
+
+    /** An image as PNG bytes, written by stb as NativeImage#writeToFile does, but into memory. */
+    private static byte[] png(NativeImage image) throws IOException {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        // ABGR ints are R, G, B, A bytes in little-endian order: what stb takes for 4 channels.
+        int[] pixels = image.getPixelsABGR();
+        ByteBuffer rgba = MemoryUtil.memAlloc(pixels.length * 4).order(ByteOrder.LITTLE_ENDIAN);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (STBIWriteCallback write = STBIWriteCallback.create((context, data, size) -> {
+            byte[] chunk = new byte[size];
+            STBIWriteCallback.getData(data, size).get(chunk);
+            out.write(chunk, 0, size);
+        })) {
+            rgba.asIntBuffer().put(pixels);
+            if (!STBImageWrite.stbi_write_png_to_func(write, 0L, width, height, 4, rgba, width * 4)) {
+                throw new IOException("stb couldn't write the PNG");
+            }
+        } finally {
+            MemoryUtil.memFree(rgba);
+        }
+        return out.toByteArray();
     }
 }

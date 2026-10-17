@@ -15,7 +15,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -127,7 +126,8 @@ public abstract class NetworkBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
+    protected BlockState updateShape(BlockState state, net.minecraft.world.level.LevelReader level, net.minecraft.world.level.ScheduledTickAccess ticks,
+            BlockPos pos, Direction direction, BlockPos neighborPos, BlockState neighborState, net.minecraft.util.RandomSource random) {
         if (level instanceof ServerLevel serverLevel) {
             return Topology.computeState(serverLevel, pos, state);
         }
@@ -139,10 +139,10 @@ public abstract class NetworkBlock extends BaseEntityBlock {
      * (vanilla skips the block when sneaking with an item). The network tool still acts on the block itself.
      */
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
             InteractionHand hand, BlockHitResult hitResult) {
-        return stack.getItem() instanceof NetworkToolItem ? ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION
-                : ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        return stack.getItem() instanceof NetworkToolItem ? InteractionResult.PASS
+                : InteractionResult.TRY_WITH_EMPTY_HAND;
     }
 
     @Override
@@ -150,6 +150,6 @@ public abstract class NetworkBlock extends BaseEntityBlock {
         if (player instanceof ServerPlayer serverPlayer) {
             Screens.open(serverPlayer, pos);
         }
-        return InteractionResult.sidedSuccess(level.isClientSide);
+        return InteractionResult.SUCCESS;
     }
 }

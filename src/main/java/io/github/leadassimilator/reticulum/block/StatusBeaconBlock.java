@@ -84,8 +84,9 @@ public class StatusBeaconBlock extends BaseEntityBlock {
 
     /** In Redstone mode it follows the signal as it changes. */
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos from, boolean moving) {
-        super.neighborChanged(state, level, pos, neighbor, from, moving);
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor,
+            @javax.annotation.Nullable net.minecraft.world.level.redstone.Orientation orientation, boolean moving) {
+        super.neighborChanged(state, level, pos, neighbor, orientation, moving);
         if (level instanceof ServerLevel server && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon
                 && beacon.mode() == StatusBeaconBlockEntity.Mode.REDSTONE) {
             StatusBeaconBlockEntity.update(server, pos, state, beacon);
@@ -94,24 +95,24 @@ public class StatusBeaconBlock extends BaseEntityBlock {
 
     /** A dye recolors the look showing now (Network mode's warning or critical, or the redstone level's). */
     @Override
-    protected net.minecraft.world.ItemInteractionResult useItemOn(net.minecraft.world.item.ItemStack stack, BlockState state, Level level, BlockPos pos,
+    protected net.minecraft.world.InteractionResult useItemOn(net.minecraft.world.item.ItemStack stack, BlockState state, Level level, BlockPos pos,
             Player player, net.minecraft.world.InteractionHand hand, BlockHitResult hit) {
         if (!(stack.getItem() instanceof net.minecraft.world.item.DyeItem dye)) {
             return super.useItemOn(stack, state, level, pos, player, hand, hit);
         }
         if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon) {
             if (!Screens.mayChangeBeacon(serverPlayer, beacon)) {
-                return net.minecraft.world.ItemInteractionResult.CONSUME;
+                return net.minecraft.world.InteractionResult.CONSUME;
             }
             if (!beacon.recolorShown(dye.getDyeColor().getTextureDiffuseColor() & 0xFFFFFF)) {
                 serverPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.beacon_dye_nothing"), true);
-                return net.minecraft.world.ItemInteractionResult.CONSUME;
+                return net.minecraft.world.InteractionResult.CONSUME;
             }
             if (!player.getAbilities().instabuild) {
                 stack.shrink(1);
             }
         }
-        return net.minecraft.world.ItemInteractionResult.sidedSuccess(level.isClientSide);
+        return InteractionResult.SUCCESS;
     }
 
     @Override
@@ -119,7 +120,7 @@ public class StatusBeaconBlock extends BaseEntityBlock {
         if (player instanceof ServerPlayer serverPlayer) {
             Screens.openBeacon(serverPlayer, pos);
         }
-        return InteractionResult.sidedSuccess(level.isClientSide);
+        return InteractionResult.SUCCESS;
     }
 
     @Override

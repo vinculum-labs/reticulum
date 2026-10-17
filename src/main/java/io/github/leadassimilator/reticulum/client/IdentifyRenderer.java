@@ -20,7 +20,6 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
@@ -146,7 +145,7 @@ public final class IdentifyRenderer {
         pose.translate(-camera.x, -camera.y, -camera.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         float pulse = 0.6f + 0.4f * Mth.sin((float) (System.currentTimeMillis() % 100_000) / 200f);
-        int top = mc.level.getMaxBuildHeight();
+        int top = mc.level.getMaxY() + 1;
         for (Payloads.IdentifyMarker marker : markers) {
             if (!marker.pos().dimension().equals(mc.level.dimension())) {
                 continue;
@@ -158,15 +157,15 @@ public final class IdentifyRenderer {
             if (marker.face().isPresent()) {
                 Direction face = marker.face().get();
                 WorldOverlay.fillFace(pose.last().pose(), buffers.getBuffer(quads), pos, face, MARGIN, r, g, b, 0.35f * pulse);
-                LevelRenderer.renderLineBox(pose, buffers.getBuffer(lines), WorldOverlay.faceBox(pos, face, MARGIN), r, g, b, pulse);
-                LevelRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.01), r, g, b, 0.35f * pulse);
+                net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), WorldOverlay.faceBox(pos, face, MARGIN), r, g, b, pulse);
+                net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.01), r, g, b, 0.35f * pulse);
             } else {
-                LevelRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.02), r, g, b, pulse);
+                net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.02), r, g, b, pulse);
             }
             double distance = Math.sqrt(camera.distanceToSqr(Vec3.atCenterOf(pos)));
             if (distance > beamDistance && top > pos.getY() + 1) {
                 // A thin column of light from the block up to the sky.
-                LevelRenderer.renderLineBox(pose, buffers.getBuffer(lines),
+                net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines),
                         new AABB(pos.getX() + 0.45, pos.getY() + 1, pos.getZ() + 0.45, pos.getX() + 0.55, top, pos.getZ() + 0.55), r, g, b, 0.8f);
             }
         }

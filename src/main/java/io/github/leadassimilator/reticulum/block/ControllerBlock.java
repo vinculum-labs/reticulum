@@ -18,7 +18,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -34,7 +34,7 @@ public class ControllerBlock extends NetworkBlock {
             net.minecraft.world.level.block.state.properties.IntegerProperty.create("antenna", 0, 3);
 
     /** Which way its front faces (towards whoever placed it); the antenna on top lies along that edge. */
-    public static final net.minecraft.world.level.block.state.properties.DirectionProperty FACING =
+    public static final net.minecraft.world.level.block.state.properties.EnumProperty<net.minecraft.core.Direction> FACING =
             net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING;
 
     public ControllerBlock(Properties properties) {
@@ -81,24 +81,24 @@ public class ControllerBlock extends NetworkBlock {
      * (vanilla skips the block when sneaking with an item). The network tool still acts on the controller's joints.
      */
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
             InteractionHand hand, BlockHitResult hitResult) {
         if (stack.getItem() instanceof NetworkToolItem) {
-            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+            return InteractionResult.PASS;
         }
         if (stack.getItem() instanceof AntennaItem antenna && !player.isShiftKeyDown()) {
             if (player instanceof ServerPlayer serverPlayer) {
                 installAntenna(serverPlayer, level, pos, stack, antenna);
             }
-            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+            return InteractionResult.SUCCESS;
         }
         if (stack.getItem() instanceof ConnectorItem && !player.isShiftKeyDown()) {
             if (player instanceof ServerPlayer serverPlayer) {
                 bindStack(serverPlayer, level, pos, stack);
             }
-            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+            return InteractionResult.SUCCESS;
         }
-        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        return InteractionResult.TRY_WITH_EMPTY_HAND;
     }
 
     /** Puts the antenna in the controller, handing back the one it had. */

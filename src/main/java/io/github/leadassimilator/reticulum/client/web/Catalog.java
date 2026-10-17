@@ -34,7 +34,7 @@ final class Catalog {
         return Minecraft.getInstance().submit(() -> {
             JsonObject out = new JsonObject();
             JsonArray items = new JsonArray();
-            BuiltInRegistries.ITEM.holders().forEach(holder -> {
+            BuiltInRegistries.ITEM.listElements().forEach(holder -> {
                 if (holder.value() != Items.AIR) {
                     items.add(entry(holder, new ItemStack(holder.value()).getHoverName().getString()));
                 }
@@ -49,7 +49,7 @@ final class Catalog {
             });
             out.add("block", blocks);
             JsonArray fluids = new JsonArray();
-            BuiltInRegistries.FLUID.holders().forEach(holder -> {
+            BuiltInRegistries.FLUID.listElements().forEach(holder -> {
                 Fluid fluid = holder.value();
                 if (fluid != Fluids.EMPTY && fluid.isSource(fluid.defaultFluidState())) {
                     fluids.add(entry(holder, new FluidStack(fluid, 1000).getHoverName().getString()));

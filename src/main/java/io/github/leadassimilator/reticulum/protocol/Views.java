@@ -111,7 +111,7 @@ public final class Views {
      * root's own sheets), {@code enabled} its own switch, {@code parentOff} a sheet above it off.
      */
     public record SheetEntry(java.util.UUID id, String name, int depth, boolean enabled, boolean parentOff, boolean gateOff, int errors) {
-        public static final StreamCodec<RegistryFriendlyByteBuf, SheetEntry> STREAM_CODEC = net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs.composite(
+        public static final StreamCodec<RegistryFriendlyByteBuf, SheetEntry> STREAM_CODEC = StreamCodec.composite(
                 net.minecraft.core.UUIDUtil.STREAM_CODEC, SheetEntry::id,
                 ByteBufCodecs.STRING_UTF8, SheetEntry::name,
                 ByteBufCodecs.VAR_INT, SheetEntry::depth,

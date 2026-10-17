@@ -2,18 +2,10 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "key": {
-    "A": {
-      "item": "reticulum:antenna_1"
-    },
-    "D": {
-      "tag": "c:gems/diamond"
-    },
-    "E": {
-      "tag": "c:ender_pearls"
-    },
-    "G": {
-      "tag": "c:storage_blocks/gold"
-    }
+    "A": "reticulum:antenna_1",
+    "D": "#c:gems/diamond",
+    "E": "#c:ender_pearls",
+    "G": "#c:storage_blocks/gold"
   },
   "pattern": [
     " E ",

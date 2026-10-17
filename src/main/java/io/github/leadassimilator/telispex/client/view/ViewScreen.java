@@ -103,7 +103,7 @@ public class ViewScreen extends Screen {
             float scale = (float) Minecraft.getInstance().getWindow().getGuiScale();
             graphics.pose().pushPose();
             graphics.pose().scale(1 / scale, 1 / scale, 1);
-            graphics.blit(frame, 0, (int) Math.ceil(BAR * scale), w, h, 0, 0, w, h, w, h);
+            graphics.blit(net.minecraft.client.renderer.RenderType::guiTextured, frame, 0, (int) Math.ceil(BAR * scale), 0, 0, w, h, w, h);
             graphics.pose().popPose();
             return;
         }
