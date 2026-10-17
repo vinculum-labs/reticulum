@@ -79,8 +79,8 @@ final class Overflow {
                         changed |= retryItems(ctx, sheet, route, level);
                     } else if (source.resource() == ResourceKind.FLUID) {
                         changed |= retryFluids(ctx, sheet, route, level);
-                    } else if (source.resource() == ResourceKind.CHEMICAL && Mods.MEKANISM) {
-                        changed |= ChemicalMover.retry(ctx, sheet, route, level);
+                    } else if (source.resource() == ResourceKind.CHEMICAL && ChemicalFlows.INSTANCE != null) {
+                        changed |= ChemicalFlows.INSTANCE.retry(ctx, sheet, route, level);
                     }
                 }
             }

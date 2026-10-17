@@ -587,7 +587,7 @@ final class Signals {
             case REDSTONE, ME -> {
             }
             case CHEMICAL -> {
-                amount = Mods.MEKANISM ? ChemicalMover.count(ctx, port, expression.isBlank() ? (chemical, c) -> true : sheet.chemicalFilter(expression), context) : 0;
+                amount = ChemicalFlows.INSTANCE != null ? ChemicalFlows.INSTANCE.count(ctx, port, expression.isBlank() ? (chemical, c) -> true : sheet.chemicalFilter(expression), context) : 0;
                 // Fullness isn't worked out for chemicals: like a comparator, that is just "any or not".
                 any[0] = amount > 0;
             }

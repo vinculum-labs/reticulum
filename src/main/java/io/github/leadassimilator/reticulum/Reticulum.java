@@ -9,8 +9,6 @@ import io.github.leadassimilator.reticulum.command.ReticulumCommand;
 import io.github.leadassimilator.reticulum.datagen.DataGenerators;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.integration.Mods;
-import io.github.leadassimilator.reticulum.integration.mekanism.MekanismChemicals;
-import io.github.leadassimilator.reticulum.integration.top.TopIntegration;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.protocol.web.WebApi;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
@@ -46,20 +44,19 @@ public class Reticulum {
         io.github.leadassimilator.telispex.Telispex.init(modEventBus);
         io.github.leadassimilator.telispex.relay.Relay.register(MODID, WebApi::onRequest);
         modEventBus.addListener(DataGenerators::gatherData);
-        if (Mods.MEKANISM) {
-            MekanismChemicals.init();
-            modEventBus.addListener(MekanismChemicals::registerCapabilities);
+        if (Mods.CHEMICALS != null) {
+            Mods.CHEMICALS.register(modEventBus);
         }
         modEventBus.addListener(io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity::registerCapabilities);
         modEventBus.addListener((net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent event) -> event.registerBlockEntity(
                 net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, io.github.leadassimilator.reticulum.registry.ModBlockEntities.CONTROLLER.get(),
                 (controller, side) -> controller.energyStorage()));
-        if (Mods.AE2) {
-            modEventBus.addListener(io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration::registerCapabilities);
+        if (Mods.ME != null) {
+            modEventBus.addListener(Mods.ME::registerCapabilities);
         }
         modEventBus.addListener((InterModEnqueueEvent event) -> {
-            if (io.github.leadassimilator.reticulum.integration.Mods.TOP) {
-                TopIntegration.register();
+            if (Mods.TOP) {
+                Mods.create("integration.top.TopIntegration", Runnable.class).run();
             }
         });
 

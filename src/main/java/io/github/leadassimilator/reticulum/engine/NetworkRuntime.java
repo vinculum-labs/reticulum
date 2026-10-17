@@ -82,8 +82,8 @@ public final class NetworkRuntime {
 
     /** AE2 links, when AE2 is installed. */
     @Nullable
-    private final MeLinker meLinker = io.github.leadassimilator.reticulum.integration.Mods.AE2
-            ? io.github.leadassimilator.reticulum.integration.ae2.Ae2Links.create() : null;
+    private final MeLinker meLinker = io.github.leadassimilator.reticulum.integration.Mods.ME != null
+            ? io.github.leadassimilator.reticulum.integration.Mods.ME.linker() : null;
     private Map<String, MeLinker.Usage> meUsage = Map.of();
 
     // ---------------------------------------------------------------- power (see Power; everything is free by default)

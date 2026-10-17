@@ -106,6 +106,25 @@ configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
 
+// Optional integrations, by their version property. A blank version (a Minecraft version the mod doesn't exist for)
+// leaves the integration's sources and game tests out of the build, and Mods.java treats the mod as absent.
+def has = { String property -> project.hasProperty(property) && !project.property(property).toString().isBlank() }
+def integrations = [
+        jei     : ['**/integration/jei/**'],
+        jade    : ['**/integration/jade/**'],
+        top     : ['**/integration/top/**'],
+        mekanism: ['**/integration/mekanism/**', '**/engine/ChemicalMover.java', '**/gametest/Mekanism*'],
+        ae2     : ['**/integration/ae2/**', '**/gametest/Ae2*'],
+]
+ext.integration = { String name -> has("${name}_version") }
+sourceSets.main.java {
+    integrations.each { name, sources ->
+        if (!integration(name)) {
+            exclude(sources)
+        }
+    }
+}
+
 dependencies {
     // The client-hosted web UI server. Minecraft ships Netty but not its HTTP module; bundled with jar-in-jar,
     // pinned to Minecraft's Netty version.
@@ -118,24 +137,34 @@ dependencies {
     // Dev runs load non-mod libraries only from this configuration (the built jar gets it via jar-in-jar).
     additionalRuntimeClasspath "io.netty:netty-codec-http:4.1.97.Final"
 
-    // Look-at integrations: compiled against, never required at runtime.
-    compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
-    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
-    compileOnly "maven.modrinth:jade:${jade_version}"
-    compileOnly("mcjty.theoneprobe:theoneprobe:${top_version}") { transitive = false }
-
-    // Optional integrations (Mekanism chemicals, AE2 ME links): compiled against, loaded only when the mod is present.
-    compileOnly "mekanism:Mekanism:${minecraft_version}-${mekanism_version}:api"
-    compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"
-
-    // Only on the dev run classpath, to make testing easier. The mod does not depend on any of these.
-    localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-    localRuntime "mekanism:Mekanism:${minecraft_version}-${mekanism_version}"
-    localRuntime "mekanism:Mekanism:${minecraft_version}-${mekanism_version}:generators"
-    localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
-    localRuntime "maven.modrinth:jade:${jade_version}"
-    // Create, for trying our blocks on its contraptions (moved by mechanical pistons, bearings, gantries).
-    localRuntime "maven.modrinth:create:${create_version}"
+    // Optional integrations: compiled against, loaded only when the mod is present. Each is left out when its version
+    // property is blank (see `integrations` above).
+    if (integration('jei')) {
+        compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
+        compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+        localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    }
+    if (integration('jade')) {
+        compileOnly "maven.modrinth:jade:${jade_version}"
+        localRuntime "maven.modrinth:jade:${jade_version}"
+    }
+    if (integration('top')) {
+        compileOnly("mcjty.theoneprobe:theoneprobe:${top_version}") { transitive = false }
+    }
+    if (integration('mekanism')) {
+        compileOnly "mekanism:Mekanism:${minecraft_version}-${mekanism_version}:api"
+        localRuntime "mekanism:Mekanism:${minecraft_version}-${mekanism_version}"
+        localRuntime "mekanism:Mekanism:${minecraft_version}-${mekanism_version}:generators"
+    }
+    if (integration('ae2')) {
+        compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+        localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+    }
+    // Create, only on the dev run classpath, for trying our blocks on its contraptions (moved by mechanical pistons,
+    // bearings, gantries). The mod does not depend on it.
+    if (has('create_version')) {
+        localRuntime "maven.modrinth:create:${create_version}"
+    }
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

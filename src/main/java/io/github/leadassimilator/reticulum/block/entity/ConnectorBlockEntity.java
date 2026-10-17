@@ -7,7 +7,6 @@ import javax.annotation.Nullable;
 import io.github.leadassimilator.reticulum.block.ConnectorBlock;
 import io.github.leadassimilator.reticulum.block.Link;
 import io.github.leadassimilator.reticulum.integration.Mods;
-import io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import net.minecraft.core.BlockPos;
@@ -85,31 +84,31 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     @Override
     public void onLoad() {
         super.onLoad();
-        if (Mods.AE2 && level != null && !level.isClientSide) {
-            Ae2Integration.onLoad(this);
+        if (Mods.ME != null && level != null && !level.isClientSide) {
+            Mods.ME.onLoad(this);
         }
     }
 
     @Override
     public void setRemoved() {
         super.setRemoved();
-        if (Mods.AE2) {
-            Ae2Integration.destroy(this);
+        if (Mods.ME != null) {
+            Mods.ME.destroy(this);
         }
     }
 
     @Override
     public void onChunkUnloaded() {
         super.onChunkUnloaded();
-        if (Mods.AE2) {
-            Ae2Integration.destroy(this);
+        if (Mods.ME != null) {
+            Mods.ME.destroy(this);
         }
     }
 
     /** A neighbor changed or a device side was switched: ME endpoints follow the AE2 blocks around the connector. */
     public void refreshEndpoints() {
-        if (Mods.AE2 && level != null && !level.isClientSide) {
-            Ae2Integration.refresh(this);
+        if (Mods.ME != null && level != null && !level.isClientSide) {
+            Mods.ME.refresh(this);
         }
     }
 

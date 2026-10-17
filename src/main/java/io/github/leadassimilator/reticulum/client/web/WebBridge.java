@@ -45,10 +45,8 @@ public final class WebBridge {
                 .openInBrowser(a -> openInBrowser())
                 .register();
         Icons.register("chemical", id -> {
-            if (!io.github.leadassimilator.reticulum.integration.Mods.MEKANISM) {
-                return Icons.transparent();
-            }
-            var icon = io.github.leadassimilator.reticulum.integration.mekanism.MekanismCatalog.icon(id);
+            var chemicals = io.github.leadassimilator.reticulum.integration.Mods.CHEMICALS;
+            var icon = chemicals == null ? null : chemicals.icon(id);
             return icon == null ? Icons.transparent() : Icons.sprite(id, icon.texture(), icon.tint());
         });
     }

@@ -170,7 +170,7 @@ final class Snapshots {
             }
             ServerLevel connectorLevel = Mods.AE2 ? server.getLevel(connector.pos().dimension()) : null;
             if (connectorLevel != null && connectorLevel.isLoaded(at)) {
-                for (net.minecraft.core.Direction side : io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration.sides(connectorLevel, at)) {
+                for (net.minecraft.core.Direction side : io.github.leadassimilator.reticulum.integration.Mods.ME.sides(connectorLevel, at)) {
                     meFacesOf.computeIfAbsent(GlobalPos.of(connector.pos().dimension(), at.relative(side)), k -> java.util.EnumSet.noneOf(FaceKey.class))
                             .add(FaceKey.of(side.getOpposite()));
                 }
@@ -232,7 +232,7 @@ final class Snapshots {
                 ServerLevel connectorLevel = server.getLevel(connector.pos().dimension());
                 if (connectorLevel != null && connectorLevel.isLoaded(connector.pos().pos())) {
                     JsonArray me = new JsonArray();
-                    io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration.sides(connectorLevel, connector.pos().pos())
+                    io.github.leadassimilator.reticulum.integration.Mods.ME.sides(connectorLevel, connector.pos().pos())
                             .forEach(side -> me.add(side.getSerializedName()));
                     json.add("me", me);
                 }

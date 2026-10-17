@@ -20,15 +20,14 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 
 /**
- * Chemical flows, the same way as fluids: every tick, demand-driven, shared evenly. Each chemical in the source is
+ * Chemical flows ({@link ChemicalFlows}), the same way as fluids: every tick, demand-driven, shared evenly. Each chemical in the source is
  * moved on its own, so a sink tank only ever gets the chemical it holds (Mekanism's handlers refuse anything else)
- * and mixed chemicals never block each other. Only used when Mekanism is installed.
+ * and mixed chemicals never block each other. Only used when Mekanism is installed; left out of builds without
+ * Mekanism support, with the Mekanism integration.
  */
-final class ChemicalMover {
-    private ChemicalMover() {
-    }
-
-    static void run(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source) {
+final class ChemicalMover implements ChemicalFlows {
+    @Override
+    public void run(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source) {
         TankFlow.run(ctx, sheet, source, CHEMICALS);
     }
 
@@ -122,8 +121,8 @@ final class ChemicalMover {
         }
     };
 
-    /** mB of matching chemicals a port holds, for level sensors. */
-    static long count(NetworkRuntime.Context ctx, NodeSettings.Port port, Filters.ChemicalFilter filter, Filters.Context context) {
+    @Override
+    public long count(NetworkRuntime.Context ctx, NodeSettings.Port port, Filters.ChemicalFilter filter, Filters.Context context) {
         long[] total = {0};
         CHEMICALS.forEachStored(CHEMICALS.view(ctx, port), (chemical, amount) -> {
             if (filter.test(chemical, context)) {
@@ -140,8 +139,8 @@ final class ChemicalMover {
         return network.overflow().chemicals().values().stream().anyMatch(amount -> amount >= limit);
     }
 
-    /** Tries to deliver buffered chemicals along one route. */
-    static boolean retry(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Route route, ServerLevel level) {
+    @Override
+    public boolean retry(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Route route, ServerLevel level) {
         List<IChemicalHandler> to = CHEMICALS.handlers(ctx, route.sinkSettings().port());
         List<IChemicalHandler> view = CHEMICALS.view(ctx, route.sinkSettings().port());
         boolean changed = false;

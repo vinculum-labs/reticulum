@@ -16,12 +16,13 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** The One Probe provider. Only loaded after checking the mod is present; see {@link #register()}. */
-public final class TopIntegration implements Function<ITheOneProbe, Void> {
+/** The One Probe provider. Created by {@code Mods} when The One Probe is present; {@link #run()} registers it. */
+public final class TopIntegration implements Function<ITheOneProbe, Void>, Runnable {
     public static final String MODID = "theoneprobe";
 
-    public static void register() {
-        net.neoforged.fml.InterModComms.sendTo(MODID, "getTheOneProbe", TopIntegration::new);
+    @Override
+    public void run() {
+        net.neoforged.fml.InterModComms.sendTo(MODID, "getTheOneProbe", () -> this);
     }
 
     @Override

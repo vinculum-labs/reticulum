@@ -62,8 +62,8 @@ public final class DeviceContents {
                     }
                 }
                 case "chemical" -> {
-                    if (Mods.MEKANISM) {
-                        io.github.leadassimilator.reticulum.integration.mekanism.MekanismChemicals.collect(level, pos, totals);
+                    if (Mods.CHEMICALS != null) {
+                        Mods.CHEMICALS.collect(level, pos, totals);
                     }
                 }
                 default -> {

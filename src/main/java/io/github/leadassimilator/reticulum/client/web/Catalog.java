@@ -57,8 +57,8 @@ final class Catalog {
             });
             out.add("fluid", fluids);
             JsonArray chemicals = new JsonArray();
-            if (Mods.MEKANISM) {
-                io.github.leadassimilator.reticulum.integration.mekanism.MekanismCatalog.entries()
+            if (Mods.CHEMICALS != null) {
+                Mods.CHEMICALS.entries()
                         .forEach(e -> chemicals.add(entry(e.id().toString(), e.name(), e.tags().stream())));
             }
             out.add("chemical", chemicals);

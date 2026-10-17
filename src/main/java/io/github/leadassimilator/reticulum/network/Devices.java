@@ -4,7 +4,6 @@ import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
 import io.github.leadassimilator.reticulum.integration.Mods;
-import io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
@@ -73,7 +72,7 @@ public final class Devices {
         if (!isDevice(level, pos)) {
             return false;
         }
-        return !Mods.AE2 || !Ae2Integration.offersNothing(level, pos, facing) || offersResource(level, pos, facing);
+        return Mods.ME == null || !Mods.ME.offersNothing(level, pos, facing) || offersResource(level, pos, facing);
     }
 
     private static boolean offersResource(Level level, BlockPos pos, Direction facing) {

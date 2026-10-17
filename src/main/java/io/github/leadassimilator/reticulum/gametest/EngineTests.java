@@ -55,7 +55,7 @@ public final class EngineTests {
     }
 
     /** A test network with one device per connector; {@code devices} are relative positions. */
-    private record Rig(GameTestHelper helper, Network network, List<BlockPos> devices, Sheet sheet) {
+    record Rig(GameTestHelper helper, Network network, List<BlockPos> devices, Sheet sheet) {
         Container container(int i) {
             return (Container) helper.getBlockEntity(devices.get(i));
         }
@@ -154,7 +154,7 @@ public final class EngineTests {
         return Blocks.LEVER.defaultBlockState().setValue(LeverBlock.FACE, AttachFace.FLOOR).setValue(LeverBlock.POWERED, powered);
     }
 
-    private static Rig rig(GameTestHelper helper, Block... devices) {
+    static Rig rig(GameTestHelper helper, Block... devices) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         List<BlockPos> positions = new ArrayList<>();
@@ -897,150 +897,6 @@ public final class EngineTests {
     // ---------------------------------------------------------------- AE2
 
     @GameTest(template = "empty")
-    public static void meLinkJoinsTwoAe2Networks(GameTestHelper helper) {
-        if (!Mods.AE2) {
-            helper.succeed();
-            return;
-        }
-        // An ME controller and an ME interface, kept apart by a barrel so only the link can join them.
-        Rig rig = rig(helper, Ae2TestSupport.block("controller"), Blocks.BARREL, Ae2TestSupport.block("interface"));
-        BlockPos controller = helper.absolutePos(rig.devices().get(0));
-        BlockPos iface = helper.absolutePos(rig.devices().get(2));
-        Node a = rig.meOut(rig.device(0));
-        Node b = rig.meIn(rig.device(2));
-        Wire[] link = new Wire[1];
-        helper.startSequence()
-                .thenExecuteAfter(10, () -> {
-                    check(helper, !Ae2TestSupport.sameGrid(helper.getLevel(), controller, Direction.NORTH, iface, Direction.NORTH),
-                            "joined before any link");
-                    link[0] = Wire.of(a, b);
-                    rig.sheet().connect(link[0]);
-                })
-                .thenWaitUntil(() -> check(helper, Ae2TestSupport.sameGrid(helper.getLevel(), controller, Direction.NORTH, iface, Direction.NORTH),
-                        "the ME link didn't join the two AE2 networks; errors " + rig.compiled().errors()))
-                .thenExecute(() -> rig.sheet().disconnect(link[0].id()))
-                .thenWaitUntil(() -> check(helper, !Ae2TestSupport.sameGrid(helper.getLevel(), controller, Direction.NORTH, iface, Direction.NORTH),
-                        "still joined after the link was removed"))
-                .thenSucceed();
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 200)
-    public static void mePortsReportCableCapacityAndSkipBareParts(GameTestHelper helper) {
-        if (!Mods.AE2) {
-            helper.succeed();
-            return;
-        }
-        Rig rig = rig(helper, Ae2TestSupport.block("controller"), Blocks.BARREL);
-        BlockPos first = helper.absolutePos(new BlockPos(3, 1, 1));
-        BlockPos second = helper.absolutePos(new BlockPos(4, 1, 1));
-        // A glass cable (8 channels) north of the second connector, placed by clicking the connector's north face.
-        Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", second, Direction.NORTH);
-        // A storage bus with no cable north of the first connector, placed by clicking the connector's north face.
-        Ae2TestSupport.use(helper.getLevel(), "storage_bus", first, Direction.NORTH);
-        Node a = rig.meOut(rig.device(0));
-        Node b = rig.meIn(Devices.global(helper.getLevel(), second.north()));
-        rig.sheet().connect(Wire.of(a, b));
-        helper.succeedWhen(() -> {
-            var sides = io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration.sides(helper.getLevel(), first);
-            check(helper, !sides.contains(Direction.NORTH), "an ME endpoint faces a storage bus with no cable: " + sides);
-            check(helper, rig.network().device(Devices.global(helper.getLevel(), first.north())) == null,
-                    "a storage bus with no cable counts as a device");
-            check(helper, helper.getLevel().getBlockState(first).getValue(
-                    io.github.leadassimilator.reticulum.block.ConnectorBlock.LINKS.get(Direction.NORTH)) != io.github.leadassimilator.reticulum.block.Link.DEVICE,
-                    "the connector shows a plug towards a storage bus with no cable");
-            var usage = rig.runtime().meUsage().get(b.id() + "/in/0");
-            check(helper, usage != null && usage.max() == 8, "the glass cable side shows " + usage + " instead of x/8");
-        });
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 400)
-    public static void mePortShowsTheFullestCableOnTheWayToTheController(GameTestHelper helper) {
-        if (!Mods.AE2) {
-            helper.succeed();
-            return;
-        }
-        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
-        BlockPos ae2c = helper.absolutePos(new BlockPos(3, 1, 1));
-        BlockPos shortbus = helper.absolutePos(new BlockPos(6, 1, 1));
-        // ae2c: a glass cable on the way to a powered ME controller, carrying two interfaces' channels as well.
-        Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", ae2c, Direction.NORTH);
-        helper.setBlock(new BlockPos(3, 2, 0), Ae2TestSupport.block("controller"));
-        helper.setBlock(new BlockPos(3, 3, 0), Ae2TestSupport.block("creative_energy_cell"));
-        helper.setBlock(new BlockPos(2, 1, 0), Ae2TestSupport.block("interface"));
-        helper.setBlock(new BlockPos(4, 1, 0), Ae2TestSupport.block("interface"));
-        // shortbus: a glass cable holding a storage bus, whose channel comes through the link.
-        Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", shortbus, Direction.NORTH);
-        Ae2TestSupport.use(helper.getLevel(), "storage_bus", shortbus.north(), Direction.UP);
-        Node a = rig.meOut(Devices.global(helper.getLevel(), ae2c.north()));
-        Node b = rig.meIn(Devices.global(helper.getLevel(), shortbus.north()));
-        rig.sheet().connect(Wire.of(a, b));
-        helper.succeedWhen(() -> {
-            var ae2cUsage = rig.runtime().meUsage().get(a.id() + "/out/0");
-            var shortbusUsage = rig.runtime().meUsage().get(b.id() + "/in/0");
-            check(helper, ae2cUsage != null && ae2cUsage.used() == 3 && ae2cUsage.max() == 8 && ae2cUsage.through() == 1,
-                    "ae2c shows " + ae2cUsage + ", not 1 through and 3/8");
-            check(helper, shortbusUsage != null && shortbusUsage.used() == 3 && shortbusUsage.max() == 8 && shortbusUsage.through() == 1,
-                    "shortbus shows " + shortbusUsage + ", not 1 through and 3/8");
-        });
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 400)
-    public static void smartCableOnAConnectorCountsChannelsThroughTheLink(GameTestHelper helper) {
-        if (!Mods.AE2) {
-            helper.succeed();
-            return;
-        }
-        // Near side: a smart cable on connector 0, on a powered controller. Far side: a glass cable on connector 2 with
-        // two interfaces, reached only through the link. The smart cable carries their two channels.
-        Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL);
-        BlockPos smart = helper.absolutePos(new BlockPos(3, 1, 0));
-        BlockPos far = helper.absolutePos(new BlockPos(5, 1, 0));
-        Ae2TestSupport.use(helper.getLevel(), "fluix_smart_cable", smart.south(), Direction.NORTH);
-        helper.setBlock(new BlockPos(3, 2, 0), Ae2TestSupport.block("controller"));
-        helper.setBlock(new BlockPos(3, 3, 0), Ae2TestSupport.block("creative_energy_cell"));
-        Ae2TestSupport.use(helper.getLevel(), "fluix_glass_cable", far.south(), Direction.NORTH);
-        helper.setBlock(new BlockPos(5, 2, 0), Ae2TestSupport.block("interface"));
-        helper.setBlock(new BlockPos(6, 1, 0), Ae2TestSupport.block("interface"));
-        Node a = rig.meOut(Devices.global(helper.getLevel(), smart));
-        Node b = rig.meIn(Devices.global(helper.getLevel(), far));
-        rig.sheet().connect(Wire.of(a, b));
-        helper.succeedWhen(() -> {
-            var host = appeng.api.networking.GridHelper.getNodeHost(helper.getLevel(), smart);
-            var node = host == null ? null : host.getGridNode(null);
-            check(helper, node != null, "no smart cable node");
-            var toConnector = node.getInWorldConnections().get(Direction.SOUTH);
-            int nodeUsed = node.getUsedChannels();
-            int sideUsed = toConnector == null ? -1 : toConnector.getUsedChannels();
-            check(helper, nodeUsed == 2 && sideUsed == 2,
-                    "smart cable: node " + nodeUsed + "/" + node.getMaxChannels() + ", its connection to the connector " + sideUsed);
-            // The far connector's look-at line shows the smart cable back at the controller, not its own cable's count.
-            var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());
-            String lines = io.github.leadassimilator.reticulum.lookat.LookAt.describe(helper.getLevel(), far.south(), null, player)
-                    .stream().map(net.minecraft.network.chat.Component::getString).toList().toString();
-            check(helper, lines.contains("north 2/8"), "far connector says " + lines);
-        });
-    }
-
-    @GameTest(template = "empty")
-    public static void ae2CableShowsItsCableAsIcon(GameTestHelper helper) {
-        if (!Mods.AE2) {
-            helper.succeed();
-            return;
-        }
-        BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
-        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());
-        ItemStack cable = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(
-                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("ae2", "fluix_covered_dense_cable")));
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, cable);
-        var hit = new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(pos.below()), Direction.UP, pos.below(), false);
-        cable.useOn(new net.minecraft.world.item.context.UseOnContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, hit));
-        helper.succeedWhen(() -> {
-            ItemStack icon = Devices.icon(helper.getLevel(), pos);
-            check(helper, icon.is(cable.getItem()), "icon is " + icon + " for " + helper.getLevel().getBlockState(pos));
-        });
-    }
-
-    @GameTest(template = "empty")
     public static void importedSheetsGetNewIdsAndKeepTheirWires(GameTestHelper helper) {
         Sheet sheet = new Sheet(UUID.randomUUID(), "exported");
         Node a = sheet.add(Node.of(new NodeSettings.FilterSettings("iron_ingot")));
@@ -1527,30 +1383,8 @@ public final class EngineTests {
         });
     }
 
-    @GameTest(template = "empty")
-    public static void chemicalMovesBetweenMekanismTanks(GameTestHelper helper) {
-        if (!Mods.MEKANISM) {
-            helper.succeed();
-            return;
-        }
-        Block tank = MekanismTestSupport.block("basic_chemical_tank");
-        Rig rig = rig(helper, tank, tank);
-        BlockPos from = helper.absolutePos(rig.devices().get(0));
-        BlockPos to = helper.absolutePos(rig.devices().get(1));
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), from);
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), to);
-        long filled = MekanismTestSupport.fill(helper.getLevel(), from, "hydrogen", 4000);
-        check(helper, filled == 4000, "could fill only " + filled + " mB of hydrogen");
-        rig.wire(rig.source(0, ResourceKind.CHEMICAL, List.of(), 0), rig.sink(1, ResourceKind.CHEMICAL, List.of()));
-        helper.succeedWhen(() -> {
-            long left = MekanismTestSupport.stored(helper.getLevel(), from);
-            long moved = MekanismTestSupport.stored(helper.getLevel(), to);
-            check(helper, left == 0 && moved == 4000, "source has " + left + " mB, target " + moved + " mB");
-        });
-    }
-
     /** Slot-range tests with the server's fallback through faces on: their own batch, which turns it on and off. */
-    private static final String SLOT_FACES = "slot_faces";
+    static final String SLOT_FACES = "slot_faces";
 
     @net.minecraft.gametest.framework.BeforeBatch(batch = SLOT_FACES)
     public static void slotRangesThroughFacesOn(net.minecraft.server.level.ServerLevel level) {
@@ -1578,42 +1412,6 @@ public final class EngineTests {
             check(helper, rig.container(1).getItem(1).isEmpty() && rig.count(0, Items.COAL) == 8, "coal went past the slot range");
             helper.succeed();
         });
-    }
-
-    /** By default a slot range on a Mekanism machine with faces left to work out moves nothing: faces need picking. */
-    @GameTest(template = "empty", timeoutTicks = 60)
-    public static void aSlotRangeOnAMekanismMachineNeedsFaces(GameTestHelper helper) {
-        if (!Mods.MEKANISM) {
-            helper.succeed();
-            return;
-        }
-        Rig rig = mekanismSlotRange(helper);
-        helper.runAfterDelay(20, () -> {
-            check(helper, rig.count(0, Items.IRON_ORE) == 8, "items went in with the fallback off");
-            helper.succeed();
-        });
-    }
-
-    /** With the fallback on, a slot range on a Mekanism machine moves items in through its faces. */
-    @GameTest(template = "empty", batch = SLOT_FACES, timeoutTicks = 100)
-    public static void aSlotRangeOnAMekanismMachineGoesThroughItsFaces(GameTestHelper helper) {
-        if (!Mods.MEKANISM) {
-            helper.succeed();
-            return;
-        }
-        Rig rig = mekanismSlotRange(helper);
-        helper.succeedWhen(() -> check(helper, rig.count(0, Items.IRON_ORE) < 8, "nothing went in with the fallback on"));
-    }
-
-    /** A barrel of iron ore wired into an enrichment chamber, slots 0 to 20, faces left to work out. */
-    private static Rig mekanismSlotRange(GameTestHelper helper) {
-        Rig rig = rig(helper, Blocks.BARREL, MekanismTestSupport.block("enrichment_chamber"));
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
-        rig.container(0).setItem(0, new ItemStack(Items.IRON_ORE, 8));
-        Node sink = rig.node(new NodeSettings.DeviceSettings(rig.device(1), List.of(
-                new NodeSettings.Input(ResourceKind.ITEM, List.of(), Optional.of(new NodeSettings.SlotRange(0, 20)), List.of())), List.of()));
-        rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 0), sink);
-        return rig;
     }
 
     /** With the fallback on, a full block with a slot range is just full: nothing goes through its faces past the range. */
@@ -1671,7 +1469,7 @@ public final class EngineTests {
     }
 
     /** FE stored in a block, read once (through its unsided handler, or the first face that answers). */
-    private static long energyStored(GameTestHelper helper, BlockPos rel) {
+    static long energyStored(GameTestHelper helper, BlockPos rel) {
         BlockPos pos = helper.absolutePos(rel);
         var storage = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, pos, null);
         for (Direction side : Direction.values()) {
@@ -1684,7 +1482,7 @@ public final class EngineTests {
     }
 
     /** Puts FE into a block through every face that takes it, again and again (machines limit each insert). */
-    private static void fillEnergy(GameTestHelper helper, BlockPos rel, long amount) {
+    static void fillEnergy(GameTestHelper helper, BlockPos rel, long amount) {
         BlockPos pos = helper.absolutePos(rel);
         long left = amount;
         for (int round = 0; round < 10_000 && left > 0; round++) {
@@ -1703,93 +1501,8 @@ public final class EngineTests {
         }
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
-    public static void energyCapCountsAMachineOnce(GameTestHelper helper) {
-        if (!Mods.MEKANISM) {
-            helper.succeed();
-            return;
-        }
-        // A Mekanism energy cube answers on every face with its own wrapper around the one store; a cap must count
-        // that store once, not once per face.
-        Block cube = MekanismTestSupport.block("basic_energy_cube");
-        Rig rig = rig(helper, cube, cube);
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(0)));
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
-        fillEnergy(helper, rig.devices().get(0), 500_000);
-        long start = energyStored(helper, rig.devices().get(0));
-        check(helper, start > 100_000, "could only fill the source cube with " + start + " FE");
-        rig.wire(rig.source(0, ResourceKind.ENERGY, List.of(), 0),
-                rig.sink(1, ResourceKind.ENERGY, List.of(new NodeSettings.Limit(NodeSettings.Scope.TOTAL, 20_000, ""))));
-        helper.startSequence()
-                .thenExecuteAfter(200, () -> {
-                    long filled = energyStored(helper, rig.devices().get(1));
-                    long left = energyStored(helper, rig.devices().get(0));
-                    check(helper, filled >= 19_000 && filled <= 22_000, "capped at 20000 FE, the target holds " + filled);
-                    // Nothing is lost on the way (a little rounding between Mekanism's joules and FE aside).
-                    check(helper, Math.abs(start - left - filled) <= 50, "moved " + (start - left) + " FE but " + filled + " arrived");
-                })
-                .thenSucceed();
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 400)
-    public static void energyKeepCountsAMachineOnce(GameTestHelper helper) {
-        if (!Mods.MEKANISM) {
-            helper.succeed();
-            return;
-        }
-        Block cube = MekanismTestSupport.block("basic_energy_cube");
-        Rig rig = rig(helper, cube, cube);
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(0)));
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
-        fillEnergy(helper, rig.devices().get(0), 500_000);
-        long start = energyStored(helper, rig.devices().get(0));
-        long keep = start - 20_000;
-        rig.wire(rig.source(0, ResourceKind.ENERGY, List.of(new NodeSettings.Limit(NodeSettings.Scope.TOTAL, keep, "")), 0),
-                rig.sink(1, ResourceKind.ENERGY, List.of()));
-        helper.startSequence()
-                .thenExecuteAfter(200, () -> {
-                    long left = energyStored(helper, rig.devices().get(0));
-                    check(helper, left >= keep - 50, "keeping " + keep + " FE, the source fell to " + left);
-                    check(helper, energyStored(helper, rig.devices().get(1)) >= 19_000, "the 20000 FE above the keep amount didn't move");
-                })
-                .thenSucceed();
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 400)
-    public static void twoRoutesIntoOneMachineDontOverdraw(GameTestHelper helper) {
-        if (!Mods.MEKANISM) {
-            helper.succeed();
-            return;
-        }
-        // A splitter feeding two inputs of the same nearly full cube: together they may ask only for its real room.
-        Block cube = MekanismTestSupport.block("basic_energy_cube");
-        Rig rig = rig(helper, cube, cube);
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(0)));
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
-        fillEnergy(helper, rig.devices().get(0), 500_000);
-        fillEnergy(helper, rig.devices().get(1), 2_000_000);
-        long sourceStart = energyStored(helper, rig.devices().get(0));
-        long targetStart = energyStored(helper, rig.devices().get(1));
-        Node source = rig.source(0, ResourceKind.ENERGY, List.of(), 0);
-        Node splitter = rig.node(new NodeSettings.SplitterSettings(NodeSettings.SplitMode.ROUND_ROBIN));
-        GlobalPos target = Devices.global(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
-        var input = new NodeSettings.Input(ResourceKind.ENERGY, List.of(), Optional.empty(), List.of());
-        Node sink = rig.node(new NodeSettings.DeviceSettings(target, List.of(input, input), List.of()));
-        rig.wire(source, splitter);
-        rig.sheet().connect(new Wire(UUID.randomUUID(), splitter.id(), 0, sink.id(), 0));
-        rig.sheet().connect(new Wire(UUID.randomUUID(), splitter.id(), 0, sink.id(), 1));
-        helper.startSequence()
-                .thenExecuteAfter(200, () -> {
-                    long sourceLeft = energyStored(helper, rig.devices().get(0));
-                    long targetNow = energyStored(helper, rig.devices().get(1));
-                    check(helper, Math.abs((sourceStart - sourceLeft) - (targetNow - targetStart)) <= 50,
-                            "the source gave " + (sourceStart - sourceLeft) + " FE but the target gained " + (targetNow - targetStart));
-                })
-                .thenSucceed();
-    }
-
     /** mB of fluid a block holds, counted once (its unsided handler, or the first face that answers). */
-    private static long fluidStored(GameTestHelper helper, BlockPos rel) {
+    static long fluidStored(GameTestHelper helper, BlockPos rel) {
         BlockPos pos = helper.absolutePos(rel);
         var handler = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, null);
         for (Direction side : Direction.values()) {
@@ -1803,60 +1516,6 @@ public final class EngineTests {
             total += handler.getFluidInTank(tank).getAmount();
         }
         return total;
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 300)
-    public static void fluidCapStopsAtTheCap(GameTestHelper helper) {
-        if (!Mods.MEKANISM) {
-            helper.succeed();
-            return;
-        }
-        Block tank = MekanismTestSupport.block("basic_fluid_tank");
-        Rig rig = rig(helper, tank, tank);
-        BlockPos from = helper.absolutePos(rig.devices().get(0));
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), from);
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), helper.absolutePos(rig.devices().get(1)));
-        // Mekanism's unsided handler is read-only: fill through the faces.
-        int left = 10_000;
-        for (Direction side : Direction.values()) {
-            var handler = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, from, side);
-            if (handler != null && left > 0) {
-                left -= handler.fill(new net.neoforged.neoforge.fluids.FluidStack(net.minecraft.world.level.material.Fluids.WATER, left),
-                        net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
-            }
-        }
-        check(helper, fluidStored(helper, rig.devices().get(0)) == 10_000, "couldn't fill the source tank");
-        rig.wire(rig.source(0, ResourceKind.FLUID, List.of(), 0),
-                rig.sink(1, ResourceKind.FLUID, List.of(new NodeSettings.Limit(NodeSettings.Scope.TOTAL, 3000, ""))));
-        helper.startSequence()
-                .thenExecuteAfter(200, () -> {
-                    check(helper, fluidStored(helper, rig.devices().get(1)) == 3000, "capped at 3000 mB, the target holds " + fluidStored(helper, rig.devices().get(1)));
-                    check(helper, fluidStored(helper, rig.devices().get(0)) == 7000, "the source holds " + fluidStored(helper, rig.devices().get(0)));
-                })
-                .thenSucceed();
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 300)
-    public static void chemicalKeepLeavesTheRest(GameTestHelper helper) {
-        if (!Mods.MEKANISM) {
-            helper.succeed();
-            return;
-        }
-        Block tank = MekanismTestSupport.block("basic_chemical_tank");
-        Rig rig = rig(helper, tank, tank);
-        BlockPos from = helper.absolutePos(rig.devices().get(0));
-        BlockPos to = helper.absolutePos(rig.devices().get(1));
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), from);
-        MekanismTestSupport.placedByPlayer(helper.getLevel(), to);
-        check(helper, MekanismTestSupport.fill(helper.getLevel(), from, "hydrogen", 4000) == 4000, "couldn't fill the source tank");
-        rig.wire(rig.source(0, ResourceKind.CHEMICAL, List.of(new NodeSettings.Limit(NodeSettings.Scope.PER_TYPE, 1000, "")), 0),
-                rig.sink(1, ResourceKind.CHEMICAL, List.of()));
-        helper.startSequence()
-                .thenExecuteAfter(200, () -> {
-                    check(helper, MekanismTestSupport.stored(helper.getLevel(), from) == 1000, "keeping 1000 mB, the source holds " + MekanismTestSupport.stored(helper.getLevel(), from));
-                    check(helper, MekanismTestSupport.stored(helper.getLevel(), to) == 3000, "the target holds " + MekanismTestSupport.stored(helper.getLevel(), to));
-                })
-                .thenSucceed();
     }
 
     @GameTest(template = "empty")

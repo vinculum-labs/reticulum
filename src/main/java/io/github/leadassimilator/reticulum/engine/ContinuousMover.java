@@ -41,8 +41,8 @@ final class ContinuousMover {
                 case ENERGY -> TankFlow.run(ctx, sheet, source, ENERGY);
                 case FLUID -> TankFlow.run(ctx, sheet, source, FLUIDS);
                 case CHEMICAL -> {
-                    if (Mods.MEKANISM) {
-                        ChemicalMover.run(ctx, sheet, source);
+                    if (ChemicalFlows.INSTANCE != null) {
+                        ChemicalFlows.INSTANCE.run(ctx, sheet, source);
                     }
                 }
                 default -> {

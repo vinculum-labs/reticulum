@@ -704,31 +704,4 @@ public final class TopologyTests {
         helper.succeed();
     }
 
-    /**
-     * A Mekanism cable beside a connector draws its arm to it (the connector offers empty handlers on the sides facing a
-     * device), and lets go once that side is detached.
-     */
-    @GameTest(template = "empty", timeoutTicks = 100)
-    public static void mekanismCableConnectsToAConnectorsDeviceSideOnly(GameTestHelper helper) {
-        if (!io.github.leadassimilator.reticulum.integration.Mods.MEKANISM) {
-            helper.succeed();
-            return;
-        }
-        place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
-        place(helper, new BlockPos(2, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
-        helper.setBlock(new BlockPos(3, 1, 1), MekanismTestSupport.block("basic_universal_cable"));
-        BlockPos connector = helper.absolutePos(new BlockPos(2, 1, 1));
-        BlockPos cable = helper.absolutePos(new BlockPos(3, 1, 1));
-        helper.startSequence()
-                .thenWaitUntil(() -> check(helper, MekanismTestSupport.transmitterConnects(helper.getLevel(), cable, Direction.WEST),
-                        "the cable doesn't connect to the connector's device side"))
-                .thenExecute(() -> {
-                    check(helper, helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, connector, Direction.WEST) == null,
-                            "the connector offers a handler toward its controller");
-                    Topology.toggle(helper.getLevel(), connector, Direction.EAST, null);
-                })
-                .thenWaitUntil(() -> check(helper, !MekanismTestSupport.transmitterConnects(helper.getLevel(), cable, Direction.WEST),
-                        "the cable stays connected to a detached side"))
-                .thenSucceed();
-    }
 }

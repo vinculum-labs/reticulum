@@ -5,7 +5,6 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.Reticulum;
-import io.github.leadassimilator.reticulum.integration.top.TopIntegration;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import net.minecraft.client.DeltaTracker;
