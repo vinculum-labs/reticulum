@@ -1,10 +1,12 @@
 package io.github.leadassimilator.reticulum.item;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.client.screen.FacadeScreen;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import io.github.leadassimilator.reticulum.registry.ModItems;
@@ -18,6 +20,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.Level;
@@ -86,7 +89,7 @@ public class FacadeItem extends Item {
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
         if (level.isClientSide) {
-            io.github.leadassimilator.reticulum.client.screen.FacadeScreen.open(hand);
+            FacadeScreen.open(hand);
         }
         return InteractionResult.SUCCESS;
     }
@@ -117,8 +120,8 @@ public class FacadeItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display,
-            java.util.function.Consumer<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
+            Consumer<Component> tooltip, TooltipFlag flag) {
         super.appendHoverText(stack, context, display, tooltip, flag);
         if (state(stack) != null) {
             tooltip.accept(Component.translatable("tooltip.reticulum.facade").withStyle(ChatFormatting.GRAY));

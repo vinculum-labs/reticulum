@@ -1,6 +1,9 @@
 package io.github.leadassimilator.telispex.client.view;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import javax.annotation.Nullable;
@@ -307,12 +310,12 @@ final class WebKitGtkHost {
         GLFW.GLFW_RESIZE_ALL_CURSOR, GLFW.GLFW_NOT_ALLOWED_CURSOR};
     /** GTK's cursor objects for those names, made once; GTK keeps one per name, so WebKit's is the same object. */
     @Nullable
-    private static java.util.Map<Pointer, Integer> knownCursors;
+    private static Map<Pointer, Integer> knownCursors;
 
     /** On the GTK thread: the shape of the cursor WebKit set on the view's window. */
     private static int cursorShape(Pointer viewWindow) {
         if (knownCursors == null) {
-            knownCursors = new java.util.HashMap<>();
+            knownCursors = new HashMap<>();
             for (int i = 0; i < CURSORS.length; i++) {
                 for (String name : CURSORS[i]) {
                     Pointer cursor = gdk().getFunction("gdk_cursor_new_from_name").invokePointer(new Object[] {display(), name});
@@ -710,7 +713,7 @@ final class WebKitGtkHost {
         if (parts.length == 0 || !parts[0].matches("[a-z]{2,3}")) {
             return "en-US";
         }
-        return parts.length > 1 && parts[1].matches("[a-z]{2}") ? parts[0] + "-" + parts[1].toUpperCase(java.util.Locale.ROOT) : parts[0];
+        return parts.length > 1 && parts[1].matches("[a-z]{2}") ? parts[0] + "-" + parts[1].toUpperCase(Locale.ROOT) : parts[0];
     }
 
     /** Runs {@code job} on the GTK thread. */

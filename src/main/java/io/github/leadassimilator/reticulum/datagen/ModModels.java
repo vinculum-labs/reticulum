@@ -1,11 +1,14 @@
 package io.github.leadassimilator.reticulum.datagen;
 
+import java.util.ArrayList;
 import java.util.Map;
+
+import com.mojang.math.Quadrant;
 
 import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.block.ControllerBlock;
-import io.github.leadassimilator.reticulum.block.LinkedBlock;
 import io.github.leadassimilator.reticulum.block.Link;
+import io.github.leadassimilator.reticulum.block.LinkedBlock;
 import io.github.leadassimilator.reticulum.client.FacadeItemModel;
 import io.github.leadassimilator.reticulum.client.ToolItemProperties;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
@@ -23,8 +26,7 @@ import net.minecraft.client.data.models.model.TextureMapping;
 import net.minecraft.client.data.models.model.TextureSlot;
 import net.minecraft.client.renderer.block.model.VariantMutator;
 import net.minecraft.client.renderer.item.ItemModel;
-import com.mojang.math.Quadrant;
-
+import net.minecraft.client.renderer.item.RangeSelectItemModel;
 import net.minecraft.core.Direction;
 import net.minecraft.data.PackOutput;
 import net.minecraft.resources.ResourceLocation;
@@ -68,7 +70,7 @@ public class ModModels extends ModelProvider {
         // yellow or red mark (reticulum:alarm, 0.5 a warning, 1 critical) to whichever mode.
         String[] modes = {"", "_link", "_identify", "_status"};
         float[] at = {0f, 0.33f, 0.66f, 1f};
-        var byMode = new java.util.ArrayList<net.minecraft.client.renderer.item.RangeSelectItemModel.Entry>();
+        var byMode = new ArrayList<RangeSelectItemModel.Entry>();
         for (int i = 0; i < modes.length; i++) {
             ItemModel.Unbaked look = ItemModelUtils.rangeSelect(new ToolItemProperties.Alarm(), flat(items, "network_tool" + modes[i]),
                     ItemModelUtils.override(flat(items, "network_tool" + modes[i] + "_warning"), 0.5f),

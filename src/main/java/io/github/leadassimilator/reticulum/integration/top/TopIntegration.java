@@ -15,6 +15,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.fml.InterModComms;
 
 /** The One Probe provider. Created by {@code Mods} when The One Probe is present; {@link #run()} registers it. */
 public final class TopIntegration implements Function<ITheOneProbe, Void>, Runnable {
@@ -22,7 +23,7 @@ public final class TopIntegration implements Function<ITheOneProbe, Void>, Runna
 
     @Override
     public void run() {
-        net.neoforged.fml.InterModComms.sendTo(MODID, "getTheOneProbe", () -> this);
+        InterModComms.sendTo(MODID, "getTheOneProbe", () -> this);
     }
 
     @Override

@@ -2,7 +2,10 @@ package io.github.leadassimilator.reticulum.topology;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -11,6 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
@@ -20,24 +24,34 @@ import io.github.leadassimilator.reticulum.block.NetworkBlock;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.item.FacadeItem;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
+import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Containers;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.event.level.ChunkEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
  * Cable topology. Rules (see the design spec, "Keeping cable lines apart"):
@@ -57,7 +71,7 @@ public final class Topology {
      * Per network, bumped whenever its cables, joints or connectors change (or a chunk holding them loads or unloads),
      * so the engine knows to work out that network's wireless reach again.
      */
-    private static final Map<UUID, Long> VERSIONS = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<UUID, Long> VERSIONS = new ConcurrentHashMap<>();
 
     public static long version(UUID network) {
         return VERSIONS.getOrDefault(network, 0L);
@@ -70,7 +84,7 @@ public final class Topology {
     }
 
     /** Network blocks that appeared without a player and still need connecting up, per dimension. */
-    private static final Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, Set<BlockPos>> PENDING = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<ResourceKey<Level>, Set<BlockPos>> PENDING = new ConcurrentHashMap<>();
 
     /** The server stopped: nothing waits to be connected up, nor any version kept, in the next world. */
     public static void forgetAll() {
@@ -80,11 +94,11 @@ public final class Topology {
     }
 
     /** Per network, the blocks joined to its controller by cable, as of a version (the look HUD asks often). */
-    private record Reach(long version, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension, BlockPos controller,
+    private record Reach(long version, ResourceKey<Level> dimension, BlockPos controller,
             Set<BlockPos> blocks) {
     }
 
-    private static final Map<UUID, Reach> REACH = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<UUID, Reach> REACH = new ConcurrentHashMap<>();
 
     /** Whether {@code pos} is joined by cable to {@code network}'s controller at {@code controller}, worked out once per change. */
     public static boolean reachesController(ServerLevel level, UUID network, BlockPos controller, BlockPos pos) {
@@ -98,11 +112,11 @@ public final class Topology {
     }
 
     public static void queue(ServerLevel level, BlockPos pos) {
-        PENDING.computeIfAbsent(level.dimension(), k -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(pos.immutable());
+        PENDING.computeIfAbsent(level.dimension(), k -> ConcurrentHashMap.newKeySet()).add(pos.immutable());
     }
 
     /** Connects up the queued blocks that are loaded and still not registered. */
-    public static void onServerTick(net.neoforged.neoforge.event.tick.ServerTickEvent.Pre event) {
+    public static void onServerTick(ServerTickEvent.Pre event) {
         if (PENDING.isEmpty()) {
             return;
         }
@@ -120,8 +134,8 @@ public final class Topology {
     }
 
     /** A chunk with cables, connectors or a controller in it loaded or unloaded: what joins what may have changed. */
-    public static void onChunkChanged(net.neoforged.neoforge.event.level.ChunkEvent event) {
-        if (!event.getLevel().isClientSide() && event.getChunk() instanceof net.minecraft.world.level.chunk.LevelChunk chunk) {
+    public static void onChunkChanged(ChunkEvent event) {
+        if (!event.getLevel().isClientSide() && event.getChunk() instanceof LevelChunk chunk) {
             Set<UUID> networks = new HashSet<>();
             for (var be : chunk.getBlockEntities().values()) {
                 if (be instanceof NetworkBlockEntity network && network.networkId() != null) {
@@ -197,7 +211,7 @@ public final class Topology {
     private record PendingRemoval(Removed removed, NetworkBlockEntity be) {
     }
 
-    private static final Map<GlobalPos, PendingRemoval> PENDING_REMOVALS = new java.util.HashMap<>();
+    private static final Map<GlobalPos, PendingRemoval> PENDING_REMOVALS = new HashMap<>();
 
     /**
      * A network block is being replaced by another block: captured now, while its block entity is still in the level
@@ -220,8 +234,8 @@ public final class Topology {
         Removed removed = pending.removed();
         // Broken, it drops its facade; moved (a contraption), the facade travels in its data and comes back with it.
         if (!movedByPiston && pending.be().facade() != null) {
-            net.minecraft.world.Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(),
-                    io.github.leadassimilator.reticulum.item.FacadeItem.of(pending.be().facade(), 1));
+            Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(),
+                    FacadeItem.of(pending.be().facade(), 1));
         }
         // Moved by a piston or contraption (Create), not broken: it comes back elsewhere with its data, so a connector
         // keeps its record (its name, its devices) meanwhile, and arriving it isn't taken for a copy.
@@ -233,7 +247,7 @@ public final class Topology {
     }
 
     /** End of the server tick: removals no neighbor update reached. */
-    public static void flushRemovals(net.minecraft.server.MinecraftServer server) {
+    public static void flushRemovals(MinecraftServer server) {
         for (GlobalPos at : List.copyOf(PENDING_REMOVALS.keySet())) {
             ServerLevel level = server.getLevel(at.dimension());
             if (level == null) {
@@ -445,7 +459,7 @@ public final class Topology {
                 sides.values().forEach(c -> distinct.addAll(c.networks()));
                 // Moved in with its network (a contraption carrying two touching networks): it stays on its own where it
                 // touches it, the other cut again, rather than cut off from both.
-                distinct.retainAll(carried.isEmpty() || java.util.Collections.disjoint(distinct, carried) ? distinct : carried);
+                distinct.retainAll(carried.isEmpty() || Collections.disjoint(distinct, carried) ? distinct : carried);
                 if (distinct.size() == 1) {
                     primary = distinct.iterator().next();
                 } else {
@@ -458,7 +472,7 @@ public final class Topology {
         // joined is the chosen network's.
         List<Map.Entry<Direction, Section>> ordered = new ArrayList<>(sides.entrySet());
         UUID chosen = primary;
-        ordered.sort(java.util.Comparator.comparing((Map.Entry<Direction, Section> e) -> chosen == null || !chosen.equals(e.getValue().network())));
+        ordered.sort(Comparator.comparing((Map.Entry<Direction, Section> e) -> chosen == null || !chosen.equals(e.getValue().network())));
         boolean controllerJoined = own != null;
         // The controllers already joined: a block touching the same section on two faces (closing a loop) joins it
         // on both, as it is one section and one controller.
@@ -519,18 +533,18 @@ public final class Topology {
             return true;
         }
         return blockEntity(level, pos) instanceof ConnectorBlockEntity connector && blockEntity(level, next) instanceof ControllerBlockEntity controller
-                && !java.util.Objects.equals(networkOf(level, connector), networkOf(level, controller));
+                && !Objects.equals(networkOf(level, connector), networkOf(level, controller));
     }
 
     /** Whether a block carried off {@code from} by a piston or contraption may join {@code to} where it lands. */
     private static boolean mayCarryInto(@Nullable Network from, @Nullable Network to) {
-        return to == null || to == from || to.owner() == null || to.accessMode() == io.github.leadassimilator.reticulum.security.AccessMode.PUBLIC
+        return to == null || to == from || to.owner() == null || to.accessMode() == AccessMode.PUBLIC
                 || from != null && to.owner().equals(from.owner());
     }
 
     /** Whether a machine may put a block into the network (nobody's access to ask): only when it is open to anyone. */
     private static boolean openToMachines(@Nullable Network network) {
-        return network == null || network.owner() == null || network.accessMode() == io.github.leadassimilator.reticulum.security.AccessMode.PUBLIC;
+        return network == null || network.owner() == null || network.accessMode() == AccessMode.PUBLIC;
     }
 
     private static void disconnectAutomatically(NetworkBlockEntity be, NetworkBlockEntity neighbor, Direction dir) {
@@ -610,14 +624,14 @@ public final class Topology {
         ControllerBlockEntity controller = (ControllerBlockEntity) blockEntity(level, pos);
         // Its network's owner, when someone else opens it: the new network is theirs (private), not the opener's, so a
         // deleted network's base doesn't pass to whoever comes by.
-        java.util.UUID owner = controller.lastOwner();
+        UUID owner = controller.lastOwner();
         boolean theirs = owner != null && (player == null || !owner.equals(player.getUUID()));
         UUID id;
         if (theirs) {
             // A network of their own, new (no neighbor's taken over for them).
             Network made = NetworkManager.create(level.getServer(), null);
             made.setOwner(owner, controller.lastOwnerName());
-            made.setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PRIVATE);
+            made.setAccessMode(AccessMode.PRIVATE);
             made.setController(Devices.global(level, pos));
             controller.setNetworkId(made.id());
             NetworkManager.changed(level.getServer(), made);
@@ -720,7 +734,7 @@ public final class Topology {
             // Its name and its devices' and faces' names go with it (not left behind on the network it leaves).
             var oldRecord = oldNetwork == null ? null : oldNetwork.connector(connector.connectorId());
             String name = oldRecord == null ? null : oldRecord.name();
-            java.util.Map<GlobalPos, io.github.leadassimilator.reticulum.network.DeviceRecord> named = new java.util.HashMap<>();
+            Map<GlobalPos, DeviceRecord> named = new HashMap<>();
             if (oldRecord != null) {
                 for (GlobalPos device : oldRecord.devices()) {
                     var record = oldNetwork.device(device);
@@ -891,7 +905,7 @@ public final class Topology {
                 BlockPos next = pos.relative(dir);
                 NetworkBlockEntity neighbor = blocks.contains(next) ? null : blockEntity(level, next);
                 if (neighbor == null || be.isManuallyDisconnected(dir) || neighbor.isManuallyDisconnected(dir.getOpposite())
-                        || !be.isDisconnected(dir) || !java.util.Objects.equals(networkOf(level, be), networkOf(level, neighbor))) {
+                        || !be.isDisconnected(dir) || !Objects.equals(networkOf(level, be), networkOf(level, neighbor))) {
                     continue;
                 }
                 be.setAutoDisconnected(dir, false);
@@ -1171,7 +1185,7 @@ public final class Topology {
      * hits the core (or misses).
      */
     @Nullable
-    public static Direction armHit(BlockPos pos, boolean connector, Vec3 from, Vec3 to, java.util.Set<Direction> plugs) {
+    public static Direction armHit(BlockPos pos, boolean connector, Vec3 from, Vec3 to, Set<Direction> plugs) {
         Direction best = null;
         double bestDistance = Double.MAX_VALUE;
         for (Direction dir : Direction.values()) {

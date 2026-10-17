@@ -5,18 +5,20 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
-import io.github.leadassimilator.reticulum.item.NetworkStamp;
-import io.github.leadassimilator.reticulum.security.NetworkAdmin;
-import io.github.leadassimilator.reticulum.security.Access;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
+import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
+import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.item.NetworkStamp;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.item.ToolMode;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
+import io.github.leadassimilator.reticulum.security.Access;
 import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.security.Member;
+import io.github.leadassimilator.reticulum.security.NetworkAdmin;
 import io.github.leadassimilator.reticulum.security.Passwords;
 import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
@@ -44,7 +46,7 @@ public final class Linking {
         }
         List<Payloads.NetworkChoice> choices = new ArrayList<>();
         for (Network network : NetworkManager.data(player.level().getServer()).networks()) {
-            boolean member = Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.USER);
+            boolean member = Security.could(network, player, Role.USER);
             boolean password = !member && network.accessMode() == AccessMode.PASSWORD && network.passwordHash() != null;
             if (member || password) {
                 choices.add(new Payloads.NetworkChoice(network.id(), network.name(), network.ownerName(), password));
@@ -116,8 +118,8 @@ public final class Linking {
 
     /** A cable or connector the player can reach (its network can be picked from its screen). */
     private static boolean canReachConnector(ServerPlayer player, BlockPos pos) {
-        return Access.reach(player, pos) instanceof io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity be
-                && !(be instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity);
+        return Access.reach(player, pos) instanceof NetworkBlockEntity be
+                && !(be instanceof ControllerBlockEntity);
     }
 
     /** For the connector screen: whether the player may pick a network for it (no cable decides it). */

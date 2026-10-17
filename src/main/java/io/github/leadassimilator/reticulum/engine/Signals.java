@@ -1,14 +1,17 @@
 package io.github.leadassimilator.reticulum.engine;
 
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
@@ -16,8 +19,10 @@ import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.filter.FilterException;
 import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
+import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
+import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
@@ -73,7 +78,7 @@ final class Signals {
     }
 
     /** The alarms going off, by compiled node id, in the order they went off. */
-    private final Map<UUID, Raised> raised = new java.util.LinkedHashMap<>();
+    private final Map<UUID, Raised> raised = new LinkedHashMap<>();
 
     Map<UUID, Long> values() {
         return values;
@@ -87,7 +92,7 @@ final class Signals {
         return pulsed;
     }
 
-    java.util.Collection<Raised> raised() {
+    Collection<Raised> raised() {
         return raised.values();
     }
 
@@ -99,7 +104,7 @@ final class Signals {
 
     /** Drops edge, pulse, delay and timer memory of nodes no longer compiled (string keys start with the node id). */
     void forgetGone(Set<UUID> present) {
-        java.util.function.Predicate<UUID> gone = id -> !present.contains(id);
+        Predicate<UUID> gone = id -> !present.contains(id);
         pulseLeft.keySet().removeIf(gone);
         timerStart.keySet().removeIf(gone);
         delays.keySet().removeIf(gone);
@@ -531,7 +536,7 @@ final class Signals {
     }
 
     /** How much of a resource a device of the network holds (items, mB or FE), all of it: for charts. */
-    static long amount(NetworkRuntime.Context ctx, CompiledSheet sheet, io.github.leadassimilator.reticulum.graph.ResourceKind resource, GlobalPos device) {
+    static long amount(NetworkRuntime.Context ctx, CompiledSheet sheet, ResourceKind resource, GlobalPos device) {
         return count(ctx, sheet, new NodeSettings.LevelSettings(resource, device, List.of(), ""));
     }
 
@@ -599,7 +604,7 @@ final class Signals {
 
     /** Gives each connector's redstone to the devices it faces, touching only what changed. */
     /** {@code reaches}: whether a connector reaches the controller; one that doesn't gives nothing (cut off by cable, out of range). */
-    void applyEmissions(MinecraftServer server, Network network, Map<Emit, Integer> emit, java.util.function.Predicate<UUID> reaches) {
+    void applyEmissions(MinecraftServer server, Network network, Map<Emit, Integer> emit, Predicate<UUID> reaches) {
         if (emit.isEmpty() && emitting.isEmpty() && poweredConnectors.isEmpty()) {
             return;
         }
@@ -623,7 +628,7 @@ final class Signals {
                 if (!devices.contains(device) || !device.dimension().equals(connector.pos().dimension())) {
                     continue;
                 }
-                Direction toward = io.github.leadassimilator.reticulum.network.Devices.facing(connector.pos().pos(), device.pos());
+                Direction toward = Devices.facing(connector.pos().pos(), device.pos());
                 if (toward == null) {
                     continue;
                 }

@@ -1,5 +1,6 @@
 package io.github.leadassimilator.reticulum.filter;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
@@ -69,7 +70,7 @@ public final class FilterRefs {
 
     /** Every filter a node's saved settings hold (blank ones too). */
     public static List<String> filters(NodeSettings settings) {
-        List<String> out = new java.util.ArrayList<>();
+        List<String> out = new ArrayList<>();
         rename(settings, e -> {
             out.add(e == null ? "" : e);
             return e;

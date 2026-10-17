@@ -4,6 +4,9 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
@@ -16,9 +19,9 @@ public final class Passwords {
     private static final SecureRandom RANDOM = new SecureRandom();
     /** The least time between one player's password guesses. */
     private static final long GUESS_INTERVAL_MS = 1000;
-    private static final java.util.Map<java.util.UUID, Long> LAST_GUESS = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<UUID, Long> LAST_GUESS = new ConcurrentHashMap<>();
     /** When each player last set a password (hashing one costs the server thread tens of milliseconds). */
-    private static final java.util.Map<java.util.UUID, Long> LAST_SET = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<UUID, Long> LAST_SET = new ConcurrentHashMap<>();
 
     private Passwords() {
     }
@@ -36,13 +39,13 @@ public final class Passwords {
      * checked.
      */
     /** Whether a player may set a password now: at most once a second, like guesses. */
-    public static boolean maySet(java.util.UUID player) {
+    public static boolean maySet(UUID player) {
         long now = System.currentTimeMillis();
         Long last = LAST_SET.put(player, now);
         return last == null || now - last >= GUESS_INTERVAL_MS;
     }
 
-    public static boolean guess(java.util.UUID player, String password, String stored) {
+    public static boolean guess(UUID player, String password, String stored) {
         long now = System.currentTimeMillis();
         Long last = LAST_GUESS.put(player, now);
         if (last != null && now - last < GUESS_INTERVAL_MS) {

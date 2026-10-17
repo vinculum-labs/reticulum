@@ -1,29 +1,41 @@
 package io.github.leadassimilator.reticulum.engine;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
+import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
+import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
+import io.github.leadassimilator.reticulum.graph.Wire;
+import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.network.ChartSeries;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.topology.Topology;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
@@ -47,7 +59,7 @@ public final class NetworkRuntime {
     private final Map<UUID, Integer> roundRobin = new HashMap<>();
     private final Map<UUID, Integer> backoff = new HashMap<>();
     /** Kit nodes whose sink two faces wrap the same slots of: their kits are planned through one face at a time. */
-    private final Set<UUID> kitsOneFace = new java.util.HashSet<>();
+    private final Set<UUID> kitsOneFace = new HashSet<>();
 
     Set<UUID> kitsOneFace() {
         return kitsOneFace;
@@ -58,7 +70,7 @@ public final class NetworkRuntime {
     private final Map<UUID, Status> statuses = new HashMap<>();
     private final Signals signals = new Signals();
     /** Sheets switched off this tick by a gate (on their node or on a sheet node above them), for the editor. */
-    private final Set<UUID> sheetsOff = new java.util.HashSet<>();
+    private final Set<UUID> sheetsOff = new HashSet<>();
     /** Blueprints compiled on their own, only to show their problems in the editor (they never run on their own). */
     private final Map<UUID, CompiledSheet> templates = new HashMap<>();
     /** The network revision the tree was last checked at. */
@@ -76,14 +88,14 @@ public final class NetworkRuntime {
         OUT_OF_RANGE;
 
         public String key() {
-            return name().toLowerCase(java.util.Locale.ROOT);
+            return name().toLowerCase(Locale.ROOT);
         }
     }
 
     /** AE2 links, when AE2 is installed. */
     @Nullable
-    private final MeLinker meLinker = io.github.leadassimilator.reticulum.integration.Mods.ME != null
-            ? io.github.leadassimilator.reticulum.integration.Mods.ME.linker() : null;
+    private final MeLinker meLinker = Mods.ME != null
+            ? Mods.ME.linker() : null;
     private Map<String, MeLinker.Usage> meUsage = Map.of();
 
     // ---------------------------------------------------------------- power (see Power; everything is free by default)
@@ -356,14 +368,14 @@ public final class NetworkRuntime {
     }
 
     /** The controller pulls FE from anything next to it that gives it (generators, batteries, other mods' cables). */
-    private static void pullFromNeighbors(ServerLevel level, net.minecraft.core.BlockPos pos, ControllerBlockEntity controller) {
+    private static void pullFromNeighbors(ServerLevel level, BlockPos pos, ControllerBlockEntity controller) {
         for (Direction side : Direction.values()) {
             long room = ControllerBlockEntity.capacity() - controller.energy();
             if (room <= 0) {
                 return;
             }
-            net.minecraft.core.BlockPos next = pos.relative(side);
-            if (!level.isLoaded(next) || level.getBlockEntity(next) instanceof io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity) {
+            BlockPos next = pos.relative(side);
+            if (!level.isLoaded(next) || level.getBlockEntity(next) instanceof NetworkBlockEntity) {
                 continue;
             }
             IEnergyStorage source = level.getCapability(Capabilities.EnergyStorage.BLOCK, next, side.getOpposite());
@@ -430,13 +442,13 @@ public final class NetworkRuntime {
         }
         reachVersion = Topology.version(network.id());
         reachTier = tier;
-        Set<net.minecraft.core.BlockPos> wired = Topology.component(level, controller.pos(), null).blocks();
+        Set<BlockPos> wired = Topology.component(level, controller.pos(), null).blocks();
         Map<UUID, Reach> found = new HashMap<>();
         wirelessConnectors = 0;
         wirelessDistance = 0;
         crossDimensionConnectors = 0;
-        Set<GlobalPos> reached = new java.util.HashSet<>();
-        Set<GlobalPos> all = new java.util.HashSet<>();
+        Set<GlobalPos> reached = new HashSet<>();
+        Set<GlobalPos> all = new HashSet<>();
         for (ConnectorRecord connector : network.connectors()) {
             // Lifted by a contraption: not anywhere (no devices either), so neither reached nor paid for until set down.
             if (connector.moving()) {
@@ -490,7 +502,7 @@ public final class NetworkRuntime {
                 // Not lifted by a contraption, and no such connector there: it went without the game telling (a crash
                 // between saves): its record goes, so it costs nothing and keeps nothing alive.
                 if (!connector.moving() && !(level.getBlockEntity(connector.pos().pos())
-                        instanceof io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity there && there.connectorId().equals(connector.id()))) {
+                        instanceof ConnectorBlockEntity there && there.connectorId().equals(connector.id()))) {
                     NetworkManager.removeConnector(server, network, connector.id());
                     continue;
                 }
@@ -526,7 +538,7 @@ public final class NetworkRuntime {
     }
 
     /** The alarm nodes going off, as of the last tick. */
-    java.util.Collection<Signals.Raised> raisedAlarms() {
+    Collection<Signals.Raised> raisedAlarms() {
         return signals.raised();
     }
 
@@ -652,15 +664,15 @@ public final class NetworkRuntime {
      * tokens, splitter turns, backoff. Kept for a node's derived keys (a filter's reject output's turns) too.
      */
     private void forgetGone(Set<UUID> present) {
-        java.util.function.Predicate<UUID> gone = id -> !present.contains(id);
+        Predicate<UUID> gone = id -> !present.contains(id);
         tokens.keySet().removeIf(gone);
         backoff.keySet().removeIf(gone);
         kitsOneFace.removeIf(gone);
         // Turns are kept by node, or by a filter's reject output's key (not a node id).
         if (!roundRobin.isEmpty() || !credits.isEmpty()) {
-            Set<UUID> kept = new java.util.HashSet<>(present);
+            Set<UUID> kept = new HashSet<>(present);
             for (UUID node : present) {
-                kept.add(CompiledSheet.outputKey(node, io.github.leadassimilator.reticulum.graph.Wire.REJECT));
+                kept.add(CompiledSheet.outputKey(node, Wire.REJECT));
             }
             roundRobin.keySet().removeIf(id -> !kept.contains(id));
             credits.keySet().removeIf(id -> !kept.contains(id));
@@ -675,7 +687,7 @@ public final class NetworkRuntime {
     // ---------------------------------------------------------------- rate limits
 
     private void refillTokens(List<CompiledSheet> sheets) {
-        Map<UUID, NodeSettings.RateLimitSettings> limits = new java.util.LinkedHashMap<>();
+        Map<UUID, NodeSettings.RateLimitSettings> limits = new LinkedHashMap<>();
         for (CompiledSheet sheet : sheets) {
             for (CompiledSheet.Source source : sheet.sources()) {
                 for (CompiledSheet.Route route : source.routes()) {
@@ -715,7 +727,7 @@ public final class NetworkRuntime {
      * topped up to an interval's worth for it (a source slower than a second moves its rate, not a second's worth per
      * interval). What it leaves unused goes at {@link #endOperation}, so no other flow through the limit gets it.
      */
-    public void beginOperation(java.util.Collection<Node> rateLimits, int interval) {
+    public void beginOperation(Collection<Node> rateLimits, int interval) {
         if (interval <= 20) {
             return;
         }
@@ -728,7 +740,7 @@ public final class NetworkRuntime {
     }
 
     /** Ends an operation begun by {@link #beginOperation}: a limit holds no more than it can again. */
-    public void endOperation(java.util.Collection<Node> rateLimits) {
+    public void endOperation(Collection<Node> rateLimits) {
         for (Node node : rateLimits) {
             double capacity = rateCapacity.getOrDefault(node.id(), 0.0);
             if (capacity > 0) {
@@ -758,20 +770,20 @@ public final class NetworkRuntime {
     public void delivered(CompiledSheet.Route route, long amount, @Nullable String what) {
         consume(route.rateLimits(), amount);
         metrics.record(route, amount, ticks);
-        metrics.recordId(io.github.leadassimilator.reticulum.network.ChartSeries.totalId(route.sourceSettings().port().resource()), amount, ticks);
+        metrics.recordId(ChartSeries.totalId(route.sourceSettings().port().resource()), amount, ticks);
         if (what != null && charted.contains(what)) {
-            metrics.recordId(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(what), amount, ticks);
+            metrics.recordId(ChartSeries.idOf(what), amount, ticks);
         }
         // Into the sink's device and out of the source's, where a device is charted for what passes through it.
         if (chartsThrough) {
             var resource = route.sourceSettings().port().resource();
-            String into = io.github.leadassimilator.reticulum.network.ChartSeries.throughKey(resource, route.sinkSettings().port().device());
+            String into = ChartSeries.throughKey(resource, route.sinkSettings().port().device());
             if (charted.contains(into)) {
-                metrics.recordId(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(into + "/in"), amount, ticks);
+                metrics.recordId(ChartSeries.idOf(into + "/in"), amount, ticks);
             }
-            String outOf = io.github.leadassimilator.reticulum.network.ChartSeries.throughKey(resource, route.sourceSettings().port().device());
+            String outOf = ChartSeries.throughKey(resource, route.sourceSettings().port().device());
             if (charted.contains(outOf)) {
-                metrics.recordId(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(outOf + "/out"), amount, ticks);
+                metrics.recordId(ChartSeries.idOf(outOf + "/out"), amount, ticks);
             }
         }
     }
@@ -787,7 +799,7 @@ public final class NetworkRuntime {
     private final Map<String, Long> unchartedAt = new HashMap<>();
 
     private void takeCharted(Network network) {
-        Set<String> now = new java.util.HashSet<>();
+        Set<String> now = new HashSet<>();
         for (var series : network.charts()) {
             now.add(series.key());
         }
@@ -803,13 +815,13 @@ public final class NetworkRuntime {
                 return false;
             }
             String gone = entry.getKey();
-            metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone));
-            metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone + "/in"));
-            metrics.forget(io.github.leadassimilator.reticulum.network.ChartSeries.idOf(gone + "/out"));
+            metrics.forget(ChartSeries.idOf(gone));
+            metrics.forget(ChartSeries.idOf(gone + "/in"));
+            metrics.forget(ChartSeries.idOf(gone + "/out"));
             return true;
         });
         charted = now;
-        chartsThrough = network.charts().stream().anyMatch(c -> c.kind() == io.github.leadassimilator.reticulum.network.ChartSeries.Kind.THROUGH);
+        chartsThrough = network.charts().stream().anyMatch(c -> c.kind() == ChartSeries.Kind.THROUGH);
     }
 
     /** Charted levels, sampled once a second. */
@@ -820,7 +832,7 @@ public final class NetworkRuntime {
         Context context = new Context(server, network, this);
         CompiledSheet root = compiled(network.root(), network);
         for (var series : network.charts()) {
-            if (series.kind() == io.github.leadassimilator.reticulum.network.ChartSeries.Kind.LEVEL) {
+            if (series.kind() == ChartSeries.Kind.LEVEL) {
                 metrics.sample(series.seriesId(), Signals.amount(context, root, series.resource().orElseThrow(), series.device().orElseThrow()));
             }
         }
@@ -888,7 +900,7 @@ public final class NetworkRuntime {
 
     public List<CompiledSheet.Route> ordered(List<CompiledSheet.Route> routes) {
         List<CompiledSheet.Route> sorted = new ArrayList<>(routes);
-        sorted.sort((a, b) -> java.util.Arrays.compare(branchKey(a), branchKey(b)));
+        sorted.sort((a, b) -> Arrays.compare(branchKey(a), branchKey(b)));
         return sorted;
     }
 
@@ -933,7 +945,7 @@ public final class NetworkRuntime {
         if (!blockSlots) {
             return new ItemPort(items(server, network, port), view, port.slots());
         }
-        if (!io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.get()) {
+        if (!ReticulumConfig.SLOT_RANGES_THROUGH_FACES.get()) {
             return new ItemPort(view, view, port.slots());
         }
         // The server's choice: some blocks' unsided handler only shows the inventory (a Mekanism machine's takes and

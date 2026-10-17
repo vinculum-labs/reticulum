@@ -1,8 +1,12 @@
 package io.github.leadassimilator.telispex.relay;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.zip.DataFormatException;
 
 import javax.annotation.Nullable;
 
@@ -10,6 +14,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import io.github.leadassimilator.telispex.Telispex;
+import io.github.leadassimilator.telispex.client.WebServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
@@ -50,7 +55,7 @@ public final class Relay {
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(VERSION);
         registrar.playToClient(RelayPayloads.Chunk.TYPE, RelayPayloads.Chunk.STREAM_CODEC,
-                (payload, context) -> io.github.leadassimilator.telispex.client.WebServer.onChunk(payload));
+                (payload, context) -> WebServer.onChunk(payload));
         registrar.playToServer(RelayPayloads.RequestPart.TYPE, RelayPayloads.RequestPart.STREAM_CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) {
                 onRequestPart(player, payload);
@@ -79,7 +84,7 @@ public final class Relay {
         String text = message.toString();
         boolean whole = true;
         if (text.length() > RelayPayloads.MAX_MESSAGE_BYTES / 3
-                && text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > RelayPayloads.MAX_MESSAGE_BYTES) {
+                && text.getBytes(StandardCharsets.UTF_8).length > RelayPayloads.MAX_MESSAGE_BYTES) {
             if (!message.has("id")) {
                 Telispex.LOGGER.warn("A {} for {}'s pages was too large to send ({} characters)",
                         message.has("type") ? message.get("type").getAsString() : "message", app, text.length());
@@ -161,7 +166,7 @@ public final class Relay {
             send(player, part.app(), error(id, "Request too large"));
             return;
         }
-        Map<Integer, byte[][]> mine = PARTS.computeIfAbsent(player.getUUID(), k -> new java.util.LinkedHashMap<>());
+        Map<Integer, byte[][]> mine = PARTS.computeIfAbsent(player.getUUID(), k -> new LinkedHashMap<>());
         byte[][] pieces;
         boolean refused = false;
         synchronized (mine) {
@@ -195,8 +200,8 @@ public final class Relay {
         }
         String json;
         try {
-            json = RelayPayloads.join(java.util.Arrays.asList(pieces), RelayPayloads.MAX_REQUEST_BYTES);
-        } catch (java.util.zip.DataFormatException e) {
+            json = RelayPayloads.join(Arrays.asList(pieces), RelayPayloads.MAX_REQUEST_BYTES);
+        } catch (DataFormatException e) {
             send(player, part.app(), error(id, "Request too large"));
             return;
         }

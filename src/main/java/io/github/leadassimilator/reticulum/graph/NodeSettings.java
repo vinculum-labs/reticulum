@@ -1,9 +1,12 @@
 package io.github.leadassimilator.reticulum.graph;
 
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
@@ -12,6 +15,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Ids;
 import io.github.leadassimilator.reticulum.util.LowercaseName;
+import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.StringRepresentable;
@@ -56,7 +60,7 @@ public sealed interface NodeSettings {
         ME_PORT(null, false);
 
         /** Only the kinds a sheet can hold; the engine-internal ones can't be read or written. */
-        public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(() -> java.util.Arrays.stream(values())
+        public static final Codec<Kind> CODEC = StringRepresentable.fromEnum(() -> Arrays.stream(values())
                 .filter(kind -> kind.codec != null).toArray(Kind[]::new));
 
         private final MapCodec<? extends NodeSettings> codec;
@@ -198,8 +202,8 @@ public sealed interface NodeSettings {
         }
 
         /** The same weights under other wire ids (a blueprint's splitter as pasted into an instance). */
-        public SplitterSettings renamed(java.util.function.Function<UUID, UUID> wireId) {
-            Map<UUID, Integer> out = new java.util.LinkedHashMap<>();
+        public SplitterSettings renamed(Function<UUID, UUID> wireId) {
+            Map<UUID, Integer> out = new LinkedHashMap<>();
             weights.forEach((wire, weight) -> out.put(wireId.apply(wire), weight));
             return new SplitterSettings(mode, out);
         }
@@ -349,7 +353,7 @@ public sealed interface NodeSettings {
 
         /** A face turned {@code turns} quarter turns clockwise (seen from above); up, down and unsided stay. */
         public static FaceKey turn(FaceKey face, int turns) {
-            net.minecraft.core.Direction direction = face.direction();
+            Direction direction = face.direction();
             if (direction == null || direction.getAxis().isVertical()) {
                 return face;
             }
@@ -847,7 +851,7 @@ public sealed interface NodeSettings {
      * Engine-internal form of a device's ME pin: the connector side touching that device face (AE2). A wire between
      * two ME pins joins their AE2 networks, 32 channels at most (8 through a normal cable), like AE2's own cables.
      */
-    record MePortSettings(UUID connector, net.minecraft.core.Direction side) implements NodeSettings {
+    record MePortSettings(UUID connector, Direction side) implements NodeSettings {
         @Override
         public Kind kind() {
             return Kind.ME_PORT;

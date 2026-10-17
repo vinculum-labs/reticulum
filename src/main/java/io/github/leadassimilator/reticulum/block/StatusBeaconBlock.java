@@ -8,10 +8,15 @@ import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import io.github.leadassimilator.reticulum.protocol.Screens;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.DyeItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
@@ -23,6 +28,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.neoforged.neoforge.common.util.FakePlayer;
 
 /** Shows an alarm: gray, yellow (a warning) or red (critical) — its network's, or what a redstone signal says. */
 public class StatusBeaconBlock extends BaseEntityBlock {
@@ -61,11 +67,11 @@ public class StatusBeaconBlock extends BaseEntityBlock {
     }
 
     @Override
-    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable net.minecraft.world.entity.LivingEntity placer, net.minecraft.world.item.ItemStack stack) {
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
         // Always set here, over anything the item carried (a creative copy of another's beacon).
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon) {
-            beacon.setPlacer(placer instanceof ServerPlayer player && !(player instanceof net.neoforged.neoforge.common.util.FakePlayer) ? player.getUUID() : null);
+            beacon.setPlacer(placer instanceof ServerPlayer player && !(player instanceof FakePlayer) ? player.getUUID() : null);
         }
     }
 
@@ -85,7 +91,7 @@ public class StatusBeaconBlock extends BaseEntityBlock {
     /** In Redstone mode it follows the signal as it changes. */
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor,
-            @javax.annotation.Nullable net.minecraft.world.level.redstone.Orientation orientation, boolean moving) {
+            @Nullable net.minecraft.world.level.redstone.Orientation orientation, boolean moving) {
         super.neighborChanged(state, level, pos, neighbor, orientation, moving);
         if (level instanceof ServerLevel server && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon
                 && beacon.mode() == StatusBeaconBlockEntity.Mode.REDSTONE) {
@@ -95,18 +101,18 @@ public class StatusBeaconBlock extends BaseEntityBlock {
 
     /** A dye recolors the look showing now (Network mode's warning or critical, or the redstone level's). */
     @Override
-    protected net.minecraft.world.InteractionResult useItemOn(net.minecraft.world.item.ItemStack stack, BlockState state, Level level, BlockPos pos,
-            Player player, net.minecraft.world.InteractionHand hand, BlockHitResult hit) {
-        if (!(stack.getItem() instanceof net.minecraft.world.item.DyeItem dye)) {
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
+            Player player, InteractionHand hand, BlockHitResult hit) {
+        if (!(stack.getItem() instanceof DyeItem dye)) {
             return super.useItemOn(stack, state, level, pos, player, hand, hit);
         }
         if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon) {
             if (!Screens.mayChangeBeacon(serverPlayer, beacon)) {
-                return net.minecraft.world.InteractionResult.CONSUME;
+                return InteractionResult.CONSUME;
             }
             if (!beacon.recolorShown(dye.getDyeColor().getTextureDiffuseColor() & 0xFFFFFF)) {
-                serverPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.beacon_dye_nothing"), true);
-                return net.minecraft.world.InteractionResult.CONSUME;
+                serverPlayer.displayClientMessage(Component.translatable("message.reticulum.beacon_dye_nothing"), true);
+                return InteractionResult.CONSUME;
             }
             if (!player.getAbilities().instabuild) {
                 stack.shrink(1);

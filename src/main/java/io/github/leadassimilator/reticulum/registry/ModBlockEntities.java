@@ -4,6 +4,7 @@ import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.block.entity.CableBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
+import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -19,8 +20,8 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ControllerBlockEntity>> CONTROLLER = BLOCK_ENTITIES.register("controller",
             () -> new BlockEntityType<>(ControllerBlockEntity::new, ModBlocks.CONTROLLER.get()));
 
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity>> STATUS_BEACON =
-            BLOCK_ENTITIES.register("status_beacon", () -> new BlockEntityType<>(io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity::new,
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<StatusBeaconBlockEntity>> STATUS_BEACON =
+            BLOCK_ENTITIES.register("status_beacon", () -> new BlockEntityType<>(StatusBeaconBlockEntity::new,
                     ModBlocks.STATUS_BEACON.get()));
 
     private ModBlockEntities() {

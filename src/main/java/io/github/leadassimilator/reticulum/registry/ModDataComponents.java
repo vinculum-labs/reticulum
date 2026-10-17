@@ -2,18 +2,19 @@ package io.github.leadassimilator.reticulum.registry;
 
 import java.util.UUID;
 
-import io.github.leadassimilator.reticulum.Reticulum;
 import com.mojang.serialization.Codec;
 
+import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.item.ToolMode;
+import io.github.leadassimilator.reticulum.network.Ids;
 import net.minecraft.core.UUIDUtil;
-import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
-
-import io.github.leadassimilator.reticulum.network.Ids;
 
 public final class ModDataComponents {
     public static final DeferredRegister.DataComponents COMPONENTS = DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, Reticulum.MODID);
@@ -35,9 +36,9 @@ public final class ModDataComponents {
             b -> b.persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8));
 
     /** The block a facade item makes a cable or connector look like. */
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<net.minecraft.world.level.block.state.BlockState>> FACADE =
-            COMPONENTS.registerComponentType("facade", b -> b.persistent(net.minecraft.world.level.block.state.BlockState.CODEC)
-                    .networkSynchronized(ByteBufCodecs.idMapper(net.minecraft.world.level.block.Block.BLOCK_STATE_REGISTRY)));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<BlockState>> FACADE =
+            COMPONENTS.registerComponentType("facade", b -> b.persistent(BlockState.CODEC)
+                    .networkSynchronized(ByteBufCodecs.idMapper(Block.BLOCK_STATE_REGISTRY)));
 
     /** The network tool's mode. */
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ToolMode>> TOOL_MODE = COMPONENTS.registerComponentType("tool_mode",

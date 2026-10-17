@@ -13,12 +13,13 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+import com.mojang.serialization.JavaOps;
 
-import io.github.leadassimilator.reticulum.security.NetworkAdmin;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.security.Member;
+import io.github.leadassimilator.reticulum.security.NetworkAdmin;
 import io.github.leadassimilator.reticulum.security.Passwords;
 import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
@@ -155,7 +156,7 @@ public final class ReticulumCommand {
         Network network = adminNetwork(ctx);
         Role role;
         try {
-            role = Role.CODEC.parse(com.mojang.serialization.JavaOps.INSTANCE, StringArgumentType.getString(ctx, "role").toLowerCase(Locale.ROOT))
+            role = Role.CODEC.parse(JavaOps.INSTANCE, StringArgumentType.getString(ctx, "role").toLowerCase(Locale.ROOT))
                     .getOrThrow(IllegalArgumentException::new);
         } catch (IllegalArgumentException e) {
             throw new SimpleCommandExceptionType(Component.translatable("command.reticulum.unknown_role")).create();

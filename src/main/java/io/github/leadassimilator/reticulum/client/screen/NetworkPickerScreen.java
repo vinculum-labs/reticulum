@@ -5,13 +5,21 @@ import java.util.Optional;
 
 import javax.annotation.Nullable;
 
+import org.lwjgl.glfw.GLFW;
+
+import io.github.leadassimilator.reticulum.item.NetworkStamp;
+import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.util.FormattedCharSequence;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
@@ -45,7 +53,7 @@ public class NetworkPickerScreen extends QuickScreen {
             password = new EditBox(font, left, y + 14, WIDTH, 18, Component.translatable("screen.reticulum.password"));
             password.setMaxLength(64);
             // Shown as stars, as on the controller.
-            password.setFormatter((text, start) -> net.minecraft.util.FormattedCharSequence.forward("*".repeat(text.length()), net.minecraft.network.chat.Style.EMPTY));
+            password.setFormatter((text, start) -> FormattedCharSequence.forward("*".repeat(text.length()), Style.EMPTY));
             addRenderableWidget(password);
             setInitialFocus(password);
             addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.join"), b -> choose(needsPassword, password.getValue()))
@@ -75,7 +83,7 @@ public class NetworkPickerScreen extends QuickScreen {
         if (connector.isEmpty() && toolLinked()) {
             // Picking for the tool: it can also forget its network.
             addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.unlink_tool"), b -> {
-                net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.UnlinkTool());
+                ClientPacketDistributor.sendToServer(new Payloads.UnlinkTool());
                 onClose();
             }).bounds(width / 2 - 152, bottom, 150, 20).build());
             addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), b -> onClose()).bounds(width / 2 + 2, bottom, 150, 20).build());
@@ -86,15 +94,15 @@ public class NetworkPickerScreen extends QuickScreen {
 
     /** The network tool in hand is linked to a network. */
     private static boolean toolLinked() {
-        var player = net.minecraft.client.Minecraft.getInstance().player;
+        var player = Minecraft.getInstance().player;
         if (player == null) {
             return false;
         }
-        return io.github.leadassimilator.reticulum.item.NetworkStamp.has(io.github.leadassimilator.reticulum.item.NetworkToolItem.held(player));
+        return NetworkStamp.has(NetworkToolItem.held(player));
     }
 
     private void choose(Payloads.NetworkChoice choice, String secret) {
-        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.PickNetwork(connector, choice.id(), secret));
+        ClientPacketDistributor.sendToServer(new Payloads.PickNetwork(connector, choice.id(), secret));
         onClose();
     }
 
@@ -112,7 +120,7 @@ public class NetworkPickerScreen extends QuickScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (needsPassword != null && (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER)) {
+        if (needsPassword != null && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
             choose(needsPassword, password.getValue());
             return true;
         }

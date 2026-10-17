@@ -1,6 +1,7 @@
 package io.github.leadassimilator.reticulum.item;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import net.minecraft.ChatFormatting;
@@ -8,6 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 
 /**
  * An antenna upgrade for a controller: right-click the controller with it. It sets how far that network's wireless
@@ -26,8 +28,8 @@ public class AntennaItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display,
-            java.util.function.Consumer<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
+            Consumer<Component> tooltip, TooltipFlag flag) {
         super.appendHoverText(stack, context, display, tooltip, flag);
         tooltip.accept(range(tier).copy().withStyle(ChatFormatting.GRAY));
         tooltip.accept(Component.translatable("tooltip.reticulum.antenna_use").withStyle(ChatFormatting.DARK_GRAY));

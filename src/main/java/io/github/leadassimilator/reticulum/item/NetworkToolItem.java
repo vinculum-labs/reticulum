@@ -1,24 +1,37 @@
 package io.github.leadassimilator.reticulum.item;
 
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
-import io.github.leadassimilator.reticulum.security.Role;
-import io.github.leadassimilator.reticulum.security.Access;
+import javax.annotation.Nullable;
+
+import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.block.ConnectorBlock;
+import io.github.leadassimilator.reticulum.block.ControllerBlock;
+import io.github.leadassimilator.reticulum.block.Link;
 import io.github.leadassimilator.reticulum.block.LinkedBlock;
+import io.github.leadassimilator.reticulum.block.entity.CableBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.client.AlarmClient;
+import io.github.leadassimilator.reticulum.client.web.WebBridge;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.Identifies;
 import io.github.leadassimilator.reticulum.network.Identify;
+import io.github.leadassimilator.reticulum.network.Limits;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.protocol.Linking;
 import io.github.leadassimilator.reticulum.protocol.Screens;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
+import io.github.leadassimilator.reticulum.security.Access;
+import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.ChatFormatting;
@@ -26,6 +39,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -34,6 +48,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -57,11 +72,11 @@ public class NetworkToolItem extends Item {
     }
 
     /** The item property its look follows: 0 Configure, 0.5 Link, 1 Identify (the item model picks a head color). */
-    public static final net.minecraft.resources.ResourceLocation MODE_PROPERTY =
-            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(io.github.leadassimilator.reticulum.Reticulum.MODID, "mode");
+    public static final ResourceLocation MODE_PROPERTY =
+            ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "mode");
     /** The item property for an alarm going off: 0 nothing, 0.5 a warning, 1 critical (set on the client). */
-    public static final net.minecraft.resources.ResourceLocation ALARM_PROPERTY =
-            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(io.github.leadassimilator.reticulum.Reticulum.MODID, "alarm");
+    public static final ResourceLocation ALARM_PROPERTY =
+            ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "alarm");
 
     public static ToolMode mode(ItemStack stack) {
         return stack.getOrDefault(ModDataComponents.TOOL_MODE.get(), ToolMode.CONFIGURE);
@@ -73,8 +88,8 @@ public class NetworkToolItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display,
-            java.util.function.Consumer<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
+            Consumer<Component> tooltip, TooltipFlag flag) {
         super.appendHoverText(stack, context, display, tooltip, flag);
         if (stack.has(ModDataComponents.NETWORK_ID.get())) {
             tooltip.accept(Component.translatable("tooltip.reticulum.linked_to", stack.getOrDefault(ModDataComponents.NETWORK_NAME.get(), "?"))
@@ -90,7 +105,7 @@ public class NetworkToolItem extends Item {
         // Status mode changes nothing in the world: a right-click anywhere is its settings.
         if (mode(stack) == ToolMode.STATUS) {
             if (context.getLevel().isClientSide && context.getPlayer() != null && !context.getPlayer().isShiftKeyDown()) {
-                io.github.leadassimilator.reticulum.client.AlarmClient.openSettings();
+                AlarmClient.openSettings();
             }
             return InteractionResult.SUCCESS;
         }
@@ -104,7 +119,7 @@ public class NetworkToolItem extends Item {
     }
 
     /** The network tool the player holds, in either hand (the main hand first), or empty. */
-    public static ItemStack held(net.minecraft.world.entity.player.Player player) {
+    public static ItemStack held(Player player) {
         for (InteractionHand hand : InteractionHand.values()) {
             ItemStack stack = player.getItemInHand(hand);
             if (stack.getItem() instanceof NetworkToolItem) {
@@ -124,8 +139,8 @@ public class NetworkToolItem extends Item {
                 link(level, player, context.getClickedPos(), context.getItemInHand());
             } else if (player.isShiftKeyDown() && LinkedBlock.removeFacade(level, context.getClickedPos(), player)) {
                 // Taken off, or refused; either way the click is done.
-            } else if (player.isShiftKeyDown() && level.getBlockEntity(context.getClickedPos()) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) {
-                io.github.leadassimilator.reticulum.block.ControllerBlock.removeAntenna(player, level, context.getClickedPos());
+            } else if (player.isShiftKeyDown() && level.getBlockEntity(context.getClickedPos()) instanceof ControllerBlockEntity) {
+                ControllerBlock.removeAntenna(player, level, context.getClickedPos());
             } else {
                 Direction side = targetSide(player, level.getBlockState(context.getClickedPos()), context.getClickedPos(),
                         context.getClickedFace(), 1.0f);
@@ -140,7 +155,7 @@ public class NetworkToolItem extends Item {
      * lights up as a device (sneak: just the clicked face). A cable is never a device: clicking one does nothing.
      */
     private static void identify(ServerLevel level, ServerPlayer player, BlockPos pos, Direction face) {
-        if (level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.CableBlockEntity) {
+        if (level.getBlockEntity(pos) instanceof CableBlockEntity) {
             return;
         }
         if (Topology.blockEntity(level, pos) instanceof ConnectorBlockEntity connector) {
@@ -166,16 +181,16 @@ public class NetworkToolItem extends Item {
     }
 
     /** The side of a connector whose plug the player aims at, when a device of a network they may use is there. */
-    @javax.annotation.Nullable
+    @Nullable
     private static Direction plugAimedAt(ServerLevel level, ServerPlayer player, BlockPos pos) {
         Vec3 from = player.getEyePosition(1.0f);
         Vec3 to = from.add(player.getViewVector(1.0f).scale(player.blockInteractionRange() + 1));
         if (!(level.getBlockState(pos).getBlock() instanceof ConnectorBlock block)) {
             return null;
         }
-        java.util.Set<Direction> plugs = java.util.EnumSet.noneOf(Direction.class);
+        Set<Direction> plugs = EnumSet.noneOf(Direction.class);
         for (Direction dir : Direction.values()) {
-            if (level.getBlockState(pos).getValue(block.linkProperties().get(dir)) == io.github.leadassimilator.reticulum.block.Link.DEVICE) {
+            if (level.getBlockState(pos).getValue(block.linkProperties().get(dir)) == Link.DEVICE) {
                 plugs.add(dir);
             }
         }
@@ -195,20 +210,20 @@ public class NetworkToolItem extends Item {
         Identify self = Identify.connector(connector.connectorId(), 0);
         boolean on = !Identifies.isOn(network, self);
         var record = network.connector(connector.connectorId());
-        List<Identify> targets = new java.util.ArrayList<>(List.of(self));
+        List<Identify> targets = new ArrayList<>(List.of(self));
         for (GlobalPos device : record == null ? List.<GlobalPos>of() : record.devices()) {
             targets.add(Identifies.deviceOrFace(device, null));
         }
         List<Identify> changed = Identifies.setAll(level.getServer(), network, targets, on);
         if (on && !changed.contains(self)) {
-            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", io.github.leadassimilator.reticulum.network.Limits.IDENTIFIES), true);
+            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", Limits.IDENTIFIES), true);
             return;
         }
         int devices = changed.size() - (changed.contains(self) ? 1 : 0);
         long refused = on ? targets.stream().filter(t -> !Identifies.isOn(network, t)).count() : 0;
         if (refused > 0) {
             player.displayClientMessage(Component.translatable("message.reticulum.identify_some", devices, refused,
-                    io.github.leadassimilator.reticulum.network.Limits.IDENTIFIES), true);
+                    Limits.IDENTIFIES), true);
             return;
         }
         Component what = devices == 0 ? Component.translatable("screen.reticulum.connector")
@@ -229,7 +244,7 @@ public class NetworkToolItem extends Item {
         boolean was = Identifies.isOn(found, target);
         boolean on = Identifies.toggle(level.getServer(), found, target);
         if (!was && !on) {
-            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", io.github.leadassimilator.reticulum.network.Limits.IDENTIFIES), true);
+            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", Limits.IDENTIFIES), true);
             return;
         }
         String name = Identifies.deviceName(level.getServer(), found, device);
@@ -271,7 +286,7 @@ public class NetworkToolItem extends Item {
         boolean was = Identifies.isOn(network, target);
         boolean on = offOnly ? Identifies.set(level.getServer(), network, target, false) : Identifies.toggle(level.getServer(), network, target);
         if (!offOnly && !was && !on) {
-            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", io.github.leadassimilator.reticulum.network.Limits.IDENTIFIES), true);
+            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", Limits.IDENTIFIES), true);
             return;
         }
         String name = Identifies.label(level.getServer(), network, target);
@@ -286,7 +301,7 @@ public class NetworkToolItem extends Item {
     }
 
     /** The first network the player may use that has this device. */
-    @javax.annotation.Nullable
+    @Nullable
     private static Network deviceNetwork(ServerLevel level, ServerPlayer player, GlobalPos device) {
         return NetworkManager.networksWith(level.getServer(), device).stream().filter(network -> Security.canUse(network, player)).findFirst()
                 .orElse(null);
@@ -331,13 +346,13 @@ public class NetworkToolItem extends Item {
         // edited), so there's no need to go back to a controller.
         if (player.isShiftKeyDown()) {
             if (level.isClientSide) {
-                io.github.leadassimilator.reticulum.client.web.WebBridge.openEditor(stack.get(ModDataComponents.NETWORK_ID.get()));
+                WebBridge.openEditor(stack.get(ModDataComponents.NETWORK_ID.get()));
             }
             return InteractionResult.SUCCESS;
         }
         if (mode(stack) == ToolMode.STATUS) {
             if (level.isClientSide) {
-                io.github.leadassimilator.reticulum.client.AlarmClient.openSettings();
+                AlarmClient.openSettings();
             }
             return InteractionResult.SUCCESS;
         }

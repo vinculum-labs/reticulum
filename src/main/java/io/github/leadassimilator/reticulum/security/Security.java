@@ -1,6 +1,8 @@
 package io.github.leadassimilator.reticulum.security;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
@@ -28,7 +30,7 @@ public final class Security {
     }
 
     private static final long BYPASS_LOG_INTERVAL_MS = 10 * 60_000L;
-    private static final java.util.Map<String, Long> BYPASS_LOGGED = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, Long> BYPASS_LOGGED = new ConcurrentHashMap<>();
 
     /**
      * Whether the player may act with the role (theirs, or an operator's bypass), without logging a bypass: for showing

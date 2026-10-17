@@ -8,18 +8,26 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import javax.annotation.Nullable;
+
+import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import io.github.leadassimilator.reticulum.engine.Alarms;
 import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
+import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
 import net.minecraft.core.GlobalPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -40,13 +48,13 @@ public final class AlarmPush {
     }
 
     /** A player logging in gets the states afresh (their client forgot them on logging out), and markers at once. */
-    public static void onLoggedIn(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+    public static void onLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         SENT.remove(event.getEntity().getUUID());
         LAST_MARKERS.remove(event.getEntity().getUUID());
     }
 
     /** A server stopping (in single player, the world closing) forgets everything: the next counts ticks from 0. */
-    public static void onServerStopped(net.neoforged.neoforge.event.server.ServerStoppedEvent event) {
+    public static void onServerStopped(ServerStoppedEvent event) {
         SENT.clear();
         LAST_MARKERS.clear();
         Alarms.forgetAll();
@@ -81,7 +89,7 @@ public final class AlarmPush {
     private static Map<UUID, Integer> states(MinecraftServer server, ServerPlayer player) {
         Map<UUID, Integer> out = new HashMap<>();
         for (Network network : NetworkManager.data(server).networks()) {
-            if (!Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
+            if (!Security.could(network, player, Role.VIEWER)) {
                 continue;
             }
             AlarmSeverity worst = Alarms.worst(Alarms.cached(server, network));
@@ -112,7 +120,7 @@ public final class AlarmPush {
         List<Payloads.StatusMarker> markers = new ArrayList<>();
         Set<String> marked = new HashSet<>();
         for (Network network : NetworkManager.data(server).networks()) {
-            if (!Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER) || markers.size() >= MARKER_LIMIT) {
+            if (!Security.could(network, player, Role.VIEWER) || markers.size() >= MARKER_LIMIT) {
                 continue;
             }
             NetworkRuntime runtime = NetworkTicker.runtime(network.id());
@@ -123,8 +131,8 @@ public final class AlarmPush {
                 for (DeviceRecord device : alarms.isEmpty() ? List.<DeviceRecord>of() : network.devices()) {
                     var level = server.getLevel(device.pos().dimension());
                     if (level != null && level.isLoaded(device.pos().pos())
-                            && level.getBlockEntity(device.pos().pos()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon
-                            && beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.NETWORK) {
+                            && level.getBlockEntity(device.pos().pos()) instanceof StatusBeaconBlockEntity beacon
+                            && beacon.mode() == StatusBeaconBlockEntity.Mode.NETWORK) {
                         // Whatever the beacon is set to show: the tool in Status mode sees it all (the beacon's own text steps
                         // aside for the marker on the client).
                         var watch = beacon.watch(level);
@@ -154,15 +162,15 @@ public final class AlarmPush {
                         : running && runtime.outOfRange(device.pos()) ? "unreachable" : null;
                 if (why != null) {
                     String name = device.name() != null ? device.name() : device.blockId().getPath().replace('_', ' ');
-                    add(player, markers, marked, device.pos(), 0, net.minecraft.network.chat.Component.translatable("status.reticulum." + why, clip(name)));
+                    add(player, markers, marked, device.pos(), 0, Component.translatable("status.reticulum." + why, clip(name)));
                 }
             }
             if (running) {
                 for (ConnectorRecord connector : network.connectors()) {
                     if (runtime.reach(connector.id()) == NetworkRuntime.Reach.OUT_OF_RANGE) {
-                        add(player, markers, marked, connector.pos(), 0, net.minecraft.network.chat.Component.translatable("status.reticulum.unreachable",
-                                connector.name() != null ? net.minecraft.network.chat.Component.literal(clip(connector.name()))
-                                        : net.minecraft.network.chat.Component.translatable("screen.reticulum.connector")));
+                        add(player, markers, marked, connector.pos(), 0, Component.translatable("status.reticulum.unreachable",
+                                connector.name() != null ? Component.literal(clip(connector.name()))
+                                        : Component.translatable("screen.reticulum.connector")));
                     }
                 }
             }
@@ -171,14 +179,14 @@ public final class AlarmPush {
     }
 
     /** The block a node on one of the network's sheets stands for (a device node or a Level sensor's), or null. */
-    @javax.annotation.Nullable
+    @Nullable
     private static GlobalPos deviceOf(Network network, UUID node) {
         for (var sheet : network.sheets()) {
             var found = sheet.blueprint() ? null : sheet.node(node);
             if (found != null) {
                 return switch (found.settings()) {
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings device -> device.device();
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings level -> level.device();
+                    case NodeSettings.DeviceSettings device -> device.device();
+                    case NodeSettings.LevelSettings level -> level.device();
                     default -> null;
                 };
             }
@@ -187,7 +195,7 @@ public final class AlarmPush {
     }
 
     private static void add(ServerPlayer player, List<Payloads.StatusMarker> markers, Set<String> marked, GlobalPos pos, int severity,
-            net.minecraft.network.chat.Component label) {
+            Component label) {
         if (markers.size() >= MARKER_LIMIT || !pos.dimension().equals(player.level().dimension())
                 || pos.pos().distSqr(player.blockPosition()) > (double) MARKER_DISTANCE * MARKER_DISTANCE || !marked.add(pos.pos().asLong() + "/" + label)) {
             return;
@@ -196,8 +204,8 @@ public final class AlarmPush {
     }
 
     /** Text as written (a message, a name), cut to fit a marker. */
-    private static net.minecraft.network.chat.Component literal(String text) {
-        return net.minecraft.network.chat.Component.literal(clip(text));
+    private static Component literal(String text) {
+        return Component.literal(clip(text));
     }
 
     private static String clip(String text) {

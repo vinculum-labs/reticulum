@@ -2,13 +2,23 @@ package io.github.leadassimilator.reticulum.block;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.UnaryOperator;
 
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
 import io.github.leadassimilator.reticulum.item.FacadeItem;
+import io.github.leadassimilator.reticulum.item.NetworkToolItem;
+import io.github.leadassimilator.reticulum.item.ToolMode;
+import io.github.leadassimilator.reticulum.security.Access;
+import io.github.leadassimilator.reticulum.security.Role;
+import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -19,18 +29,19 @@ import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.EntityCollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
 
 /** A network block with a {@link Link} property per side (cables and connectors). */
 public abstract class LinkedBlock extends NetworkBlock {
@@ -83,7 +94,7 @@ public abstract class LinkedBlock extends NetworkBlock {
             if (!player.getAbilities().instabuild) {
                 stack.shrink(1);
                 if (old != null) {
-                    net.neoforged.neoforge.items.ItemHandlerHelper.giveItemToPlayer(player, FacadeItem.of(old, 1));
+                    ItemHandlerHelper.giveItemToPlayer(player, FacadeItem.of(old, 1));
                 }
             }
         }
@@ -104,20 +115,20 @@ public abstract class LinkedBlock extends NetworkBlock {
         BlockState old = be.facade();
         be.setFacade(null);
         if (!player.getAbilities().instabuild) {
-            net.neoforged.neoforge.items.ItemHandlerHelper.giveItemToPlayer(player, FacadeItem.of(old, 1));
+            ItemHandlerHelper.giveItemToPlayer(player, FacadeItem.of(old, 1));
         }
-        player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.facade_removed"), true);
+        player.displayClientMessage(Component.translatable("message.reticulum.facade_removed"), true);
         return true;
     }
 
     /** Facades on a network's blocks are its editors' to change (and to take: they are items). */
     private static boolean mayChangeFacade(Level level, BlockPos pos, Player player) {
-        if (!(level instanceof net.minecraft.server.level.ServerLevel server) || !(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)) {
+        if (!(level instanceof ServerLevel server) || !(player instanceof ServerPlayer serverPlayer)) {
             return true;
         }
-        var network = io.github.leadassimilator.reticulum.topology.Topology.network(server, pos);
+        var network = Topology.network(server, pos);
         return network == null
-                || io.github.leadassimilator.reticulum.security.Access.require(serverPlayer, network, io.github.leadassimilator.reticulum.security.Role.EDITOR) != null;
+                || Access.require(serverPlayer, network, Role.EDITOR) != null;
     }
 
     @Override
@@ -146,7 +157,7 @@ public abstract class LinkedBlock extends NetworkBlock {
     // ---------------------------------------------------------------- shape
 
     /** The drawn shape per state (core, arms and plugs), built once each. */
-    private final Map<BlockState, VoxelShape> shapes = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<BlockState, VoxelShape> shapes = new ConcurrentHashMap<>();
 
     /**
      * What is drawn, so a look through the empty parts reaches the block behind; a full block under a facade. Holding the
@@ -157,10 +168,10 @@ public abstract class LinkedBlock extends NetworkBlock {
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         if (context instanceof EntityCollisionContext entity && entity.getEntity() instanceof Player player) {
-            net.minecraft.world.item.ItemStack tool = io.github.leadassimilator.reticulum.item.NetworkToolItem.held(player);
+            ItemStack tool = NetworkToolItem.held(player);
             if (!tool.isEmpty()) {
-                io.github.leadassimilator.reticulum.item.ToolMode mode = io.github.leadassimilator.reticulum.item.NetworkToolItem.mode(tool);
-                if (mode == io.github.leadassimilator.reticulum.item.ToolMode.CONFIGURE || mode == io.github.leadassimilator.reticulum.item.ToolMode.LINK) {
+                ToolMode mode = NetworkToolItem.mode(tool);
+                if (mode == ToolMode.CONFIGURE || mode == ToolMode.LINK) {
                     return Shapes.block();
                 }
             }
@@ -240,7 +251,7 @@ public abstract class LinkedBlock extends NetworkBlock {
         return turned(state, state.getValue(ORIENTATION).mirror(mirror), mirror::mirror);
     }
 
-    private BlockState turned(BlockState state, Orientation orientation, java.util.function.UnaryOperator<Direction> side) {
+    private BlockState turned(BlockState state, Orientation orientation, UnaryOperator<Direction> side) {
         BlockState out = state.setValue(ORIENTATION, orientation);
         for (Map.Entry<Direction, EnumProperty<Link>> entry : links.entrySet()) {
             out = out.setValue(links.get(side.apply(entry.getKey())), state.getValue(entry.getValue()));

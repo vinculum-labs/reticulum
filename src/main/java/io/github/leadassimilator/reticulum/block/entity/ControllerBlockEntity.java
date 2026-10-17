@@ -4,15 +4,25 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.ControllerBlock;
+import io.github.leadassimilator.reticulum.engine.Power;
+import io.github.leadassimilator.reticulum.network.Devices;
+import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.component.DataComponentGetter;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
-import net.neoforged.neoforge.energy.IEnergyStorage;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.energy.IEnergyStorage;
 
 public class ControllerBlockEntity extends NetworkBlockEntity {
     /** Installed antenna upgrade, 0 (none) to 3. */
@@ -26,7 +36,7 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         public int receiveEnergy(int toReceive, boolean simulate) {
             // Power free (no preset charging for it): it takes nothing, so energy isn't soaked up for no use (and a
             // broken controller stacks with fresh ones).
-            if (!io.github.leadassimilator.reticulum.engine.Power.current().enabled()) {
+            if (!Power.current().enabled()) {
                 return 0;
             }
             long room = Math.max(0, capacity() - energy);
@@ -77,7 +87,7 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     }
 
     public static long capacity() {
-        return io.github.leadassimilator.reticulum.ReticulumConfig.CONTROLLER_CAPACITY.getAsInt();
+        return ReticulumConfig.CONTROLLER_CAPACITY.getAsInt();
     }
 
     /** Takes {@code amount} FE if it is all there; returns whether it was. */
@@ -103,17 +113,17 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         // The top face follows the antenna.
         BlockState state = getBlockState();
         if (level != null && !level.isClientSide && state.hasProperty(ControllerBlock.ANTENNA) && state.getValue(ControllerBlock.ANTENNA) != tier) {
-            level.setBlock(worldPosition, state.setValue(ControllerBlock.ANTENNA, Math.max(0, Math.min(3, tier))), net.minecraft.world.level.block.Block.UPDATE_ALL);
+            level.setBlock(worldPosition, state.setValue(ControllerBlock.ANTENNA, Math.max(0, Math.min(3, tier))), Block.UPDATE_ALL);
         }
     }
 
     /** Its network's owner when last saved: a network deleted from under it goes back to them (see Topology.reclaimController). */
-    @javax.annotation.Nullable
-    private java.util.UUID lastOwner;
+    @Nullable
+    private UUID lastOwner;
     private String lastOwnerName = "";
 
-    @javax.annotation.Nullable
-    public java.util.UUID lastOwner() {
+    @Nullable
+    public UUID lastOwner() {
         return lastOwner;
     }
 
@@ -122,41 +132,41 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     }
 
     /** Remembers whose its network is (or nobody's), as that network is deleted. */
-    public void rememberOwner(@javax.annotation.Nullable java.util.UUID owner, String name) {
+    public void rememberOwner(@Nullable UUID owner, String name) {
         lastOwner = owner;
         lastOwnerName = owner == null ? "" : name;
         setChanged();
     }
 
     @Override
-    protected void loadAdditional(net.minecraft.world.level.storage.ValueInput tag) {
+    protected void loadAdditional(ValueInput tag) {
         super.loadAdditional(tag);
         antennaTier = tag.getByteOr("antenna", (byte) 0);
         energy = tag.getLongOr("energy", 0L);
-        lastOwner = tag.read("owner", net.minecraft.core.UUIDUtil.CODEC).orElse(null);
+        lastOwner = tag.read("owner", UUIDUtil.CODEC).orElse(null);
         lastOwnerName = tag.getStringOr("owner_name", "");
     }
 
     @Override
-    protected void saveAdditional(net.minecraft.world.level.storage.ValueOutput tag) {
+    protected void saveAdditional(ValueOutput tag) {
         super.saveAdditional(tag);
         tag.putByte("antenna", (byte) antennaTier);
         tag.putLong("energy", energy);
-        if (level instanceof net.minecraft.server.level.ServerLevel server && networkId() != null) {
-            var network = io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId());
+        if (level instanceof ServerLevel server && networkId() != null) {
+            var network = NetworkManager.network(server.getServer(), networkId());
             if (network != null && network.owner() != null) {
                 lastOwner = network.owner();
                 lastOwnerName = network.ownerName();
             }
         }
         if (lastOwner != null) {
-            tag.store("owner", net.minecraft.core.UUIDUtil.CODEC, lastOwner);
+            tag.store("owner", UUIDUtil.CODEC, lastOwner);
             tag.putString("owner_name", lastOwnerName);
         }
     }
 
     @Override
-    protected void applyImplicitComponents(net.minecraft.core.component.DataComponentGetter input) {
+    protected void applyImplicitComponents(DataComponentGetter input) {
         super.applyImplicitComponents(input);
         // Only the field: the block state already has the tier (set as it was placed).
         antennaTier = input.getOrDefault(ModDataComponents.ANTENNA_TIER.get(), 0);
@@ -174,10 +184,10 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         // An explosion or a machine makes the drop before the block comes out: a network about to go with it (empty,
         // this its controller) counts as gone already.
         boolean gone = false;
-        if (level instanceof net.minecraft.server.level.ServerLevel server && networkId() != null) {
-            var network = io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId());
-            gone = network == null || io.github.leadassimilator.reticulum.network.NetworkManager.isEmpty(network)
-                    && io.github.leadassimilator.reticulum.network.Devices.global(level, worldPosition).equals(network.controller());
+        if (level instanceof ServerLevel server && networkId() != null) {
+            var network = NetworkManager.network(server.getServer(), networkId());
+            gone = network == null || NetworkManager.isEmpty(network)
+                    && Devices.global(level, worldPosition).equals(network.controller());
         }
         if (networkId() != null && !gone) {
             components.set(ModDataComponents.NETWORK_ID.get(), networkId());
@@ -188,8 +198,8 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         if (energy > 0) {
             components.set(ModDataComponents.STORED_ENERGY.get(), energy);
         }
-        if (level instanceof net.minecraft.server.level.ServerLevel server && networkId() != null) {
-            var network = io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId());
+        if (level instanceof ServerLevel server && networkId() != null) {
+            var network = NetworkManager.network(server.getServer(), networkId());
             if (network != null && !gone) {
                 components.set(ModDataComponents.NETWORK_NAME.get(), network.name());
             }

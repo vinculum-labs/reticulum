@@ -1,24 +1,33 @@
 package io.github.leadassimilator.reticulum.client;
 
+import java.util.List;
+
+import javax.annotation.Nullable;
+
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
-import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import io.github.leadassimilator.reticulum.ReticulumClientConfig;
 import io.github.leadassimilator.reticulum.block.entity.BeaconLook;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.sounds.SoundEvent;
+import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
+import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.ShapeRenderer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 /** Status Beacons' glow (a pulsing bubble, through walls if set), their sound and their lens color. */
@@ -65,7 +74,7 @@ public final class BeaconEffects {
             double inner = 0.15 + 0.2 * (1 - pulse);
             fillBox(pose.last().pose(), buffers.getBuffer(quads), new AABB(pos).inflate(outer), r, g, b, 0.10f + 0.10f * (1 - pulse));
             fillBox(pose.last().pose(), buffers.getBuffer(quads), new AABB(pos).inflate(inner), r, g, b, 0.18f);
-            net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(outer), r, g, b, 0.6f * (1 - pulse) + 0.2f);
+            ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(outer), r, g, b, 0.6f * (1 - pulse) + 0.2f);
             any = true;
         }
         if (any) {
@@ -113,7 +122,7 @@ public final class BeaconEffects {
                 }
                 String text;
                 int color;
-                java.util.List<String> alarms = beacon.alarmTexts();
+                List<String> alarms = beacon.alarmTexts();
                 if (!look.label().isBlank()) {
                     text = look.label();
                     color = look.color();
@@ -202,8 +211,8 @@ public final class BeaconEffects {
     }
 
     /** The lens takes the look's color; gray when nothing is shown. */
-    public static int lensColor(net.minecraft.world.level.block.state.BlockState state, @javax.annotation.Nullable net.minecraft.world.level.BlockAndTintGetter level,
-            @javax.annotation.Nullable BlockPos pos, int tint) {
+    public static int lensColor(BlockState state, @Nullable BlockAndTintGetter level,
+            @Nullable BlockPos pos, int tint) {
         if (level != null && pos != null && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon) {
             BeaconLook look = beacon.look();
             return look == null ? 0x585C66 : look.color();
@@ -211,7 +220,7 @@ public final class BeaconEffects {
         return 0x585C66;
     }
 
-    public static void registerColors(net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Block event) {
-        event.register(BeaconEffects::lensColor, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
+    public static void registerColors(RegisterColorHandlersEvent.Block event) {
+        event.register(BeaconEffects::lensColor, ModBlocks.STATUS_BEACON.get());
     }
 }

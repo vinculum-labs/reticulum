@@ -2,7 +2,9 @@ package io.github.leadassimilator.reticulum.client.screen;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -60,7 +62,7 @@ final class Compass {
         // Where each label goes, nearest first: a label that would sit on a nearer one (looking straight along an
         // axis puts both ends in the middle) moves aside so both stay readable.
         placed.sort(Comparator.comparingDouble(Placed::depth));
-        java.util.Map<Placed, int[]> spots = new java.util.HashMap<>();
+        Map<Placed, int[]> spots = new HashMap<>();
         List<int[]> taken = new ArrayList<>();
         for (Placed p : placed) {
             int baseX = Math.round(centerX + p.sx() * radius);

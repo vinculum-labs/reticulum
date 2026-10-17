@@ -1,5 +1,8 @@
 package io.github.leadassimilator.reticulum;
 
+import java.util.List;
+
+import io.github.leadassimilator.reticulum.engine.Power;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 public final class ReticulumConfig {
@@ -42,12 +45,12 @@ public final class ReticulumConfig {
         BUILDER.push("power");
     }
 
-    public static final ModConfigSpec.EnumValue<io.github.leadassimilator.reticulum.engine.Power.Preset> POWER_PRESET = BUILDER
+    public static final ModConfigSpec.EnumValue<Power.Preset> POWER_PRESET = BUILDER
             .comment("What networks cost to run. FREE (the default): nothing. BALANCED: 10 FE/t per network, 2 FE/t per connector,",
                     "8 / 32 FE/t per wireless connector (tier 1 / tier 2+ antenna) plus 0.05 FE/t per block of distance or 256 FE/t",
                     "in another dimension, and 1 FE per item operation. CUSTOM: the cost values below.",
                     "The controller holds the FE; it takes it from anything that pushes into it, and pulls from FE sources next to it.")
-            .defineEnum("powerPreset", io.github.leadassimilator.reticulum.engine.Power.Preset.FREE);
+            .defineEnum("powerPreset", Power.Preset.FREE);
 
     public static final ModConfigSpec.IntValue CONTROLLER_CAPACITY = BUILDER
             .comment("FE a controller holds.")
@@ -149,9 +152,9 @@ public final class ReticulumConfig {
             .comment("The shortest a Status Beacon may wait between plays of its sound, in ticks (20 a second).")
             .defineInRange("beaconMinInterval", 10, 1, 1200);
 
-    public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> BEACON_BANNED_SOUNDS = BUILDER
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BEACON_BANNED_SOUNDS = BUILDER
             .comment("Sounds Status Beacons may not play, by id (\"minecraft:entity.ghast.scream\", say).")
-            .defineListAllowEmpty("beaconBannedSounds", java.util.List.of(), () -> "", o -> o instanceof String);
+            .defineListAllowEmpty("beaconBannedSounds", List.of(), () -> "", o -> o instanceof String);
 
     static {
         BUILDER.pop();

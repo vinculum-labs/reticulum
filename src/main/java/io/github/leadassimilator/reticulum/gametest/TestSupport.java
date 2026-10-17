@@ -6,6 +6,7 @@ import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.block.Block;
 
 /** What every GameTest class needs. */
@@ -25,11 +26,11 @@ final class TestSupport {
 
     /** Fails the test with {@code message} unless {@code condition} holds. */
     static void check(GameTestHelper helper, boolean condition, String message) {
-        helper.assertTrue(condition, net.minecraft.network.chat.Component.literal(message));
+        helper.assertTrue(condition, Component.literal(message));
     }
 
     /** Fails the test with {@code message}. */
     static void fail(GameTestHelper helper, String message) {
-        helper.fail(net.minecraft.network.chat.Component.literal(message));
+        helper.fail(Component.literal(message));
     }
 }

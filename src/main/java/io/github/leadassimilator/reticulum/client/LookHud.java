@@ -5,6 +5,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import net.minecraft.client.DeltaTracker;
@@ -20,6 +21,7 @@ import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
@@ -46,7 +48,7 @@ public final class LookHud {
 
     private static boolean enabled() {
         if (enabled == null) {
-            enabled = !io.github.leadassimilator.reticulum.integration.Mods.TOP;
+            enabled = !Mods.TOP;
         }
         return enabled;
     }
@@ -73,7 +75,7 @@ public final class LookHud {
             requestedPos = target.getBlockPos();
             requestedFace = target.getDirection();
             ticksSinceRequest = 0;
-            net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.LookRequest(requestedPos, requestedFace));
+            ClientPacketDistributor.sendToServer(new Payloads.LookRequest(requestedPos, requestedFace));
         }
     }
 

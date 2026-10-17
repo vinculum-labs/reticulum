@@ -8,9 +8,11 @@ import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
@@ -19,14 +21,14 @@ public final class NetworkTicker {
     private static final Map<UUID, NetworkRuntime> RUNTIMES = new HashMap<>();
 
     /** When each network's failure was last logged. */
-    private static final java.util.Map<UUID, Long> LAST_FAILURE_LOGGED = new java.util.HashMap<>();
+    private static final Map<UUID, Long> LAST_FAILURE_LOGGED = new HashMap<>();
 
     private NetworkTicker() {
     }
 
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
-        io.github.leadassimilator.reticulum.topology.Topology.flushRemovals(server);
+        Topology.flushRemovals(server);
         for (Network network : NetworkManager.data(server).networks()) {
             try {
                 if (!isRunning(server, network)) {
@@ -58,15 +60,15 @@ public final class NetworkTicker {
     public static void onServerStopped(ServerStoppedEvent event) {
         RUNTIMES.clear();
         LAST_FAILURE_LOGGED.clear();
-        io.github.leadassimilator.reticulum.topology.Topology.forgetAll();
+        Topology.forgetAll();
     }
 
     /**
      * Tags (and recipes, for is:smeltable) can change with /reload: sheets are compiled again, so their filters
      * don't keep answers worked out from the old ones.
      */
-    public static void onTagsUpdated(net.neoforged.neoforge.event.TagsUpdatedEvent event) {
-        if (event.getUpdateCause() == net.neoforged.neoforge.event.TagsUpdatedEvent.UpdateCause.SERVER_DATA_LOAD) {
+    public static void onTagsUpdated(TagsUpdatedEvent event) {
+        if (event.getUpdateCause() == TagsUpdatedEvent.UpdateCause.SERVER_DATA_LOAD) {
             RUNTIMES.values().forEach(NetworkRuntime::forgetCompiled);
         }
     }

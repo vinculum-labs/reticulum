@@ -5,11 +5,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.OptionalDouble;
 
-
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.systems.RenderSystem;
-
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import io.github.leadassimilator.reticulum.Reticulum;
@@ -23,13 +21,16 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.ShapeRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
+import net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 
@@ -78,7 +79,7 @@ public final class IdentifyRenderer {
                     .createCompositeState(false));
 
     /** Compiles the pipelines above as the game starts, rather than the first time one is drawn. */
-    public static void registerPipelines(net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent event) {
+    public static void registerPipelines(RegisterRenderPipelinesEvent event) {
         event.registerPipeline(LINES_THROUGH_WALLS_PIPELINE);
         event.registerPipeline(QUADS_THROUGH_WALLS_PIPELINE);
         event.registerPipeline(QUADS_BEHIND_WALLS_PIPELINE);
@@ -125,15 +126,15 @@ public final class IdentifyRenderer {
             if (marker.face().isPresent()) {
                 Direction face = marker.face().get();
                 WorldOverlay.fillFace(pose.last().pose(), buffers.getBuffer(quads), pos, face, MARGIN, r, g, b, 0.35f * pulse);
-                net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), WorldOverlay.faceBox(pos, face, MARGIN), r, g, b, pulse);
-                net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.01), r, g, b, 0.35f * pulse);
+                ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), WorldOverlay.faceBox(pos, face, MARGIN), r, g, b, pulse);
+                ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.01), r, g, b, 0.35f * pulse);
             } else {
-                net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.02), r, g, b, pulse);
+                ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.02), r, g, b, pulse);
             }
             double distance = Math.sqrt(camera.distanceToSqr(Vec3.atCenterOf(pos)));
             if (distance > beamDistance && top > pos.getY() + 1) {
                 // A thin column of light from the block up to the sky.
-                net.minecraft.client.renderer.ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines),
+                ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines),
                         new AABB(pos.getX() + 0.45, pos.getY() + 1, pos.getZ() + 0.45, pos.getX() + 0.55, top, pos.getZ() + 0.55), r, g, b, 0.8f);
             }
         }
@@ -200,7 +201,7 @@ public final class IdentifyRenderer {
             y += 10;
         }
         if (entries.size() > HUD_LINES) {
-            graphics.drawString(mc.font, net.minecraft.network.chat.Component.translatable("screen.reticulum.more", entries.size() - HUD_LINES), 11, y, 0xFFA0A0A0, true);
+            graphics.drawString(mc.font, Component.translatable("screen.reticulum.more", entries.size() - HUD_LINES), 11, y, 0xFFA0A0A0, true);
         }
     }
 }

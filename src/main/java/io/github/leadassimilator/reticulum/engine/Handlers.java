@@ -1,5 +1,7 @@
 package io.github.leadassimilator.reticulum.engine;
 
+import java.util.function.LongSupplier;
+
 import io.github.leadassimilator.reticulum.Reticulum;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
@@ -34,7 +36,7 @@ final class Handlers {
     }
 
     /** A fluid, energy or chemical amount moved by another mod's handler: none if the call fails. */
-    static long amount(java.util.function.LongSupplier call) {
+    static long amount(LongSupplier call) {
         try {
             return Math.max(0, call.getAsLong());
         } catch (RuntimeException e) {

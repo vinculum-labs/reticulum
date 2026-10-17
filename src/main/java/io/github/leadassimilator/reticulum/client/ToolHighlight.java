@@ -3,11 +3,14 @@ package io.github.leadassimilator.reticulum.client;
 import io.github.leadassimilator.reticulum.block.ConnectorBlock;
 import io.github.leadassimilator.reticulum.block.LinkedBlock;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
+import io.github.leadassimilator.reticulum.item.ToolMode;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.ShapeRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -28,11 +31,11 @@ public final class ToolHighlight {
         }
         // The tool in either hand; a block to place only in the main hand (that's the hand that places it).
         var tool = NetworkToolItem.held(mc.player);
-        if (tool.isEmpty() && !(mc.player.getMainHandItem().getItem() instanceof net.minecraft.world.item.BlockItem)) {
+        if (tool.isEmpty() && !(mc.player.getMainHandItem().getItem() instanceof BlockItem)) {
             return;
         }
         // Link and Identify modes act on whole blocks, not on one joint.
-        if (!tool.isEmpty() && NetworkToolItem.mode(tool) != io.github.leadassimilator.reticulum.item.ToolMode.CONFIGURE) {
+        if (!tool.isEmpty() && NetworkToolItem.mode(tool) != ToolMode.CONFIGURE) {
             return;
         }
         BlockPos pos = event.getTarget().getBlockPos();
@@ -44,7 +47,7 @@ public final class ToolHighlight {
         Direction side = NetworkToolItem.targetSide(mc.player, state, pos, event.getTarget().getDirection(), partialTick);
         AABB arm = Topology.jointBox(side, state.getBlock() instanceof ConnectorBlock).move(pos);
         Vec3 camera = event.getCamera().getPosition();
-        net.minecraft.client.renderer.ShapeRenderer.renderLineBox(event.getPoseStack(), event.getMultiBufferSource().getBuffer(RenderType.lines()),
+        ShapeRenderer.renderLineBox(event.getPoseStack(), event.getMultiBufferSource().getBuffer(RenderType.lines()),
                 arm.move(-camera.x, -camera.y, -camera.z), 0.3f, 0.8f, 1.0f, 0.9f);
         event.setCanceled(true);
     }

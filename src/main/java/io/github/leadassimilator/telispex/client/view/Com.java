@@ -1,5 +1,7 @@
 package io.github.leadassimilator.telispex.client.view;
 
+import java.util.Arrays;
+
 import javax.annotation.Nullable;
 
 import com.sun.jna.Callback;
@@ -114,11 +116,11 @@ final class Com {
 
         Table(@Nullable String[] interfaces, Callback... methods) {
             vtable = new Memory((3L + methods.length) * Native.POINTER_SIZE);
-            Guid.GUID[] accepted = interfaces == null ? null : java.util.Arrays.stream(interfaces).map(Com::iid).toArray(Guid.GUID[]::new);
+            Guid.GUID[] accepted = interfaces == null ? null : Arrays.stream(interfaces).map(Com::iid).toArray(Guid.GUID[]::new);
             QueryInterface queryInterface = (self, iid, out) -> {
                 if (accepted != null) {
                     Guid.GUID asked = new Guid.GUID(iid);
-                    if (java.util.Arrays.stream(accepted).noneMatch(asked::equals)) {
+                    if (Arrays.stream(accepted).noneMatch(asked::equals)) {
                         out.setPointer(0, Pointer.NULL);
                         return E_NOINTERFACE;
                     }

@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 
 import io.github.leadassimilator.reticulum.Reticulum;
@@ -123,7 +124,7 @@ public final class GameTests {
 
     /** A batch's environment: its {@link BeforeBatch} methods set it up, its {@link AfterBatch} methods tear it down. */
     private record Batch(String name) implements TestEnvironmentDefinition {
-        static final MapCodec<Batch> CODEC = com.mojang.serialization.Codec.STRING.fieldOf("batch").xmap(Batch::new, Batch::name);
+        static final MapCodec<Batch> CODEC = Codec.STRING.fieldOf("batch").xmap(Batch::new, Batch::name);
 
         @Override
         public void setup(ServerLevel level) {

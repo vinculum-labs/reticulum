@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.DataFormatException;
 
 import javax.annotation.Nullable;
 
@@ -42,7 +43,9 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 
 /**
  * The local web server every app's pages come from, hosted by the game client. By default it binds to 127.0.0.1 on
@@ -372,7 +375,7 @@ public final class WebServer {
         }
         try {
             app.broadcast(RelayPayloads.join(parts));
-        } catch (java.util.zip.DataFormatException e) {
+        } catch (DataFormatException e) {
             Telispex.LOGGER.warn("Dropped a corrupt message for {}'s pages from the server", app.id(), e);
         }
     }
@@ -392,9 +395,9 @@ public final class WebServer {
      * Minecraft pauses by opening the pause screen when its window loses focus; in singleplayer that stops the
      * server. While a page is open in a browser, that automatic pause is skipped (Esc still pauses).
      */
-    static void onScreenOpening(net.neoforged.neoforge.client.event.ScreenEvent.Opening event) {
+    static void onScreenOpening(ScreenEvent.Opening event) {
         Minecraft mc = Minecraft.getInstance();
-        if (event.getNewScreen() instanceof net.minecraft.client.gui.screens.PauseScreen && !mc.isWindowActive()
+        if (event.getNewScreen() instanceof PauseScreen && !mc.isWindowActive()
                 && mc.screen == null && TelispexConfig.KEEP_RUNNING.getAsBoolean() && browserPages() > 0) {
             event.setCanceled(true);
         }

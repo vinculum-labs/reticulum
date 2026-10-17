@@ -3,8 +3,10 @@ package io.github.leadassimilator.reticulum.engine;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import io.github.leadassimilator.reticulum.network.Network;
+import net.minecraft.core.Direction;
 import net.minecraft.server.MinecraftServer;
 
 /**
@@ -17,7 +19,7 @@ public interface MeLinker {
      *
      * @param inReach whether a connector reaches the controller (by cable, or within antenna range)
      */
-    void update(MinecraftServer server, Network network, Collection<CompiledSheet.MeLink> wanted, java.util.function.Predicate<UUID> inReach);
+    void update(MinecraftServer server, Network network, Collection<CompiledSheet.MeLink> wanted, Predicate<UUID> inReach);
 
     /** Disconnects everything, e.g. when the network stops. */
     void clear();
@@ -37,6 +39,6 @@ public interface MeLinker {
     /** A connector's ME ports, for the look-at line; kept free of AE2 types so it can be used without AE2. */
     interface Ports {
         /** Channel use of each side with an ME port. */
-        Map<net.minecraft.core.Direction, Usage> usages();
+        Map<Direction, Usage> usages();
     }
 }

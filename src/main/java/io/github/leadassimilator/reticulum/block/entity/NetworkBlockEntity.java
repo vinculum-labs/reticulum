@@ -4,17 +4,30 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import io.github.leadassimilator.reticulum.block.FacadeLight;
+import io.github.leadassimilator.reticulum.block.LinkedBlock;
+import io.github.leadassimilator.reticulum.block.Orientation;
+import io.github.leadassimilator.reticulum.client.FacadeXray;
+import io.github.leadassimilator.reticulum.registry.ModDataComponents;
+import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.component.DataComponentGetter;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.NbtUtils;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.model.data.ModelData;
 import net.neoforged.neoforge.model.data.ModelProperty;
 
@@ -81,12 +94,12 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     }
 
     /** The network the item it was placed from carried; taken once, when it joins. */
-    @javax.annotation.Nullable
-    private java.util.UUID itemNetworkId;
+    @Nullable
+    private UUID itemNetworkId;
 
-    @javax.annotation.Nullable
-    public java.util.UUID takeItemNetworkId() {
-        java.util.UUID id = itemNetworkId;
+    @Nullable
+    public UUID takeItemNetworkId() {
+        UUID id = itemNetworkId;
         itemNetworkId = null;
         return id;
     }
@@ -95,15 +108,15 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     @Override
     public void preRemoveSideEffects(BlockPos pos, BlockState state) {
         super.preRemoveSideEffects(pos, state);
-        if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-            io.github.leadassimilator.reticulum.topology.Topology.beforeRemoval(serverLevel, this);
+        if (level instanceof ServerLevel serverLevel) {
+            Topology.beforeRemoval(serverLevel, this);
         }
     }
 
     @Override
-    protected void applyImplicitComponents(net.minecraft.core.component.DataComponentGetter input) {
+    protected void applyImplicitComponents(DataComponentGetter input) {
         super.applyImplicitComponents(input);
-        itemNetworkId = input.get(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get());
+        itemNetworkId = input.get(ModDataComponents.NETWORK_ID.get());
     }
 
     /** Loaded from data saved at another position (a copy), so it gets ids of its own. */
@@ -134,11 +147,11 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         return facade == null ? null : orientation().toWorld(facade);
     }
 
-    private io.github.leadassimilator.reticulum.block.Orientation orientation() {
+    private Orientation orientation() {
         BlockState state = getBlockState();
-        return state.hasProperty(io.github.leadassimilator.reticulum.block.LinkedBlock.ORIENTATION)
-                ? state.getValue(io.github.leadassimilator.reticulum.block.LinkedBlock.ORIENTATION)
-                : io.github.leadassimilator.reticulum.block.Orientation.TURN_0;
+        return state.hasProperty(LinkedBlock.ORIENTATION)
+                ? state.getValue(LinkedBlock.ORIENTATION)
+                : Orientation.TURN_0;
     }
 
     /** Sets or clears the facade and tells clients, which draw the block as the facade from then on. */
@@ -174,18 +187,18 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     }
 
     @Override
-    public void handleUpdateTag(net.minecraft.world.level.storage.ValueInput input) {
+    public void handleUpdateTag(ValueInput input) {
         readFacade(input);
         clientFacadeChanged();
     }
 
     @Override
-    public void onDataPacket(net.minecraft.network.Connection connection, net.minecraft.world.level.storage.ValueInput input) {
+    public void onDataPacket(Connection connection, ValueInput input) {
         readFacade(input);
         clientFacadeChanged();
     }
 
-    private void readFacade(net.minecraft.world.level.storage.ValueInput input) {
+    private void readFacade(ValueInput input) {
         // A block from a mod since removed doesn't read: no facade (an invisible block with a full outline otherwise).
         facade = input.read("facade", BlockState.CODEC).filter(state -> !state.isAir()).orElse(null);
         lightChanged();
@@ -193,7 +206,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
 
     /** Tells the light engine (which can't read block entities) the light its facade gives. */
     private void lightChanged() {
-        io.github.leadassimilator.reticulum.block.FacadeLight.set(level, worldPosition, facade == null ? 0 : facade.getLightEmission());
+        FacadeLight.set(level, worldPosition, facade == null ? 0 : facade.getLightEmission());
     }
 
     /** On the client: draw the block again with its new look, and keep track of it for the network tool's X-ray. */
@@ -201,16 +214,16 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         if (level != null && level.isClientSide) {
             requestModelDataUpdate();
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL_IMMEDIATE);
-            io.github.leadassimilator.reticulum.client.FacadeXray.track(net.minecraft.core.GlobalPos.of(level.dimension(), worldPosition), facade != null);
+            FacadeXray.track(GlobalPos.of(level.dimension(), worldPosition), facade != null);
         }
     }
 
     @Override
     public void setRemoved() {
         super.setRemoved();
-        io.github.leadassimilator.reticulum.block.FacadeLight.set(level, worldPosition, 0);
+        FacadeLight.set(level, worldPosition, 0);
         if (level != null && level.isClientSide) {
-            io.github.leadassimilator.reticulum.client.FacadeXray.track(net.minecraft.core.GlobalPos.of(level.dimension(), worldPosition), false);
+            FacadeXray.track(GlobalPos.of(level.dimension(), worldPosition), false);
         }
     }
 
@@ -218,7 +231,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
      * Turned in place from {@code was} to {@code now}: what it keeps by side is moved so that it stays on the same sides
      * of the world.
      */
-    public void keepSides(io.github.leadassimilator.reticulum.block.Orientation was, io.github.leadassimilator.reticulum.block.Orientation now) {
+    public void keepSides(Orientation was, Orientation now) {
         manualDisconnects = keptSides(manualDisconnects, was, now);
         autoDisconnects = keptSides(autoDisconnects, was, now);
         if (facade != null) {
@@ -232,7 +245,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     }
 
     /** {@code mask}, kept by sides as laid out under {@code was}, kept by sides as laid out under {@code now} instead. */
-    protected static int keptSides(int mask, io.github.leadassimilator.reticulum.block.Orientation was, io.github.leadassimilator.reticulum.block.Orientation now) {
+    protected static int keptSides(int mask, Orientation was, Orientation now) {
         int out = 0;
         for (Direction side : Direction.values()) {
             if ((mask & (1 << was.toLaid(side).get3DDataValue())) != 0) {
@@ -248,8 +261,8 @@ public abstract class NetworkBlockEntity extends BlockEntity {
      */
     protected int bit(Direction side) {
         BlockState state = getBlockState();
-        Direction laid = state.hasProperty(io.github.leadassimilator.reticulum.block.LinkedBlock.ORIENTATION)
-                ? state.getValue(io.github.leadassimilator.reticulum.block.LinkedBlock.ORIENTATION).toLaid(side) : side;
+        Direction laid = state.hasProperty(LinkedBlock.ORIENTATION)
+                ? state.getValue(LinkedBlock.ORIENTATION).toLaid(side) : side;
         return 1 << laid.get3DDataValue();
     }
 
@@ -260,15 +273,15 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         lightChanged();
         // Blocks placed without a player (commands, structures, other mods) are connected up at the start of the next
         // server tick. (A scheduled block tick would be lost when this runs while its chunk is still loading.)
-        if (!registered && level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-            io.github.leadassimilator.reticulum.topology.Topology.queue(serverLevel, worldPosition);
+        if (!registered && level instanceof ServerLevel serverLevel) {
+            Topology.queue(serverLevel, worldPosition);
         }
     }
 
     @Override
-    protected void loadAdditional(net.minecraft.world.level.storage.ValueInput tag) {
+    protected void loadAdditional(ValueInput tag) {
         super.loadAdditional(tag);
-        networkId = tag.read("network", net.minecraft.core.UUIDUtil.CODEC).orElse(null);
+        networkId = tag.read("network", UUIDUtil.CODEC).orElse(null);
         manualDisconnects = tag.getByteOr("disconnected", (byte) 0);
         autoDisconnects = tag.getByteOr("auto_disconnected", (byte) 0);
         // Registered where it was saved; data copied somewhere else (ctrl+pick-block, /clone, a structure) is a new
@@ -285,10 +298,10 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void saveAdditional(net.minecraft.world.level.storage.ValueOutput tag) {
+    protected void saveAdditional(ValueOutput tag) {
         super.saveAdditional(tag);
         if (networkId != null) {
-            tag.store("network", net.minecraft.core.UUIDUtil.CODEC, networkId);
+            tag.store("network", UUIDUtil.CODEC, networkId);
         }
         tag.putByte("disconnected", (byte) manualDisconnects);
         tag.putByte("auto_disconnected", (byte) autoDisconnects);

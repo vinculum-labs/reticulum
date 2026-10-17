@@ -9,6 +9,7 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.item.FacadeItem;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import net.minecraft.client.Minecraft;
@@ -25,6 +26,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
@@ -112,7 +114,7 @@ public class FacadeScreen extends QuickScreen {
 
     /** The hint under the grid; JEI is only mentioned when it is installed. */
     private static Component hint() {
-        return Component.translatable(io.github.leadassimilator.reticulum.integration.Mods.JEI ? "screen.reticulum.facade_hint_jei" : "screen.reticulum.facade_hint");
+        return Component.translatable(Mods.JEI ? "screen.reticulum.facade_hint_jei" : "screen.reticulum.facade_hint");
     }
 
     /** The panel's height: the grid, then the hint wrapped to the panel's width. */
@@ -172,7 +174,7 @@ public class FacadeScreen extends QuickScreen {
 
     /** Paints the stack in hand like {@code block} (blank when null), and closes. */
     public void choose(@Nullable Block block) {
-        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.PaintFacade(hand, Optional.ofNullable(block)));
+        ClientPacketDistributor.sendToServer(new Payloads.PaintFacade(hand, Optional.ofNullable(block)));
         onClose();
     }
 

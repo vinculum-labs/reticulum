@@ -1,18 +1,23 @@
 package io.github.leadassimilator.reticulum.client.screen;
 
 import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import io.github.leadassimilator.reticulum.client.ScreenHighlight;
+import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.protocol.Views;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
@@ -68,7 +73,7 @@ public class BlockScreen extends QuickScreen {
             if (!view.networkName().isEmpty()) {
                 // Shrink the name box to make room for the connector's own ID button.
                 connectorName.setWidth(connectorName.getWidth() - 26);
-                addRenderableWidget(idButton(left + WIDTH - 22, y - 1, view.identified(), java.util.Optional.empty(), java.util.Optional.empty()));
+                addRenderableWidget(idButton(left + WIDTH - 22, y - 1, view.identified(), Optional.empty(), Optional.empty()));
             }
             y += 26;
         }
@@ -81,8 +86,8 @@ public class BlockScreen extends QuickScreen {
             // Another network for it: what that does (bind, move its piece, unwire it, or why not) is the tooltip.
             addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.pick_network"), b -> {
                 sendRenames();
-                net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.RequestNetworkPicker(java.util.Optional.of(view.pos())));
-            }).bounds(width / 2 - 154, y + 8, 150, 20).tooltip(net.minecraft.client.gui.components.Tooltip.create(view.pickHint().get())).build());
+                ClientPacketDistributor.sendToServer(new Payloads.RequestNetworkPicker(Optional.of(view.pos())));
+            }).bounds(width / 2 - 154, y + 8, 150, 20).tooltip(Tooltip.create(view.pickHint().get())).build());
             addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
                     .bounds(width / 2 + 4, y + 8, 150, 20).build());
         } else {
@@ -111,14 +116,14 @@ public class BlockScreen extends QuickScreen {
                 Button faces = new IconButton(x + 214, y - 1, 20, 20, "faces", Component.translatable("screen.reticulum.faces"),
                         Component.translatable("screen.reticulum.faces_tip"), b -> openFaces(side.side()));
                 if (!view.networkName().isEmpty() && side.enabled()) {
-                    addRenderableWidget(idButton(left + WIDTH - 22, y - 1, side.deviceIdentified(), java.util.Optional.of(side.side()),
-                            java.util.Optional.empty()));
+                    addRenderableWidget(idButton(left + WIDTH - 22, y - 1, side.deviceIdentified(), Optional.of(side.side()),
+                            Optional.empty()));
                 }
                 faces.active = side.enabled() && !view.networkName().isEmpty();
                 addRenderableWidget(faces);
             }
             case JOINT -> {
-                String joint = side.joint().name().toLowerCase(java.util.Locale.ROOT);
+                String joint = side.joint().name().toLowerCase(Locale.ROOT);
                 Button toggle = new IconButton(left + WIDTH - 22, y - 1, 22, 20, "link_" + joint,
                         Component.translatable("screen.reticulum.joint." + joint), Component.translatable("screen.reticulum.joint." + joint + "_tip"),
                         b -> toggle(side.side()));
@@ -131,17 +136,17 @@ public class BlockScreen extends QuickScreen {
     }
 
     /** A small ID toggle: lights up the connector, a device or a face in the world until switched off. */
-    private Button idButton(int x, int y, boolean on, java.util.Optional<Direction> side, java.util.Optional<io.github.leadassimilator.reticulum.network.FaceKey> face) {
+    private Button idButton(int x, int y, boolean on, Optional<Direction> side, Optional<FaceKey> face) {
         return idButton(this, view.pos(), x, y, on, side, face, view.canUse());
     }
 
     /** The ID toggle for any of the connector screens; it saves what that screen has typed first. */
-    static Button idButton(QuickScreen screen, BlockPos pos, int x, int y, boolean on, java.util.Optional<Direction> side,
-            java.util.Optional<io.github.leadassimilator.reticulum.network.FaceKey> face, boolean canUse) {
+    static Button idButton(QuickScreen screen, BlockPos pos, int x, int y, boolean on, Optional<Direction> side,
+            Optional<FaceKey> face, boolean canUse) {
         Button button = new IconButton(x, y, 22, 20, on ? "identify_on" : "identify_off", Component.literal("ID"),
                 Component.translatable(on ? "screen.reticulum.identify_off" : "screen.reticulum.identify_on"), b -> {
                     screen.commit();
-                    net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.ToggleIdentify(pos, side, face));
+                    ClientPacketDistributor.sendToServer(new Payloads.ToggleIdentify(pos, side, face));
                 });
         // Lighting things up takes a user's access (a viewer can only look).
         button.active = canUse;
@@ -150,7 +155,7 @@ public class BlockScreen extends QuickScreen {
 
     private void toggle(Direction side) {
         sendRenames();
-        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.ToggleSide(view.pos(), side));
+        ClientPacketDistributor.sendToServer(new Payloads.ToggleSide(view.pos(), side));
     }
 
     private void openFaces(Direction side) {
@@ -161,13 +166,13 @@ public class BlockScreen extends QuickScreen {
     /** Sends every editable name that differs from what the server last sent. */
     void sendRenames() {
         if (connectorName != null && connectorNameEditable && !connectorName.getValue().equals(view.customName())) {
-            net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.RenameConnector(view.pos(), connectorName.getValue()));
+            ClientPacketDistributor.sendToServer(new Payloads.RenameConnector(view.pos(), connectorName.getValue()));
         }
         for (Map.Entry<Direction, EditBox> entry : deviceNames.entrySet()) {
             Views.SideView side = view.side(entry.getKey());
             EditBox box = entry.getValue();
             if (!box.getValue().equals(side.customName())) {
-                net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.RenameDevice(view.pos(), side.side(), Optional.empty(), box.getValue()));
+                ClientPacketDistributor.sendToServer(new Payloads.RenameDevice(view.pos(), side.side(), Optional.empty(), box.getValue()));
             }
         }
     }
@@ -184,7 +189,7 @@ public class BlockScreen extends QuickScreen {
                 highlight = view.pos().relative(entry.getKey());
             }
         }
-        io.github.leadassimilator.reticulum.client.ScreenHighlight.set(highlight, null);
+        ScreenHighlight.set(highlight, null);
         super.render(graphics, mouseX, mouseY, partialTick);
         int top = rowsTop - (view.connector() ? 50 : 24);
         renderCompass(graphics, left, WIDTH, top);

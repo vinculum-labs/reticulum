@@ -1,7 +1,6 @@
 package io.github.leadassimilator.reticulum.gametest;
 
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.fail;
-
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 
 import java.util.ArrayList;
@@ -28,6 +27,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
 
 /**
  * The spec's performance target: about 1,000 connectors and 2,000 flows in under 1 ms per tick on average. Runs in
@@ -84,7 +84,7 @@ public final class BenchmarkTests {
         network.sheets().add(sheet);
         // Something to move in a quarter of the barrels.
         for (int i = 0; i < barrels.size(); i += 4) {
-            ((Container) helper.getBlockEntity(barrels.get(i), net.minecraft.world.level.block.entity.BlockEntity.class)).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
+            ((Container) helper.getBlockEntity(barrels.get(i), BlockEntity.class)).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
         }
 
         NetworkRuntime runtime = NetworkTicker.runtime(network.id());

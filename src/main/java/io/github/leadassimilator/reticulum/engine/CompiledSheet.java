@@ -1,27 +1,36 @@
 package io.github.leadassimilator.reticulum.engine;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.filter.FilterException;
 import io.github.leadassimilator.reticulum.filter.Filters;
+import io.github.leadassimilator.reticulum.graph.Blueprints;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
-import net.minecraft.core.Direction;
-import net.minecraft.core.GlobalPos;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
+import io.github.leadassimilator.reticulum.network.ConnectorRecord;
+import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Network;
+import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
 
 /**
  * A network's sheets turned into routes: every path from a source through filters, rate limits, splitters and kits to
@@ -401,18 +410,18 @@ public final class CompiledSheet {
         owners.put(id, device.id());
         pinHolders.add(device.id());
         pinKeys.put(id, key);
-        return new Node(id, settings, device.label(), true, device.x(), device.y(), Node.Gate.WHILE_ON, java.util.Optional.empty());
+        return new Node(id, settings, device.label(), true, device.x(), device.y(), Node.Gate.WHILE_ON, Optional.empty());
     }
 
     /** The connector side touching one of the given faces of the device (any face when none are chosen). */
     @Nullable
     private NodeSettings.MePortSettings mePort(Network network, Node node, GlobalPos device, List<FaceKey> faces, String which) {
         followsConnectors = true;
-        for (io.github.leadassimilator.reticulum.network.ConnectorRecord connector : network.connectors()) {
+        for (ConnectorRecord connector : network.connectors()) {
             if (!connector.devices().contains(device) || !connector.pos().dimension().equals(device.dimension())) {
                 continue;
             }
-            Direction toConnector = io.github.leadassimilator.reticulum.network.Devices.facing(device.pos(), connector.pos().pos());
+            Direction toConnector = Devices.facing(device.pos(), connector.pos().pos());
             if (toConnector != null && (faces.isEmpty() || faces.contains(FaceKey.of(toConnector)))) {
                 return new NodeSettings.MePortSettings(connector.id(), toConnector.getOpposite());
             }
@@ -480,7 +489,7 @@ public final class CompiledSheet {
      */
     private final Set<UUID> silent = new HashSet<>();
     /** Switched-off device nodes among {@link #silent}: silent only on their redstone outputs (their others just stop). */
-    private final Map<UUID, NodeSettings.DeviceSettings> silentDevices = new java.util.HashMap<>();
+    private final Map<UUID, NodeSettings.DeviceSettings> silentDevices = new HashMap<>();
 
     /** Whether a wire leaves a silent signal output: a switched-off signal node, or a switched-off device's redstone side. */
     private boolean silentSignal(Wire wire) {
@@ -492,7 +501,7 @@ public final class CompiledSheet {
                 && device.outputs().get(wire.output()).resource() == ResourceKind.REDSTONE;
     }
     /** Nodes (by compiled id, including instance nodes) whose gate runs them once per pulse. */
-    private final Set<UUID> pulseGates = new java.util.HashSet<>();
+    private final Set<UUID> pulseGates = new HashSet<>();
 
     public List<SignalNode> signals() {
         return signals;
@@ -523,7 +532,7 @@ public final class CompiledSheet {
      * its own, so wires from different outputs read different values.
      */
     public static UUID outputKey(UUID node, int output) {
-        return output <= 0 ? node : UUID.nameUUIDFromBytes((node + "/out/" + output).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return output <= 0 ? node : UUID.nameUUIDFromBytes((node + "/out/" + output).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -537,7 +546,7 @@ public final class CompiledSheet {
                 byId.put(node.id(), node);
             }
         }
-        Set<UUID> carriers = new java.util.LinkedHashSet<>();
+        Set<UUID> carriers = new LinkedHashSet<>();
         byId.values().stream().filter(n -> n.kind().signal()).forEach(n -> carriers.add(n.id()));
         // A sheet pin feeding a gate or a signal node carries a signal, whatever feeds it (a switched-off node, or
         // nothing: an unwired pin gives 0 rather than leaving what it feeds unwired, which often reads as on).
@@ -572,7 +581,7 @@ public final class CompiledSheet {
         }
         Map<UUID, List<List<UUID>>> inputs = new LinkedHashMap<>();
         // Output keys (see outputKey) back to their nodes.
-        Map<UUID, UUID> keyOwners = new java.util.HashMap<>();
+        Map<UUID, UUID> keyOwners = new HashMap<>();
         for (Wire wire : wires) {
             if (silent.contains(wire.from()) && !silentSignal(wire)) {
                 // A switched-off device's item, fluid or energy side: nothing goes out of it (into a gate it is wrong, on
@@ -646,7 +655,7 @@ public final class CompiledSheet {
             }
             waiting.put(id, count);
         }
-        java.util.ArrayDeque<UUID> ready = new java.util.ArrayDeque<>();
+        ArrayDeque<UUID> ready = new ArrayDeque<>();
         waiting.forEach((id, count) -> {
             if (count == 0) {
                 ready.add(id);
@@ -675,7 +684,7 @@ public final class CompiledSheet {
             }
             whileOff.put(n.node().id(), behavior);
             if (behavior.mode() == NodeSettings.WhileOff.RUN) {
-                java.util.ArrayDeque<UUID> todo = new java.util.ArrayDeque<>(List.of(n.node().id()));
+                ArrayDeque<UUID> todo = new ArrayDeque<>(List.of(n.node().id()));
                 while (!todo.isEmpty()) {
                     UUID next = todo.poll();
                     SignalNode at = byNode.get(keyOwners.getOrDefault(next, next));
@@ -702,7 +711,7 @@ public final class CompiledSheet {
      * instances, and the sheet nodes of the sheets they are on, all the way up, so switching any of those off stops them.
      */
     private Set<UUID> controls(List<UUID> raw) {
-        Set<UUID> out = new java.util.HashSet<>();
+        Set<UUID> out = new HashSet<>();
         for (UUID id : raw) {
             UUID current = id;
             for (int hops = 0; current != null && hops < 256; hops++) {
@@ -722,19 +731,19 @@ public final class CompiledSheet {
 
     /** For every node pasted in from a child sheet: that sheet's sheet node. Not an owner: the node shows as itself. */
     private final Map<UUID, UUID> containers = new LinkedHashMap<>();
-    private final Set<UUID> instanceNodes = new java.util.HashSet<>();
+    private final Set<UUID> instanceNodes = new HashSet<>();
     /** Device nodes with redstone (or ME) pins: gated off, their pins go dark as when switched off. */
-    private final Set<UUID> pinHolders = new java.util.HashSet<>();
+    private final Set<UUID> pinHolders = new HashSet<>();
 
     public Set<UUID> pinHolders() {
         return pinHolders;
     }
     /** Sheet and instance nodes whose own switch is off: what is in them is compiled but stays off. */
-    private final Set<UUID> disabledHolders = new java.util.HashSet<>();
+    private final Set<UUID> disabledHolders = new HashSet<>();
     /** Signal outputs (a sheet's output pins, devices' redstone inputs) by what they do while their sheet is off. */
     private final Map<UUID, NodeSettings.OffBehavior> whileOff = new LinkedHashMap<>();
     /** Signal nodes that keep working while their sheet is off: those feeding an output set to keep running. */
-    private final Set<UUID> keepRunning = new java.util.HashSet<>();
+    private final Set<UUID> keepRunning = new HashSet<>();
 
     public Set<UUID> disabledHolders() {
         return disabledHolders;
@@ -868,17 +877,17 @@ public final class CompiledSheet {
             }
             // A child sheet keeps its own ids (it is placed once, and the editor shows its nodes' activity); a
             // blueprint's instance gets ids of its own, made from the instance node's.
-            java.util.function.Function<UUID, UUID> instance = child ? id -> id
-                    : id -> UUID.nameUUIDFromBytes((node.id() + "/" + id).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            Function<UUID, UUID> instance = child ? id -> id
+                    : id -> UUID.nameUUIDFromBytes((node.id() + "/" + id).getBytes(StandardCharsets.UTF_8));
             List<Node> instances = new ArrayList<>();
             Map<UUID, NodeSettings.Binding> bindings = child ? Map.of() : ((NodeSettings.InstanceSettings) node.settings()).bindings();
             for (Node inner : used.nodes()) {
                 Node pasted = child ? inner : inner.withId(instance.apply(inner.id()));
                 if (!child) {
                     // An instance fills its blueprint's slots with blocks; one left empty can't run, nor can routes through it.
-                    NodeSettings bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(inner, bindings);
+                    NodeSettings bound = Blueprints.bound(inner, bindings);
                     if (bound == null) {
-                        UUID needed = io.github.leadassimilator.reticulum.graph.Blueprints.slotNeeded(inner);
+                        UUID needed = Blueprints.slotNeeded(inner);
                         Node slot = needed == null ? null : used.node(needed);
                         // Checking a blueprint on its own (not running it), blueprints placed in it are filled by each of its
                         // placements, at any depth: nothing to fill here.
@@ -891,7 +900,7 @@ public final class CompiledSheet {
                         }
                         error(node, describe(node) + (slot == null
                                 ? ": a Level sensor in it reads a slot the blueprint no longer has"
-                                : ": its slot " + io.github.leadassimilator.reticulum.graph.Blueprints.slotName(slot)
+                                : ": its slot " + Blueprints.slotName(slot)
                                         + " has no block yet (open it and drop a device on it)"));
                         if (inner.kind().signal()) {
                             silent.add(pasted.id());
@@ -903,7 +912,7 @@ public final class CompiledSheet {
                     // slots (whatever the inner node itself holds is the blueprint's, and not used).
                     if (inner.settings() instanceof NodeSettings.InstanceSettings nested) {
                         pasted = pasted.with(new NodeSettings.InstanceSettings(nested.sheet(),
-                                io.github.leadassimilator.reticulum.graph.Blueprints.inner(network, bindings, inner.id(), network.sheet(nested.sheet()))));
+                                Blueprints.inner(network, bindings, inner.id(), network.sheet(nested.sheet()))));
                     }
                     // A splitter's weights are by wire, and the instance's wires have ids of their own.
                     if (pasted.settings() instanceof NodeSettings.SplitterSettings splitter && !splitter.weights().isEmpty()) {
@@ -945,7 +954,7 @@ public final class CompiledSheet {
     }
 
     private static UUID side(UUID device, String direction, int index) {
-        return UUID.nameUUIDFromBytes((device + ":" + direction + ":" + index).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return UUID.nameUUIDFromBytes((device + ":" + direction + ":" + index).getBytes(StandardCharsets.UTF_8));
     }
 
     private void expand(Node node, NodeSettings.DeviceSettings device, Map<UUID, Node> nodes) {
@@ -957,7 +966,7 @@ public final class CompiledSheet {
             NodeSettings.Port port = new NodeSettings.Port(out.resource(), device.device(), out.faces(), out.slots());
             Node source = new Node(side(node.id(), "out", i),
                     new NodeSettings.SourceSettings(port, out.keep(), out.perOperation(), out.interval(), out.priority()),
-                    node.label(), true, node.x(), node.y(), Node.Gate.WHILE_ON, java.util.Optional.empty());
+                    node.label(), true, node.x(), node.y(), Node.Gate.WHILE_ON, Optional.empty());
             nodes.put(source.id(), source);
             owners.put(source.id(), node.id());
         }
@@ -968,7 +977,7 @@ public final class CompiledSheet {
             }
             NodeSettings.Port port = new NodeSettings.Port(in.resource(), device.device(), in.faces(), in.slots());
             Node sink = new Node(side(node.id(), "in", i), new NodeSettings.SinkSettings(port, in.caps()), node.label(), true, node.x(), node.y(),
-                    Node.Gate.WHILE_ON, java.util.Optional.empty());
+                    Node.Gate.WHILE_ON, Optional.empty());
             nodes.put(sink.id(), sink);
             owners.put(sink.id(), node.id());
         }

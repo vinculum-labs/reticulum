@@ -4,8 +4,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 
 import io.github.leadassimilator.telispex.Telispex;
 import io.github.leadassimilator.telispex.TelispexConfig;
@@ -29,6 +32,7 @@ import io.netty.handler.codec.http.cookie.CookieHeaderNames;
 import io.netty.handler.codec.http.cookie.DefaultCookie;
 import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
 import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
+import io.netty.handler.codec.http.websocketx.WebSocketFrameAggregator;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
 import net.minecraft.resources.ResourceLocation;
@@ -169,7 +173,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         }
         ctx.pipeline().replace(ctx.handler(), "ws", new SocketHandler(handshaker, target.app()));
         // Browsers send a large message as several frames: joined into one before it is read.
-        ctx.pipeline().addBefore("ws", "wsjoin", new io.netty.handler.codec.http.websocketx.WebSocketFrameAggregator(2 * RelayPayloads.MAX_REQUEST_BYTES));
+        ctx.pipeline().addBefore("ws", "wsjoin", new WebSocketFrameAggregator(2 * RelayPayloads.MAX_REQUEST_BYTES));
         handshaker.handshake(ctx.channel(), request).addListener(future -> {
             if (future.isSuccess()) {
                 target.app().sockets().add(ctx.channel());
@@ -183,7 +187,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         int kindEnd = name.indexOf('/');
         int slash = kindEnd < 0 ? -1 : name.indexOf('/', kindEnd + 1);
         ResourceLocation id = slash < 0 ? null : ResourceLocation.tryBuild(name.substring(kindEnd + 1, slash), name.substring(slash + 1));
-        java.util.concurrent.CompletableFuture<byte[]> png = id == null ? null : Icons.get(name.substring(0, kindEnd), id);
+        CompletableFuture<byte[]> png = id == null ? null : Icons.get(name.substring(0, kindEnd), id);
         if (png == null) {
             respond(ctx, request, HttpResponseStatus.NOT_FOUND, "text/plain", bytes("Not found"));
             return;
@@ -195,8 +199,8 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
      * Answers once {@code result} is ready (on the game thread, say), back on the connection's own thread; the request
      * is kept alive until then.
      */
-    private static void respondLater(ChannelHandlerContext ctx, FullHttpRequest request, java.util.concurrent.CompletableFuture<byte[]> result,
-            String failure, java.util.function.BiConsumer<FullHttpRequest, byte[]> answer) {
+    private static void respondLater(ChannelHandlerContext ctx, FullHttpRequest request, CompletableFuture<byte[]> result,
+            String failure, BiConsumer<FullHttpRequest, byte[]> answer) {
         FullHttpRequest retained = request.retainedDuplicate();
         result.whenComplete((body, error) -> ctx.executor().execute(() -> {
             try {
@@ -241,7 +245,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
      * reload replaces the old one in the page.
      */
     private static void respondCached(ChannelHandlerContext ctx, FullHttpRequest request, byte[] png) {
-        String tag = "\"" + Integer.toHexString(java.util.Arrays.hashCode(png)) + "\"";
+        String tag = "\"" + Integer.toHexString(Arrays.hashCode(png)) + "\"";
         if (tag.equals(request.headers().get(HttpHeaderNames.IF_NONE_MATCH))) {
             FullHttpResponse notModified = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_MODIFIED);
             notModified.headers().set(HttpHeaderNames.ETAG, tag);

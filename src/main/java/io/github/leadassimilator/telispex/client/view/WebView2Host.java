@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import javax.annotation.Nullable;
@@ -106,7 +108,7 @@ final class WebView2Host {
      * COM callback objects. WebView2 may call one after the editor was closed (a world left while it was still
      * starting), so none is ever let go: their memory must outlive any call. There are a handful per session.
      */
-    private static final java.util.List<Com.Table> HANDLERS = new java.util.ArrayList<>();
+    private static final List<Com.Table> HANDLERS = new ArrayList<>();
     /** Bumped by every create and close; a callback from an earlier one releases what it was given and does nothing. */
     private static int generation;
 

@@ -6,14 +6,20 @@ import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.block.ConnectorBlock;
 import io.github.leadassimilator.reticulum.block.Link;
+import io.github.leadassimilator.reticulum.block.Orientation;
 import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.energy.EmptyEnergyStorage;
@@ -67,7 +73,7 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     }
 
     @Override
-    public void keepSides(io.github.leadassimilator.reticulum.block.Orientation was, io.github.leadassimilator.reticulum.block.Orientation now) {
+    public void keepSides(Orientation was, Orientation now) {
         disabledDevices = keptSides(disabledDevices, was, now);
         super.keepSides(was, now);
     }
@@ -128,9 +134,9 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     }
 
     @Override
-    protected void loadAdditional(net.minecraft.world.level.storage.ValueInput tag) {
+    protected void loadAdditional(ValueInput tag) {
         super.loadAdditional(tag);
-        java.util.UUID saved = tag.read("connector", net.minecraft.core.UUIDUtil.CODEC).orElse(null);
+        UUID saved = tag.read("connector", UUIDUtil.CODEC).orElse(null);
         if (saved != null && (!copied || isOriginal(saved))) {
             connectorId = saved;
         } else if (copied) {
@@ -146,11 +152,11 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
      * the recorded place still being that connector (or that place not loaded, or no record) makes this a copy. Order,
      * timing and restarts don't matter, and two live connectors never share an id.
      */
-    private boolean isOriginal(java.util.UUID id) {
-        if (!(level instanceof net.minecraft.server.level.ServerLevel server)) {
+    private boolean isOriginal(UUID id) {
+        if (!(level instanceof ServerLevel server)) {
             return false;
         }
-        var network = io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId());
+        var network = NetworkManager.network(server.getServer(), networkId());
         var record = network == null ? null : network.connector(id);
         if (record == null) {
             return false;
@@ -166,9 +172,9 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     }
 
     @Override
-    protected void saveAdditional(net.minecraft.world.level.storage.ValueOutput tag) {
+    protected void saveAdditional(ValueOutput tag) {
         super.saveAdditional(tag);
-        tag.store("connector", net.minecraft.core.UUIDUtil.CODEC, connectorId);
+        tag.store("connector", UUIDUtil.CODEC, connectorId);
         tag.putByte("disabled_devices", (byte) disabledDevices);
     }
 }

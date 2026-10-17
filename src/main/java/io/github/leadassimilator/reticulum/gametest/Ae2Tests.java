@@ -1,19 +1,32 @@
 package io.github.leadassimilator.reticulum.gametest;
 
-import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
 import static io.github.leadassimilator.reticulum.gametest.EngineTests.rig;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
 
+import appeng.api.networking.GridHelper;
+import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.block.ConnectorBlock;
+import io.github.leadassimilator.reticulum.block.Link;
+import io.github.leadassimilator.reticulum.gametest.EngineTests.Rig;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.Wire;
 import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration;
+import io.github.leadassimilator.reticulum.lookat.LookAt;
 import io.github.leadassimilator.reticulum.network.Devices;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.block.Blocks;
-import io.github.leadassimilator.reticulum.gametest.EngineTests.Rig;
-import io.github.leadassimilator.reticulum.Reticulum;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
 
 /** Game tests with AE2: ME links between AE2 networks. Left out of builds without AE2 support. */
 public final class Ae2Tests {
@@ -65,12 +78,12 @@ public final class Ae2Tests {
         Node b = rig.meIn(Devices.global(helper.getLevel(), second.north()));
         rig.sheet().connect(Wire.of(a, b));
         helper.succeedWhen(() -> {
-            var sides = io.github.leadassimilator.reticulum.integration.ae2.Ae2Integration.sides(helper.getLevel(), first);
+            var sides = Ae2Integration.sides(helper.getLevel(), first);
             check(helper, !sides.contains(Direction.NORTH), "an ME endpoint faces a storage bus with no cable: " + sides);
             check(helper, rig.network().device(Devices.global(helper.getLevel(), first.north())) == null,
                     "a storage bus with no cable counts as a device");
             check(helper, helper.getLevel().getBlockState(first).getValue(
-                    io.github.leadassimilator.reticulum.block.ConnectorBlock.LINKS.get(Direction.NORTH)) != io.github.leadassimilator.reticulum.block.Link.DEVICE,
+                    ConnectorBlock.LINKS.get(Direction.NORTH)) != Link.DEVICE,
                     "the connector shows a plug towards a storage bus with no cable");
             var usage = rig.runtime().meUsage().get(b.id() + "/in/0");
             check(helper, usage != null && usage.max() == 8, "the glass cable side shows " + usage + " instead of x/8");
@@ -129,7 +142,7 @@ public final class Ae2Tests {
         Node b = rig.meIn(Devices.global(helper.getLevel(), far));
         rig.sheet().connect(Wire.of(a, b));
         helper.succeedWhen(() -> {
-            var host = appeng.api.networking.GridHelper.getNodeHost(helper.getLevel(), smart);
+            var host = GridHelper.getNodeHost(helper.getLevel(), smart);
             var node = host == null ? null : host.getGridNode(null);
             check(helper, node != null, "no smart cable node");
             var toConnector = node.getInWorldConnections().get(Direction.SOUTH);
@@ -138,9 +151,9 @@ public final class Ae2Tests {
             check(helper, nodeUsed == 2 && sideUsed == 2,
                     "smart cable: node " + nodeUsed + "/" + node.getMaxChannels() + ", its connection to the connector " + sideUsed);
             // The far connector's look-at line shows the smart cable back at the controller, not its own cable's count.
-            var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());
-            String lines = io.github.leadassimilator.reticulum.lookat.LookAt.describe(helper.getLevel(), far.south(), null, player)
-                    .stream().map(net.minecraft.network.chat.Component::getString).toList().toString();
+            var player = FakePlayerFactory.getMinecraft(helper.getLevel());
+            String lines = LookAt.describe(helper.getLevel(), far.south(), null, player)
+                    .stream().map(Component::getString).toList().toString();
             check(helper, lines.contains("north 2/8"), "far connector says " + lines);
         });
     }
@@ -152,12 +165,12 @@ public final class Ae2Tests {
             return;
         }
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
-        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());
-        ItemStack cable = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(
-                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("ae2", "fluix_covered_dense_cable")));
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, cable);
-        var hit = new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(pos.below()), Direction.UP, pos.below(), false);
-        cable.useOn(new net.minecraft.world.item.context.UseOnContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, hit));
+        var player = FakePlayerFactory.getMinecraft(helper.getLevel());
+        ItemStack cable = new ItemStack(BuiltInRegistries.ITEM.get(
+                ResourceLocation.fromNamespaceAndPath("ae2", "fluix_covered_dense_cable")));
+        player.setItemInHand(InteractionHand.MAIN_HAND, cable);
+        var hit = new BlockHitResult(Vec3.atCenterOf(pos.below()), Direction.UP, pos.below(), false);
+        cable.useOn(new UseOnContext(player, InteractionHand.MAIN_HAND, hit));
         helper.succeedWhen(() -> {
             ItemStack icon = Devices.icon(helper.getLevel(), pos);
             check(helper, icon.is(cable.getItem()), "icon is " + icon + " for " + helper.getLevel().getBlockState(pos));

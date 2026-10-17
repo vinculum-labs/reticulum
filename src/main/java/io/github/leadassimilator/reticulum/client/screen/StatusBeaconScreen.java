@@ -2,6 +2,7 @@ package io.github.leadassimilator.reticulum.client.screen;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 import io.github.leadassimilator.reticulum.block.StatusBeaconBlock;
 import io.github.leadassimilator.reticulum.block.entity.BeaconLook;
@@ -15,6 +16,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.DyeColor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
@@ -137,7 +139,7 @@ public class StatusBeaconScreen extends QuickScreen {
     private void send() {
         inFlight++;
         lastSent = System.currentTimeMillis();
-        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.BeaconSettings(view.pos(), settings));
+        ClientPacketDistributor.sendToServer(new Payloads.BeaconSettings(view.pos(), settings));
     }
 
     /** Settings sent whose answer hasn't come back yet, and when the last went. */
@@ -145,7 +147,7 @@ public class StatusBeaconScreen extends QuickScreen {
     private long lastSent;
 
     /** Changes the edited look, sends it, and redraws. */
-    private void change(java.util.function.Consumer<CompoundTag> edit) {
+    private void change(Consumer<CompoundTag> edit) {
         CompoundTag look = own(selected);
         if (look == null) {
             return;

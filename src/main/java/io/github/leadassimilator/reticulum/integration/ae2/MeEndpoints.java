@@ -10,11 +10,13 @@ import javax.annotation.Nullable;
 import appeng.api.AECapabilities;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
+import appeng.api.networking.IGridConnection;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.util.AECableType;
+import appeng.me.GridConnection;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.engine.MeLinker;
@@ -96,7 +98,7 @@ public final class MeEndpoints implements IInWorldGridNodeHost, MeLinker.Ports {
         // The cable on this side limits the link too, even when it lies further out than us rather than towards the
         // controller. Not what has no channel limit of its own, though: the controller itself reports none (0), and
         // an endpoint right on it is limited only by its own dense capacity.
-        appeng.api.networking.IGridConnection cable = node.getInWorldConnections().get(side);
+        IGridConnection cable = node.getInWorldConnections().get(side);
         IGridNode neighbor = cable == null ? null : cable.getOtherSide(node);
         IGridNode tightest = neighbor != null && neighbor.getMaxChannels() > 0 ? neighbor : null;
         try {
@@ -129,9 +131,9 @@ public final class MeEndpoints implements IInWorldGridNodeHost, MeLinker.Ports {
         IGridNode current = start;
         for (int steps = 0; current != null && steps < 4096; steps++) {
             IGridNode parent = null;
-            for (appeng.api.networking.IGridConnection connection : current.getConnections()) {
+            for (IGridConnection connection : current.getConnections()) {
                 IGridNode other = connection.getOtherSide(current);
-                if (connection instanceof appeng.me.GridConnection gc && gc.getControllerRoute() == other) {
+                if (connection instanceof GridConnection gc && gc.getControllerRoute() == other) {
                     parent = other;
                     break;
                 }

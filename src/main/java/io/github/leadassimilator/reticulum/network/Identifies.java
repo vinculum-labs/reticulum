@@ -9,9 +9,11 @@ import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
+import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -117,7 +119,7 @@ public final class Identifies {
     public static List<Payloads.IdentifyMarker> markersFor(ServerPlayer player) {
         List<Payloads.IdentifyMarker> markers = new ArrayList<>();
         for (Network network : NetworkManager.data(player.level().getServer()).networks()) {
-            if (network.identified().isEmpty() || !Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
+            if (network.identified().isEmpty() || !Security.could(network, player, Role.VIEWER)) {
                 continue;
             }
             for (Identify identify : network.identified()) {
@@ -173,7 +175,7 @@ public final class Identifies {
         if (level != null && level.isLoaded(pos.pos())) {
             return Devices.defaultName(level, pos.pos());
         }
-        return record != null ? Devices.defaultName(net.minecraft.network.chat.Component.literal(record.blockId().getPath()), pos.pos())
+        return record != null ? Devices.defaultName(Component.literal(record.blockId().getPath()), pos.pos())
                 : pos.pos().toShortString();
     }
 

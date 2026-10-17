@@ -76,7 +76,7 @@ public final class NetworkAdmin {
         network.setAccessMode(mode);
     }
 
-    public static void setPassword(Network network, java.util.UUID player, String password) throws Refused {
+    public static void setPassword(Network network, UUID player, String password) throws Refused {
         if (password.isEmpty()) {
             throw new Refused("message.reticulum.password_empty", "The password can't be empty");
         }

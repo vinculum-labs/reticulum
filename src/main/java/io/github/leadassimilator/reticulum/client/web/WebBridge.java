@@ -1,5 +1,6 @@
 package io.github.leadassimilator.reticulum.client.web;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -11,6 +12,7 @@ import javax.annotation.Nullable;
 import com.google.gson.JsonObject;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.telispex.client.Icons;
 import io.github.leadassimilator.telispex.client.Page;
 import io.github.leadassimilator.telispex.client.PageListener;
@@ -45,7 +47,7 @@ public final class WebBridge {
                 .openInBrowser(a -> openInBrowser())
                 .register();
         Icons.register("chemical", id -> {
-            var chemicals = io.github.leadassimilator.reticulum.integration.Mods.CHEMICALS;
+            var chemicals = Mods.CHEMICALS;
             var icon = chemicals == null ? null : chemicals.icon(id);
             return icon == null ? Icons.transparent() : Icons.sprite(id, icon.texture(), icon.tint());
         });
@@ -120,7 +122,7 @@ public final class WebBridge {
         app.browse(url);
         chat(Component.translatable("message.reticulum.editor_opened", Component.literal("[" + url.substring(0, url.indexOf("?")) + "]")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withUnderlined(true)
-                        .withClickEvent(new ClickEvent.OpenUrl(java.net.URI.create(url)))
+                        .withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))
                         .withHoverEvent(new HoverEvent.ShowText(Component.translatable("message.reticulum.editor_link_hover"))))));
     }
 

@@ -7,9 +7,11 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.ReticulumConfig;
+import io.github.leadassimilator.reticulum.block.StatusBeaconBlock;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import io.github.leadassimilator.reticulum.engine.MeLinker;
 import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
@@ -21,6 +23,8 @@ import io.github.leadassimilator.reticulum.network.Identifies;
 import io.github.leadassimilator.reticulum.network.Identify;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.protocol.Screens;
+import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.ChatFormatting;
@@ -29,6 +33,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
 /**
@@ -41,8 +46,8 @@ public final class LookAt {
 
     public static List<Component> describe(ServerLevel level, BlockPos pos, @Nullable Direction face, Player player) {
         List<Component> lines = new ArrayList<>();
-        if (level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon
-                && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+        if (level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon
+                && player instanceof ServerPlayer serverPlayer) {
             describeBeacon(level, beacon, serverPlayer, lines);
             return lines;
         }
@@ -56,21 +61,21 @@ public final class LookAt {
     }
 
     /** Its mode, what it watches (or the signal it gets), and what it shows. */
-    private static void describeBeacon(ServerLevel level, io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon,
-            net.minecraft.server.level.ServerPlayer player, List<Component> lines) {
+    private static void describeBeacon(ServerLevel level, StatusBeaconBlockEntity beacon,
+            ServerPlayer player, List<Component> lines) {
         var watch = beacon.watch(level);
         lines.add(Component.translatable("lookat.reticulum.beacon_mode_" + beacon.mode().getSerializedName()).withStyle(ChatFormatting.GRAY));
-        boolean unreachable = beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.NETWORK
+        boolean unreachable = beacon.mode() == StatusBeaconBlockEntity.Mode.NETWORK
                 && (watch.network() == null || !watch.reachable());
-        lines.add(io.github.leadassimilator.reticulum.protocol.Screens.beaconStatus(player, beacon, watch)
+        lines.add(Screens.beaconStatus(player, beacon, watch)
                 .copy().withStyle(unreachable ? ChatFormatting.RED : ChatFormatting.GRAY));
-        int shown = beacon.getBlockState().getValue(io.github.leadassimilator.reticulum.block.StatusBeaconBlock.SHOWN);
+        int shown = beacon.getBlockState().getValue(StatusBeaconBlock.SHOWN);
         lines.add(shown == 0 ? Component.translatable("lookat.reticulum.beacon_quiet").withStyle(ChatFormatting.GREEN)
-                : shown == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.CRITICAL
+                : shown == StatusBeaconBlock.CRITICAL
                         ? Component.translatable("lookat.reticulum.beacon_critical").withStyle(ChatFormatting.RED)
-                : shown == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.WARNING
+                : shown == StatusBeaconBlock.WARNING
                         ? Component.translatable("lookat.reticulum.beacon_warning").withStyle(ChatFormatting.GOLD)
-                : Component.translatable("lookat.reticulum.beacon_level", shown == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.LEVEL_ZERO ? 0 : shown)
+                : Component.translatable("lookat.reticulum.beacon_level", shown == StatusBeaconBlock.LEVEL_ZERO ? 0 : shown)
                         .withStyle(ChatFormatting.GOLD));
     }
 
@@ -80,7 +85,7 @@ public final class LookAt {
             lines.add(Component.translatable("lookat.reticulum.no_network").withStyle(ChatFormatting.GRAY));
             return;
         }
-        if (!Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
+        if (!Security.could(network, player, Role.VIEWER)) {
             lines.add(Component.translatable("lookat.reticulum.private").withStyle(ChatFormatting.GRAY));
             return;
         }
@@ -150,7 +155,7 @@ public final class LookAt {
     private static void describeDevice(ServerLevel level, BlockPos pos, @Nullable Direction face, Player player, List<Component> lines) {
         GlobalPos global = Devices.global(level, pos);
         List<Network> networks = NetworkManager.networksWith(level.getServer(), global).stream()
-                .filter(network -> Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)).toList();
+                .filter(network -> Security.could(network, player, Role.VIEWER)).toList();
         boolean activeSomewhere = networks.stream().anyMatch(network -> network.device(global).state() == DeviceRecord.State.ACTIVE);
         for (Network network : networks) {
             DeviceRecord record = network.device(global);
