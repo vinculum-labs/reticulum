@@ -38,15 +38,15 @@ what redstone at the controller does.
 
 The editor runs on your own computer, served by the game client, and only accepts this machine by default. Open it
 from the controller's screen, or anywhere with the network tool (sneak + right-click the air). One link logs you in; it stays logged in for 90 days unless you
-turn that off in the client config.
+turn off "Stay logged in to pages" in the web pages config.
 
 The editor opens inside the game window, using the system's own web view: Edge's WebView2 on Windows, Safari's
 WKWebView on macOS, WebKitGTK on Linux (the `libwebkit2gtk-4.1` package, which most desktops already have). **Esc**
 closes whatever is open inside it, then the editor; **Open in browser** in its top bar moves it to your browser. On
 Windows and Linux the game draws it into its own frame, so it shows in fullscreen too. On Windows, where the graphics
 driver can't share Direct3D textures with OpenGL, it falls back to a window over the game, which fullscreen hides
-(press F11 for windowed mode); "In-game editor display" in the client config picks either way by hand. Without a web
-view (WebKitGTK not installed), or with "Open the editor inside the game" turned off in the client config, it opens
+(press F11 for windowed mode); "In-game view display (Windows)" in the web pages config picks either way by hand. Without a web
+view (WebKitGTK not installed), or with "Open pages inside the game" turned off in the web pages config, it opens
 in your browser.
 
 ### Sheets
@@ -216,8 +216,9 @@ None of these are required.
 ## Configuration
 
 The server config (`reticulum-server.toml`, per world) has sections for security, wireless range, power costs,
-throughput and overflow limits, Identify and AE2. The client config (`reticulum-client.toml`) covers the web editor's
-address, port and login, and how identified blocks are drawn. Both can also be edited from the Mods screen.
+throughput and overflow limits, Identify and AE2. The client config (`reticulum-client.toml`) covers how identified blocks
+are drawn. The web pages config (`telispex-client.toml`) covers the editor's address, port and login, and how it
+opens. All three can also be edited from the Mods screen.
 
 ## Building from source
 
