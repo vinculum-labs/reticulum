@@ -49,7 +49,7 @@ repositories {
 }
 
 base {
-    archivesName = mod_id
+    archivesName = "${mod_id}-${minecraft_version}"
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
@@ -129,16 +129,7 @@ sourceSets.main.java {
 }
 
 dependencies {
-    // The client-hosted web UI server. Minecraft ships Netty but not its HTTP module; bundled with jar-in-jar,
-    // pinned to Minecraft's Netty version (netty_version, which changes with the Minecraft version).
-    // Up to the next minor version, which Minecraft would have to move to first.
-    var nettyMinor = netty_version.tokenize('.')
-    jarJar(implementation("io.netty:netty-codec-http")) {
-        version {
-            strictly "[${netty_version}, ${nettyMinor[0]}.${(nettyMinor[1] as int) + 1})"
-            prefer netty_version
-        }
-    }
+    // The client-hosted web UI server uses Netty's HTTP module, which Minecraft ships since 26.1: nothing to bundle.
 
     // Optional integrations: compiled against, loaded only when the mod is present. Each is left out when its version
     // property is blank (see `integrations` above).
