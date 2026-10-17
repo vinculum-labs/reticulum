@@ -22,7 +22,10 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.energy.IEnergyStorage;
+import net.neoforged.neoforge.transfer.TransferPreconditions;
+import net.neoforged.neoforge.transfer.energy.EnergyHandler;
+import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
+import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 
 public class ControllerBlockEntity extends NetworkBlockEntity {
     /** Installed antenna upgrade, 0 (none) to 3. */
@@ -30,47 +33,51 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     /** FE held to run the network (only used when the server's power preset charges for it). */
     private long energy;
 
-    /** Takes FE from anything that pushes into the controller; gives none back. */
-    private final IEnergyStorage energyStorage = new IEnergyStorage() {
-        @Override
-        public int receiveEnergy(int toReceive, boolean simulate) {
-            // Power free (no preset charging for it): it takes nothing, so energy isn't soaked up for no use (and a
-            // broken controller stacks with fresh ones).
-            if (!Power.current().enabled()) {
-                return 0;
+    /** Takes FE from anything that pushes into the controller (in transactions, see EnergyHandler); gives none back. */
+    private final EnergyHandler energyHandler = new EnergyHandler() {
+        private final SnapshotJournal<Long> journal = new SnapshotJournal<>() {
+            @Override
+            protected Long createSnapshot() {
+                return energy;
             }
-            long room = Math.max(0, capacity() - energy);
-            int accepted = (int) Math.min(room, Math.max(0, toReceive));
-            if (!simulate && accepted > 0) {
+
+            @Override
+            protected void revertToSnapshot(Long snapshot) {
+                energy = snapshot;
+            }
+
+            @Override
+            protected void onRootCommit(Long original) {
+                if (energy != original) {
+                    setChanged();
+                }
+            }
+        };
+
+        @Override
+        public long getAmountAsLong() {
+            return energy;
+        }
+
+        @Override
+        public long getCapacityAsLong() {
+            return capacity();
+        }
+
+        @Override
+        public int insert(int amount, TransactionContext transaction) {
+            TransferPreconditions.checkNonNegative(amount);
+            int accepted = room(amount);
+            if (accepted > 0) {
+                journal.updateSnapshots(transaction);
                 energy += accepted;
-                setChanged();
             }
             return accepted;
         }
 
         @Override
-        public int extractEnergy(int toExtract, boolean simulate) {
+        public int extract(int amount, TransactionContext transaction) {
             return 0;
-        }
-
-        @Override
-        public int getEnergyStored() {
-            return (int) Math.min(Integer.MAX_VALUE, energy);
-        }
-
-        @Override
-        public int getMaxEnergyStored() {
-            return (int) Math.min(Integer.MAX_VALUE, capacity());
-        }
-
-        @Override
-        public boolean canExtract() {
-            return false;
-        }
-
-        @Override
-        public boolean canReceive() {
-            return true;
         }
     };
 
@@ -78,8 +85,29 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         super(ModBlockEntities.CONTROLLER.get(), pos, state);
     }
 
-    public IEnergyStorage energyStorage() {
-        return energyStorage;
+    public EnergyHandler energyHandler() {
+        return energyHandler;
+    }
+
+    /** Puts FE in directly (the network's own energy flows into its controller); returns how much it took. */
+    public int charge(int amount) {
+        int accepted = room(amount);
+        if (accepted > 0) {
+            energy += accepted;
+            setChanged();
+        }
+        return accepted;
+    }
+
+    /**
+     * How much of {@code amount} FE fits. With power free (no preset charging for it) it takes nothing, so energy isn't
+     * soaked up for no use (and a broken controller stacks with fresh ones).
+     */
+    private int room(int amount) {
+        if (!Power.current().enabled()) {
+            return 0;
+        }
+        return (int) Math.min(Math.max(0, capacity() - energy), Math.max(0, amount));
     }
 
     public long energy() {
@@ -112,7 +140,7 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
         setChanged();
         // The top face follows the antenna.
         BlockState state = getBlockState();
-        if (level != null && !level.isClientSide && state.hasProperty(ControllerBlock.ANTENNA) && state.getValue(ControllerBlock.ANTENNA) != tier) {
+        if (level != null && !level.isClientSide() && state.hasProperty(ControllerBlock.ANTENNA) && state.getValue(ControllerBlock.ANTENNA) != tier) {
             level.setBlock(worldPosition, state.setValue(ControllerBlock.ANTENNA, Math.max(0, Math.min(3, tier))), Block.UPDATE_ALL);
         }
     }

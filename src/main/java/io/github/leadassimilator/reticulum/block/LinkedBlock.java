@@ -84,10 +84,10 @@ public abstract class LinkedBlock extends NetworkBlock {
         if (!(level.getBlockEntity(pos) instanceof NetworkBlockEntity be) || facade.equals(be.facade())) {
             return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
-        if (!level.isClientSide && !mayChangeFacade(level, pos, player)) {
+        if (!level.isClientSide() && !mayChangeFacade(level, pos, player)) {
             return InteractionResult.CONSUME;
         }
-        if (!level.isClientSide) {
+        if (!level.isClientSide()) {
             BlockState old = be.facade();
             be.setFacade(facade);
             level.playSound(null, pos, facade.getSoundType(level, pos, player).getPlaceSound(), SoundSource.BLOCKS, 1f, 1f);

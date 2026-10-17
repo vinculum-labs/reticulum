@@ -26,6 +26,7 @@ import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.network.ChartSeries;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
+import io.github.leadassimilator.reticulum.network.DeviceHandlers;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.FaceKey;
@@ -311,18 +312,18 @@ final class Snapshots {
             json.addProperty("defaultName", Devices.defaultName(level, at));
             json.addProperty("icon", BuiltInRegistries.ITEM.getKey(Devices.icon(level, at).getItem()).toString());
             JsonObject resources = new JsonObject();
-            resources.add(ResourceKind.ITEM.getSerializedName(), controller ? new JsonArray() : faces(level, at, Capabilities.ItemHandler.BLOCK));
-            resources.add(ResourceKind.FLUID.getSerializedName(), controller ? new JsonArray() : faces(level, at, Capabilities.FluidHandler.BLOCK));
-            resources.add(ResourceKind.ENERGY.getSerializedName(), controller ? new JsonArray() : faces(level, at, Capabilities.EnergyStorage.BLOCK));
+            resources.add(ResourceKind.ITEM.getSerializedName(), controller ? new JsonArray() : faces(level, at, DeviceHandlers.ITEMS));
+            resources.add(ResourceKind.FLUID.getSerializedName(), controller ? new JsonArray() : faces(level, at, DeviceHandlers.FLUIDS));
+            resources.add(ResourceKind.ENERGY.getSerializedName(), controller ? new JsonArray() : faces(level, at, DeviceHandlers.ENERGY));
             if (Mods.chemicalCapability() != null && !controller) {
-                resources.add(ResourceKind.CHEMICAL.getSerializedName(), faces(level, at, Mods.chemicalCapability()));
+                resources.add(ResourceKind.CHEMICAL.getSerializedName(), faces(level, at, DeviceHandlers.direct(Mods.chemicalCapability())));
             }
             json.add("resources", resources);
             // Which way energy goes on each face, so a new device node gets the energy pins its faces can use.
             JsonArray energyIn = new JsonArray();
             JsonArray energyOut = new JsonArray();
             for (FaceKey face : FaceKey.values()) {
-                if (!controller && level.getCapability(Capabilities.EnergyStorage.BLOCK, at, face.direction()) instanceof IEnergyStorage energy) {
+                if (!controller && DeviceHandlers.ENERGY.get(level, at, face.direction()) instanceof IEnergyStorage energy) {
                     if (energy.canReceive()) {
                         energyIn.add(face.getSerializedName());
                     }
@@ -343,10 +344,10 @@ final class Snapshots {
         return json;
     }
 
-    private static JsonArray faces(ServerLevel level, BlockPos pos, BlockCapability<?, Direction> capability) {
+    private static JsonArray faces(ServerLevel level, BlockPos pos, DeviceHandlers<?> handlers) {
         JsonArray faces = new JsonArray();
         for (FaceKey face : FaceKey.values()) {
-            if (usable(level.getCapability(capability, pos, face.direction()))) {
+            if (usable(handlers.get(level, pos, face.direction()))) {
                 faces.add(face.getSerializedName());
             }
         }

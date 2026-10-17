@@ -17,6 +17,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -191,7 +192,7 @@ public class FacadeScreen extends QuickScreen {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
         graphics.fill(guiLeft(), guiTop(), guiLeft() + WIDTH, guiTop() + guiHeight(), 0xE0101010);
-        graphics.renderOutline(guiLeft(), guiTop(), WIDTH, guiHeight(), 0xFF505050);
+        graphics.submitOutline(guiLeft(), guiTop(), WIDTH, guiHeight(), 0xFF505050);
     }
 
     @Override
@@ -206,7 +207,7 @@ public class FacadeScreen extends QuickScreen {
         int px = left + PREVIEW_X;
         int py = top + PREVIEW_Y;
         graphics.fill(px, py, px + PREVIEW_WIDTH, py + PREVIEW_HEIGHT, 0xFF202020);
-        graphics.renderOutline(px, py, PREVIEW_WIDTH, PREVIEW_HEIGHT, 0xFF707070);
+        graphics.submitOutline(px, py, PREVIEW_WIDTH, PREVIEW_HEIGHT, 0xFF707070);
         if (state != null) {
             graphics.renderItem(new ItemStack(state.getBlock()), px + 2, py + 2);
         }
@@ -278,7 +279,10 @@ public class FacadeScreen extends QuickScreen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         int left = guiLeft();
         if (button == 0 && maxScroll() > 0 && mouseX >= left + SCROLLBAR_X && mouseX < left + SCROLLBAR_X + SCROLLBAR_WIDTH
                 && mouseY >= gridTop() && mouseY < gridTop() + TRACK_HEIGHT) {
@@ -296,25 +300,27 @@ public class FacadeScreen extends QuickScreen {
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        double mouseY = event.y();
         if (draggingBar) {
             dragBarTo(mouseY);
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        return super.mouseDragged(event, dragX, dragY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(MouseButtonEvent event) {
+        int button = event.button();
         if (draggingBar && button == 0) {
             draggingBar = false;
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     @Override

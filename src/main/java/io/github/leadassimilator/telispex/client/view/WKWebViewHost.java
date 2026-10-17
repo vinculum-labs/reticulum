@@ -209,7 +209,7 @@ final class WKWebViewHost {
     // ---------------------------------------------------------------- Objective-C plumbing
 
     private static Pointer window() {
-        return new Pointer(GLFWNativeCocoa.glfwGetCocoaWindow(Minecraft.getInstance().getWindow().getWindow()));
+        return new Pointer(GLFWNativeCocoa.glfwGetCocoaWindow(Minecraft.getInstance().getWindow().handle()));
     }
 
     private static double scale() {

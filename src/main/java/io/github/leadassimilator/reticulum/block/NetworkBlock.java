@@ -90,9 +90,9 @@ public abstract class NetworkBlock extends BaseEntityBlock {
             // Replaced without neighbor updates (/setblock): the block that was here goes first.
             Topology.afterRemoval(serverLevel, pos, false);
         }
-        if (!level.isClientSide && !oldState.is(state.getBlock())) {
+        if (!level.isClientSide() && !oldState.is(state.getBlock())) {
             level.scheduleTick(pos, this, 1);
-        } else if (!level.isClientSide && oldState.hasProperty(LinkedBlock.ORIENTATION) && state.hasProperty(LinkedBlock.ORIENTATION)
+        } else if (!level.isClientSide() && oldState.hasProperty(LinkedBlock.ORIENTATION) && state.hasProperty(LinkedBlock.ORIENTATION)
                 && oldState.getValue(LinkedBlock.ORIENTATION) != state.getValue(LinkedBlock.ORIENTATION)
                 && level.getBlockEntity(pos) instanceof NetworkBlockEntity be) {
             // Turned where it stands (a wrench of another mod): its joints are with the same neighbors as before, so

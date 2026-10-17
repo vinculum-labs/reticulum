@@ -22,9 +22,8 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
-import net.neoforged.neoforge.energy.EmptyEnergyStorage;
-import net.neoforged.neoforge.fluids.capability.templates.EmptyFluidHandler;
-import net.neoforged.neoforge.items.wrapper.EmptyItemHandler;
+import net.neoforged.neoforge.transfer.EmptyResourceHandler;
+import net.neoforged.neoforge.transfer.energy.EmptyEnergyHandler;
 
 public class ConnectorBlockEntity extends NetworkBlockEntity {
     private UUID connectorId = UUID.randomUUID();
@@ -64,12 +63,12 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
      * the connector moves things through the device's own handlers.
      */
     public static void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.CONNECTOR.get(),
-                (connector, side) -> connector.facesDevice(side) ? EmptyItemHandler.INSTANCE : null);
-        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, ModBlockEntities.CONNECTOR.get(),
-                (connector, side) -> connector.facesDevice(side) ? EmptyFluidHandler.INSTANCE : null);
-        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.CONNECTOR.get(),
-                (connector, side) -> connector.facesDevice(side) ? EmptyEnergyStorage.INSTANCE : null);
+        event.registerBlockEntity(Capabilities.Item.BLOCK, ModBlockEntities.CONNECTOR.get(),
+                (connector, side) -> connector.facesDevice(side) ? EmptyResourceHandler.instance() : null);
+        event.registerBlockEntity(Capabilities.Fluid.BLOCK, ModBlockEntities.CONNECTOR.get(),
+                (connector, side) -> connector.facesDevice(side) ? EmptyResourceHandler.instance() : null);
+        event.registerBlockEntity(Capabilities.Energy.BLOCK, ModBlockEntities.CONNECTOR.get(),
+                (connector, side) -> connector.facesDevice(side) ? EmptyEnergyHandler.INSTANCE : null);
     }
 
     @Override
@@ -90,7 +89,7 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     @Override
     public void onLoad() {
         super.onLoad();
-        if (Mods.ME != null && level != null && !level.isClientSide) {
+        if (Mods.ME != null && level != null && !level.isClientSide()) {
             Mods.ME.onLoad(this);
         }
     }
@@ -113,7 +112,7 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
 
     /** A neighbor changed or a device side was switched: ME endpoints follow the AE2 blocks around the connector. */
     public void refreshEndpoints() {
-        if (Mods.ME != null && level != null && !level.isClientSide) {
+        if (Mods.ME != null && level != null && !level.isClientSide()) {
             Mods.ME.refresh(this);
         }
     }

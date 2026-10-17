@@ -61,8 +61,8 @@ public class Reticulum {
         }
         modEventBus.addListener(ConnectorBlockEntity::registerCapabilities);
         modEventBus.addListener((RegisterCapabilitiesEvent event) -> event.registerBlockEntity(
-                Capabilities.EnergyStorage.BLOCK, ModBlockEntities.CONTROLLER.get(),
-                (controller, side) -> controller.energyStorage()));
+                Capabilities.Energy.BLOCK, ModBlockEntities.CONTROLLER.get(),
+                (controller, side) -> controller.energyHandler()));
         if (Mods.ME != null) {
             modEventBus.addListener(Mods.ME::registerCapabilities);
         }

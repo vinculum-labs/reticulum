@@ -156,15 +156,16 @@ final class Signals {
             return 0;
         }
         BlockState state = level.getBlockState(pos);
-        if (comparator) {
-            return state.hasAnalogOutputSignal() ? state.getAnalogOutputSignal(level, pos) : 0;
+        if (comparator && !state.hasAnalogOutputSignal()) {
+            return 0;
         }
         Direction only = face.map(FaceKey::direction).orElse(null);
         int best = 0;
         for (Direction side : Direction.values()) {
             if (only == null || only == side) {
-                // Level.getSignal takes the direction from the receiving block towards the one giving the signal.
-                best = Math.max(best, level.getSignal(pos, side.getOpposite()));
+                // A comparator on that side (it reads the side facing it); Level.getSignal takes the direction from the
+                // receiving block towards the one giving the signal.
+                best = Math.max(best, comparator ? state.getAnalogOutputSignal(level, pos, side) : level.getSignal(pos, side.getOpposite()));
             }
         }
         return best;

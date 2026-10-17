@@ -2,11 +2,11 @@ package io.github.leadassimilator.reticulum.security;
 
 import java.util.UUID;
 
-import com.mojang.authlib.GameProfile;
 
 import io.github.leadassimilator.reticulum.network.Limits;
 import io.github.leadassimilator.reticulum.network.Network;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.players.NameAndId;
 
 /**
  * The rules for a network's access and members, the same from the web editor, the controller screen, the network
@@ -51,14 +51,14 @@ public final class NetworkAdmin {
     }
 
     /** Gives a player a role on the network (a new member, or a changed role). Ownership can't be given this way. */
-    public static void setMember(Network network, GameProfile profile, Role role) throws Refused {
+    public static void setMember(Network network, NameAndId player, Role role) throws Refused {
         if (role == Role.OWNER) {
             throw new Refused("command.reticulum.unknown_role", "Ownership can't be given away here");
         }
-        if (profile.getId().equals(network.owner())) {
-            throw new Refused("message.reticulum.member_is_owner", profile.getName() + " owns the network", profile.getName());
+        if (player.id().equals(network.owner())) {
+            throw new Refused("message.reticulum.member_is_owner", player.name() + " owns the network", player.name());
         }
-        addMember(network, new Member(profile.getId(), profile.getName(), role));
+        addMember(network, new Member(player.id(), player.name(), role));
     }
 
     private static void addMember(Network network, Member member) throws Refused {

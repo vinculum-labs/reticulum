@@ -12,6 +12,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.network.DeviceHandlers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -38,7 +39,7 @@ public final class DeviceContents {
         if (level.isLoaded(pos)) {
             switch (resource) {
                 case "item" -> {
-                    for (IItemHandler handler : handlers(level, pos, Capabilities.ItemHandler.BLOCK)) {
+                    for (IItemHandler handler : handlers(level, pos, DeviceHandlers.ITEMS)) {
                         Map<ResourceLocation, Long> one = new LinkedHashMap<>();
                         for (int slot = 0; slot < handler.getSlots(); slot++) {
                             ItemStack stack = handler.getStackInSlot(slot);
@@ -50,7 +51,7 @@ public final class DeviceContents {
                     }
                 }
                 case "fluid" -> {
-                    for (IFluidHandler handler : handlers(level, pos, Capabilities.FluidHandler.BLOCK)) {
+                    for (IFluidHandler handler : handlers(level, pos, DeviceHandlers.FLUIDS)) {
                         Map<ResourceLocation, Long> one = new LinkedHashMap<>();
                         for (int tank = 0; tank < handler.getTanks(); tank++) {
                             FluidStack stack = handler.getFluidInTank(tank);
@@ -88,13 +89,18 @@ public final class DeviceContents {
     }
 
     /** The block's handlers of one kind on every side and no side, each distinct handler once. */
-    public static <T> Set<T> handlers(ServerLevel level, BlockPos pos, BlockCapability<T, Direction> capability) {
+    public static <T> Set<T> handlers(ServerLevel level, BlockPos pos, DeviceHandlers<T> handlers) {
         Set<T> found = Collections.newSetFromMap(new IdentityHashMap<>());
-        add(found, level.getCapability(capability, pos, null));
+        add(found, handlers.get(level, pos, null));
         for (Direction side : Direction.values()) {
-            add(found, level.getCapability(capability, pos, side));
+            add(found, handlers.get(level, pos, side));
         }
         return found;
+    }
+
+    /** {@link #handlers} of a capability whose handlers are used as they are (Mekanism's chemicals). */
+    public static <T> Set<T> handlers(ServerLevel level, BlockPos pos, BlockCapability<T, Direction> capability) {
+        return handlers(level, pos, DeviceHandlers.direct(capability));
     }
 
     private static <T> void add(Set<T> found, @Nullable T handler) {

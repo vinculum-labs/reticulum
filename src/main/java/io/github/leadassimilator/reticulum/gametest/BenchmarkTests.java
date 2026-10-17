@@ -35,14 +35,15 @@ import net.minecraft.world.level.block.entity.BlockEntity;
  */
 public final class BenchmarkTests {
     private static final int SIDE = 32;
-    private static final int WARM_UP = 100;
+    /** Long enough for the JIT to compile the hot paths: a cold run measures warm-up and machine noise. */
+    private static final int WARM_UP = 1000;
     private static final int MEASURED = 200;
     private static final double TARGET_MS = 1.0;
 
     private BenchmarkTests() {
     }
 
-    @GameTest(template = "empty", batch = "benchmark", timeoutTicks = 1200)
+    @GameTest(template = "empty", batch = "benchmark", timeoutTicks = 2000)
     public static void thousandConnectorsTwoThousandFlows(GameTestHelper helper) {
         // A 32 x 32 floor of connectors (joined to each other and to the controller), each with a barrel on top.
         List<BlockPos> barrels = new ArrayList<>();

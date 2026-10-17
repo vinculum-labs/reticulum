@@ -15,6 +15,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
@@ -53,7 +54,7 @@ public class NetworkPickerScreen extends QuickScreen {
             password = new EditBox(font, left, y + 14, WIDTH, 18, Component.translatable("screen.reticulum.password"));
             password.setMaxLength(64);
             // Shown as stars, as on the controller.
-            password.setFormatter((text, start) -> FormattedCharSequence.forward("*".repeat(text.length()), Style.EMPTY));
+            password.addFormatter((text, start) -> FormattedCharSequence.forward("*".repeat(text.length()), Style.EMPTY));
             addRenderableWidget(password);
             setInitialFocus(password);
             addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.join"), b -> choose(needsPassword, password.getValue()))
@@ -119,12 +120,13 @@ public class NetworkPickerScreen extends QuickScreen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent event) {
+        int keyCode = event.key();
         if (needsPassword != null && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
             choose(needsPassword, password.getValue());
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     /** Picking for a connector: closes once that connector is gone or out of reach. */

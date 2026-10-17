@@ -16,7 +16,7 @@ import net.minecraft.client.renderer.item.ItemModels;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.resources.model.ResolvableModel;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ItemOwner;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
@@ -36,13 +36,13 @@ public record FacadeItemModel(ItemModel blank) implements ItemModel {
 
     @Override
     public void update(ItemStackRenderState state, ItemStack stack, ItemModelResolver resolver, ItemDisplayContext context,
-            @Nullable ClientLevel level, @Nullable LivingEntity entity, int seed) {
+            @Nullable ClientLevel level, @Nullable ItemOwner owner, int seed) {
         BlockState facade = FacadeItem.state(stack);
         Item item = facade == null ? Items.AIR : facade.getBlock().asItem();
         if (item == Items.AIR) {
-            blank.update(state, stack, resolver, context, level, entity, seed);
+            blank.update(state, stack, resolver, context, level, owner, seed);
         } else {
-            resolver.appendItemLayers(state, new ItemStack(item), context, level, entity, seed);
+            resolver.appendItemLayers(state, new ItemStack(item), context, level, owner, seed);
         }
     }
 

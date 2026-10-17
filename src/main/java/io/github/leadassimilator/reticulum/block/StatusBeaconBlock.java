@@ -8,6 +8,7 @@ import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import io.github.leadassimilator.reticulum.protocol.Screens;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -70,7 +71,7 @@ public class StatusBeaconBlock extends BaseEntityBlock {
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
         // Always set here, over anything the item carried (a creative copy of another's beacon).
-        if (!level.isClientSide && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon) {
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon) {
             beacon.setPlacer(placer instanceof ServerPlayer player && !(player instanceof FakePlayer) ? player.getUUID() : null);
         }
     }
@@ -85,7 +86,7 @@ public class StatusBeaconBlock extends BaseEntityBlock {
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
         return createTickerHelper(type, ModBlockEntities.STATUS_BEACON.get(),
-                level.isClientSide ? StatusBeaconBlockEntity::clientTick : StatusBeaconBlockEntity::serverTick);
+                level.isClientSide() ? StatusBeaconBlockEntity::clientTick : StatusBeaconBlockEntity::serverTick);
     }
 
     /** In Redstone mode it follows the signal as it changes. */
@@ -136,7 +137,7 @@ public class StatusBeaconBlock extends BaseEntityBlock {
 
     /** A comparator reads what it shows: the redstone level it got, or 7 for a warning and 15 for critical. */
     @Override
-    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos, Direction direction) {
         int shown = state.getValue(SHOWN);
         return shown == WARNING ? 7 : shown == CRITICAL ? 15 : shown == LEVEL_ZERO ? 0 : shown;
     }

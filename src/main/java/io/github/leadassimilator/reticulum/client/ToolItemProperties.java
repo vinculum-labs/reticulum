@@ -7,7 +7,7 @@ import com.mojang.serialization.MapCodec;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.item.properties.numeric.RangeSelectItemModelProperty;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ItemOwner;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.event.RegisterRangeSelectItemModelPropertyEvent;
 
@@ -21,7 +21,7 @@ public final class ToolItemProperties {
         public static final MapCodec<Mode> CODEC = MapCodec.unit(new Mode());
 
         @Override
-        public float get(ItemStack stack, @Nullable ClientLevel level, @Nullable LivingEntity entity, int seed) {
+        public float get(ItemStack stack, @Nullable ClientLevel level, @Nullable ItemOwner owner, int seed) {
             return NetworkToolItem.mode(stack).ordinal() / 3f;
         }
 
@@ -36,7 +36,7 @@ public final class ToolItemProperties {
         public static final MapCodec<Alarm> CODEC = MapCodec.unit(new Alarm());
 
         @Override
-        public float get(ItemStack stack, @Nullable ClientLevel level, @Nullable LivingEntity entity, int seed) {
+        public float get(ItemStack stack, @Nullable ClientLevel level, @Nullable ItemOwner owner, int seed) {
             return AlarmClient.toolProperty(stack);
         }
 

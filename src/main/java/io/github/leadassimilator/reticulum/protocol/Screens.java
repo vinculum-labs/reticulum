@@ -192,7 +192,7 @@ public final class Screens {
         if (network == null || network.owner() != null) {
             return false;
         }
-        network.setOwner(player.getUUID(), player.getGameProfile().getName());
+        network.setOwner(player.getUUID(), player.getGameProfile().name());
         NetworkManager.changed(level.getServer(), network);
         // It stays as open as it was (others may already use it), but they are told when that is to anyone.
         boolean open = network.accessMode() == AccessMode.PUBLIC;

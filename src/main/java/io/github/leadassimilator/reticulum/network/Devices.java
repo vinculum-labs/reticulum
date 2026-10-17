@@ -25,9 +25,9 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 /** Decides which neighboring blocks count as devices, and how they are named by default. */
 public final class Devices {
     private static final BlockCapability<?, Direction>[] CAPABILITIES = new BlockCapability[] {
-            Capabilities.ItemHandler.BLOCK,
-            Capabilities.FluidHandler.BLOCK,
-            Capabilities.EnergyStorage.BLOCK,
+            Capabilities.Item.BLOCK,
+            Capabilities.Fluid.BLOCK,
+            Capabilities.Energy.BLOCK,
     };
 
     private Devices() {

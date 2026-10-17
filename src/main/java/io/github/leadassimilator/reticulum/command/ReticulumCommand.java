@@ -6,7 +6,6 @@ import java.util.Locale;
 
 import javax.annotation.Nullable;
 
-import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
@@ -29,6 +28,7 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.NameAndId;
 
 /**
  * {@code /reticulum}: listing networks, joining password networks, and managing members until the web UI exists.
@@ -103,7 +103,7 @@ public final class ReticulumCommand {
             return 1;
         }
         try {
-            NetworkAdmin.join(network, player.getUUID(), player.getGameProfile().getName(), StringArgumentType.getString(ctx, "password"));
+            NetworkAdmin.join(network, player.getUUID(), player.getGameProfile().name(), StringArgumentType.getString(ctx, "password"));
         } catch (NetworkAdmin.Refused e) {
             throw new SimpleCommandExceptionType(e.message()).create();
         }
@@ -163,8 +163,8 @@ public final class ReticulumCommand {
         }
         int count = 0;
         try {
-            for (GameProfile profile : GameProfileArgument.getGameProfiles(ctx, "player")) {
-                NetworkAdmin.setMember(network, profile, role);
+            for (NameAndId player : GameProfileArgument.getGameProfiles(ctx, "player")) {
+                NetworkAdmin.setMember(network, player, role);
                 count++;
             }
         } catch (NetworkAdmin.Refused e) {
@@ -183,8 +183,8 @@ public final class ReticulumCommand {
     private static int removeMember(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         Network network = adminNetwork(ctx);
         int count = 0;
-        for (GameProfile profile : GameProfileArgument.getGameProfiles(ctx, "player")) {
-            if (network.members().remove(profile.getId()) != null) {
+        for (NameAndId player : GameProfileArgument.getGameProfiles(ctx, "player")) {
+            if (network.members().remove(player.id()) != null) {
                 count++;
             }
         }

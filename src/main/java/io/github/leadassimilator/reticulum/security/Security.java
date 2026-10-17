@@ -52,7 +52,7 @@ public final class Security {
             if (last == null || now - last > BYPASS_LOG_INTERVAL_MS) {
                 BYPASS_LOGGED.put(key, now);
                 Reticulum.LOGGER.info("Operator {} bypassed {} access on network {} ({})",
-                        player.getGameProfile().getName(), needed.getSerializedName(), network.name(), network.id());
+                        player.getGameProfile().name(), needed.getSerializedName(), network.name(), network.id());
             }
             return true;
         }

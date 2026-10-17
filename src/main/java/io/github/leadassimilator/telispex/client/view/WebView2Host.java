@@ -392,7 +392,7 @@ final class WebView2Host {
     static void hide() {
         visible = false;
         stopDrops();
-        GLFW.glfwSetWindowAttrib(Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_AUTO_ICONIFY, GLFW.GLFW_TRUE);
+        GLFW.glfwSetWindowAttrib(Minecraft.getInstance().getWindow().handle(), GLFW.GLFW_AUTO_ICONIFY, GLFW.GLFW_TRUE);
         if (state == State.READY) {
             Com.call(controller, CTL_PUT_IS_VISIBLE, 0);
             User32.INSTANCE.SetFocus(gameWindow());
@@ -576,7 +576,7 @@ final class WebView2Host {
         if (inFrame) {
             // The page's input window takes the keyboard when clicked, and GLFW minimizes a fullscreen window that
             // loses it; while the editor shows, it mustn't (hide puts it back).
-            GLFW.glfwSetWindowAttrib(Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_AUTO_ICONIFY,
+            GLFW.glfwSetWindowAttrib(Minecraft.getInstance().getWindow().handle(), GLFW.GLFW_AUTO_ICONIFY,
                     visible ? GLFW.GLFW_FALSE : GLFW.GLFW_TRUE);
             // Drawn off screen: the page is laid out at the size it is drawn, from the origin.
             CompositionView.size(width(), height());
@@ -653,7 +653,7 @@ final class WebView2Host {
     // ---------------------------------------------------------------- Windows plumbing
 
     private static WinDef.HWND gameWindow() {
-        return new WinDef.HWND(new Pointer(GLFWNativeWin32.glfwGetWin32Window(Minecraft.getInstance().getWindow().getWindow())));
+        return new WinDef.HWND(new Pointer(GLFWNativeWin32.glfwGetWin32Window(Minecraft.getInstance().getWindow().handle())));
     }
 
     /** Without WS_CLIPCHILDREN, the game's OpenGL frames can paint over the web view. */

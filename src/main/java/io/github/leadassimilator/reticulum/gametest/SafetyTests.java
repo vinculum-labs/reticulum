@@ -99,7 +99,7 @@ public final class SafetyTests {
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
         Network network = network(helper, new BlockPos(1, 1, 1));
-        network.setOwner(owner.getUUID(), owner.getGameProfile().getName());
+        network.setOwner(owner.getUUID(), owner.getGameProfile().name());
         return network;
     }
 

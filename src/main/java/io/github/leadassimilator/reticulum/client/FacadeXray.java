@@ -53,7 +53,7 @@ public final class FacadeXray {
                 || NetworkToolItem.held(mc.player).isEmpty()) {
             return;
         }
-        Vec3 camera = event.getCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         PoseStack pose = event.getPoseStack();
         pose.pushPose();
         pose.translate(-camera.x, -camera.y, -camera.z);
@@ -73,12 +73,12 @@ public final class FacadeXray {
             }
             boolean connector = block instanceof ConnectorBlock;
             // The cable's core, and an arm towards each side it joins, as drawn without the facade.
-            ShapeRenderer.renderLineBox(pose, lines, Topology.coreBox(connector).move(pos), 0.55f, 0.85f, 1f, 0.9f);
+            ShapeRenderer.renderLineBox(pose.last(), lines, Topology.coreBox(connector).move(pos), 0.55f, 0.85f, 1f, 0.9f);
             for (Direction side : Direction.values()) {
                 EnumProperty<Link> property = block.linkProperties().get(side);
                 if (property != null && state.getValue(property) != Link.NONE) {
                     AABB arm = Topology.jointBox(side, connector).move(pos);
-                    ShapeRenderer.renderLineBox(pose, lines, arm, 0.55f, 0.85f, 1f, 0.9f);
+                    ShapeRenderer.renderLineBox(pose.last(), lines, arm, 0.55f, 0.85f, 1f, 0.9f);
                 }
             }
         }

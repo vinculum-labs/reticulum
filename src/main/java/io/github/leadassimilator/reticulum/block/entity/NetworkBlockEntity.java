@@ -159,7 +159,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         this.facade = facade == null ? null : orientation().toLaid(facade);
         lightChanged();
         setChanged();
-        if (level != null && !level.isClientSide) {
+        if (level != null && !level.isClientSide()) {
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
             // Light and sound come from the facade, so neighbors may need to look again.
             level.getLightEngine().checkBlock(worldPosition);
@@ -211,7 +211,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
 
     /** On the client: draw the block again with its new look, and keep track of it for the network tool's X-ray. */
     private void clientFacadeChanged() {
-        if (level != null && level.isClientSide) {
+        if (level != null && level.isClientSide()) {
             requestModelDataUpdate();
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL_IMMEDIATE);
             FacadeXray.track(GlobalPos.of(level.dimension(), worldPosition), facade != null);
@@ -222,7 +222,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     public void setRemoved() {
         super.setRemoved();
         FacadeLight.set(level, worldPosition, 0);
-        if (level != null && level.isClientSide) {
+        if (level != null && level.isClientSide()) {
             FacadeXray.track(GlobalPos.of(level.dimension(), worldPosition), false);
         }
     }
@@ -237,7 +237,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         if (facade != null) {
             // Its facade stays as it stood too.
             facade = now.toLaid(was.toWorld(facade));
-            if (level != null && !level.isClientSide) {
+            if (level != null && !level.isClientSide()) {
                 level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
             }
         }

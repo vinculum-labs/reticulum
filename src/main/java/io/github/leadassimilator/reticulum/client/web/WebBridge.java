@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import javax.annotation.Nullable;
 
@@ -49,7 +50,7 @@ public final class WebBridge {
         Icons.register("chemical", id -> {
             var chemicals = Mods.CHEMICALS;
             var icon = chemicals == null ? null : chemicals.icon(id);
-            return icon == null ? Icons.transparent() : Icons.sprite(id, icon.texture(), icon.tint());
+            return icon == null ? CompletableFuture.completedFuture(Icons.transparent()) : Icons.sprite(id, icon.texture(), icon.tint());
         });
     }
 

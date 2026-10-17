@@ -461,7 +461,7 @@ final class WebKitGtkHost {
      * (X's way), so releasing Ctrl reported Ctrl as held, and every mouse event after claimed it was.
      */
     private static void readModifiers() {
-        long window = Minecraft.getInstance().getWindow().getWindow();
+        long window = Minecraft.getInstance().getWindow().handle();
         int mask = down(window, GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_KEY_RIGHT_SHIFT) ? 1 : 0;
         mask |= down(window, GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL) ? 1 << 2 : 0;
         mask |= down(window, GLFW.GLFW_KEY_LEFT_ALT, GLFW.GLFW_KEY_RIGHT_ALT) ? 1 << 3 : 0;

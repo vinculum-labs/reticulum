@@ -53,7 +53,7 @@ public class ConnectorBlock extends LinkedBlock {
         super.onPlace(state, level, pos, oldState, movedByPiston);
         // Its device sides offer empty handlers (ConnectorBlockEntity.registerCapabilities): neighbors that keep what
         // they found (Mekanism's cables) look again when a side starts or stops facing a device.
-        if (!level.isClientSide && LINKS.values().stream().anyMatch(link -> !oldState.hasProperty(link)
+        if (!level.isClientSide() && LINKS.values().stream().anyMatch(link -> !oldState.hasProperty(link)
                 || (oldState.getValue(link) == Link.DEVICE) != (state.getValue(link) == Link.DEVICE))) {
             level.invalidateCapabilities(pos);
         }

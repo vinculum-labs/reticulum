@@ -74,7 +74,7 @@ public final class Linking {
         }
         if (!Security.canUse(network, player)) {
             try {
-                NetworkAdmin.join(network, player.getUUID(), player.getGameProfile().getName(), payload.password());
+                NetworkAdmin.join(network, player.getUUID(), player.getGameProfile().name(), payload.password());
             } catch (NetworkAdmin.Refused e) {
                 player.displayClientMessage(e.message(), true);
                 return;

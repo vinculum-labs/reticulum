@@ -249,7 +249,7 @@ public final class AlarmClient {
         }
         boolean warnings = ReticulumClientConfig.MARKERS_WARNING.getAsBoolean();
         boolean criticals = ReticulumClientConfig.MARKERS_CRITICAL.getAsBoolean();
-        Vec3 camera = event.getCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         PoseStack pose = event.getPoseStack();
         pose.pushPose();
         pose.translate(-camera.x, -camera.y, -camera.z);
@@ -270,7 +270,7 @@ public final class AlarmClient {
             float r = ((color >> 16) & 0xFF) / 255f;
             float g = ((color >> 8) & 0xFF) / 255f;
             float b = (color & 0xFF) / 255f;
-            ShapeRenderer.renderLineBox(pose, buffers.getBuffer(IdentifyRenderer.LINES_THROUGH_WALLS), new AABB(entry.getKey()).inflate(0.03), r, g, b, pulse);
+            ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(IdentifyRenderer.LINES_THROUGH_WALLS), new AABB(entry.getKey()).inflate(0.03), r, g, b, pulse);
         }
         buffers.endBatch(IdentifyRenderer.LINES_THROUGH_WALLS);
         // A warning sign and what is wrong above each block, facing the camera and growing with distance.
@@ -280,7 +280,7 @@ public final class AlarmClient {
             Payloads.StatusMarker marker = here.get((int) (turn % here.size()));
             String count = here.size() > 1 ? " (" + (here.indexOf(marker) + 1) + "/" + here.size() + ")" : "";
             int color = marker.severity() == 1 ? StatusBeaconRenderer.CRITICAL_COLOR : StatusBeaconRenderer.WARNING_COLOR;
-            WorldLabel.draw(pose, event.getCamera(), buffers, font, Vec3.atCenterOf(entry.getKey()).add(0, 0.9, 0), "⚠ " + marker.label().getString() + count, color, true);
+            WorldLabel.draw(pose, Minecraft.getInstance().gameRenderer.getMainCamera(), buffers, font, Vec3.atCenterOf(entry.getKey()).add(0, 0.9, 0), "⚠ " + marker.label().getString() + count, color, true);
         }
         WorldLabel.endThroughWalls(buffers);
         pose.popPose();

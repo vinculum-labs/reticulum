@@ -19,6 +19,7 @@ import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Wire;
 import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.network.DeviceHandlers;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import io.github.leadassimilator.reticulum.topology.Topology;
@@ -172,7 +173,7 @@ public final class MekanismTests {
         // Mekanism's unsided handler is read-only: fill through the faces.
         int left = 10_000;
         for (Direction side : Direction.values()) {
-            var handler = helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, from, side);
+            var handler = DeviceHandlers.FLUIDS.get(helper.getLevel(), from, side);
             if (handler != null && left > 0) {
                 left -= handler.fill(new FluidStack(Fluids.WATER, left),
                         IFluidHandler.FluidAction.EXECUTE);
@@ -231,7 +232,7 @@ public final class MekanismTests {
                 .thenWaitUntil(() -> check(helper, MekanismTestSupport.transmitterConnects(helper.getLevel(), cable, Direction.WEST),
                         "the cable doesn't connect to the connector's device side"))
                 .thenExecute(() -> {
-                    check(helper, helper.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, connector, Direction.WEST) == null,
+                    check(helper, DeviceHandlers.ITEMS.get(helper.getLevel(), connector, Direction.WEST) == null,
                             "the connector offers a handler toward its controller");
                     Topology.toggle(helper.getLevel(), connector, Direction.EAST, null);
                 })

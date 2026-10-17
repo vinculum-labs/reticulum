@@ -91,7 +91,7 @@ public final class EmbeddedView {
 
         /** Whether a mouse button (GLFW numbering) is really down. */
         default boolean buttonDown(int button) {
-            return GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().getWindow(), button) == GLFW.GLFW_PRESS;
+            return GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().handle(), button) == GLFW.GLFW_PRESS;
         }
 
         /** The GLFW cursor shape the page asks for (0 for the default). */

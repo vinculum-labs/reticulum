@@ -26,7 +26,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
-import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Codec;
 
 import io.github.leadassimilator.reticulum.Reticulum;
@@ -64,6 +63,7 @@ import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.NameAndId;
 import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
@@ -185,7 +185,7 @@ public final class WebApi {
                 LIST_LISTENERS.put(player.getUUID(), list.toString());
                 JsonObject out = ok(id);
                 out.add("networks", list);
-                out.addProperty("player", player.getGameProfile().getName());
+                out.addProperty("player", player.getGameProfile().name());
                 yield out;
             }
             case "subscribe" -> {
@@ -546,8 +546,8 @@ public final class WebApi {
                 case "setMember" -> {
                     admin(network, player);
                     Role role = decode(server, Role.CODEC, edit.get("role"), "role");
-                    GameProfile profile = profile(server, string(edit, "player"));
-                    admin(() -> NetworkAdmin.setMember(network, profile, role));
+                    NameAndId member = player(server, string(edit, "player"));
+                    admin(() -> NetworkAdmin.setMember(network, member, role));
                 }
                 case "removeMember" -> {
                     admin(network, player);
@@ -1015,20 +1015,19 @@ public final class WebApi {
         }
 
         /** A player by name or UUID, online or remembered by the server. */
-        private static GameProfile profile(MinecraftServer server, String name) throws RequestException {
+        private static NameAndId player(MinecraftServer server, String name) throws RequestException {
             ServerPlayer online = server.getPlayerList().getPlayerByName(name);
             if (online != null) {
-                return online.getGameProfile();
+                return new NameAndId(online.getGameProfile());
             }
             try {
                 UUID id = UUID.fromString(name);
                 ServerPlayer byId = server.getPlayerList().getPlayer(id);
                 if (byId != null) {
-                    return byId.getGameProfile();
+                    return new NameAndId(byId.getGameProfile());
                 }
                 // Offline (a member's role changed, or a removed member put back): known by id.
-                var cache = server.getProfileCache();
-                var known = cache == null ? Optional.<GameProfile>empty() : cache.get(id);
+                Optional<NameAndId> known = server.services().nameToIdCache().get(id);
                 if (known.isPresent()) {
                     return known.get();
                 }
@@ -1042,7 +1041,7 @@ public final class WebApi {
                 for (JsonElement entry : JsonParser.parseReader(reader).getAsJsonArray()) {
                     JsonObject user = entry.getAsJsonObject();
                     if (user.has("name") && user.has("uuid") && user.get("name").getAsString().equalsIgnoreCase(name)) {
-                        return new GameProfile(UUID.fromString(user.get("uuid").getAsString()), user.get("name").getAsString());
+                        return new NameAndId(UUID.fromString(user.get("uuid").getAsString()), user.get("name").getAsString());
                     }
                 }
             } catch (IOException | RuntimeException unreadable) {

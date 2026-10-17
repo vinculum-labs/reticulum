@@ -88,7 +88,7 @@ public class FacadeItem extends Item {
     /** Opens the screen to pick what the stack in hand looks like. */
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
-        if (level.isClientSide) {
+        if (level.isClientSide()) {
             FacadeScreen.open(hand);
         }
         return InteractionResult.SUCCESS;
@@ -105,7 +105,7 @@ public class FacadeItem extends Item {
         BlockState state = level.getBlockEntity(context.getClickedPos()) instanceof NetworkBlockEntity be && be.facade() != null
                 ? be.facade()
                 : level.getBlockState(context.getClickedPos());
-        if (!level.isClientSide) {
+        if (!level.isClientSide()) {
             player.displayClientMessage(paint(context.getItemInHand(), state)
                     ? Component.translatable("message.reticulum.facade_copied", state.getBlock().getName())
                     : Component.translatable("message.reticulum.not_facade_block", state.getBlock().getName()), true);

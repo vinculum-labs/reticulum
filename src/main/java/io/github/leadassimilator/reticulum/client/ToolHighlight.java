@@ -14,7 +14,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.client.event.RenderHighlightEvent;
+import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
 
 /**
  * While the network tool or a block is held, the outline of a cable or connector narrows to the side the next click
@@ -24,9 +24,10 @@ public final class ToolHighlight {
     private ToolHighlight() {
     }
 
-    public static void onRenderHighlight(RenderHighlightEvent.Block event) {
+    /** Worked out as the outline is extracted; drawn instead of the vanilla outline (see CustomBlockOutlineRenderer). */
+    public static void onExtractOutline(ExtractBlockOutlineRenderStateEvent event) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null) {
+        if (mc.player == null) {
             return;
         }
         // The tool in either hand; a block to place only in the main hand (that's the hand that places it).
@@ -38,17 +39,18 @@ public final class ToolHighlight {
         if (!tool.isEmpty() && NetworkToolItem.mode(tool) != ToolMode.CONFIGURE) {
             return;
         }
-        BlockPos pos = event.getTarget().getBlockPos();
-        BlockState state = mc.level.getBlockState(pos);
+        BlockPos pos = event.getBlockPos();
+        BlockState state = event.getBlockState();
         if (!(state.getBlock() instanceof LinkedBlock)) {
             return;
         }
-        float partialTick = event.getDeltaTracker().getGameTimeDeltaPartialTick(true);
-        Direction side = NetworkToolItem.targetSide(mc.player, state, pos, event.getTarget().getDirection(), partialTick);
-        AABB arm = Topology.jointBox(side, state.getBlock() instanceof ConnectorBlock).move(pos);
+        float partialTick = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+        Direction side = NetworkToolItem.targetSide(mc.player, state, pos, event.getHitResult().getDirection(), partialTick);
         Vec3 camera = event.getCamera().getPosition();
-        ShapeRenderer.renderLineBox(event.getPoseStack(), event.getMultiBufferSource().getBuffer(RenderType.lines()),
-                arm.move(-camera.x, -camera.y, -camera.z), 0.3f, 0.8f, 1.0f, 0.9f);
-        event.setCanceled(true);
+        AABB arm = Topology.jointBox(side, state.getBlock() instanceof ConnectorBlock).move(pos).move(-camera.x, -camera.y, -camera.z);
+        event.addCustomRenderer((outline, buffers, pose, translucentPass, level) -> {
+            ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(RenderType.lines()), arm, 0.3f, 0.8f, 1.0f, 0.9f);
+            return true;
+        });
     }
 }

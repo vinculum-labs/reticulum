@@ -134,8 +134,6 @@ dependencies {
             prefer netty_version
         }
     }
-    // Dev runs load non-mod libraries only from this configuration (the built jar gets it via jar-in-jar).
-    additionalRuntimeClasspath "io.netty:netty-codec-http:${netty_version}"
 
     // Optional integrations: compiled against, loaded only when the mod is present. Each is left out when its version
     // property is blank (see `integrations` above).

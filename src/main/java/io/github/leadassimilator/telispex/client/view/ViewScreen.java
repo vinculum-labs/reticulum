@@ -9,6 +9,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -131,7 +134,10 @@ public class ViewScreen extends Screen {
      * game draws goes to the page, which takes the keyboard.
      */
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         if (EmbeddedView.drawnByGame() && mouseY >= BAR) {
             buttons |= 1 << button;
             EmbeddedView.button(button, true, viewX(mouseX), viewY(mouseY));
@@ -139,7 +145,7 @@ public class ViewScreen extends Screen {
             return true;
         }
         EmbeddedView.focusGame();
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     // ---------------------------------------------------------------- the mouse, for a view the game draws
@@ -155,7 +161,10 @@ public class ViewScreen extends Screen {
     private int lastY = Integer.MIN_VALUE;
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(MouseButtonEvent event) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         if ((buttons & 1 << button) != 0) {
             if (EmbeddedView.buttonDown(button)) {
                 // Not a real release: GLFW reports every button up when the game window loses the keyboard, which the
@@ -166,7 +175,7 @@ public class ViewScreen extends Screen {
             EmbeddedView.button(button, false, viewX(mouseX), viewY(mouseY));
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     /**
@@ -180,7 +189,7 @@ public class ViewScreen extends Screen {
         var window = Minecraft.getInstance().getWindow();
         double[] x = new double[1];
         double[] y = new double[1];
-        GLFW.glfwGetCursorPos(window.getWindow(), x, y);
+        GLFW.glfwGetCursorPos(window.handle(), x, y);
         int viewX = (int) x[0];
         int viewY = (int) y[0] - (int) Math.ceil(BAR * window.getGuiScale());
         // A release the game never heard (the page captured the mouse while dragging) still ends the drag.
@@ -237,7 +246,7 @@ public class ViewScreen extends Screen {
         if (shape != 0) {
             cursor = GLFW.glfwCreateStandardCursor(shape);
         }
-        GLFW.glfwSetCursor(Minecraft.getInstance().getWindow().getWindow(), cursor);
+        GLFW.glfwSetCursor(Minecraft.getInstance().getWindow().handle(), cursor);
     }
 
     // ---------------------------------------------------------------- the keyboard, where the game hears it for the view
@@ -247,27 +256,33 @@ public class ViewScreen extends Screen {
      * F11 included: the page closes its own dialogs with Esc and asks the game to close the view when none is open.
      */
     @Override
-    public boolean keyPressed(int key, int scancode, int modifiers) {
+    public boolean keyPressed(KeyEvent event) {
+        int key = event.key();
+        int scancode = event.scancode();
+        int modifiers = event.modifiers();
         if (EmbeddedView.keysToView()) {
             EmbeddedView.key(key, scancode, modifiers, true);
             return true;
         }
-        return super.keyPressed(key, scancode, modifiers);
+        return super.keyPressed(event);
     }
 
     @Override
-    public boolean keyReleased(int key, int scancode, int modifiers) {
+    public boolean keyReleased(KeyEvent event) {
+        int key = event.key();
+        int scancode = event.scancode();
+        int modifiers = event.modifiers();
         if (EmbeddedView.keysToView()) {
             EmbeddedView.key(key, scancode, modifiers, false);
             return true;
         }
-        return super.keyReleased(key, scancode, modifiers);
+        return super.keyReleased(event);
     }
 
     /** Typed text reaches the page through its key events (WebKit's input method turns them into text). */
     @Override
-    public boolean charTyped(char codePoint, int modifiers) {
-        return EmbeddedView.keysToView() || super.charTyped(codePoint, modifiers);
+    public boolean charTyped(CharacterEvent event) {
+        return EmbeddedView.keysToView() || super.charTyped(event);
     }
 
     @Override

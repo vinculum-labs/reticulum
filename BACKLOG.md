@@ -42,3 +42,10 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
 - From the 1.21.4 port on (main): shift-clicking a block in JEI onto the facade screen doesn't choose it, as JEI 20.0
   has no quick-move hook for ghost ingredients; dragging works. Put ReticulumJeiPlugin's quickMove back once a JEI for
   the version has it (the 1.21.1 branch still has it).
+- From 1.21.10 on (main), the network tick is about twice as slow (0.9 ms vs 0.5 ms for the 1,000-connector
+  benchmark, warm): connector rescans and the controller's redstone read land on vanilla's slow chunk path (chunk tickets,
+  waiting on chunk tasks) though they check isLoaded first. Find why, and touch chunks less often in those scans (both
+  branches gain).
+- The engine moves through NeoForge's old item, fluid and energy handler interfaces; from 1.21.9 on (main) they are
+  adapters over the transfer API, deprecated for removal. Before they go: a transfer seam of our own (read, insert,
+  extract), implemented over the old handlers on 1.21.1 and natively (a transaction per move) on main.

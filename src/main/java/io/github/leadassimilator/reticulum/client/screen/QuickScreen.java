@@ -16,6 +16,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
@@ -154,11 +156,14 @@ public abstract class QuickScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (overlayClicked(mouseX, mouseY, button)) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
+        if (overlayClicked(event, doubleClick)) {
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     /** What the boxes show now was sent: it no longer counts as typed, so the server's answer replaces it. */
@@ -167,8 +172,8 @@ public abstract class QuickScreen extends Screen {
     }
 
     /** Hands a click to the overlay; a screen handling clicks itself calls this first, so the overlay stays on top. */
-    protected boolean overlayClicked(double mouseX, double mouseY, int button) {
-        return overlay != null && overlay.mouseClicked(mouseX, mouseY, button);
+    protected boolean overlayClicked(MouseButtonEvent event, boolean doubleClick) {
+        return overlay != null && overlay.mouseClicked(event, doubleClick);
     }
 
     @Override
@@ -180,14 +185,15 @@ public abstract class QuickScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent event) {
+        int keyCode = event.key();
         boolean enter = keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER;
         if (enter && getFocused() instanceof EditBox) {
             commit();
             setFocused(null);
             return true;
         }
-        if (ScreenKeys.isInventoryKey(this, keyCode, scanCode)) {
+        if (ScreenKeys.isInventoryKey(this, event)) {
             closeAll();
             return true;
         }
@@ -198,7 +204,7 @@ public abstract class QuickScreen extends Screen {
             overlayDismissed();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     /** Leaves every Reticulum screen at once (the inventory key), saving first. */

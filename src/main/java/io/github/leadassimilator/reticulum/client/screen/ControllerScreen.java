@@ -95,7 +95,7 @@ public class ControllerScreen extends QuickScreen {
         password = new EditBox(font, left + 90, top + 70, WIDTH - 90, 18, Component.translatable("screen.reticulum.password"));
         password.setMaxLength(64);
         password.setHint(Component.translatable(view.hasPassword() ? "screen.reticulum.password_keep" : "screen.reticulum.password_set"));
-        password.setFormatter((text, start) -> FormattedCharSequence.forward("*".repeat(text.length()), Style.EMPTY));
+        password.addFormatter((text, start) -> FormattedCharSequence.forward("*".repeat(text.length()), Style.EMPTY));
         password.visible = mode == AccessMode.PASSWORD;
         password.setEditable(view.canAdmin());
         addRenderableWidget(kept("password", password));

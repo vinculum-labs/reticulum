@@ -49,6 +49,7 @@ import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.item.FacadeItem;
 import io.github.leadassimilator.reticulum.item.ToolMode;
 import io.github.leadassimilator.reticulum.network.ChartSeries;
+import io.github.leadassimilator.reticulum.network.DeviceHandlers;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.FaceKey;
@@ -1178,7 +1179,7 @@ public final class EngineTests {
                 .thenExecuteAfter(20, () -> {
                     check(helper, rig.count(1, Items.COBBLESTONE) == 0, "items moved without power");
                     check(helper, !rig.runtime().powered(), "network says it has power with an empty controller");
-                    controller.energyStorage().receiveEnergy(100_000, false);
+                    controller.charge(100_000);
                     charged[0] = controller.energy();
                 })
                 .thenWaitUntil(() -> check(helper, rig.count(1, Items.COBBLESTONE) == 64, "items didn't move once the controller had FE"))
@@ -1521,12 +1522,12 @@ public final class EngineTests {
     /** FE stored in a block, read once (through its unsided handler, or the first face that answers). */
     static long energyStored(GameTestHelper helper, BlockPos rel) {
         BlockPos pos = helper.absolutePos(rel);
-        var storage = helper.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK, pos, null);
+        var storage = DeviceHandlers.ENERGY.get(helper.getLevel(), pos, null);
         for (Direction side : Direction.values()) {
             if (storage != null) {
                 break;
             }
-            storage = helper.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK, pos, side);
+            storage = DeviceHandlers.ENERGY.get(helper.getLevel(), pos, side);
         }
         return storage == null ? -1 : storage.getEnergyStored();
     }
@@ -1538,7 +1539,7 @@ public final class EngineTests {
         for (int round = 0; round < 10_000 && left > 0; round++) {
             boolean any = false;
             for (Direction side : Direction.values()) {
-                var storage = helper.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK, pos, side);
+                var storage = DeviceHandlers.ENERGY.get(helper.getLevel(), pos, side);
                 if (storage != null && left > 0) {
                     int got = storage.receiveEnergy((int) Math.min(left, Integer.MAX_VALUE), false);
                     left -= got;
@@ -1554,12 +1555,12 @@ public final class EngineTests {
     /** mB of fluid a block holds, counted once (its unsided handler, or the first face that answers). */
     static long fluidStored(GameTestHelper helper, BlockPos rel) {
         BlockPos pos = helper.absolutePos(rel);
-        var handler = helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, null);
+        var handler = DeviceHandlers.FLUIDS.get(helper.getLevel(), pos, null);
         for (Direction side : Direction.values()) {
             if (handler != null) {
                 break;
             }
-            handler = helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, side);
+            handler = DeviceHandlers.FLUIDS.get(helper.getLevel(), pos, side);
         }
         long total = 0;
         for (int tank = 0; handler != null && tank < handler.getTanks(); tank++) {

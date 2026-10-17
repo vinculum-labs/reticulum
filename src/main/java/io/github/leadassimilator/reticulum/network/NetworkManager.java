@@ -61,12 +61,12 @@ public final class NetworkManager {
     public static Network create(MinecraftServer server, @Nullable Player owner) {
         ReticulumSavedData data = data(server);
         String name = owner != null
-                ? owner.getGameProfile().getName() + "'s network " + (count(data, owner.getUUID()) + 1)
+                ? owner.getGameProfile().name() + "'s network " + (count(data, owner.getUUID()) + 1)
                 : "Network " + (data.networks().size() + 1);
         // A network placed by a player starts private; one placed by automation has no owner and starts public.
         Network network = new Network(UUID.randomUUID(), name,
                 owner == null ? null : owner.getUUID(),
-                owner == null ? "" : owner.getGameProfile().getName(),
+                owner == null ? "" : owner.getGameProfile().name(),
                 owner == null ? AccessMode.PUBLIC : AccessMode.PRIVATE);
         data.add(network);
         return network;

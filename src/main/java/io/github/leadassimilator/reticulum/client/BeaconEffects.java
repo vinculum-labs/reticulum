@@ -41,7 +41,7 @@ public final class BeaconEffects {
                 || StatusBeaconBlockEntity.CLIENT_LOADED.isEmpty()) {
             return;
         }
-        Vec3 camera = event.getCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         PoseStack pose = event.getPoseStack();
         pose.pushPose();
         pose.translate(-camera.x, -camera.y, -camera.z);
@@ -74,7 +74,7 @@ public final class BeaconEffects {
             double inner = 0.15 + 0.2 * (1 - pulse);
             fillBox(pose.last().pose(), buffers.getBuffer(quads), new AABB(pos).inflate(outer), r, g, b, 0.10f + 0.10f * (1 - pulse));
             fillBox(pose.last().pose(), buffers.getBuffer(quads), new AABB(pos).inflate(inner), r, g, b, 0.18f);
-            ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(outer), r, g, b, 0.6f * (1 - pulse) + 0.2f);
+            ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(lines), new AABB(pos).inflate(outer), r, g, b, 0.6f * (1 - pulse) + 0.2f);
             any = true;
         }
         if (any) {
@@ -98,7 +98,7 @@ public final class BeaconEffects {
                 || StatusBeaconBlockEntity.CLIENT_LOADED.isEmpty()) {
             return;
         }
-        Vec3 camera = event.getCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         double distance = mc.options.getEffectiveRenderDistance() * 16.0;
         PoseStack pose = event.getPoseStack();
         pose.pushPose();
@@ -145,7 +145,7 @@ public final class BeaconEffects {
                 if (toward.lengthSqr() > 1) {
                     at = at.add(toward.normalize().scale(BEAM_CLEARANCE));
                 }
-                WorldLabel.draw(pose, event.getCamera(), buffers, mc.font, at, text, color, through);
+                WorldLabel.draw(pose, Minecraft.getInstance().gameRenderer.getMainCamera(), buffers, mc.font, at, text, color, through);
                 any = true;
             }
             if (any) {

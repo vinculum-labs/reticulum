@@ -313,7 +313,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     @Override
     public void onLoad() {
         super.onLoad();
-        if (level != null && level.isClientSide) {
+        if (level != null && level.isClientSide()) {
             CLIENT_LOADED.add(this);
         }
     }
@@ -349,7 +349,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
         tag.read("placer", UUIDUtil.CODEC).ifPresent(id -> placer = id);
         tag.read("alarm_texts", Codec.STRING.listOf()).ifPresent(texts -> alarmTexts = List.copyOf(texts));
         // New looks on the client: the lens is tinted by the look, so its chunk is drawn again.
-        if (level != null && level.isClientSide) {
+        if (level != null && level.isClientSide()) {
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_IMMEDIATE);
         }
     }

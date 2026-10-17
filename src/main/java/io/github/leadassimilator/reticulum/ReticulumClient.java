@@ -59,7 +59,7 @@ public class ReticulumClient {
                 StatusBeaconBlockEntity.CLIENT_LOADED.clear());
         // Leaving a world forgets what was lit there.
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> IdentifyRenderer.accept(List.of()));
-        NeoForge.EVENT_BUS.addListener(ToolHighlight::onRenderHighlight);
+        NeoForge.EVENT_BUS.addListener(ToolHighlight::onExtractOutline);
         // A message too long for the line above the hotbar goes to chat, where it wraps.
         NeoForge.EVENT_BUS.addListener(LongMessages::onSystemMessage);
         NeoForge.EVENT_BUS.addListener(ScreenHighlight::onRenderLevel);

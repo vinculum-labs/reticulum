@@ -104,7 +104,7 @@ public class NetworkToolItem extends Item {
     public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
         // Status mode changes nothing in the world: a right-click anywhere is its settings.
         if (mode(stack) == ToolMode.STATUS) {
-            if (context.getLevel().isClientSide && context.getPlayer() != null && !context.getPlayer().isShiftKeyDown()) {
+            if (context.getLevel().isClientSide() && context.getPlayer() != null && !context.getPlayer().isShiftKeyDown()) {
                 AlarmClient.openSettings();
             }
             return InteractionResult.SUCCESS;
@@ -345,13 +345,13 @@ public class NetworkToolItem extends Item {
         // Sneak + right-click the air, in any mode: the editor, on the network the tool is linked to (or the last one
         // edited), so there's no need to go back to a controller.
         if (player.isShiftKeyDown()) {
-            if (level.isClientSide) {
+            if (level.isClientSide()) {
                 WebBridge.openEditor(stack.get(ModDataComponents.NETWORK_ID.get()));
             }
             return InteractionResult.SUCCESS;
         }
         if (mode(stack) == ToolMode.STATUS) {
-            if (level.isClientSide) {
+            if (level.isClientSide()) {
                 AlarmClient.openSettings();
             }
             return InteractionResult.SUCCESS;

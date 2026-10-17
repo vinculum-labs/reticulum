@@ -30,6 +30,7 @@ import io.github.leadassimilator.reticulum.graph.Wire;
 import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.network.ChartSeries;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
+import io.github.leadassimilator.reticulum.network.DeviceHandlers;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Network;
@@ -54,7 +55,7 @@ import net.neoforged.neoforge.items.IItemHandler;
 public final class NetworkRuntime {
     private final UUID networkId;
     private final Map<UUID, CompiledSheet> compiled = new HashMap<>();
-    private final Map<CacheKey, BlockCapabilityCache<?, Direction>> caches = new HashMap<>();
+    private final Map<CacheKey, CachedHandler> caches = new HashMap<>();
     private final Map<UUID, Double> tokens = new HashMap<>();
     private final Map<UUID, Integer> roundRobin = new HashMap<>();
     private final Map<UUID, Integer> backoff = new HashMap<>();
@@ -122,6 +123,19 @@ public final class NetworkRuntime {
     private Map<UUID, Reach> reach = Map.of();
     /** Devices that only out-of-range connectors reach. */
     private Set<GlobalPos> unreachable = Set.of();
+
+    /** A face's capability, and the last handler it gave as the movers see it (wrapped once, see DeviceHandlers). */
+    private static final class CachedHandler {
+        final BlockCapabilityCache<?, Direction> cache;
+        @Nullable
+        Object handler;
+        @Nullable
+        Object wrapped;
+
+        CachedHandler(BlockCapabilityCache<?, Direction> cache) {
+            this.cache = cache;
+        }
+    }
 
     private record CacheKey(GlobalPos device, FaceKey face, ResourceKind resource) {
     }
@@ -378,14 +392,14 @@ public final class NetworkRuntime {
             if (!level.isLoaded(next) || level.getBlockEntity(next) instanceof NetworkBlockEntity) {
                 continue;
             }
-            IEnergyStorage source = level.getCapability(Capabilities.EnergyStorage.BLOCK, next, side.getOpposite());
+            IEnergyStorage source = DeviceHandlers.ENERGY.get(level, next, side.getOpposite());
             if (source == null || !source.canExtract()) {
                 continue;
             }
             int offered = source.extractEnergy((int) Math.min(room, Integer.MAX_VALUE), true);
             if (offered > 0) {
                 int taken = source.extractEnergy(offered, false);
-                controller.energyStorage().receiveEnergy(taken, false);
+                controller.charge(taken);
             }
         }
     }
@@ -534,7 +548,7 @@ public final class NetworkRuntime {
         if (controller == null || amount <= 0) {
             return 0;
         }
-        return controller.energyStorage().receiveEnergy((int) Math.min(amount, Integer.MAX_VALUE), false);
+        return controller.charge((int) Math.min(amount, Integer.MAX_VALUE));
     }
 
     /** The alarm nodes going off, as of the last tick. */
@@ -933,12 +947,12 @@ public final class NetworkRuntime {
 
     /** The handlers of a port, or none when its device is offline (unloaded, orphaned or missing). */
     public List<IItemHandler> items(MinecraftServer server, Network network, NodeSettings.Port port) {
-        return handlers(server, network, port, Capabilities.ItemHandler.BLOCK, ResourceKind.ITEM);
+        return handlers(server, network, port, DeviceHandlers.ITEMS, ResourceKind.ITEM);
     }
 
     /** An item port: handlers to move items through, and the view to count them with. */
     ItemPort itemPort(MinecraftServer server, Network network, NodeSettings.Port port) {
-        List<IItemHandler> view = view(server, network, port, Capabilities.ItemHandler.BLOCK, ResourceKind.ITEM);
+        List<IItemHandler> view = view(server, network, port, DeviceHandlers.ITEMS, ResourceKind.ITEM);
         // A slot range with faces left to work out: the block's own slots, numbered as the block numbers them (each
         // face's handler numbers only its own), so moving and counting (keep rules, caps) mean the same slots.
         boolean blockSlots = port.slots().isPresent() && port.faces().isEmpty() && !view.isEmpty();
@@ -961,20 +975,20 @@ public final class NetworkRuntime {
     }
 
     public List<IFluidHandler> fluids(MinecraftServer server, Network network, NodeSettings.Port port) {
-        return handlers(server, network, port, Capabilities.FluidHandler.BLOCK, ResourceKind.FLUID);
+        return handlers(server, network, port, DeviceHandlers.FLUIDS, ResourceKind.FLUID);
     }
 
     public List<IEnergyStorage> energy(MinecraftServer server, Network network, NodeSettings.Port port) {
-        return handlers(server, network, port, Capabilities.EnergyStorage.BLOCK, ResourceKind.ENERGY);
+        return handlers(server, network, port, DeviceHandlers.ENERGY, ResourceKind.ENERGY);
     }
 
     /** Fluid handlers for counting: the unsided one when no faces are chosen, so tanks are counted once. */
     List<IFluidHandler> fluidView(MinecraftServer server, Network network, NodeSettings.Port port) {
-        return view(server, network, port, Capabilities.FluidHandler.BLOCK, ResourceKind.FLUID);
+        return view(server, network, port, DeviceHandlers.FLUIDS, ResourceKind.FLUID);
     }
 
     List<IEnergyStorage> energyView(MinecraftServer server, Network network, NodeSettings.Port port) {
-        return view(server, network, port, Capabilities.EnergyStorage.BLOCK, ResourceKind.ENERGY);
+        return view(server, network, port, DeviceHandlers.ENERGY, ResourceKind.ENERGY);
     }
 
     /**
@@ -982,21 +996,31 @@ public final class NetworkRuntime {
      * block's own side configuration decides what can go in and out (a Mekanism machine's unsided handler, for
      * example, is read-only). The unsided handler is used only when no face answers. Equal handlers are listed once.
      */
+    <T> List<T> handlers(MinecraftServer server, Network network, NodeSettings.Port port, DeviceHandlers<T> handlers, ResourceKind resource) {
+        return resolve(server, network, port, handlers, resource, false);
+    }
+
+    /** {@link #handlers} for a capability whose handlers are used as they are (Mekanism's chemicals). */
     <T> List<T> handlers(MinecraftServer server, Network network, NodeSettings.Port port, BlockCapability<T, Direction> capability,
             ResourceKind resource) {
-        return resolve(server, network, port, capability, resource, false);
+        return handlers(server, network, port, DeviceHandlers.direct(capability), resource);
     }
 
     /**
      * Resolves a port for counting (keep rules and caps). With no faces chosen, the unsided handler is preferred:
      * it sees the whole inventory exactly once, where several faces may share slots.
      */
-    <T> List<T> view(MinecraftServer server, Network network, NodeSettings.Port port, BlockCapability<T, Direction> capability,
-            ResourceKind resource) {
-        return resolve(server, network, port, capability, resource, true);
+    <T> List<T> view(MinecraftServer server, Network network, NodeSettings.Port port, DeviceHandlers<T> handlers, ResourceKind resource) {
+        return resolve(server, network, port, handlers, resource, true);
     }
 
-    private <T> List<T> resolve(MinecraftServer server, Network network, NodeSettings.Port port, BlockCapability<T, Direction> capability,
+    /** {@link #view} for a capability whose handlers are used as they are (Mekanism's chemicals). */
+    <T> List<T> view(MinecraftServer server, Network network, NodeSettings.Port port, BlockCapability<T, Direction> capability,
+            ResourceKind resource) {
+        return view(server, network, port, DeviceHandlers.direct(capability), resource);
+    }
+
+    private <T> List<T> resolve(MinecraftServer server, Network network, NodeSettings.Port port, DeviceHandlers<T> handlers,
             ResourceKind resource, boolean preferUnsided) {
         GlobalPos device = port.device();
         DeviceRecord record = network.device(device);
@@ -1006,13 +1030,13 @@ public final class NetworkRuntime {
             return List.of();
         }
         boolean auto = port.faces().isEmpty();
-        T unsided = auto ? capability(level, device, FaceKey.UNSIDED, capability, resource) : null;
+        T unsided = auto ? capability(level, device, FaceKey.UNSIDED, handlers, resource) : null;
         if (auto && preferUnsided && unsided != null) {
             return List.of(unsided);
         }
         Set<T> found = new LinkedHashSet<>();
         for (FaceKey face : auto ? SIDES : port.faces()) {
-            T handler = capability(level, device, face, capability, resource);
+            T handler = capability(level, device, face, handlers, resource);
             if (handler != null) {
                 found.add(handler);
             }
@@ -1024,10 +1048,16 @@ public final class NetworkRuntime {
     }
 
     @Nullable
-    @SuppressWarnings("unchecked")
-    private <T> T capability(ServerLevel level, GlobalPos device, FaceKey face, BlockCapability<T, Direction> capability, ResourceKind resource) {
-        BlockCapabilityCache<?, Direction> cache = caches.computeIfAbsent(new CacheKey(device, face, resource),
-                key -> BlockCapabilityCache.create(capability, level, device.pos(), face.direction()));
-        return (T) cache.getCapability();
+    private <T> T capability(ServerLevel level, GlobalPos device, FaceKey face, DeviceHandlers<T> handlers, ResourceKind resource) {
+        CachedHandler cached = caches.computeIfAbsent(new CacheKey(device, face, resource),
+                key -> new CachedHandler(BlockCapabilityCache.create(handlers.capability(), level, device.pos(), face.direction())));
+        Object handler = cached.cache.getCapability();
+        if (handler != cached.handler) {
+            cached.handler = handler;
+            cached.wrapped = handlers.wrap(handler);
+        }
+        @SuppressWarnings("unchecked")
+        T wrapped = (T) cached.wrapped;
+        return wrapped;
     }
 }

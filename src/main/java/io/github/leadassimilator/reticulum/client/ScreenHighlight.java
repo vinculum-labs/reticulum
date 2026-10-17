@@ -45,18 +45,18 @@ public final class ScreenHighlight {
             return;
         }
         PoseStack pose = event.getPoseStack();
-        Vec3 camera = event.getCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         pose.pushPose();
         pose.translate(-camera.x, -camera.y, -camera.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         // A gentle pulse so it stands out against blocks of any color.
         float pulse = 0.65f + 0.35f * (float) Math.sin(System.currentTimeMillis() / 180.0);
         if (face == null) {
-            ShapeRenderer.renderLineBox(pose, buffers.getBuffer(RenderType.lines()), new AABB(block).inflate(0.004), 1f, 0.8f, 0.15f, pulse);
+            ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(RenderType.lines()), new AABB(block).inflate(0.004), 1f, 0.8f, 0.15f, pulse);
         } else {
             WorldOverlay.fillFace(pose.last().pose(), buffers.getBuffer(RenderType.debugQuads()), block, face, MARGIN, 1f, 0.8f, 0.15f, 0.35f * pulse);
             buffers.endBatch(RenderType.debugQuads());
-            ShapeRenderer.renderLineBox(pose, buffers.getBuffer(RenderType.lines()), WorldOverlay.faceBox(block, face, MARGIN), 1f, 0.8f, 0.15f, pulse);
+            ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(RenderType.lines()), WorldOverlay.faceBox(block, face, MARGIN), 1f, 0.8f, 0.15f, pulse);
         }
         buffers.endBatch(RenderType.lines());
         pose.popPose();

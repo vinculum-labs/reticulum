@@ -108,7 +108,7 @@ public final class IdentifyRenderer {
         // label) and the boxes never hide a label's letters.
         RenderType lines = throughWalls ? LINES_THROUGH_WALLS : LINES_BEHIND_WALLS;
         RenderType quads = throughWalls ? QUADS_THROUGH_WALLS : QUADS_BEHIND_WALLS;
-        Vec3 camera = event.getCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         PoseStack pose = event.getPoseStack();
         pose.pushPose();
         pose.translate(-camera.x, -camera.y, -camera.z);
@@ -126,15 +126,15 @@ public final class IdentifyRenderer {
             if (marker.face().isPresent()) {
                 Direction face = marker.face().get();
                 WorldOverlay.fillFace(pose.last().pose(), buffers.getBuffer(quads), pos, face, MARGIN, r, g, b, 0.35f * pulse);
-                ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), WorldOverlay.faceBox(pos, face, MARGIN), r, g, b, pulse);
-                ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.01), r, g, b, 0.35f * pulse);
+                ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(lines), WorldOverlay.faceBox(pos, face, MARGIN), r, g, b, pulse);
+                ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(lines), new AABB(pos).inflate(0.01), r, g, b, 0.35f * pulse);
             } else {
-                ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.02), r, g, b, pulse);
+                ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(lines), new AABB(pos).inflate(0.02), r, g, b, pulse);
             }
             double distance = Math.sqrt(camera.distanceToSqr(Vec3.atCenterOf(pos)));
             if (distance > beamDistance && top > pos.getY() + 1) {
                 // A thin column of light from the block up to the sky.
-                ShapeRenderer.renderLineBox(pose, buffers.getBuffer(lines),
+                ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(lines),
                         new AABB(pos.getX() + 0.45, pos.getY() + 1, pos.getZ() + 0.45, pos.getX() + 0.55, top, pos.getZ() + 0.55), r, g, b, 0.8f);
             }
         }
@@ -146,7 +146,7 @@ public final class IdentifyRenderer {
             if (!marker.pos().dimension().equals(mc.level.dimension())) {
                 continue;
             }
-            WorldLabel.draw(pose, event.getCamera(), buffers, font, Vec3.atCenterOf(marker.pos().pos()).add(0, 0.9, 0), marker.label(),
+            WorldLabel.draw(pose, Minecraft.getInstance().gameRenderer.getMainCamera(), buffers, font, Vec3.atCenterOf(marker.pos().pos()).add(0, 0.9, 0), marker.label(),
                     marker.color(), throughWalls);
         }
         if (throughWalls) {

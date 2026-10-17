@@ -7,6 +7,7 @@ import java.util.Locale;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -66,9 +67,9 @@ final class SoundSearch {
     static EditBox box(Font font, int x, int y, int width) {
         EditBox box = new SeeThroughTextBox(font, x, y, width, 16, Component.translatable("screen.reticulum.beacon_search")) {
             @Override
-            public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
                 boolean wasFocused = isFocused();
-                boolean used = super.mouseClicked(mouseX, mouseY, button);
+                boolean used = super.mouseClicked(event, doubleClick);
                 if (used && !wasFocused) {
                     moveCursorToEnd(false);
                     setHighlightPos(0);

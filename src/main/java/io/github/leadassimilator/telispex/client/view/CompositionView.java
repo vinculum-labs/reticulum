@@ -8,7 +8,6 @@ import javax.annotation.Nullable;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.WGLNVDXInterop;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
@@ -26,7 +25,7 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * WebView2 drawn into the game's own frame, so the editor shows in exclusive fullscreen too: the page renders into a
  * Windows composition visual that isn't on any window, Windows Graphics Capture hands each frame over as a Direct3D 11
- * texture, and WGL_NV_DX_interop lets OpenGL draw that texture in the view screen. Everything runs on the render
+ * texture, and WGL_NV_DX_interop lets OpenGL copy that texture into one the view screen draws. Everything runs on the render
  * thread, whose message loop (pumped by GLFW) also drives the composition.
  *
  * <p>Method numbers are vtable slots from the Windows SDK headers (IUnknown takes 0-2, IInspectable 0-5).
@@ -98,6 +97,9 @@ final class CompositionView {
     private static long interopDevice;
     private static long interopObject;
     private static int glTexture;
+    /** What the game draws: a copy of the shared texture's newest frame. */
+    @Nullable
+    private static FrameTexture frameTexture;
     private static int width;
     private static int height;
     private static int poolWidth;
@@ -257,6 +259,7 @@ final class CompositionView {
             WGLNVDXInterop.wglDXUnlockObjectsNV(interopDevice, objects);
             Com.call(context, CONTEXT_COPY_RESOURCE, shared, source);
             WGLNVDXInterop.wglDXLockObjectsNV(interopDevice, objects);
+            frameTexture.copy();
             framed = true;
         }
         Com.release(source);
@@ -302,14 +305,9 @@ final class CompositionView {
             Telispex.LOGGER.warn("In-game view: OpenGL can't share the Direct3D texture");
             return false;
         }
-        // Through the game's state tracking, which remembers the bound texture.
-        GlStateManager._bindTexture(glTexture);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
         WGLNVDXInterop.wglDXLockObjectsNV(interopDevice, PointerBuffer.allocateDirect(1).put(0, interopObject));
-        FrameTexture.register(FRAME, glTexture, w, h);
+        // Only copied from, into a texture the game draws: it sets up what it draws in ways a shared texture refuses.
+        frameTexture = FrameTexture.registerCopied(FRAME, glTexture, w, h);
         return true;
     }
 
@@ -332,6 +330,7 @@ final class CompositionView {
         }
         if (glTexture != 0) {
             FrameTexture.unregister(FRAME);
+            frameTexture = null;
             GlStateManager._deleteTexture(glTexture);
             glTexture = 0;
         }
