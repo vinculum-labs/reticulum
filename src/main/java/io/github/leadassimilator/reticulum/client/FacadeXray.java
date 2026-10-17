@@ -16,6 +16,7 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.AABB;
@@ -29,12 +30,12 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 public final class FacadeXray {
     private static final double RANGE = 48;
     /** Client-side positions (with their dimension) of cables and connectors that have a facade. */
-    private static final Set<net.minecraft.core.GlobalPos> FACADED = ConcurrentHashMap.newKeySet();
+    private static final Set<GlobalPos> FACADED = ConcurrentHashMap.newKeySet();
 
     private FacadeXray() {
     }
 
-    public static void track(net.minecraft.core.GlobalPos pos, boolean facaded) {
+    public static void track(GlobalPos pos, boolean facaded) {
         if (facaded) {
             FACADED.add(pos);
         } else {
@@ -58,7 +59,7 @@ public final class FacadeXray {
         pose.translate(-camera.x, -camera.y, -camera.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         VertexConsumer lines = buffers.getBuffer(IdentifyRenderer.LINES_THROUGH_WALLS);
-        for (net.minecraft.core.GlobalPos where : FACADED) {
+        for (GlobalPos where : FACADED) {
             BlockPos pos = where.pos();
             if (!where.dimension().equals(mc.level.dimension()) || camera.distanceToSqr(Vec3.atCenterOf(pos)) > RANGE * RANGE
                     || !mc.level.isLoaded(pos)) {

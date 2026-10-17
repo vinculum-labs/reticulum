@@ -2,12 +2,17 @@ package io.github.leadassimilator.reticulum.engine;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import io.github.leadassimilator.reticulum.filter.Filters;
+import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
@@ -40,7 +45,7 @@ final class ItemMover {
             return;
         }
         // Kits can gather their parts from several sources, so kit routes are grouped per kit across the sheet.
-        Map<UUID, List<CompiledSheet.Route>> kits = new java.util.LinkedHashMap<>();
+        Map<UUID, List<CompiledSheet.Route>> kits = new LinkedHashMap<>();
         List<Map.Entry<CompiledSheet.Source, List<CompiledSheet.Route>>> plain = new ArrayList<>();
         for (CompiledSheet.Source source : sheet.sources()) {
             if (source.resource() != ResourceKind.ITEM || !ctx.runtime().active(source)) {
@@ -123,7 +128,7 @@ final class ItemMover {
     /** Returns how many items moved. */
     private static long operate(NetworkRuntime.Context ctx, CompiledSheet sheet, CompiledSheet.Source source, List<CompiledSheet.Route> routes) {
         int interval = source.settings().interval() > 0 ? source.settings().interval() : sheet.intervalOf(source.node().id());
-        java.util.Set<io.github.leadassimilator.reticulum.graph.Node> limits = new java.util.LinkedHashSet<>();
+        Set<Node> limits = new LinkedHashSet<>();
         routes.forEach(route -> limits.addAll(route.rateLimits()));
         ctx.runtime().beginOperation(limits, interval);
         try {
@@ -195,7 +200,7 @@ final class ItemMover {
                         continue;
                     }
                     int stackSize = stack.getMaxStackSize();
-                    String what = "item:" + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
+                    String what = "item:" + BuiltInRegistries.ITEM.getKey(stack.getItem());
                     int moved = transfer(ctx, handler, slot, (int) Math.min(amount, Integer.MAX_VALUE), to);
                     if (moved <= 0) {
                         why = Status.furthest(why, Status.TARGET_FULL);

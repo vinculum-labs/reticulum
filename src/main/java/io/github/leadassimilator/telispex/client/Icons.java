@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import javax.annotation.Nullable;
@@ -22,9 +23,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.client.ClientHooks;
+import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 
 /**
  * Icons for pages, as PNGs at {@code _/icon/<kind>/<namespace>/<path>.png} beside each page: items exactly as the game
@@ -76,11 +81,11 @@ public final class Icons {
 
     /** A fluid as its still texture, tinted, filling the square. */
     private static byte[] fluid(ResourceLocation id) {
-        net.minecraft.world.level.material.Fluid fluid = BuiltInRegistries.FLUID.getOptional(id).orElse(null);
-        if (fluid == null || fluid == net.minecraft.world.level.material.Fluids.EMPTY) {
+        Fluid fluid = BuiltInRegistries.FLUID.getOptional(id).orElse(null);
+        if (fluid == null || fluid == Fluids.EMPTY) {
             return transparent();
         }
-        var extensions = net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions.of(fluid);
+        var extensions = IClientFluidTypeExtensions.of(fluid);
         return sprite(id, extensions.getStillTexture(), extensions.getTintColor());
     }
 
@@ -89,7 +94,7 @@ public final class Icons {
         if (texture == null) {
             return transparent();
         }
-        var sprite = Minecraft.getInstance().getTextureAtlas(net.minecraft.world.inventory.InventoryMenu.BLOCK_ATLAS).apply(texture);
+        var sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(texture);
         float a = (tint >>> 24) == 0 ? 1f : ((tint >>> 24) & 0xFF) / 255f;
         float r = ((tint >> 16) & 0xFF) / 255f;
         float g = ((tint >> 8) & 0xFF) / 255f;
@@ -116,7 +121,7 @@ public final class Icons {
      * Whatever {@code draw} puts in a 16x16 GUI square, as a PNG. On the render thread; {@code id} only names it in the
      * log should it fail.
      */
-    public static byte[] draw(ResourceLocation id, java.util.function.Consumer<GuiGraphics> draw) {
+    public static byte[] draw(ResourceLocation id, Consumer<GuiGraphics> draw) {
         Minecraft mc = Minecraft.getInstance();
         TextureTarget target = target();
         Matrix4fStack modelView = RenderSystem.getModelViewStack();

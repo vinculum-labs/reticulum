@@ -8,7 +8,6 @@ import java.util.OptionalDouble;
 import org.lwjgl.opengl.GL11;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
@@ -26,6 +25,7 @@ import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.AABB;
@@ -233,7 +233,7 @@ public final class IdentifyRenderer {
             y += 10;
         }
         if (entries.size() > HUD_LINES) {
-            graphics.drawString(mc.font, net.minecraft.network.chat.Component.translatable("screen.reticulum.more", entries.size() - HUD_LINES), 11, y, 0xA0A0A0, true);
+            graphics.drawString(mc.font, Component.translatable("screen.reticulum.more", entries.size() - HUD_LINES), 11, y, 0xA0A0A0, true);
         }
     }
 }

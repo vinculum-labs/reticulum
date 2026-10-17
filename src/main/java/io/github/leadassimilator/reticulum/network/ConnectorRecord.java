@@ -10,6 +10,7 @@ import javax.annotation.Nullable;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 
 /** A connector that belongs to a network, and the devices it currently reaches. */
@@ -75,7 +76,7 @@ public final class ConnectorRecord {
     }
 
     /** What an unnamed connector is called: where it is. */
-    public static String defaultName(net.minecraft.core.BlockPos pos) {
+    public static String defaultName(BlockPos pos) {
         return "Connector (" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + ")";
     }
 

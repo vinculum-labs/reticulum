@@ -2,14 +2,28 @@ package io.github.leadassimilator.reticulum.gametest;
 
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.authlib.GameProfile;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.graph.Blueprints;
+import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
+import io.github.leadassimilator.reticulum.graph.Sheet;
+import io.github.leadassimilator.reticulum.graph.Wire;
+import io.github.leadassimilator.reticulum.network.Limits;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.protocol.web.WebApi;
@@ -18,8 +32,10 @@ import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.security.Member;
 import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.topology.Topology;
+import io.github.leadassimilator.telispex.relay.RelayPayloads;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,6 +44,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -63,8 +80,8 @@ public final class WebApiTests {
         ((Container) helper.getBlockEntity(new BlockPos(3, 1, 2))).setItem(0, new ItemStack(Items.IRON_INGOT, 20));
 
         // A fake player: logging a mock player in would fire other mods' login handlers against a fake connection.
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.setOwner(UUID.randomUUID(), "someone else");
@@ -130,17 +147,17 @@ public final class WebApiTests {
     @GameTest(template = "empty")
     public static void blueprintLoopsAndBadPositionsAreRefused(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.setOwner(player.getUUID(), "web-test");
         String id = network.id().toString();
-        java.util.function.Function<String, String> make = name -> call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id
+        Function<String, String> make = name -> call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id
                 + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"" + name + "\",\"blueprint\":true}]}").getAsJsonArray("results").get(0).getAsString();
         String a = make.apply("a");
         String b = make.apply("b");
-        java.util.function.BiFunction<String, String, String> placeIn = (on, used) -> "{\"op\":\"edit\",\"network\":\"" + id
+        BiFunction<String, String, String> placeIn = (on, used) -> "{\"op\":\"edit\",\"network\":\"" + id
                 + "\",\"edits\":[{\"type\":\"addNode\",\"sheet\":\"" + on + "\",\"node\":{\"id\":\"" + UUID.randomUUID()
                 + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + used + "\"}}}]}";
         call(helper, player, placeIn.apply(b, a));
@@ -160,8 +177,8 @@ public final class WebApiTests {
     @GameTest(template = "empty")
     public static void placedBlueprintsGetNumberedNames(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.setOwner(player.getUUID(), "web-test");
@@ -169,14 +186,14 @@ public final class WebApiTests {
         String root = network.root().id().toString();
         String blueprint = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"bp\",\"blueprint\":true}]}")
                 .getAsJsonArray("results").get(0).getAsString();
-        java.util.function.Function<String, String> placeOne = label -> {
+        Function<String, String> placeOne = label -> {
             String node = UUID.randomUUID().toString();
             call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"addNode\",\"sheet\":\"" + root
                     + "\",\"node\":{\"id\":\"" + node + "\"" + (label == null ? "" : ",\"label\":\"" + label + "\"")
                     + ",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + blueprint + "\"}}}]}");
             return node;
         };
-        java.util.function.Function<String, String> nameOf = node -> network.root().node(UUID.fromString(node)).label().orElse("");
+        Function<String, String> nameOf = node -> network.root().node(UUID.fromString(node)).label().orElse("");
         String a = placeOne.apply(null);
         String b = placeOne.apply(null);
         String named = placeOne.apply("North smelter");
@@ -196,7 +213,7 @@ public final class WebApiTests {
         String e = UUID.randomUUID().toString();
         call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"addNode\",\"sheet\":\"" + inner
                 + "\",\"node\":{\"id\":\"" + e + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + blueprint + "\"}}}]}");
-        java.util.function.Function<String, String> innerName = node -> network.sheet(UUID.fromString(inner)).node(UUID.fromString(node)).label().orElse("");
+        Function<String, String> innerName = node -> network.sheet(UUID.fromString(inner)).node(UUID.fromString(node)).label().orElse("");
         String was = innerName.apply(e);
         String back = placeOne.apply(was);
         if (!innerName.apply(e).equals(was) || nameOf.apply(back).equals(was)) {
@@ -231,8 +248,8 @@ public final class WebApiTests {
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.setOwner(UUID.randomUUID(), "someone");
         network.setAccessMode(AccessMode.PRIVATE);
-        ServerPlayer fake = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "[Deployer]"));
+        ServerPlayer fake = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "[Deployer]"));
         BlockPos at = new BlockPos(2, 1, 1);
         helper.setBlock(at, ModBlocks.CABLE.get());
         ModBlocks.CABLE.get().setPlacedBy(helper.getLevel(), helper.absolutePos(at), helper.getBlockState(at), fake, new ItemStack(ModBlocks.CABLE.get()));
@@ -246,8 +263,8 @@ public final class WebApiTests {
     /** A controller a fake player places (a Deployer, say) starts an ownerless public network, not one owned by the fake player. */
     @GameTest(template = "empty")
     public static void aFakePlayersControllerHasNoOwner(GameTestHelper helper) {
-        ServerPlayer fake = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "[Deployer]"));
+        ServerPlayer fake = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "[Deployer]"));
         BlockPos at = new BlockPos(1, 1, 1);
         helper.setBlock(at, ModBlocks.CONTROLLER.get());
         ModBlocks.CONTROLLER.get().setPlacedBy(helper.getLevel(), helper.absolutePos(at), helper.getBlockState(at), fake,
@@ -268,15 +285,15 @@ public final class WebApiTests {
     @GameTest(template = "empty")
     public static void switchesAreSetPerInstanceByEditors(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
-        ServerPlayer viewer = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-viewer"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer viewer = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-viewer"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.setOwner(player.getUUID(), "web-test");
-        network.members().put(viewer.getUUID(), new io.github.leadassimilator.reticulum.security.Member(viewer.getUUID(), "web-viewer",
-                io.github.leadassimilator.reticulum.security.Role.VIEWER));
+        network.members().put(viewer.getUUID(), new Member(viewer.getUUID(), "web-viewer",
+                Role.VIEWER));
         String id = network.id().toString();
         String blueprint = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"bp\",\"blueprint\":true}]}")
                 .getAsJsonArray("results").get(0).getAsString();
@@ -289,9 +306,9 @@ public final class WebApiTests {
                 + "{\"type\":\"addNode\",\"sheet\":\"" + root + "\",\"node\":{\"id\":\"" + a + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + blueprint + "\"}}},"
                 + "{\"type\":\"addNode\",\"sheet\":\"" + root + "\",\"node\":{\"id\":\"" + b + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + blueprint + "\"}}}"
                 + "]}");
-        String runA = UUID.nameUUIDFromBytes((a + "/" + toggle).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
-        String runB = UUID.nameUUIDFromBytes((b + "/" + toggle).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
-        java.util.function.BiFunction<String, Long, String> set = (run, value) -> "{\"op\":\"setSwitch\",\"network\":\"" + id + "\",\"sheet\":\""
+        String runA = UUID.nameUUIDFromBytes((a + "/" + toggle).getBytes(StandardCharsets.UTF_8)).toString();
+        String runB = UUID.nameUUIDFromBytes((b + "/" + toggle).getBytes(StandardCharsets.UTF_8)).toString();
+        BiFunction<String, Long, String> set = (run, value) -> "{\"op\":\"setSwitch\",\"network\":\"" + id + "\",\"sheet\":\""
                 + blueprint + "\",\"node\":\"" + toggle + "\",\"run\":\"" + run + "\",\"value\":" + value + "}";
         call(helper, player, set.apply(runA, 9L));
         if (network.signalMemory().getOrDefault(runA, 0L) != 9 || network.signalMemory().containsKey(runB)) {
@@ -323,8 +340,8 @@ public final class WebApiTests {
     @GameTest(template = "empty")
     public static void aRefusedEditUndoesItsBatch(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.setOwner(player.getUUID(), "web-test");
@@ -354,8 +371,8 @@ public final class WebApiTests {
     @GameTest(template = "empty")
     public static void removingAPinRemovesItsWiresOutside(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.setOwner(player.getUUID(), "web-test");
@@ -387,14 +404,14 @@ public final class WebApiTests {
     @GameTest(template = "empty")
     public static void sheetsNestOnlySoDeep(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.setOwner(player.getUUID(), "web-test");
         String id = network.id().toString();
         String parent = network.root().id().toString();
-        for (int i = 0; i < io.github.leadassimilator.reticulum.network.Limits.SHEET_DEPTH; i++) {
+        for (int i = 0; i < Limits.SHEET_DEPTH; i++) {
             parent = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"s" + i
                     + "\",\"parent\":\"" + parent + "\"}]}").getAsJsonArray("results").get(0).getAsString();
         }
@@ -405,7 +422,7 @@ public final class WebApiTests {
         } catch (WebApi.RequestException expected) {
             // expected
         }
-        if (network.depth(network.sheet(UUID.fromString(parent))) != io.github.leadassimilator.reticulum.network.Limits.SHEET_DEPTH) {
+        if (network.depth(network.sheet(UUID.fromString(parent))) != Limits.SHEET_DEPTH) {
             helper.fail("The deepest sheet isn't where it was put: depth " + network.depth(network.sheet(UUID.fromString(parent))));
         }
         helper.succeed();
@@ -415,8 +432,8 @@ public final class WebApiTests {
     @GameTest(template = "empty")
     public static void aWireIsNotDrawnTwice(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.setOwner(player.getUUID(), "web-test");
@@ -449,8 +466,8 @@ public final class WebApiTests {
         helper.setBlock(new BlockPos(3, 1, 2), Blocks.BARREL);
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.members().put(player.getUUID(), new Member(player.getUUID(), "test", Role.EDITOR));
@@ -467,13 +484,13 @@ public final class WebApiTests {
         var blueprint = network.sheet(UUID.fromString(made));
         var slot = blueprint.nodes().stream().filter(n -> n.settings() instanceof NodeSettings.DeviceSettings).findFirst().orElseThrow();
         var sensor = blueprint.nodes().stream().filter(n -> n.settings() instanceof NodeSettings.LevelSettings).findFirst().orElseThrow();
-        if (!(sensor.settings() instanceof NodeSettings.LevelSettings level) || !level.slot().equals(java.util.Optional.of(slot.id()))) {
+        if (!(sensor.settings() instanceof NodeSettings.LevelSettings level) || !level.slot().equals(Optional.of(slot.id()))) {
             helper.fail("The sensor doesn't read the slot made from its device: " + sensor.settings());
             return;
         }
         // In an instance filled with another block, it reads that block.
-        net.minecraft.core.GlobalPos other = net.minecraft.core.GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(5, 1, 5)));
-        var bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(sensor, java.util.Map.of(slot.id(), new NodeSettings.Binding(other, 0)));
+        GlobalPos other = GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(5, 1, 5)));
+        var bound = Blueprints.bound(sensor, Map.of(slot.id(), new NodeSettings.Binding(other, 0)));
         if (!(bound instanceof NodeSettings.LevelSettings reading) || !reading.device().equals(other) || reading.slot().isPresent()) {
             helper.fail("In an instance the sensor doesn't read the block filling its slot: " + bound);
         }
@@ -490,8 +507,8 @@ public final class WebApiTests {
         helper.setBlock(new BlockPos(3, 1, 2), Blocks.BARREL);
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.members().put(player.getUUID(), new Member(player.getUUID(), "test", Role.EDITOR));
@@ -543,16 +560,16 @@ public final class WebApiTests {
     @GameTest(template = "empty")
     public static void aLargeRequestGoesInPiecesAndComesBackWhole(GameTestHelper helper) throws Exception {
         StringBuilder json = new StringBuilder("{\"op\":\"edit\",\"edits\":[");
-        java.util.Random random = new java.util.Random(7);
+        Random random = new Random(7);
         for (int i = 0; i < 3000; i++) {
             json.append(i == 0 ? "" : ",").append("{\"type\":\"addNode\",\"node\":{\"id\":\"").append(new UUID(random.nextLong(), random.nextLong()))
                     .append("\",\"x\":").append(random.nextInt(5000)).append("}}");
         }
         json.append("]}");
-        var parts = io.github.leadassimilator.telispex.relay.RelayPayloads.splitRequest("reticulum", 1, "r1", json.toString());
-        boolean small = parts.stream().allMatch(p -> p.data().length <= io.github.leadassimilator.telispex.relay.RelayPayloads.PART_BYTES);
-        String back = io.github.leadassimilator.telispex.relay.RelayPayloads.join(parts.stream().map(p -> p.data()).toList(),
-                io.github.leadassimilator.telispex.relay.RelayPayloads.MAX_REQUEST_BYTES);
+        var parts = RelayPayloads.splitRequest("reticulum", 1, "r1", json.toString());
+        boolean small = parts.stream().allMatch(p -> p.data().length <= RelayPayloads.PART_BYTES);
+        String back = RelayPayloads.join(parts.stream().map(p -> p.data()).toList(),
+                RelayPayloads.MAX_REQUEST_BYTES);
         if (parts.size() < 2 || !small || !back.equals(json.toString())) {
             helper.fail("Pieces " + parts.size() + ", within a packet " + small + ", whole again " + back.equals(json.toString()));
         }
@@ -568,8 +585,8 @@ public final class WebApiTests {
         into.filters().put("ores", "tag:c:ores");
         from.filters().put("ores", "id:minecraft:iron_ore");
         from.filters().put("more", "@ores | id:minecraft:gold_ore");
-        var filter = from.root().add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.FilterSettings("@ores")));
-        NetworkManager.absorb(server, into, from, io.github.leadassimilator.reticulum.security.Role.OWNER);
+        var filter = from.root().add(Node.of(new NodeSettings.FilterSettings("@ores")));
+        NetworkManager.absorb(server, into, from, Role.OWNER);
         boolean kept = "tag:c:ores".equals(into.filters().get("ores")) && "id:minecraft:iron_ore".equals(into.filters().get("ores 2"))
                 && "@\"ores 2\" | id:minecraft:gold_ore".equals(into.filters().get("more"));
         var moved = into.sheets().stream().flatMap(sh -> sh.nodes().stream()).filter(n -> n.id().equals(filter.id())).findFirst().orElseThrow();
@@ -585,8 +602,8 @@ public final class WebApiTests {
     @GameTest(template = "empty")
     public static void aMovedCardKeepsItsMemory(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.members().put(player.getUUID(), new Member(player.getUUID(), "test", Role.EDITOR));
@@ -615,32 +632,32 @@ public final class WebApiTests {
     @GameTest(template = "empty")
     public static void aDetachedSplitterKeepsItsWeights(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.members().put(player.getUUID(), new Member(player.getUUID(), "test", Role.EDITOR));
-        var bp = new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "bp");
+        var bp = new Sheet(UUID.randomUUID(), "bp");
         bp.setBlueprint(true);
-        var a = bp.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetPinSettings(false, "a")));
-        var b = bp.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetPinSettings(false, "b")));
+        var a = bp.add(Node.of(new NodeSettings.SheetPinSettings(false, "a")));
+        var b = bp.add(Node.of(new NodeSettings.SheetPinSettings(false, "b")));
         UUID toA = UUID.randomUUID();
         UUID toB = UUID.randomUUID();
-        var splitter = bp.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SplitterSettings(NodeSettings.SplitMode.WEIGHTED,
-                java.util.Map.of(toA, 3, toB, 1))));
-        bp.connect(new io.github.leadassimilator.reticulum.graph.Wire(toA, splitter.id(), 0, a.id(), 0, 0));
-        bp.connect(new io.github.leadassimilator.reticulum.graph.Wire(toB, splitter.id(), 0, b.id(), 0, 1));
+        var splitter = bp.add(Node.of(new NodeSettings.SplitterSettings(NodeSettings.SplitMode.WEIGHTED,
+                Map.of(toA, 3, toB, 1))));
+        bp.connect(new Wire(toA, splitter.id(), 0, a.id(), 0, 0));
+        bp.connect(new Wire(toB, splitter.id(), 0, b.id(), 0, 1));
         bp.assignPinSlots();
         network.sheets().add(bp);
-        var placed = network.root().add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.InstanceSettings(bp.id())));
+        var placed = network.root().add(Node.of(new NodeSettings.InstanceSettings(bp.id())));
         String made = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + network.id() + "\",\"edits\":[{\"type\":\"detachInstance\",\"sheet\":\""
                 + network.root().id() + "\",\"node\":\"" + placed.id() + "\"}]}").getAsJsonArray("results").get(0).getAsString();
         var sheet = network.sheet(UUID.fromString(made));
         var copy = sheet.nodes().stream().filter(n -> n.settings() instanceof NodeSettings.SplitterSettings).findFirst().orElseThrow();
         var weights = ((NodeSettings.SplitterSettings) copy.settings()).weights();
-        java.util.Set<UUID> leaving = new java.util.HashSet<>();
+        Set<UUID> leaving = new HashSet<>();
         sheet.wires().stream().filter(w -> w.from().equals(copy.id())).forEach(w -> leaving.add(w.id()));
-        if (!weights.keySet().equals(leaving) || !new java.util.HashSet<>(weights.values()).equals(java.util.Set.of(3, 1))) {
+        if (!weights.keySet().equals(leaving) || !new HashSet<>(weights.values()).equals(Set.of(3, 1))) {
             helper.fail("Weights " + weights + " for wires " + leaving);
         }
         helper.succeed();
@@ -650,8 +667,8 @@ public final class WebApiTests {
     @GameTest(template = "empty")
     public static void removingABlueprintPinRemovesItsWiresOnInstances(GameTestHelper helper) {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.setOwner(player.getUUID(), "web-test");
@@ -681,13 +698,13 @@ public final class WebApiTests {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
-        var a = new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "A");
-        var b = new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "B");
+        var a = new Sheet(UUID.randomUUID(), "A");
+        var b = new Sheet(UUID.randomUUID(), "B");
         // C hangs off the loop (inside A, listed first): it isn't part of it and stays where it is.
-        var c = new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "C");
-        a.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetSettings(c.id())));
-        a.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetSettings(b.id())));
-        b.add(io.github.leadassimilator.reticulum.graph.Node.of(new NodeSettings.SheetSettings(a.id())));
+        var c = new Sheet(UUID.randomUUID(), "C");
+        a.add(Node.of(new NodeSettings.SheetSettings(c.id())));
+        a.add(Node.of(new NodeSettings.SheetSettings(b.id())));
+        b.add(Node.of(new NodeSettings.SheetSettings(a.id())));
         network.sheets().add(c);
         network.sheets().add(a);
         network.sheets().add(b);
@@ -714,8 +731,8 @@ public final class WebApiTests {
         helper.setBlock(new BlockPos(3, 1, 2), Blocks.BARREL);
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
-        ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
-                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "web-test"));
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "web-test"));
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         network.members().put(player.getUUID(), new Member(player.getUUID(), "test", Role.EDITOR));
@@ -747,11 +764,11 @@ public final class WebApiTests {
             helper.fail("The template using it wasn't renamed: " + network.filters().get("metals"));
         }
         var sheet = network.sheet(UUID.fromString(sheetId));
-        if (!(sheet.node(UUID.fromString(filterNode)).settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.FilterSettings f)
+        if (!(sheet.node(UUID.fromString(filterNode)).settings() instanceof NodeSettings.FilterSettings f)
                 || !f.expression().equals("@" + name)) {
             helper.fail("The filter node wasn't renamed: " + sheet.node(UUID.fromString(filterNode)).settings());
         }
-        if (!(sheet.node(UUID.fromString(deviceNode)).settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings d)
+        if (!(sheet.node(UUID.fromString(deviceNode)).settings() instanceof NodeSettings.DeviceSettings d)
                 || !d.outputs().get(0).keep().get(0).filter().equals("@" + name)) {
             helper.fail("The keep rule wasn't renamed: " + sheet.node(UUID.fromString(deviceNode)).settings());
         }

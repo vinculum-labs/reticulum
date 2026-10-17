@@ -1,10 +1,12 @@
 package io.github.leadassimilator.reticulum.block;
 
-import io.github.leadassimilator.reticulum.util.LowercaseName;
+import java.util.function.UnaryOperator;
 
+import io.github.leadassimilator.reticulum.util.LowercaseName;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * How far a cable or connector has been turned (and whether mirrored) since its per-side data was written: what is
@@ -52,14 +54,14 @@ public enum Orientation implements LowercaseName {
     }
 
     /** A block state as it was laid out, as it stands now (a facade's stairs or log turned along). */
-    public net.minecraft.world.level.block.state.BlockState toWorld(net.minecraft.world.level.block.state.BlockState laid) {
-        net.minecraft.world.level.block.state.BlockState state = mirrored ? laid.mirror(Mirror.LEFT_RIGHT) : laid;
+    public BlockState toWorld(BlockState laid) {
+        BlockState state = mirrored ? laid.mirror(Mirror.LEFT_RIGHT) : laid;
         return state.rotate(Rotation.values()[turns]);
     }
 
     /** A block state as it stands now, as it was laid out. */
-    public net.minecraft.world.level.block.state.BlockState toLaid(net.minecraft.world.level.block.state.BlockState world) {
-        net.minecraft.world.level.block.state.BlockState state = world.rotate(Rotation.values()[(4 - turns) % 4]);
+    public BlockState toLaid(BlockState world) {
+        BlockState state = world.rotate(Rotation.values()[(4 - turns) % 4]);
         return mirrored ? state.mirror(Mirror.LEFT_RIGHT) : state;
     }
 
@@ -72,7 +74,7 @@ public enum Orientation implements LowercaseName {
     }
 
     /** The orientation that is this one followed by {@code then}: two sides at right angles settle it. */
-    private static Orientation matching(Orientation from, java.util.function.UnaryOperator<Direction> then) {
+    private static Orientation matching(Orientation from, UnaryOperator<Direction> then) {
         for (Orientation to : values()) {
             if (to.toWorld(Direction.NORTH) == then.apply(from.toWorld(Direction.NORTH))
                     && to.toWorld(Direction.EAST) == then.apply(from.toWorld(Direction.EAST))) {

@@ -2,6 +2,8 @@ package io.github.leadassimilator.reticulum.network;
 
 import javax.annotation.Nullable;
 
+import io.github.leadassimilator.reticulum.filter.FilterParser;
+import io.github.leadassimilator.reticulum.filter.FilterRefs;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.Sheet;
@@ -68,9 +70,9 @@ public final class Limits {
             return "A node's note can be at most " + NOTE + " characters";
         }
         // Every filter it holds, as long as a template's may be (they are only parsed when the sheet compiles).
-        for (String filter : io.github.leadassimilator.reticulum.filter.FilterRefs.filters(node.settings())) {
-            if (filter.length() > io.github.leadassimilator.reticulum.filter.FilterParser.MAX_LENGTH) {
-                return "A filter can be at most " + io.github.leadassimilator.reticulum.filter.FilterParser.MAX_LENGTH + " characters";
+        for (String filter : FilterRefs.filters(node.settings())) {
+            if (filter.length() > FilterParser.MAX_LENGTH) {
+                return "A filter can be at most " + FilterParser.MAX_LENGTH + " characters";
             }
         }
         return switch (node.settings()) {

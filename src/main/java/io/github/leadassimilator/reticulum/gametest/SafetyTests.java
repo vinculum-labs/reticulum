@@ -1,48 +1,63 @@
 package io.github.leadassimilator.reticulum.gametest;
 
-import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
 
 import com.google.gson.JsonParser;
+import com.mojang.authlib.GameProfile;
+import com.mojang.serialization.JsonOps;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.engine.CompiledSheet;
 import io.github.leadassimilator.reticulum.filter.FilterException;
 import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.Sheet;
+import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.Identifies;
 import io.github.leadassimilator.reticulum.network.Identify;
 import io.github.leadassimilator.reticulum.network.Limits;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.network.OverflowBuffer;
+import io.github.leadassimilator.reticulum.network.Switches;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
+import io.github.leadassimilator.reticulum.protocol.Views;
 import io.github.leadassimilator.reticulum.protocol.web.WebApi;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.security.Member;
 import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.topology.Topology;
+import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -58,7 +73,7 @@ public final class SafetyTests {
     }
 
     private static ServerPlayer player(GameTestHelper helper, String name) {
-        return net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(), new com.mojang.authlib.GameProfile(UUID.randomUUID(), name));
+        return FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), name));
     }
 
     private static String pos(GameTestHelper helper, BlockPos rel) {
@@ -92,13 +107,13 @@ public final class SafetyTests {
     /** More of one item than a stack holds goes into overflow as whole stacks, so the save (99 at most a stack) holds it. */
     @GameTest(template = "empty")
     public static void overflowKeepsStacksASaveCanHold(GameTestHelper helper) {
-        io.github.leadassimilator.reticulum.network.OverflowBuffer buffer = new io.github.leadassimilator.reticulum.network.OverflowBuffer();
-        buffer.items().add(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COBBLESTONE, 10));
-        io.github.leadassimilator.reticulum.network.OverflowBuffer.addItem(buffer.items(), new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COBBLESTONE, 400));
-        int total = buffer.items().stream().mapToInt(net.minecraft.world.item.ItemStack::getCount).sum();
+        OverflowBuffer buffer = new OverflowBuffer();
+        buffer.items().add(new ItemStack(Items.COBBLESTONE, 10));
+        OverflowBuffer.addItem(buffer.items(), new ItemStack(Items.COBBLESTONE, 400));
+        int total = buffer.items().stream().mapToInt(ItemStack::getCount).sum();
         boolean whole = buffer.items().stream().allMatch(stack -> stack.getCount() <= stack.getMaxStackSize());
-        var ops = net.minecraft.resources.RegistryOps.create(net.minecraft.nbt.NbtOps.INSTANCE, helper.getLevel().registryAccess());
-        boolean saves = io.github.leadassimilator.reticulum.network.OverflowBuffer.CODEC.encodeStart(ops, buffer).result().isPresent();
+        var ops = RegistryOps.create(NbtOps.INSTANCE, helper.getLevel().registryAccess());
+        boolean saves = OverflowBuffer.CODEC.encodeStart(ops, buffer).result().isPresent();
         if (total != 410 || !whole || buffer.items().size() != 7 || !saves) {
             helper.fail("Total " + total + ", whole stacks " + whole + ", entries " + buffer.items().size() + ", saves " + saves);
         }
@@ -120,7 +135,7 @@ public final class SafetyTests {
                 "identify refused");
         // The packet that tells players what is lit must still encode: it used to fail (and kick) on long labels.
         var markers = new Payloads.IdentifyMarkers(Identifies.markersFor(owner));
-        var buffer = new RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), helper.getLevel().registryAccess());
+        var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
         Payloads.IdentifyMarkers.STREAM_CODEC.encode(buffer, markers);
         // Other tests run alongside, so only this device's marker is looked at.
         check(helper, markers.markers().stream().anyMatch(m -> m.pos().equals(device) && m.label().length() <= 256), "no marker for the device");
@@ -319,7 +334,7 @@ public final class SafetyTests {
         Network network = rig(helper, owner);
         Sheet root = network.root();
         var barrel = network.devices().iterator().next().pos();
-        String device = net.minecraft.core.GlobalPos.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, barrel).getOrThrow().toString();
+        String device = GlobalPos.CODEC.encodeStart(JsonOps.INSTANCE, barrel).getOrThrow().toString();
         String node = "{\"type\":\"addNode\",\"sheet\":\"%s\",\"node\":{\"id\":\"%s\",\"settings\":{\"kind\":\"device\",\"device\":" + device + "}}}";
         check(helper, edit(owner, network, node.formatted(root.id(), UUID.randomUUID())) == null, "the first node for the barrel was refused");
         check(helper, edit(owner, network, "{\"type\":\"createSheet\",\"name\":\"other\"}") == null, "creating a sheet failed");
@@ -350,7 +365,7 @@ public final class SafetyTests {
                 && barrel.equals(c.bindings().get(slot.id()).device()), "the sheet's node isn't an instance filled with its block");
         // The barrel lives in the instance now: a device node for it elsewhere is refused.
         String node = "{\"type\":\"addNode\",\"sheet\":\"%s\",\"node\":{\"id\":\"%s\",\"settings\":{\"kind\":\"device\",\"device\":"
-                + GlobalPos.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, barrel).getOrThrow() + "}}}";
+                + GlobalPos.CODEC.encodeStart(JsonOps.INSTANCE, barrel).getOrThrow() + "}}}";
         String refused = edit(owner, network, node.formatted(network.root().id(), UUID.randomUUID()));
         check(helper, refused != null && refused.contains("lives in"), "a device filling a slot got a second node: " + refused);
         helper.succeed();
@@ -374,12 +389,12 @@ public final class SafetyTests {
     public static void aCopiedConnectorGetsIdsOfItsOwn(GameTestHelper helper) {
         ServerPlayer owner = player(helper, "owner");
         Network network = rig(helper, owner);
-        var original = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(new BlockPos(3, 1, 1));
+        var original = (ConnectorBlockEntity) helper.getBlockEntity(new BlockPos(3, 1, 1));
         var data = original.saveWithFullMetadata(helper.getLevel().registryAccess());
         // As ctrl+pick-block or /clone would: the same data, somewhere else.
         BlockPos copyAt = new BlockPos(6, 1, 6);
         helper.setBlock(copyAt, ModBlocks.CONNECTOR.get());
-        var copy = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(copyAt);
+        var copy = (ConnectorBlockEntity) helper.getBlockEntity(copyAt);
         copy.loadWithComponents(data, helper.getLevel().registryAccess());
         check(helper, !copy.isRegistered(), "the copy counts as already registered, so it never joins anything");
         check(helper, !copy.connectorId().equals(original.connectorId()), "the copy shares the original's connector id");
@@ -401,7 +416,7 @@ public final class SafetyTests {
         helper.succeedWhen(() -> {
             var record = network.device(barrel);
             check(helper, record != null, "the unnamed barrel's record was dropped although a sheet uses it");
-            check(helper, record.state() != io.github.leadassimilator.reticulum.network.DeviceRecord.State.ACTIVE, "the gone barrel is still active");
+            check(helper, record.state() != DeviceRecord.State.ACTIVE, "the gone barrel is still active");
         });
     }
 
@@ -409,21 +424,21 @@ public final class SafetyTests {
     public static void screenViewsSurviveTheTrip(GameTestHelper helper) {
         // The views' codecs are written field by field (more fields than a composite takes): every field must come back.
         var access = helper.getLevel().registryAccess();
-        var side = new io.github.leadassimilator.reticulum.protocol.Views.SideView(Direction.EAST, io.github.leadassimilator.reticulum.protocol.Views.SideKind.DEVICE,
-                io.github.leadassimilator.reticulum.protocol.Views.JointView.CONNECTED, true, net.minecraft.world.item.ItemStack.EMPTY, "Barrel", "Logs",
+        var side = new Views.SideView(Direction.EAST, Views.SideKind.DEVICE,
+                Views.JointView.CONNECTED, true, ItemStack.EMPTY, "Barrel", "Logs",
                 List.of("", "In", "", "", "", "", "Out"), 0b1000_0010);
-        var block = new io.github.leadassimilator.reticulum.protocol.Views.BlockView(new BlockPos(1, 2, 3), true, "Base", "Connector (1, 2, 3)", "Main",
-                List.of(side), true, java.util.Optional.of(net.minecraft.network.chat.Component.translatable("screen.reticulum.rebind_piece", 3)), true, false);
-        var buffer = new RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), access);
-        io.github.leadassimilator.reticulum.protocol.Views.BlockView.STREAM_CODEC.encode(buffer, block);
-        check(helper, io.github.leadassimilator.reticulum.protocol.Views.BlockView.STREAM_CODEC.decode(buffer).equals(block), "the block view changed on the way");
-        var sheet = new io.github.leadassimilator.reticulum.protocol.Views.SheetEntry(UUID.randomUUID(), "Smelting", 1, true, false, true, 2);
-        var controller = new io.github.leadassimilator.reticulum.protocol.Views.ControllerView(new BlockPos(4, 5, 6), UUID.randomUUID(), "Base", "owner",
-                AccessMode.PASSWORD, true, 3, 7, 1, true, false, 2, true, false, io.github.leadassimilator.reticulum.network.Switches.Redstone.HIGH,
+        var block = new Views.BlockView(new BlockPos(1, 2, 3), true, "Base", "Connector (1, 2, 3)", "Main",
+                List.of(side), true, Optional.of(Component.translatable("screen.reticulum.rebind_piece", 3)), true, false);
+        var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), access);
+        Views.BlockView.STREAM_CODEC.encode(buffer, block);
+        check(helper, Views.BlockView.STREAM_CODEC.decode(buffer).equals(block), "the block view changed on the way");
+        var sheet = new Views.SheetEntry(UUID.randomUUID(), "Smelting", 1, true, false, true, 2);
+        var controller = new Views.ControllerView(new BlockPos(4, 5, 6), UUID.randomUUID(), "Base", "owner",
+                AccessMode.PASSWORD, true, 3, 7, 1, true, false, 2, true, false, Switches.Redstone.HIGH,
                 List.of(sheet), List.of("4x iron"), "100 FE");
-        buffer = new RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), access);
-        io.github.leadassimilator.reticulum.protocol.Views.ControllerView.STREAM_CODEC.encode(buffer, controller);
-        check(helper, io.github.leadassimilator.reticulum.protocol.Views.ControllerView.STREAM_CODEC.decode(buffer).equals(controller),
+        buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), access);
+        Views.ControllerView.STREAM_CODEC.encode(buffer, controller);
+        check(helper, Views.ControllerView.STREAM_CODEC.decode(buffer).equals(controller),
                 "the controller view changed on the way");
         helper.succeed();
     }

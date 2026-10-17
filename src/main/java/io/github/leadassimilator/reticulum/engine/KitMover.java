@@ -1,10 +1,14 @@
 package io.github.leadassimilator.reticulum.engine;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -14,6 +18,7 @@ import io.github.leadassimilator.reticulum.filter.FilterException;
 import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
@@ -152,7 +157,7 @@ final class KitMover {
             List<Filters.ItemFilter> lineFilters, List<CompiledSheet.Route> routes, Filters.Context context) {
         List<Take> takes = new ArrayList<>();
         Map<IItemHandler, Map<Integer, Integer>> shadow = new HashMap<>();
-        Map<ItemStack, Integer> claimedStacks = new java.util.IdentityHashMap<>();
+        Map<ItemStack, Integer> claimedStacks = new IdentityHashMap<>();
         for (int line = 0; line < kit.lines().size(); line++) {
             int needed = kit.lines().get(line).count();
             Filters.ItemFilter lineFilter = lineFilters.get(line);
@@ -296,7 +301,7 @@ final class KitMover {
     @Nullable
     private static List<Put> planInsertion(ItemPort to, List<IItemHandler> handlers, List<Take> takes) {
         List<Put> slots = new ArrayList<>();
-        java.util.Set<ItemStack> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        Set<ItemStack> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         for (IItemHandler handler : handlers) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 if (!to.inRange(slot)) {
@@ -413,10 +418,10 @@ final class KitMover {
             }
         }
         // Each item for its own chart (and the route's totals), then each route on once.
-        java.util.Set<CompiledSheet.Route> moved = new java.util.LinkedHashSet<>();
+        Set<CompiledSheet.Route> moved = new LinkedHashSet<>();
         for (Take take : takes) {
             ctx.runtime().delivered(take.route, take.stack.getCount(),
-                    "item:" + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(take.stack.getItem()));
+                    "item:" + BuiltInRegistries.ITEM.getKey(take.stack.getItem()));
             moved.add(take.route);
         }
         moved.forEach(route -> ctx.runtime().advance(route));

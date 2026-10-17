@@ -1,18 +1,28 @@
 package io.github.leadassimilator.reticulum.network;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
+import io.github.leadassimilator.reticulum.graph.Blueprints;
+import io.github.leadassimilator.reticulum.graph.Node;
+import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.security.Member;
@@ -48,7 +58,7 @@ public final class Network {
 
     /** The identified list and the charts, saved as fields of the network like the rest. */
     private record Lists(List<Identify> identified, List<ChartSeries> charts) {
-        static final com.mojang.serialization.MapCodec<Lists> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+        static final MapCodec<Lists> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 Ids.lenientList(Identify.CODEC, "identify").optionalFieldOf("identified", List.of()).forGetter(Lists::identified),
                 Ids.lenientList(ChartSeries.CODEC, "chart").optionalFieldOf("charts", List.of()).forGetter(Lists::charts)
         ).apply(i, Lists::new));
@@ -289,7 +299,7 @@ public final class Network {
     }
 
     /** Where a sheet sits: its parent sheet and its node there; null for the root, blueprints and unplaced sheets. */
-    public record Placement(Sheet parent, io.github.leadassimilator.reticulum.graph.Node node) {
+    public record Placement(Sheet parent, Node node) {
     }
 
     /** Every placed sheet's placement, by sheet id: the sheet nodes on every sheet but blueprints. */
@@ -299,8 +309,8 @@ public final class Network {
             if (sheet.blueprint()) {
                 continue;
             }
-            for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
-                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.SheetSettings child) {
+            for (Node node : sheet.nodes()) {
+                if (node.settings() instanceof NodeSettings.SheetSettings child) {
                     out.putIfAbsent(child.sheet(), new Placement(sheet, node));
                 }
             }
@@ -336,7 +346,7 @@ public final class Network {
     public List<Sheet> descendants(Sheet sheet) {
         Map<UUID, Placement> placements = placements();
         List<Sheet> out = new ArrayList<>();
-        java.util.ArrayDeque<UUID> todo = new java.util.ArrayDeque<>(List.of(sheet.id()));
+        ArrayDeque<UUID> todo = new ArrayDeque<>(List.of(sheet.id()));
         while (!todo.isEmpty()) {
             UUID parent = todo.poll();
             for (Map.Entry<UUID, Placement> entry : placements.entrySet()) {
@@ -413,10 +423,10 @@ public final class Network {
             changed = true;
         }
         // Sheet nodes: one per sheet, only for sheets that can be placed, never on a blueprint.
-        java.util.Set<UUID> placed = new java.util.HashSet<>();
+        Set<UUID> placed = new HashSet<>();
         for (Sheet sheet : sheets) {
-            for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
-                if (!(node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.SheetSettings child)) {
+            for (Node node : sheet.nodes()) {
+                if (!(node.settings() instanceof NodeSettings.SheetSettings child)) {
                     continue;
                 }
                 Sheet target = sheet(child.sheet());
@@ -452,7 +462,7 @@ public final class Network {
             if (!sheet.root() && !sheet.blueprint() && !placed.contains(sheet.id())) {
                 float x = 40 + (root.nodes().size() + added) % 6 * 220;
                 float y = 40 + (root.nodes().size() + added) / 6 * 140;
-                root.add(io.github.leadassimilator.reticulum.graph.Node.of(new io.github.leadassimilator.reticulum.graph.NodeSettings.SheetSettings(
+                root.add(Node.of(new NodeSettings.SheetSettings(
                         sheet.id())).at(x, y));
                 added++;
                 changed = true;
@@ -472,7 +482,7 @@ public final class Network {
     private Map<UUID, String> knownNames = Map.of();
 
     /** A placed blueprint's numbered name: "Smelter #2". */
-    private static final java.util.regex.Pattern NUMBERED = java.util.regex.Pattern.compile(".* #([0-9]{1,6})$");
+    private static final Pattern NUMBERED = Pattern.compile(".* #([0-9]{1,6})$");
 
     /**
      * Every placed blueprint has a name, so each can be told apart (on the dashboard, in the tree): one placed without
@@ -481,14 +491,14 @@ public final class Network {
      * undo bringing one back after its number was reused, a paste) is numbered again.
      */
     private boolean nameInstances() {
-        Map<UUID, java.util.Set<Integer>> taken = new java.util.HashMap<>();
+        Map<UUID, Set<Integer>> taken = new HashMap<>();
         // Placements of each blueprint by numbered name: where two share one, the one placed here longest keeps it.
-        Map<UUID, Map<String, List<Placement>>> numberedNames = new java.util.HashMap<>();
+        Map<UUID, Map<String, List<Placement>>> numberedNames = new HashMap<>();
         List<Placement> unnamed = new ArrayList<>();
-        Map<UUID, String> labels = new java.util.HashMap<>();
+        Map<UUID, String> labels = new HashMap<>();
         for (Sheet sheet : sheets) {
-            for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
-                if (!(node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance)) {
+            for (Node node : sheet.nodes()) {
+                if (!(node.settings() instanceof NodeSettings.InstanceSettings instance)) {
                     continue;
                 }
                 String label = node.label().map(String::strip).orElse("");
@@ -497,11 +507,11 @@ public final class Network {
                     unnamed.add(new Placement(sheet, node));
                     continue;
                 }
-                java.util.regex.Matcher numbered = NUMBERED.matcher(label);
+                Matcher numbered = NUMBERED.matcher(label);
                 if (numbered.matches()) {
-                    numberedNames.computeIfAbsent(instance.sheet(), k -> new java.util.HashMap<>())
+                    numberedNames.computeIfAbsent(instance.sheet(), k -> new HashMap<>())
                             .computeIfAbsent(label, k -> new ArrayList<>()).add(new Placement(sheet, node));
-                    taken.computeIfAbsent(instance.sheet(), k -> new java.util.HashSet<>()).add(Integer.parseInt(numbered.group(1)));
+                    taken.computeIfAbsent(instance.sheet(), k -> new HashSet<>()).add(Integer.parseInt(numbered.group(1)));
                 }
             }
         }
@@ -521,8 +531,8 @@ public final class Network {
         }
         knownNames = labels;
         for (Placement placement : unnamed) {
-            UUID blueprint = ((io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings) placement.node().settings()).sheet();
-            java.util.Set<Integer> used = taken.computeIfAbsent(blueprint, k -> new java.util.HashSet<>());
+            UUID blueprint = ((NodeSettings.InstanceSettings) placement.node().settings()).sheet();
+            Set<Integer> used = taken.computeIfAbsent(blueprint, k -> new HashSet<>());
             int n = 1;
             while (used.contains(n)) {
                 n++;
@@ -566,16 +576,16 @@ public final class Network {
             if (sheet.blueprint()) {
                 continue;
             }
-            for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
+            for (Node node : sheet.nodes()) {
                 if (node.id().equals(except)) {
                     continue;
                 }
-                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings settings
+                if (node.settings() instanceof NodeSettings.DeviceSettings settings
                         && settings.device().equals(device)) {
                     return new Home(sheet, node);
                 }
-                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance) {
-                    for (var binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(this, sheet(instance.sheet()), instance).values()) {
+                if (node.settings() instanceof NodeSettings.InstanceSettings instance) {
+                    for (var binding : Blueprints.liveBindings(this, sheet(instance.sheet()), instance).values()) {
                         if (binding.device().equals(device)) {
                             return new Home(sheet, node);
                         }
@@ -587,7 +597,7 @@ public final class Network {
     }
 
     /** The sheet a device lives in, and its device node there. */
-    public record Home(Sheet sheet, io.github.leadassimilator.reticulum.graph.Node node) {
+    public record Home(Sheet sheet, Node node) {
     }
 
     /**

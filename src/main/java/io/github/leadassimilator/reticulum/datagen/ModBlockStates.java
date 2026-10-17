@@ -3,13 +3,15 @@ package io.github.leadassimilator.reticulum.datagen;
 import java.util.Map;
 
 import io.github.leadassimilator.reticulum.Reticulum;
-import io.github.leadassimilator.reticulum.block.LinkedBlock;
+import io.github.leadassimilator.reticulum.block.ControllerBlock;
 import io.github.leadassimilator.reticulum.block.Link;
+import io.github.leadassimilator.reticulum.block.LinkedBlock;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import net.minecraft.core.Direction;
 import net.minecraft.data.PackOutput;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
+import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
 import net.neoforged.neoforge.client.model.generators.ModelFile;
 import net.neoforged.neoforge.client.model.generators.MultiPartBlockStateBuilder;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
@@ -28,17 +30,17 @@ public class ModBlockStates extends BlockStateProvider {
         // The Status Beacon: one model, its lens tinted by the look it shows (see ReticulumClient's block colors).
         ModelFile beacon = models().getExistingFile(modLoc("block/status_beacon"));
         getVariantBuilder(ModBlocks.STATUS_BEACON.get()).forAllStates(state ->
-                net.neoforged.neoforge.client.model.generators.ConfiguredModel.builder().modelFile(beacon).build());
+                ConfiguredModel.builder().modelFile(beacon).build());
         // The controller; with an antenna installed, its top shows that tier's antenna (like the item's icon), lying
         // with its base along the front edge. The top texture is drawn facing north, turned for the others.
         ModelFile plain = models().cubeAll("controller", modLoc("block/controller"));
         getVariantBuilder(ModBlocks.CONTROLLER.get()).forAllStates(state -> {
-            int tier = state.getValue(io.github.leadassimilator.reticulum.block.ControllerBlock.ANTENNA);
+            int tier = state.getValue(ControllerBlock.ANTENNA);
             ModelFile model = tier == 0 ? plain
                     : models().cubeTop("controller_antenna_" + tier, modLoc("block/controller"), modLoc("block/controller_top_antenna_" + tier));
-            return net.neoforged.neoforge.client.model.generators.ConfiguredModel.builder().modelFile(model)
+            return ConfiguredModel.builder().modelFile(model)
                     // toYRot counts from south; the texture is drawn for north (0°), so east 90°, south 180°, west 270°.
-                    .rotationY(((int) state.getValue(io.github.leadassimilator.reticulum.block.ControllerBlock.FACING).toYRot() + 180) % 360)
+                    .rotationY(((int) state.getValue(ControllerBlock.FACING).toYRot() + 180) % 360)
                     .build();
         });
 

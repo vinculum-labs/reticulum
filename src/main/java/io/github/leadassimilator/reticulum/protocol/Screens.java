@@ -2,26 +2,40 @@ package io.github.leadassimilator.reticulum.protocol;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 import javax.annotation.Nullable;
 
-import io.github.leadassimilator.reticulum.security.NetworkAdmin;
-import io.github.leadassimilator.reticulum.security.Access;
-import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
+import io.github.leadassimilator.reticulum.engine.Alarms;
+import io.github.leadassimilator.reticulum.engine.CompiledSheet;
+import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
+import io.github.leadassimilator.reticulum.engine.NetworkTicker;
+import io.github.leadassimilator.reticulum.graph.Node;
+import io.github.leadassimilator.reticulum.graph.NodeSettings;
+import io.github.leadassimilator.reticulum.graph.Sheet;
+import io.github.leadassimilator.reticulum.lookat.LookAt;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Identifies;
 import io.github.leadassimilator.reticulum.network.Identify;
+import io.github.leadassimilator.reticulum.network.Limits;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.network.Switches;
+import io.github.leadassimilator.reticulum.security.Access;
 import io.github.leadassimilator.reticulum.security.AccessMode;
+import io.github.leadassimilator.reticulum.security.NetworkAdmin;
 import io.github.leadassimilator.reticulum.security.Passwords;
+import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
@@ -32,11 +46,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /** Server side of the in-game quick screens: builds views and applies the edits they send. */
 public final class Screens {
-    public static final int MAX_NAME_LENGTH = io.github.leadassimilator.reticulum.network.Limits.NAME;
+    public static final int MAX_NAME_LENGTH = Limits.NAME;
 
     private Screens() {
     }
@@ -73,57 +88,57 @@ public final class Screens {
     }
 
     private static void openBeacon(ServerPlayer player, BlockPos pos, boolean refresh) {
-        if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, pos)) {
+        if (!Access.inReach(player, pos)) {
             if (!refresh) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.too_far"), true);
+                player.displayClientMessage(Component.translatable("message.reticulum.too_far"), true);
             }
             return;
         }
-        if (!(player.serverLevel().getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
+        if (!(player.serverLevel().getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon)) {
             return;
         }
         var watch = beacon.watch(player.serverLevel());
-        io.github.leadassimilator.reticulum.network.Network network = watch.network();
-        boolean canView = network != null && io.github.leadassimilator.reticulum.security.Security.could(network, player, Role.VIEWER);
-        java.util.List<String> alarms = new java.util.ArrayList<>();
-        if (beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.NETWORK && canView && watch.reachable()) {
-            for (var alarm : io.github.leadassimilator.reticulum.engine.Alarms.cached(player.server, network)) {
+        Network network = watch.network();
+        boolean canView = network != null && Security.could(network, player, Role.VIEWER);
+        List<String> alarms = new ArrayList<>();
+        if (beacon.mode() == StatusBeaconBlockEntity.Mode.NETWORK && canView && watch.reachable()) {
+            for (var alarm : Alarms.cached(player.server, network)) {
                 if (alarms.size() < 8) {
-                    alarms.add((alarm.severity() == io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity.CRITICAL ? "!" : "?") + alarm.message());
+                    alarms.add((alarm.severity() == NodeSettings.AlarmSeverity.CRITICAL ? "!" : "?") + alarm.message());
                 }
             }
         }
         // As mayChangeBeacon decides it: every network it sits on, not only the one it watches.
         boolean canEdit = !player.isSpectator() && beacon.sitsOn(player.serverLevel()).stream()
-                .allMatch(n -> io.github.leadassimilator.reticulum.security.Security.could(n, player, Role.USER));
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new Payloads.OpenBeaconScreen(pos, beaconStatus(player, beacon, watch),
+                .allMatch(n -> Security.could(n, player, Role.USER));
+        PacketDistributor.sendToPlayer(player, new Payloads.OpenBeaconScreen(pos, beaconStatus(player, beacon, watch),
                 beacon.settings(), player.serverLevel().getBestNeighborSignal(pos), alarms, canEdit, refresh));
     }
 
     /** One line on what a beacon shows: the network it watches and whether it reaches it, or the signal it gets. */
-    public static net.minecraft.network.chat.Component beaconStatus(ServerPlayer player,
-            io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon,
-            io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Watch watch) {
-        if (beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.REDSTONE) {
-            return net.minecraft.network.chat.Component.translatable("lookat.reticulum.beacon_signal",
+    public static Component beaconStatus(ServerPlayer player,
+            StatusBeaconBlockEntity beacon,
+            StatusBeaconBlockEntity.Watch watch) {
+        if (beacon.mode() == StatusBeaconBlockEntity.Mode.REDSTONE) {
+            return Component.translatable("lookat.reticulum.beacon_signal",
                     player.serverLevel().getBestNeighborSignal(beacon.getBlockPos()));
         }
         if (watch.network() == null) {
-            return net.minecraft.network.chat.Component.translatable("lookat.reticulum.beacon_no_connector");
+            return Component.translatable("lookat.reticulum.beacon_no_connector");
         }
-        String name = io.github.leadassimilator.reticulum.security.Security.could(watch.network(), player, Role.VIEWER) ? watch.network().name() : "?";
-        return net.minecraft.network.chat.Component.translatable(watch.reachable() ? "lookat.reticulum.beacon_watching" : "lookat.reticulum.beacon_unreachable", name);
+        String name = Security.could(watch.network(), player, Role.VIEWER) ? watch.network().name() : "?";
+        return Component.translatable(watch.reachable() ? "lookat.reticulum.beacon_watching" : "lookat.reticulum.beacon_unreachable", name);
     }
 
     /** Whether the player may change a beacon: any player, unless it is a device of a network they can't use. */
-    public static boolean mayChangeBeacon(ServerPlayer player, io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon) {
+    public static boolean mayChangeBeacon(ServerPlayer player, StatusBeaconBlockEntity beacon) {
         if (player.isSpectator()) {
             return false;
         }
         // Every network it sits on, not only the one it watches: one it may not watch (its placer can't see it) still
         // isn't for others to take over.
-        for (io.github.leadassimilator.reticulum.network.Network network : beacon.sitsOn(player.serverLevel())) {
-            if (!io.github.leadassimilator.reticulum.security.Security.canUse(network, player)) {
+        for (Network network : beacon.sitsOn(player.serverLevel())) {
+            if (!Security.canUse(network, player)) {
                 // Not named to someone who can't see it.
                 player.displayClientMessage(Access.refusal(network, player, Role.USER), true);
                 return false;
@@ -133,8 +148,8 @@ public final class Screens {
     }
 
     static void setBeaconSettings(ServerPlayer player, Payloads.BeaconSettings payload) {
-        if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, payload.pos())
-                || !(player.serverLevel().getBlockEntity(payload.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
+        if (!Access.inReach(player, payload.pos())
+                || !(player.serverLevel().getBlockEntity(payload.pos()) instanceof StatusBeaconBlockEntity beacon)) {
             return;
         }
         if (!mayChangeBeacon(player, beacon)) {
@@ -142,7 +157,7 @@ public final class Screens {
         }
         beacon.applySettings(payload.settings());
         // A beacon nobody placed (a machine did, or placed before beacons remembered) becomes the one of whoever sets it up.
-        if (beacon.placer() == null && !(player instanceof net.neoforged.neoforge.common.util.FakePlayer)) {
+        if (beacon.placer() == null && !(player instanceof FakePlayer)) {
             beacon.setPlacer(player.getUUID());
         }
         // Sent back as kept (within the server's limits), and a new mode shows something else. Only to a screen still
@@ -152,8 +167,8 @@ public final class Screens {
 
     public static void open(ServerPlayer player, BlockPos pos) {
         // Farther than the server lets a screen stay open: said, rather than opened and closed again at once.
-        if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, pos)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.too_far"), true);
+        if (!Access.inReach(player, pos)) {
+            player.displayClientMessage(Component.translatable("message.reticulum.too_far"), true);
             return;
         }
         // Claimed: not opened this time, so the message saying so (in chat) isn't hidden behind the screen.
@@ -169,8 +184,8 @@ public final class Screens {
      */
     private static boolean claim(ServerPlayer player, BlockPos pos) {
         ServerLevel level = player.serverLevel();
-        if (player instanceof net.neoforged.neoforge.common.util.FakePlayer || player.isSpectator()
-                || !(level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity controller)) {
+        if (player instanceof FakePlayer || player.isSpectator()
+                || !(level.getBlockEntity(pos) instanceof ControllerBlockEntity controller)) {
             return false;
         }
         Network network = NetworkManager.network(level.getServer(), controller.networkId());
@@ -180,8 +195,8 @@ public final class Screens {
         network.setOwner(player.getUUID(), player.getGameProfile().getName());
         NetworkManager.changed(level.getServer(), network);
         // It stays as open as it was (others may already use it), but they are told when that is to anyone.
-        boolean open = network.accessMode() == io.github.leadassimilator.reticulum.security.AccessMode.PUBLIC;
-        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(open ? "message.reticulum.network_claimed_public"
+        boolean open = network.accessMode() == AccessMode.PUBLIC;
+        player.displayClientMessage(Component.translatable(open ? "message.reticulum.network_claimed_public"
                 : "message.reticulum.network_claimed", network.name()), false);
         return true;
     }
@@ -219,13 +234,13 @@ public final class Screens {
                 network.connectors().size(), network.devices().size(), NetworkManager.orphanCount(network),
                 Security.could(network, player, Role.EDITOR), Security.could(network, player, Role.ADMIN),
                 player.serverLevel().getBlockEntity(pos) instanceof ControllerBlockEntity controller ? controller.antennaTier() : 0,
-                network.enabled(), io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(player.server, network),
+                network.enabled(), NetworkTicker.isRunning(player.server, network),
                 network.switches().redstone(), sheetEntries(player, network), overflowLines(player, network), powerLine(player, network));
     }
 
     /** "Power: 52,000 / 1,000,000 FE (24 FE/t)", or empty when power is free. */
     private static String powerLine(ServerPlayer player, Network network) {
-        var state = io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(network.id()).powerState(player.server, network);
+        var state = NetworkTicker.runtime(network.id()).powerState(player.server, network);
         if (!state.enabled()) {
             return "";
         }
@@ -234,26 +249,26 @@ public final class Screens {
     }
 
     private static List<Views.SheetEntry> sheetEntries(ServerPlayer player, Network network) {
-        var runtime = io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(network.id());
+        var runtime = NetworkTicker.runtime(network.id());
         var compiled = runtime.compiled(network.root(), network);
         List<Views.SheetEntry> entries = new ArrayList<>();
         // Down the tree, each sheet followed by the ones inside it; the root is the network's own switch.
-        java.util.Map<java.util.UUID, Network.Placement> placements = network.placements();
+        Map<UUID, Network.Placement> placements = network.placements();
         addEntries(network, placements, network.root(), 0, runtime, compiled, entries);
         return entries;
     }
 
-    private static void addEntries(Network network, java.util.Map<java.util.UUID, Network.Placement> placements,
-            io.github.leadassimilator.reticulum.graph.Sheet parent, int depth, io.github.leadassimilator.reticulum.engine.NetworkRuntime runtime,
-            io.github.leadassimilator.reticulum.engine.CompiledSheet compiled, List<Views.SheetEntry> entries) {
+    private static void addEntries(Network network, Map<UUID, Network.Placement> placements,
+            Sheet parent, int depth, NetworkRuntime runtime,
+            CompiledSheet compiled, List<Views.SheetEntry> entries) {
         if (depth > 32) {
             return;
         }
-        for (io.github.leadassimilator.reticulum.graph.Node node : parent.nodes()) {
-            if (!(node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.SheetSettings child)) {
+        for (Node node : parent.nodes()) {
+            if (!(node.settings() instanceof NodeSettings.SheetSettings child)) {
                 continue;
             }
-            io.github.leadassimilator.reticulum.graph.Sheet sheet = network.sheet(child.sheet());
+            Sheet sheet = network.sheet(child.sheet());
             Network.Placement placement = placements.get(child.sheet());
             if (sheet == null || placement == null || placement.node() != node && !placement.node().id().equals(node.id())) {
                 continue;
@@ -284,7 +299,7 @@ public final class Screens {
         switch (payload.what()) {
             case Payloads.ControllerSwitch.NETWORK -> network.setEnabled(payload.value() != 0);
             case Payloads.ControllerSwitch.REDSTONE -> {
-                var modes = io.github.leadassimilator.reticulum.network.Switches.Redstone.values();
+                var modes = Switches.Redstone.values();
                 network.switches().setRedstone(modes[Math.floorMod(payload.value(), modes.length)]);
             }
             // Only the sheets the screen lists: blueprints run as part of the sheets that use them.
@@ -316,13 +331,13 @@ public final class Screens {
         boolean identified = network != null && be instanceof ConnectorBlockEntity c2
                 && Identifies.isOn(network, Identify.connector(c2.connectorId(), 0));
         return new Views.BlockView(pos, connector, network == null ? "" : network.name(), defaultName, customName, sides, canEdit,
-                java.util.Optional.of(Topology.rebindHint(level, pos)), identified, canUse);
+                Optional.of(Topology.rebindHint(level, pos)), identified, canUse);
     }
 
     private static Views.SideView sideView(ServerLevel level, BlockPos pos, NetworkBlockEntity be, Direction dir, @Nullable Network network) {
         BlockPos next = pos.relative(dir);
         // A connector facing another network's controller: a device it gives redstone to (attach or detach), not a joint.
-        boolean controllerDevice = be instanceof ConnectorBlockEntity && level.getBlockEntity(next) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity
+        boolean controllerDevice = be instanceof ConnectorBlockEntity && level.getBlockEntity(next) instanceof ControllerBlockEntity
                 && !Topology.connected(level, pos, dir) && Topology.reachesDevice(level, pos, dir);
         Topology.JointState joint = controllerDevice ? null : Topology.jointState(level, pos, dir);
         if (joint != null) {
@@ -365,7 +380,7 @@ public final class Screens {
         if (player.distanceToSqr(Vec3.atCenterOf(payload.pos())) > LOOK_DISTANCE * LOOK_DISTANCE || !player.serverLevel().isLoaded(payload.pos())) {
             return;
         }
-        var lines = io.github.leadassimilator.reticulum.lookat.LookAt.describe(player.serverLevel(), payload.pos(), payload.face(), player);
+        var lines = LookAt.describe(player.serverLevel(), payload.pos(), payload.face(), player);
         PacketDistributor.sendToPlayer(player, new Payloads.LookResponse(payload.pos(), lines.size() > 16 ? lines.subList(0, 16) : lines));
     }
 
@@ -457,7 +472,7 @@ public final class Screens {
     }
 
     private static String clip(String name) {
-        String value = io.github.leadassimilator.reticulum.network.Limits.name(name);
+        String value = Limits.name(name);
         return value == null ? "" : value;
     }
 }

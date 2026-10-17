@@ -2,11 +2,16 @@ package io.github.leadassimilator.telispex.client;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
@@ -156,7 +161,7 @@ public final class WebApp {
      */
     public void toServer(String json) {
         if (json.length() > RelayPayloads.MAX_REQUEST_CHARS / 3
-                && json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > RelayPayloads.MAX_REQUEST_CHARS) {
+                && json.getBytes(StandardCharsets.UTF_8).length > RelayPayloads.MAX_REQUEST_CHARS) {
             toServer(json, null);
         } else {
             PacketDistributor.sendToServer(new RelayPayloads.Request(id, json));
@@ -164,7 +169,7 @@ public final class WebApp {
     }
 
     /** Ids for large requests sent in pieces. */
-    private static final java.util.concurrent.atomic.AtomicInteger NEXT_LARGE = new java.util.concurrent.atomic.AtomicInteger();
+    private static final AtomicInteger NEXT_LARGE = new AtomicInteger();
 
     void toServer(String json, @Nullable String requestId) {
         for (RelayPayloads.RequestPart part : RelayPayloads.splitRequest(id, NEXT_LARGE.incrementAndGet(), requestId, json)) {
@@ -198,10 +203,10 @@ public final class WebApp {
     InputStream open(String name) throws IOException {
         String devRoot = devRootProperty == null ? null : System.getProperty(devRootProperty);
         if (devRoot != null) {
-            java.nio.file.Path root = java.nio.file.Path.of(devRoot).toAbsolutePath().normalize();
-            java.nio.file.Path file = root.resolve(name).normalize();
-            if (file.startsWith(root) && java.nio.file.Files.isRegularFile(file)) {
-                return java.nio.file.Files.newInputStream(file);
+            Path root = Path.of(devRoot).toAbsolutePath().normalize();
+            Path file = root.resolve(name).normalize();
+            if (file.startsWith(root) && Files.isRegularFile(file)) {
+                return Files.newInputStream(file);
             }
         }
         return anchor.getResourceAsStream(assets + name);
@@ -224,7 +229,7 @@ public final class WebApp {
         @Nullable
         private String devRootProperty;
         private String loginHint = "Open this page from the game.";
-        private final Map<String, Answer> routes = new java.util.HashMap<>();
+        private final Map<String, Answer> routes = new HashMap<>();
         private PageListener listener = new PageListener() {
         };
         @Nullable

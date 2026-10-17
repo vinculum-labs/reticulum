@@ -1,49 +1,72 @@
 package io.github.leadassimilator.reticulum.protocol.web;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
 
 import javax.annotation.Nullable;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Codec;
 
-import io.github.leadassimilator.reticulum.filter.FilterRefs;
-import io.github.leadassimilator.reticulum.security.NetworkAdmin;
+import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.engine.CompiledSheet;
 import io.github.leadassimilator.reticulum.engine.Metrics;
 import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.filter.FilterException;
+import io.github.leadassimilator.reticulum.filter.FilterRefs;
 import io.github.leadassimilator.reticulum.filter.Filters;
-import io.github.leadassimilator.reticulum.engine.CompiledSheet;
+import io.github.leadassimilator.reticulum.graph.Blueprints;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
+import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.network.ChartSeries;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.FaceKey;
+import io.github.leadassimilator.reticulum.network.Identifies;
+import io.github.leadassimilator.reticulum.network.Identify;
 import io.github.leadassimilator.reticulum.network.Limits;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.network.Switches;
 import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.security.Member;
+import io.github.leadassimilator.reticulum.security.NetworkAdmin;
 import io.github.leadassimilator.reticulum.security.Passwords;
 import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
+import io.github.leadassimilator.telispex.relay.Relay;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
@@ -62,7 +85,7 @@ public final class WebApi {
     /** Players whose editor shows the network list, and the list they were last sent. */
     private static final Map<UUID, String> LIST_LISTENERS = new HashMap<>();
     /** Edits only taken alone in a batch: what they change can't be put back if a later edit is refused. */
-    private static final java.util.Set<String> ALONE = java.util.Set.of("relinkDevice", "deleteOrphan", "setAccess", "setPassword", "setMember",
+    private static final Set<String> ALONE = Set.of("relinkDevice", "deleteOrphan", "setAccess", "setPassword", "setMember",
             "removeMember", "addChart", "removeChart");
 
     private WebApi() {
@@ -93,7 +116,7 @@ public final class WebApi {
             // no stack trace in the log for each one.
             send(player, error(id, "Malformed request: a field has the wrong type"));
         } catch (RuntimeException | StackOverflowError | LinkageError e) {
-            io.github.leadassimilator.reticulum.Reticulum.LOGGER.error("Web request failed: {}", json, e);
+            Reticulum.LOGGER.error("Web request failed: {}", json, e);
             send(player, error(id, "Internal error: " + e.getMessage()));
         }
     }
@@ -125,7 +148,7 @@ public final class WebApi {
      * and a push is left out (the editor keeps what it has).
      */
     static void send(ServerPlayer player, JsonObject message) {
-        io.github.leadassimilator.telispex.relay.Relay.send(player, io.github.leadassimilator.reticulum.Reticulum.MODID, message);
+        Relay.send(player, Reticulum.MODID, message);
     }
 
     public static final class RequestException extends Exception {
@@ -234,7 +257,7 @@ public final class WebApi {
                     }
                 } catch (RequestException | RuntimeException e) {
                     before.restore();
-                    io.github.leadassimilator.reticulum.network.Identifies.syncAll(server);
+                    Identifies.syncAll(server);
                     throw e;
                 } finally {
                     restore = RESTORE.get();
@@ -326,10 +349,10 @@ public final class WebApi {
                     throw new RequestException("That device isn't on " + network.name());
                 }
                 // Orphaned or missing: whatever stands there now isn't this network's to look into.
-                if (network.device(device).state() != io.github.leadassimilator.reticulum.network.DeviceRecord.State.ACTIVE) {
+                if (network.device(device).state() != DeviceRecord.State.ACTIVE) {
                     throw new RequestException("That device isn't reached by " + network.name() + " now");
                 }
-                net.minecraft.server.level.ServerLevel level = server.getLevel(device.dimension());
+                ServerLevel level = server.getLevel(device.dimension());
                 JsonObject out = level == null ? new JsonObject() : DeviceContents.read(level, device.pos(), string(request, "resource"));
                 if (!out.has("entries")) {
                     out.add("entries", new JsonArray());
@@ -350,7 +373,7 @@ public final class WebApi {
                         case "any" -> Filters.checkAny(expression, request.has("template") && request.get("template").isJsonPrimitive()
                                 ? Edits.withTemplate(network, request.get("template").getAsString(), expression) : network.filters());
                         case "chemical" -> {
-                            if (io.github.leadassimilator.reticulum.integration.Mods.MEKANISM) {
+                            if (Mods.MEKANISM) {
                                 Filters.chemicals(expression, network.filters());
                             }
                         }
@@ -371,7 +394,7 @@ public final class WebApi {
     private static JsonArray networkList(MinecraftServer server, ServerPlayer player) {
         JsonArray list = new JsonArray();
         for (Network network : NetworkManager.data(server).networks()) {
-            if (Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
+            if (Security.could(network, player, Role.VIEWER)) {
                 list.add(Snapshots.summary(server, network, Security.role(network, player)));
             }
         }
@@ -465,7 +488,7 @@ public final class WebApi {
                         network.sheets().add(sheet);
                         place(network, sheet, parent, edit);
                     }
-                    return new com.google.gson.JsonPrimitive(sheet.id().toString());
+                    return new JsonPrimitive(sheet.id().toString());
                 }
                 case "moveSheet" -> {
                     // Into another parent: its node there (same id, switch and label), wires on the old one dropped.
@@ -533,7 +556,7 @@ public final class WebApi {
                 case "deleteSheet" -> deleteSheet(server, network, sheet(network, edit));
                 case "makeBlueprint" -> {
                     Sheet made = makeBlueprint(server, network, sheet(network, edit), edit.has("keep") && edit.get("keep").getAsBoolean());
-                    return new com.google.gson.JsonPrimitive(made.id().toString());
+                    return new JsonPrimitive(made.id().toString());
                 }
                 case "detachInstance" -> {
                     Sheet parent = sheet(network, edit);
@@ -541,7 +564,7 @@ public final class WebApi {
                     if (node == null) {
                         throw new RequestException("No such node");
                     }
-                    return new com.google.gson.JsonPrimitive(detachInstance(network, parent, node).id().toString());
+                    return new JsonPrimitive(detachInstance(network, parent, node).id().toString());
                 }
                 case "duplicateBlueprint" -> {
                     Sheet blueprint = sheet(network, edit);
@@ -551,7 +574,7 @@ public final class WebApi {
                     roomForSheet(network);
                     Sheet copy = blueprint.copyWithNewIds(Limits.name(blueprint.name() + " (copy)"));
                     network.sheets().add(copy);
-                    return new com.google.gson.JsonPrimitive(copy.id().toString());
+                    return new JsonPrimitive(copy.id().toString());
                 }
                 case "addNode", "updateNode" -> {
                     Sheet sheet = sheet(network, edit);
@@ -571,7 +594,7 @@ public final class WebApi {
                     Node had = sheet.node(node.id());
                     boolean slotsMayReturn = sheet.blueprint() && (node.settings() instanceof NodeSettings.DeviceSettings
                             || node.settings() instanceof NodeSettings.InstanceSettings) && (had == null || !had.settings().equals(node.settings()));
-                    Map<UUID, java.util.Set<UUID>> liveBefore = slotsMayReturn ? liveSlots(network, sheet) : null;
+                    Map<UUID, Set<UUID>> liveBefore = slotsMayReturn ? liveSlots(network, sheet) : null;
                     if (type.equals("addNode")) {
                         // Sheets compile into one graph: a node id must be unique across the network.
                         if (network.sheets().stream().anyMatch(s -> s.node(node.id()) != null)) {
@@ -604,7 +627,7 @@ public final class WebApi {
                     if (liveBefore != null) {
                         dropRevivedDoubles(server, network, liveBefore);
                     }
-                    return new com.google.gson.JsonPrimitive(node.id().toString());
+                    return new JsonPrimitive(node.id().toString());
                 }
                 case "restoreBindings" -> {
                     // Fillings the game dropped as a side effect, given back on undo: added to the placement if it is
@@ -616,7 +639,7 @@ public final class WebApi {
                     if (!sheet.blueprint() && node != null && node.settings() instanceof NodeSettings.InstanceSettings instance && edit.has("bindings")
                             && edit.get("bindings").isJsonObject()) {
                         Map<UUID, NodeSettings.Binding> bindings = new HashMap<>(instance.bindings());
-                        java.util.Set<UUID> live = io.github.leadassimilator.reticulum.graph.Blueprints.slots(network, network.sheet(instance.sheet())).keySet();
+                        Set<UUID> live = Blueprints.slots(network, network.sheet(instance.sheet())).keySet();
                         for (Map.Entry<String, JsonElement> entry : edit.getAsJsonObject("bindings").entrySet()) {
                             NodeSettings.Binding binding = decode(server, NodeSettings.Binding.CODEC, entry.getValue(), "binding");
                             UUID key;
@@ -682,7 +705,7 @@ public final class WebApi {
                         throw new RequestException("A sheet can have at most " + Limits.WIRES_PER_SHEET + " wires");
                     }
                     sheet.connect(wire);
-                    return new com.google.gson.JsonPrimitive(wire.id().toString());
+                    return new JsonPrimitive(wire.id().toString());
                 }
                 case "disconnect" -> sheet(network, edit).disconnect(uuid(edit, "wire"));
                 case "orderWires" -> {
@@ -720,7 +743,7 @@ public final class WebApi {
                     }
                 }
                 case "addChart" -> {
-                    io.github.leadassimilator.reticulum.network.ChartSeries chart = decode(server, io.github.leadassimilator.reticulum.network.ChartSeries.CODEC,
+                    ChartSeries chart = decode(server, ChartSeries.CODEC,
                             edit.get("chart"), "chart");
                     if (!chart.valid()) {
                         throw new RequestException("A chart needs an item, fluid or chemical, or a device and what it holds");
@@ -731,8 +754,8 @@ public final class WebApi {
                     if (network.charts().stream().anyMatch(c -> c.key().equals(chart.key()))) {
                         throw new RequestException("That is charted already");
                     }
-                    if (network.charts().size() >= io.github.leadassimilator.reticulum.network.Limits.CHARTS) {
-                        throw new RequestException("A network can chart at most " + io.github.leadassimilator.reticulum.network.Limits.CHARTS + " things");
+                    if (network.charts().size() >= Limits.CHARTS) {
+                        throw new RequestException("A network can chart at most " + Limits.CHARTS + " things");
                     }
                     network.charts().add(chart);
                 }
@@ -800,8 +823,8 @@ public final class WebApi {
                     if (taken && !from.equals(to)) {
                         throw new RequestException("Filters already use @" + to + " (no such template): change those first, or pick another name");
                     }
-                    java.util.function.UnaryOperator<String> renamed = e -> e == null ? null : FilterRefs.rename(e, from, to);
-                    Map<String, String> templates = new java.util.LinkedHashMap<>();
+                    UnaryOperator<String> renamed = e -> e == null ? null : FilterRefs.rename(e, from, to);
+                    Map<String, String> templates = new LinkedHashMap<>();
                     network.filters().forEach((name, expression) -> templates.put(name.equals(from) ? to : name, renamed.apply(expression)));
                     network.filters().clear();
                     network.filters().putAll(templates);
@@ -817,21 +840,21 @@ public final class WebApi {
                 }
                 case "setNetworkEnabled" -> network.setEnabled(bool(edit, "enabled"));
                 case "identify" -> {
-                    io.github.leadassimilator.reticulum.network.Identify target = decode(server,
-                            io.github.leadassimilator.reticulum.network.Identify.CODEC, edit, "identify");
+                    Identify target = decode(server,
+                            Identify.CODEC, edit, "identify");
                     boolean on = bool(edit, "on");
-                    if (!io.github.leadassimilator.reticulum.network.Identifies.set(server, network, target, on) && on) {
-                        throw new RequestException(io.github.leadassimilator.reticulum.network.Identifies.belongs(network, target)
+                    if (!Identifies.set(server, network, target, on) && on) {
+                        throw new RequestException(Identifies.belongs(network, target)
                                 ? "At most " + Limits.IDENTIFIES + " things can be identified at once"
                                 : "That isn't a connector or device of this network");
                     }
                 }
-                case "clearIdentify" -> io.github.leadassimilator.reticulum.network.Identifies.clear(server, network);
+                case "clearIdentify" -> Identifies.clear(server, network);
                 case "setNetworkRedstone" -> network.switches().setRedstone(
-                        decode(server, io.github.leadassimilator.reticulum.network.Switches.Redstone.CODEC, edit.get("redstone"), "redstone"));
+                        decode(server, Switches.Redstone.CODEC, edit.get("redstone"), "redstone"));
                 default -> throw new RequestException("Unknown edit '" + type + "'");
             }
-            return com.google.gson.JsonNull.INSTANCE;
+            return JsonNull.INSTANCE;
         }
 
         @FunctionalInterface
@@ -914,11 +937,11 @@ public final class WebApi {
          * another blueprint, one per instance of that blueprint.
          */
         private static List<String> instances(Network network, UUID blueprint, int depth) {
-            return instances(network, blueprint, depth, new java.util.HashSet<>());
+            return instances(network, blueprint, depth, new HashSet<>());
         }
 
         /** {@code path}: the blueprints this one is reached through, so a loop (saved before loops were refused) ends. */
-        private static List<String> instances(Network network, UUID blueprint, int depth, java.util.Set<UUID> path) {
+        private static List<String> instances(Network network, UUID blueprint, int depth, Set<UUID> path) {
             List<String> out = new ArrayList<>();
             if (depth >= NESTING || !path.add(blueprint)) {
                 return out;
@@ -969,7 +992,7 @@ public final class WebApi {
 
         /** The id a blueprint's node runs under in an instance (as the engine pastes it). */
         private static String inInstance(String instance, UUID node) {
-            return UUID.nameUUIDFromBytes((instance + "/" + node).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+            return UUID.nameUUIDFromBytes((instance + "/" + node).getBytes(StandardCharsets.UTF_8)).toString();
         }
 
         private static void roomForSheet(Network network) throws RequestException {
@@ -1005,7 +1028,7 @@ public final class WebApi {
                 }
                 // Offline (a member's role changed, or a removed member put back): known by id.
                 var cache = server.getProfileCache();
-                var known = cache == null ? java.util.Optional.<GameProfile>empty() : cache.get(id);
+                var known = cache == null ? Optional.<GameProfile>empty() : cache.get(id);
                 if (known.isPresent()) {
                     return known.get();
                 }
@@ -1014,15 +1037,15 @@ public final class WebApi {
             }
             // Players who have been on this server, from its saved list: asking the cache by name would look an unknown
             // one up online, on the server thread, stalling it.
-            java.nio.file.Path users = server.getServerDirectory().resolve("usercache.json");
-            try (java.io.Reader reader = java.nio.file.Files.newBufferedReader(users)) {
-                for (JsonElement entry : com.google.gson.JsonParser.parseReader(reader).getAsJsonArray()) {
+            Path users = server.getServerDirectory().resolve("usercache.json");
+            try (Reader reader = Files.newBufferedReader(users)) {
+                for (JsonElement entry : JsonParser.parseReader(reader).getAsJsonArray()) {
                     JsonObject user = entry.getAsJsonObject();
                     if (user.has("name") && user.has("uuid") && user.get("name").getAsString().equalsIgnoreCase(name)) {
                         return new GameProfile(UUID.fromString(user.get("uuid").getAsString()), user.get("name").getAsString());
                     }
                 }
-            } catch (java.io.IOException | RuntimeException unreadable) {
+            } catch (IOException | RuntimeException unreadable) {
                 // No list (yet), or not one we can read: nobody found.
             }
             throw new RequestException("No player called " + name + " has been on this server");
@@ -1090,8 +1113,8 @@ public final class WebApi {
             if (used == null || !used.blueprint()) {
                 throw new RequestException("A placed blueprint has to place a blueprint");
             }
-            java.util.Set<UUID> seen = new java.util.HashSet<>();
-            java.util.ArrayDeque<Sheet> todo = new java.util.ArrayDeque<>(List.of(used));
+            Set<UUID> seen = new HashSet<>();
+            ArrayDeque<Sheet> todo = new ArrayDeque<>(List.of(used));
             while (!todo.isEmpty()) {
                 Sheet at = todo.pop();
                 if (at.id().equals(sheet.id())) {
@@ -1145,7 +1168,7 @@ public final class WebApi {
                 return known;
             }
             int deepest = 1;
-            java.util.Set<UUID> placed = new java.util.HashSet<>();
+            Set<UUID> placed = new HashSet<>();
             for (Node inner : blueprint.nodes()) {
                 if (inner.settings() instanceof NodeSettings.InstanceSettings nested && placed.add(nested.sheet())
                         && network.sheet(nested.sheet()) instanceof Sheet held) {
@@ -1195,15 +1218,15 @@ public final class WebApi {
             if (sheet.blueprint()) {
                 return;
             }
-            java.util.Set<net.minecraft.core.GlobalPos> had = before == null ? java.util.Set.of() : homes(network, before);
+            Set<GlobalPos> had = before == null ? Set.of() : homes(network, before);
             if (node.settings() instanceof NodeSettings.DeviceSettings device) {
                 if (!had.contains(device.device())) {
                     livesNowhere(network, device.device(), node.id());
                 }
             } else if (node.settings() instanceof NodeSettings.InstanceSettings instance) {
                 // A block filling a slot of an instance lives there, like a device node: once, in one slot.
-                java.util.Set<net.minecraft.core.GlobalPos> seen = new java.util.HashSet<>();
-                for (NodeSettings.Binding binding : io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).values()) {
+                Set<GlobalPos> seen = new HashSet<>();
+                for (NodeSettings.Binding binding : Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).values()) {
                     if (!seen.add(binding.device())) {
                         throw new RequestException("One block can't fill two slots");
                     }
@@ -1215,17 +1238,17 @@ public final class WebApi {
         }
 
         /** The devices a node is the home of: a device node's device, the blocks filling an instance's slots. */
-        private static java.util.Set<net.minecraft.core.GlobalPos> homes(Network network, Node node) {
-            java.util.Set<net.minecraft.core.GlobalPos> out = new java.util.HashSet<>();
+        private static Set<GlobalPos> homes(Network network, Node node) {
+            Set<GlobalPos> out = new HashSet<>();
             if (node.settings() instanceof NodeSettings.DeviceSettings device) {
                 out.add(device.device());
             } else if (node.settings() instanceof NodeSettings.InstanceSettings instance) {
-                io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).values().forEach(b -> out.add(b.device()));
+                Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).values().forEach(b -> out.add(b.device()));
             }
             return out;
         }
 
-        private static void livesNowhere(Network network, net.minecraft.core.GlobalPos device, UUID except) throws RequestException {
+        private static void livesNowhere(Network network, GlobalPos device, UUID except) throws RequestException {
             Network.Home home = network.home(device, except);
             if (home != null) {
                 throw new RequestException("That device already lives in " + (home.sheet().root() ? home.sheet().name() : network.path(home.sheet()))
@@ -1245,7 +1268,7 @@ public final class WebApi {
         private static JsonElement importSheet(MinecraftServer server, Network network, JsonObject edit) throws RequestException {
             Sheet pasted = decode(server, Sheet.CODEC, edit.get("sheet"), "sheet");
             check(Limits.check(pasted));
-            Map<UUID, Sheet> brought = new java.util.LinkedHashMap<>();
+            Map<UUID, Sheet> brought = new LinkedHashMap<>();
             if (edit.has("sheets") && edit.get("sheets").isJsonArray()) {
                 for (JsonElement element : edit.getAsJsonArray("sheets")) {
                     Sheet sheet = decode(server, Sheet.CODEC, element, "sheet");
@@ -1257,7 +1280,7 @@ public final class WebApi {
 
             // Filter templates first: the filters on the sheets may name them (and they each other).
             if (edit.has("filters") && edit.get("filters").isJsonObject()) {
-                Map<String, String> added = new java.util.LinkedHashMap<>();
+                Map<String, String> added = new LinkedHashMap<>();
                 for (Map.Entry<String, JsonElement> entry : edit.getAsJsonObject("filters").entrySet()) {
                     String name = entry.getKey();
                     String expression = entry.getValue().getAsString();
@@ -1295,9 +1318,9 @@ public final class WebApi {
 
             // Ids for what comes in, by the ids it had.
             Map<UUID, UUID> ids = new HashMap<>();
-            java.util.Set<UUID> nodeIds = new java.util.HashSet<>();
+            Set<UUID> nodeIds = new HashSet<>();
             network.sheets().forEach(sheet -> sheet.nodes().forEach(node -> nodeIds.add(node.id())));
-            java.util.Set<String> names = new java.util.HashSet<>();
+            Set<String> names = new HashSet<>();
             network.sheets().forEach(sheet -> names.add(sheet.name()));
             List<Sheet> blueprints = new ArrayList<>();
             for (Sheet sheet : brought.values()) {
@@ -1331,9 +1354,9 @@ public final class WebApi {
             top.setRoot(false);
             ids.put(pasted.id(), top.id());
             List<Sheet> inside = new ArrayList<>();
-            java.util.Set<UUID> insideIds = new java.util.HashSet<>();
+            Set<UUID> insideIds = new HashSet<>();
             // (A blueprint holds no sheets.)
-            java.util.ArrayDeque<Sheet> todo = new java.util.ArrayDeque<>(pasted.blueprint() ? List.of() : List.of(pasted));
+            ArrayDeque<Sheet> todo = new ArrayDeque<>(pasted.blueprint() ? List.of() : List.of(pasted));
             while (!todo.isEmpty()) {
                 Sheet at = todo.pop();
                 for (Node node : at.nodes()) {
@@ -1367,7 +1390,7 @@ public final class WebApi {
                 }
             }
 
-            Map<UUID, java.util.Set<UUID>> liveBefore = liveSlots(network, null);
+            Map<UUID, Set<UUID>> liveBefore = liveSlots(network, null);
             for (Sheet sheet : sheets) {
                 roomForSheet(network);
                 network.sheets().add(sheet);
@@ -1405,7 +1428,7 @@ public final class WebApi {
          * A name for a sheet an import brings, none of {@code names} (which it joins): its own, else with " (imported)",
          * then " (imported 2)" and on, cut to fit.
          */
-        private static String importedName(java.util.Set<String> names, @Nullable String wanted, String fallback) {
+        private static String importedName(Set<String> names, @Nullable String wanted, String fallback) {
             String base = wanted == null ? fallback : wanted;
             String name = base;
             for (int n = 1; names.contains(name); n++) {
@@ -1420,21 +1443,21 @@ public final class WebApi {
          * The slots filled and still there of each placement of a blueprint that holds {@code changed} (itself, or placed
          * in it at any depth), by the placement's node id.
          */
-        private static Map<UUID, java.util.Set<UUID>> liveSlots(Network network, @Nullable Sheet changed) {
+        private static Map<UUID, Set<UUID>> liveSlots(Network network, @Nullable Sheet changed) {
             if (changed == null) {
                 // Every placement (what changed isn't one blueprint).
-                Map<UUID, java.util.Set<UUID>> out = new HashMap<>();
+                Map<UUID, Set<UUID>> out = new HashMap<>();
                 for (Sheet sheet : network.sheets()) {
                     for (Node node : sheet.blueprint() ? List.<Node>of() : sheet.nodes()) {
                         if (node.settings() instanceof NodeSettings.InstanceSettings instance) {
-                            out.put(node.id(), io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).keySet());
+                            out.put(node.id(), Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).keySet());
                         }
                     }
                 }
                 return out;
             }
             // The blueprints holding the changed one, outwards.
-            java.util.Set<UUID> holding = new java.util.HashSet<>(List.of(changed.id()));
+            Set<UUID> holding = new HashSet<>(List.of(changed.id()));
             for (boolean grew = true; grew; ) {
                 grew = false;
                 for (Sheet sheet : network.sheets()) {
@@ -1445,14 +1468,14 @@ public final class WebApi {
                     }
                 }
             }
-            Map<UUID, java.util.Set<UUID>> out = new HashMap<>();
+            Map<UUID, Set<UUID>> out = new HashMap<>();
             for (Sheet sheet : network.sheets()) {
                 if (sheet.blueprint()) {
                     continue;
                 }
                 for (Node node : sheet.nodes()) {
                     if (node.settings() instanceof NodeSettings.InstanceSettings instance && holding.contains(instance.sheet())) {
-                        out.put(node.id(), io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).keySet());
+                        out.put(node.id(), Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance).keySet());
                     }
                 }
             }
@@ -1463,7 +1486,7 @@ public final class WebApi {
          * Fillings that came back since {@code before} (their slot is there again) whose block lives elsewhere by now, or
          * fills another slot of the same placement: dropped, so a block keeps one home.
          */
-        private static void dropRevivedDoubles(MinecraftServer server, Network network, Map<UUID, java.util.Set<UUID>> before) {
+        private static void dropRevivedDoubles(MinecraftServer server, Network network, Map<UUID, Set<UUID>> before) {
             for (Sheet sheet : network.sheets()) {
                 if (sheet.blueprint()) {
                     continue;
@@ -1472,11 +1495,11 @@ public final class WebApi {
                     if (!(node.settings() instanceof NodeSettings.InstanceSettings instance) || !before.containsKey(node.id())) {
                         continue;
                     }
-                    Map<UUID, NodeSettings.Binding> live = io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance);
-                    java.util.Set<UUID> had = before.getOrDefault(node.id(), java.util.Set.of());
+                    Map<UUID, NodeSettings.Binding> live = Blueprints.liveBindings(network, network.sheet(instance.sheet()), instance);
+                    Set<UUID> had = before.getOrDefault(node.id(), Set.of());
                     Map<UUID, NodeSettings.Binding> kept = new HashMap<>(instance.bindings());
                     // The blocks this placement's live fillings hold: those it had, then each one coming back that is kept.
-                    java.util.Set<GlobalPos> held = new java.util.HashSet<>();
+                    Set<GlobalPos> held = new HashSet<>();
                     live.forEach((key, binding) -> {
                         if (had.contains(key)) {
                             held.add(binding.device());
@@ -1525,7 +1548,7 @@ public final class WebApi {
             if (!network.descendants(sheet).isEmpty()) {
                 throw new RequestException("A sheet with sheets inside it can't become a blueprint yet: move them out first");
             }
-            java.util.Set<GlobalPos> devices = new java.util.HashSet<>();
+            Set<GlobalPos> devices = new HashSet<>();
             for (Node node : sheet.nodes()) {
                 // Two slots filled by one block can't be edited after (one block fills one slot).
                 if (node.settings() instanceof NodeSettings.DeviceSettings device && !devices.add(device.device())) {
@@ -1542,7 +1565,7 @@ public final class WebApi {
                 if (original.settings() instanceof NodeSettings.DeviceSettings device) {
                     var record = network.device(device.device());
                     Node slot = blueprint.node(ids.get(original.id()));
-                    blueprint.replace(slot.with(device.withBlock(record == null ? java.util.Optional.empty() : java.util.Optional.of(record.blockId()))));
+                    blueprint.replace(slot.with(device.withBlock(record == null ? Optional.empty() : Optional.of(record.blockId()))));
                     bindings.put(slot.id(), new NodeSettings.Binding(device.device(), 0));
                     slotOf.putIfAbsent(device.device(), slot.id());
                 }
@@ -1552,11 +1575,11 @@ public final class WebApi {
             for (Node original : sheet.nodes()) {
                 if (original.settings() instanceof NodeSettings.InstanceSettings placed) {
                     UUID copy = ids.get(original.id());
-                    io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(placed.sheet()), placed)
-                            .forEach((key, binding) -> bindings.put(io.github.leadassimilator.reticulum.graph.Blueprints.nested(copy, key), binding));
+                    Blueprints.liveBindings(network, network.sheet(placed.sheet()), placed)
+                            .forEach((key, binding) -> bindings.put(Blueprints.nested(copy, key), binding));
                     // Its blocks stay as its layout: where its slots were laid out, for filling placements by layout.
                     blueprint.replace(blueprint.node(copy).with(new NodeSettings.InstanceSettings(placed.sheet(), Map.of(),
-                            io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, network.sheet(placed.sheet()), placed))));
+                            Blueprints.liveBindings(network, network.sheet(placed.sheet()), placed))));
                 }
             }
             // A Level sensor reading one of the sheet's devices reads that device's slot: in each instance, its block.
@@ -1603,7 +1626,7 @@ public final class WebApi {
             }
             roomForSheet(network);
             deepEnough(network, parent, 0);
-            Map<UUID, NodeSettings.Binding> live = io.github.leadassimilator.reticulum.graph.Blueprints.liveBindings(network, blueprint, instance);
+            Map<UUID, NodeSettings.Binding> live = Blueprints.liveBindings(network, blueprint, instance);
             // Its own slots become device nodes, so each needs a block; those of blueprints placed in it may stay empty.
             if (blueprint.nodes().stream().anyMatch(slot -> slot.settings() instanceof NodeSettings.DeviceSettings && !live.containsKey(slot.id()))) {
                 throw new RequestException("Fill its empty slots first: an empty slot has no block of its own to become a device node");
@@ -1613,16 +1636,16 @@ public final class WebApi {
             sheet.setBlueprint(false);
             for (Node inner : blueprint.nodes()) {
                 Node made = sheet.node(ids.get(inner.id()));
-                NodeSettings bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(inner, instance.bindings());
+                NodeSettings bound = Blueprints.bound(inner, instance.bindings());
                 if (bound == null && inner.settings() instanceof NodeSettings.DeviceSettings device) {
-                    bound = device.withBlock(java.util.Optional.empty());
+                    bound = device.withBlock(Optional.empty());
                 } else if (bound == null && inner.settings() instanceof NodeSettings.LevelSettings level) {
                     // Reading a slot the blueprint no longer has: it reads where that slot was laid out.
                     bound = level.readingDevice(level.device(), level.faces());
                 } else if (inner.settings() instanceof NodeSettings.InstanceSettings nested) {
                     // A blueprint placed inside: on a sheet now, it holds this placement's blocks for its slots itself.
                     bound = new NodeSettings.InstanceSettings(nested.sheet(),
-                            io.github.leadassimilator.reticulum.graph.Blueprints.inner(network, instance.bindings(), inner.id(), network.sheet(nested.sheet())));
+                            Blueprints.inner(network, instance.bindings(), inner.id(), network.sheet(nested.sheet())));
                 }
                 if (bound != null && !bound.equals(inner.settings())) {
                     sheet.replace(made.with(bound));
@@ -1716,7 +1739,7 @@ public final class WebApi {
             var subs = entry.getValue();
             for (UUID networkId : List.copyOf(subs.keySet())) {
                 Network network = NetworkManager.network(server, networkId);
-                if (network == null || !Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
+                if (network == null || !Security.could(network, player, Role.VIEWER)) {
                     subs.remove(networkId);
                     JsonObject gone = new JsonObject();
                     gone.addProperty("type", "removed");
@@ -1740,7 +1763,7 @@ public final class WebApi {
                     long now = System.currentTimeMillis();
                     if (now - lastPushFailureLogged > 60_000) {
                         lastPushFailureLogged = now;
-                        io.github.leadassimilator.reticulum.Reticulum.LOGGER.error("Couldn't send network {} ({}) to the editor (not logged again for a minute)", network.name(), network.id(), e);
+                        Reticulum.LOGGER.error("Couldn't send network {} ({}) to the editor (not logged again for a minute)", network.name(), network.id(), e);
                     }
                 }
             }
@@ -1751,17 +1774,17 @@ public final class WebApi {
      * A chunk loaded or unloaded: an open network with a device in it shows that device's state anew (loaded, what it
      * holds), though nothing in the network changed.
      */
-    public static void onChunkChanged(net.neoforged.neoforge.event.level.ChunkEvent event) {
-        if (SUBSCRIPTIONS.isEmpty() || event.getLevel().isClientSide() || !(event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)) {
+    public static void onChunkChanged(ChunkEvent event) {
+        if (SUBSCRIPTIONS.isEmpty() || event.getLevel().isClientSide() || !(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
-        net.minecraft.world.level.ChunkPos chunk = event.getChunk().getPos();
-        java.util.Set<UUID> open = new java.util.HashSet<>();
+        ChunkPos chunk = event.getChunk().getPos();
+        Set<UUID> open = new HashSet<>();
         SUBSCRIPTIONS.values().forEach(subs -> open.addAll(subs.keySet()));
         for (UUID id : open) {
             Network network = NetworkManager.network(level.getServer(), id);
             if (network != null && network.devices().stream().anyMatch(d -> d.pos().dimension() == level.dimension()
-                    && chunk.equals(new net.minecraft.world.level.ChunkPos(d.pos().pos())))) {
+                    && chunk.equals(new ChunkPos(d.pos().pos())))) {
                 network.touchShown();
             }
         }
@@ -1798,7 +1821,7 @@ public final class WebApi {
         for (Map.Entry<UUID, Map<UUID, Integer>> entry : SUBSCRIPTIONS.entrySet()) {
             Map<UUID, Integer> subs = entry.getValue();
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            if (player == null || !subs.containsKey(network.id()) || !Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
+            if (player == null || !subs.containsKey(network.id()) || !Security.could(network, player, Role.VIEWER)) {
                 continue;
             }
             subs.put(network.id(), stamp(server, network, player, false));

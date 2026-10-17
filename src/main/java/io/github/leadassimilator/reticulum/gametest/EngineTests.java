@@ -1,46 +1,101 @@
 package io.github.leadassimilator.reticulum.gametest;
 
-import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
-import io.github.leadassimilator.reticulum.network.FaceKey;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
+import java.util.function.ToLongFunction;
+import java.util.function.UnaryOperator;
+
+import com.google.gson.JsonParser;
+import com.mojang.serialization.JsonOps;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.ReticulumConfig;
+import io.github.leadassimilator.reticulum.block.ControllerBlock;
+import io.github.leadassimilator.reticulum.block.StatusBeaconBlock;
+import io.github.leadassimilator.reticulum.block.entity.BeaconLook;
+import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
+import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
+import io.github.leadassimilator.reticulum.engine.Alarms;
 import io.github.leadassimilator.reticulum.engine.CompiledSheet;
 import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
+import io.github.leadassimilator.reticulum.engine.Power;
+import io.github.leadassimilator.reticulum.engine.Status;
+import io.github.leadassimilator.reticulum.filter.FilterExpr;
+import io.github.leadassimilator.reticulum.filter.Filters;
+import io.github.leadassimilator.reticulum.graph.Blueprints;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.graph.Wire;
 import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.item.FacadeItem;
+import io.github.leadassimilator.reticulum.item.ToolMode;
+import io.github.leadassimilator.reticulum.network.ChartSeries;
+import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Devices;
+import io.github.leadassimilator.reticulum.network.FaceKey;
+import io.github.leadassimilator.reticulum.network.Identifies;
+import io.github.leadassimilator.reticulum.network.Identify;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.network.Switches;
+import io.github.leadassimilator.reticulum.protocol.web.DeviceContents;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
+import io.github.leadassimilator.reticulum.registry.ModDataComponents;
+import io.github.leadassimilator.reticulum.registry.ModItems;
+import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
+import net.minecraft.gametest.framework.AfterBatch;
+import net.minecraft.gametest.framework.BeforeBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LayeredCauldronBlock;
 import net.minecraft.world.level.block.LeverBlock;
 import net.minecraft.world.level.block.RedstoneLampBlock;
+import net.minecraft.world.level.block.RotatedPillarBlock;
+import net.minecraft.world.level.block.entity.BarrelBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.AttachFace;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -91,7 +146,7 @@ public final class EngineTests {
             sheet.connect(new Wire(UUID.randomUUID(), from.id(), output, to.id(), 0));
         }
 
-        int count(int i, net.minecraft.world.item.Item item) {
+        int count(int i, Item item) {
             return container(i).countItem(item);
         }
 
@@ -106,7 +161,7 @@ public final class EngineTests {
         }
 
         /** Replaces the test sheet's node in its parent. */
-        void sheetNode(java.util.function.UnaryOperator<Node> change) {
+        void sheetNode(UnaryOperator<Node> change) {
             network.ensureTree();
             Network.Placement placement = network.placement(sheet.id());
             placement.parent().replace(change.apply(placement.node()));
@@ -330,8 +385,8 @@ public final class EngineTests {
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void switchThroughADisplayLightsALamp(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
-        Node toggle = rig.node(new NodeSettings.SwitchSettings(15, false, java.util.Optional.empty()));
-        Node display = rig.node(new NodeSettings.DisplaySettings(NodeSettings.DisplayStyle.LIGHT, "", 15, java.util.Optional.empty(), java.util.Optional.empty(), java.util.List.of()));
+        Node toggle = rig.node(new NodeSettings.SwitchSettings(15, false, Optional.empty()));
+        Node display = rig.node(new NodeSettings.DisplaySettings(NodeSettings.DisplayStyle.LIGHT, "", 15, Optional.empty(), Optional.empty(), List.of()));
         rig.signal(toggle, display, 0);
         rig.signal(display, rig.redstoneTo(rig.device(0)), 0);
         BlockPos lamp = rig.devices().get(0);
@@ -349,15 +404,15 @@ public final class EngineTests {
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void raisingAnOnSwitchsValueTakesAtOnce(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
-        Node toggle = rig.node(new NodeSettings.SwitchSettings(9, false, java.util.Optional.empty()));
+        Node toggle = rig.node(new NodeSettings.SwitchSettings(9, false, Optional.empty()));
         rig.signal(toggle, rig.redstoneTo(rig.device(0)), 0);
         var network = rig.network();
         network.signalMemory().put(toggle.id().toString(), 9L);
-        java.util.function.Supplier<Long> out = () -> io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(network.id()).signalValues()
+        Supplier<Long> out = () -> NetworkTicker.runtime(network.id()).signalValues()
                 .getOrDefault(toggle.id(), 0L);
         helper.startSequence()
                 .thenWaitUntil(() -> check(helper, out.get() == 9, "the switch on gave " + out.get()))
-                .thenExecute(() -> rig.sheet().replace(rig.sheet().node(toggle.id()).with(new NodeSettings.SwitchSettings(15, false, java.util.Optional.empty()))))
+                .thenExecute(() -> rig.sheet().replace(rig.sheet().node(toggle.id()).with(new NodeSettings.SwitchSettings(15, false, Optional.empty()))))
                 .thenWaitUntil(() -> check(helper, out.get() == 15, "after raising its value to 15 it gave " + out.get()))
                 .thenSucceed();
     }
@@ -369,7 +424,7 @@ public final class EngineTests {
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void aSwitchedOffFeederGivesZero(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
-        Node toggle = rig.node(new NodeSettings.SwitchSettings(15, false, java.util.Optional.empty()));
+        Node toggle = rig.node(new NodeSettings.SwitchSettings(15, false, Optional.empty()));
         Node constant = rig.node(new NodeSettings.ConstantSettings(15));
         rig.signal(toggle, constant, 0);
         rig.signal(constant, rig.redstoneTo(rig.device(0)), 0);
@@ -390,8 +445,8 @@ public final class EngineTests {
         Node constant = rig.node(new NodeSettings.ConstantSettings(15));
         Node lampNode = rig.redstoneTo(rig.device(0));
         rig.signal(constant, lampNode, 0);
-        Node toggle = rig.node(new NodeSettings.SwitchSettings(15, false, java.util.Optional.empty()));
-        rig.signal(toggle, lampNode, io.github.leadassimilator.reticulum.graph.Wire.GATE);
+        Node toggle = rig.node(new NodeSettings.SwitchSettings(15, false, Optional.empty()));
+        rig.signal(toggle, lampNode, Wire.GATE);
         BlockPos lamp = rig.devices().get(0);
         var memory = rig.network().signalMemory();
         helper.startSequence()
@@ -413,7 +468,7 @@ public final class EngineTests {
         Rig rig = rig(helper, Blocks.LEVER, Blocks.BARREL, Blocks.REDSTONE_LAMP);
         helper.setBlock(rig.devices().get(0), lever(false));
         Node reading = rig.redstoneFrom(rig.device(0));
-        rig.signal(reading, reading, io.github.leadassimilator.reticulum.graph.Wire.GATE);
+        rig.signal(reading, reading, Wire.GATE);
         rig.signal(reading, rig.redstoneTo(rig.device(2)), 0);
         BlockPos lamp = rig.devices().get(2);
         helper.startSequence()
@@ -447,13 +502,13 @@ public final class EngineTests {
         Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
         Node level = rig.node(new NodeSettings.ConstantSettings(3));
         Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL, "Battery low",
-                java.util.Optional.of(NodeSettings.CompareOp.LT), 5, 1));
+                Optional.of(NodeSettings.CompareOp.LT), 5, 1));
         rig.signal(level, alarm, 0);
         rig.signal(alarm, rig.redstoneTo(rig.device(0)), 0);
         BlockPos lamp = rig.devices().get(0);
         var network = rig.network();
-        java.util.function.Supplier<java.util.List<io.github.leadassimilator.reticulum.engine.Alarms.Alarm>> alarms =
-                () -> io.github.leadassimilator.reticulum.engine.Alarms.of(helper.getLevel().getServer(), network).stream()
+        Supplier<List<Alarms.Alarm>> alarms =
+                () -> Alarms.of(helper.getLevel().getServer(), network).stream()
                         .filter(a -> a.node() != null).toList();
         helper.startSequence()
                 .thenExecuteAfter(5, () -> check(helper, alarms.get().isEmpty(), "went off before its delay"))
@@ -473,14 +528,14 @@ public final class EngineTests {
     /** A Status Beacon on a connector shows its network's worst alarm in its block state, and goes back to quiet after. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void statusBeaconShowsItsNetworksWorstAlarm(GameTestHelper helper) {
-        Rig rig = rig(helper, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
+        Rig rig = rig(helper, ModBlocks.STATUS_BEACON.get());
         Node level = rig.node(new NodeSettings.ConstantSettings(1));
-        Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL, "Meltdown", java.util.Optional.empty(), 0, 0));
+        Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL, "Meltdown", Optional.empty(), 0, 0));
         rig.signal(level, alarm, 0);
         BlockPos at = rig.devices().get(0);
-        var shown = io.github.leadassimilator.reticulum.block.StatusBeaconBlock.SHOWN;
+        var shown = StatusBeaconBlock.SHOWN;
         helper.startSequence()
-                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.CRITICAL,
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == StatusBeaconBlock.CRITICAL,
                         "the beacon doesn't show the critical alarm"))
                 .thenExecute(() -> rig.sheet().replace(rig.sheet().node(level.id()).with(new NodeSettings.ConstantSettings(0))))
                 .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == 0,
@@ -494,21 +549,21 @@ public final class EngineTests {
      */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void statusBeaconWatchesOnlyNetworksItsPlacerMayView(GameTestHelper helper) {
-        Rig rig = rig(helper, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
+        Rig rig = rig(helper, ModBlocks.STATUS_BEACON.get());
         UUID owner = UUID.randomUUID();
         rig.network().setOwner(owner, "owner");
-        rig.network().setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PRIVATE);
+        rig.network().setAccessMode(AccessMode.PRIVATE);
         Node level = rig.node(new NodeSettings.ConstantSettings(1));
-        Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL, "Meltdown", java.util.Optional.empty(), 0, 0));
+        Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL, "Meltdown", Optional.empty(), 0, 0));
         rig.signal(level, alarm, 0);
         BlockPos at = rig.devices().get(0);
-        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at);
+        var beacon = (StatusBeaconBlockEntity) helper.getBlockEntity(at);
         beacon.setPlacer(UUID.randomUUID());
-        var shown = io.github.leadassimilator.reticulum.block.StatusBeaconBlock.SHOWN;
+        var shown = StatusBeaconBlock.SHOWN;
         helper.startSequence()
                 .thenExecuteAfter(40, () -> check(helper, helper.getBlockState(at).getValue(shown) == 0, "a stranger's beacon shows a private network's alarm"))
                 .thenExecute(() -> beacon.setPlacer(owner))
-                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.CRITICAL,
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == StatusBeaconBlock.CRITICAL,
                         "the owner's beacon doesn't show the alarm"))
                 .thenSucceed();
     }
@@ -516,25 +571,25 @@ public final class EngineTests {
     /** A Status Beacon in Redstone mode shows each signal level's look (by default 1 to 7 a warning's, 8 to 15 critical's); an Alarm node drives it by its severity. */
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void statusBeaconInRedstoneModeFollowsTheSignal(GameTestHelper helper) {
-        Rig rig = rig(helper, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
+        Rig rig = rig(helper, ModBlocks.STATUS_BEACON.get());
         BlockPos at = rig.devices().get(0);
-        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at);
+        var beacon = (StatusBeaconBlockEntity) helper.getBlockEntity(at);
         var settings = beacon.settings();
         settings.putString("mode", "redstone");
         beacon.applySettings(settings);
         Node input = rig.node(new NodeSettings.ConstantSettings(1));
-        Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.WARNING, "Low", java.util.Optional.empty(), 0, 0));
+        Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.WARNING, "Low", Optional.empty(), 0, 0));
         rig.signal(input, alarm, 0);
         rig.signal(alarm, rig.redstoneTo(rig.device(0)), 0);
-        var shown = io.github.leadassimilator.reticulum.block.StatusBeaconBlock.SHOWN;
+        var shown = StatusBeaconBlock.SHOWN;
         helper.startSequence()
                 .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == 7 && beacon.look() != null
-                        && beacon.look().color() == io.github.leadassimilator.reticulum.block.entity.BeaconLook.WARNING.color(),
+                        && beacon.look().color() == BeaconLook.WARNING.color(),
                         "a warning alarm's 7 didn't show level 7 (the warning look, from level 1)"))
                 .thenExecute(() -> rig.sheet().replace(rig.sheet().node(alarm.id()).with(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL,
-                        "Low", java.util.Optional.empty(), 0, 0))))
+                        "Low", Optional.empty(), 0, 0))))
                 .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == 15 && beacon.look() != null
-                        && beacon.look().color() == io.github.leadassimilator.reticulum.block.entity.BeaconLook.CRITICAL.color(),
+                        && beacon.look().color() == BeaconLook.CRITICAL.color(),
                         "a critical alarm's 15 didn't show level 15 (the critical look, from level 8)"))
                 .thenExecute(() -> rig.sheet().replace(rig.sheet().node(input.id()).with(new NodeSettings.ConstantSettings(0))))
                 .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == 0,
@@ -546,18 +601,18 @@ public final class EngineTests {
     @GameTest(template = "empty", timeoutTicks = 100)
     public static void statusBeaconShowsSignalZero(GameTestHelper helper) {
         BlockPos at = new BlockPos(2, 1, 2);
-        helper.setBlock(at, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
-        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at);
+        helper.setBlock(at, ModBlocks.STATUS_BEACON.get());
+        var beacon = (StatusBeaconBlockEntity) helper.getBlockEntity(at);
         var settings = beacon.settings();
         settings.putString("mode", "redstone");
         var levels = settings.getCompound("levels");
-        levels.put("0", new io.github.leadassimilator.reticulum.block.entity.BeaconLook(0x00FF00, io.github.leadassimilator.reticulum.block.entity.BeaconLook.BEAM,
-                net.minecraft.resources.ResourceLocation.withDefaultNamespace("block.note_block.chime"), 1f, 40, 16).save());
+        levels.put("0", new BeaconLook(0x00FF00, BeaconLook.BEAM,
+                ResourceLocation.withDefaultNamespace("block.note_block.chime"), 1f, 40, 16).save());
         settings.put("levels", levels);
         beacon.applySettings(settings);
-        var shown = io.github.leadassimilator.reticulum.block.StatusBeaconBlock.SHOWN;
+        var shown = StatusBeaconBlock.SHOWN;
         helper.startSequence()
-                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == io.github.leadassimilator.reticulum.block.StatusBeaconBlock.LEVEL_ZERO
+                .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == StatusBeaconBlock.LEVEL_ZERO
                         && beacon.look() != null && beacon.look().color() == 0x00FF00, "signal 0's look isn't shown with no signal"))
                 .thenExecute(() -> helper.setBlock(at.east(), Blocks.REDSTONE_BLOCK))
                 .thenWaitUntil(() -> check(helper, helper.getBlockState(at).getValue(shown) == 15, "a full signal didn't show level 15"))
@@ -579,7 +634,7 @@ public final class EngineTests {
         rig.sheet().connect(new Wire(UUID.randomUUID(), sequencer.id(), 2, toB.id(), 0, 0));
         BlockPos a = rig.devices().get(0);
         BlockPos b = rig.devices().get(1);
-        java.util.function.BiPredicate<Boolean, Boolean> lit = (litA, litB) -> helper.getBlockState(a).getValue(RedstoneLampBlock.LIT) == litA
+        BiPredicate<Boolean, Boolean> lit = (litA, litB) -> helper.getBlockState(a).getValue(RedstoneLampBlock.LIT) == litA
                 && helper.getBlockState(b).getValue(RedstoneLampBlock.LIT) == litB;
         helper.startSequence()
                 .thenWaitUntil(() -> check(helper, rig.compiled().errors().isEmpty() && lit.test(true, false), "step 1 didn't light only lamp A: " + rig.compiled().errors()))
@@ -599,19 +654,19 @@ public final class EngineTests {
     @GameTest(template = "empty")
     public static void lostEnergyGoesToTheController(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
-        var controller = (io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 1));
-        var preset = io.github.leadassimilator.reticulum.ReticulumConfig.POWER_PRESET;
+        var controller = (ControllerBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 1));
+        var preset = ReticulumConfig.POWER_PRESET;
         var was = preset.get();
         try {
-            preset.set(io.github.leadassimilator.reticulum.engine.Power.Preset.FREE);
+            preset.set(Power.Preset.FREE);
             long none = NetworkRuntime.catchLostEnergy(helper.getLevel().getServer(), rig.network(), 500);
             check(helper, none == 0, "with power free the controller still took " + none + " FE");
-            preset.set(io.github.leadassimilator.reticulum.engine.Power.Preset.BALANCED);
+            preset.set(Power.Preset.BALANCED);
             long before = controller.energy();
             long caught = NetworkRuntime.catchLostEnergy(helper.getLevel().getServer(), rig.network(), 500);
             check(helper, caught == 500 && controller.energy() == before + 500, "the controller didn't catch the lost FE: " + caught);
             long more = NetworkRuntime.catchLostEnergy(helper.getLevel().getServer(), rig.network(), Integer.MAX_VALUE);
-            check(helper, controller.energy() == io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity.capacity(),
+            check(helper, controller.energy() == ControllerBlockEntity.capacity(),
                     "the controller went past its capacity: " + controller.energy() + " after " + more);
         } finally {
             preset.set(was);
@@ -625,7 +680,7 @@ public final class EngineTests {
         Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
         var tracks = List.of(new NodeSettings.SequencerTrack("", "f"));
         Node sequencer = rig.node(new NodeSettings.SequencerSettings(16, 2, true, false, tracks));
-        java.util.function.LongSupplier step = () -> rig.runtime().signalValues().getOrDefault(sequencer.id(), 0L);
+        LongSupplier step = () -> rig.runtime().signalValues().getOrDefault(sequencer.id(), 0L);
         helper.startSequence()
                 .thenWaitUntil(() -> check(helper, step.getAsLong() >= 10, "never got to step 10: " + step.getAsLong()))
                 .thenExecute(() -> rig.sheet().replace(rig.sheet().node(sequencer.id()).with(new NodeSettings.SequencerSettings(4, 2, true, false, tracks))))
@@ -642,27 +697,27 @@ public final class EngineTests {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.IRON_INGOT, 64));
         rig.container(0).setItem(1, new ItemStack(Items.DIRT, 64));
-        var iron = new io.github.leadassimilator.reticulum.network.ChartSeries(io.github.leadassimilator.reticulum.network.ChartSeries.Kind.ITEM,
-                Optional.of(net.minecraft.resources.ResourceLocation.withDefaultNamespace("iron_ingot")), Optional.empty(), Optional.empty());
-        var level = new io.github.leadassimilator.reticulum.network.ChartSeries(io.github.leadassimilator.reticulum.network.ChartSeries.Kind.LEVEL,
+        var iron = new ChartSeries(ChartSeries.Kind.ITEM,
+                Optional.of(ResourceLocation.withDefaultNamespace("iron_ingot")), Optional.empty(), Optional.empty());
+        var level = new ChartSeries(ChartSeries.Kind.LEVEL,
                 Optional.empty(), Optional.of(rig.device(1)), Optional.of(ResourceKind.ITEM));
-        var through = new io.github.leadassimilator.reticulum.network.ChartSeries(io.github.leadassimilator.reticulum.network.ChartSeries.Kind.THROUGH,
+        var through = new ChartSeries(ChartSeries.Kind.THROUGH,
                 Optional.empty(), Optional.of(rig.device(1)), Optional.of(ResourceKind.ITEM));
         rig.network().charts().add(iron);
         rig.network().charts().add(level);
         rig.network().charts().add(through);
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
-        java.util.function.ToLongFunction<UUID> sum = id -> java.util.Arrays.stream(rig.runtime().metrics().history(id, false)).sum();
-        java.util.function.ToLongFunction<UUID> last = id -> {
+        ToLongFunction<UUID> sum = id -> Arrays.stream(rig.runtime().metrics().history(id, false)).sum();
+        ToLongFunction<UUID> last = id -> {
             long[] values = rig.runtime().metrics().history(id, false);
             return values[values.length - 1];
         };
         helper.succeedWhen(() -> {
             check(helper, rig.count(1, Items.IRON_INGOT) == 64 && rig.count(1, Items.DIRT) == 64, "not everything moved yet");
-            long total = sum.applyAsLong(io.github.leadassimilator.reticulum.network.ChartSeries.totalId(ResourceKind.ITEM));
+            long total = sum.applyAsLong(ChartSeries.totalId(ResourceKind.ITEM));
             check(helper, total == 128, "the items total isn't 128: " + total);
             check(helper, sum.applyAsLong(iron.seriesId()) == 64, "iron's chart isn't 64: " + sum.applyAsLong(iron.seriesId()));
-            UUID dirt = io.github.leadassimilator.reticulum.network.ChartSeries.idOf("item:minecraft:dirt");
+            UUID dirt = ChartSeries.idOf("item:minecraft:dirt");
             check(helper, sum.applyAsLong(dirt) == 0, "dirt was recorded without being charted");
             check(helper, last.applyAsLong(level.seriesId()) == 128, "the barrel's level isn't 128: " + last.applyAsLong(level.seriesId()));
             check(helper, sum.applyAsLong(through.seriesId(true)) == 128 && sum.applyAsLong(through.seriesId(false)) == 0,
@@ -811,7 +866,7 @@ public final class EngineTests {
         rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
         // Redstone at the controller switches the whole network.
-        rig.network().switches().setRedstone(io.github.leadassimilator.reticulum.network.Switches.Redstone.LOW);
+        rig.network().switches().setRedstone(Switches.Redstone.LOW);
         helper.startSequence()
                 .thenExecuteAfter(20, () -> {
                     check(helper, rig.count(1, Items.COBBLESTONE) == 0, "the network ran while its controller was powered");
@@ -902,8 +957,8 @@ public final class EngineTests {
         Node a = sheet.add(Node.of(new NodeSettings.FilterSettings("iron_ingot")));
         Node b = sheet.add(Node.of(new NodeSettings.RateLimitSettings(20)));
         sheet.connect(new Wire(UUID.randomUUID(), a.id(), Wire.REJECT, b.id(), 0, 0));
-        String json = Sheet.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, sheet).getOrThrow().toString();
-        Sheet pasted = Sheet.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, com.google.gson.JsonParser.parseString(json)).getOrThrow();
+        String json = Sheet.CODEC.encodeStart(JsonOps.INSTANCE, sheet).getOrThrow().toString();
+        Sheet pasted = Sheet.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(json)).getOrThrow();
         Sheet copy = pasted.copyWithNewIds(pasted.name());
         check(helper, !copy.id().equals(sheet.id()) && copy.nodes().size() == 2 && copy.wires().size() == 1, "copy lost parts");
         check(helper, copy.nodes().stream().noneMatch(n -> n.id().equals(a.id()) || n.id().equals(b.id())), "nodes kept their old ids");
@@ -925,7 +980,7 @@ public final class EngineTests {
         helper.setBlock(rig.devices().get(0), Blocks.AIR);
         helper.succeedWhen(() -> {
             var record = rig.network().device(old);
-            check(helper, record != null && record.state() != io.github.leadassimilator.reticulum.network.DeviceRecord.State.ACTIVE, "old record not missing yet");
+            check(helper, record != null && record.state() != DeviceRecord.State.ACTIVE, "old record not missing yet");
             check(helper, NetworkManager.relinkDevice(helper.getLevel().getServer(), rig.network(), old, replacement), "relink refused");
             check(helper, "Crusher".equals(rig.network().device(replacement).name()), "name didn't move");
             check(helper, rig.network().device(old) == null, "old record still there");
@@ -960,16 +1015,16 @@ public final class EngineTests {
 
     @GameTest(template = "empty")
     public static void reorderingWiresChangesBranchOrder(GameTestHelper helper) {
-        var sheet = new io.github.leadassimilator.reticulum.graph.Sheet(java.util.UUID.randomUUID(), "t");
-        java.util.UUID splitter = java.util.UUID.randomUUID();
-        java.util.List<java.util.UUID> ids = new java.util.ArrayList<>();
+        var sheet = new Sheet(UUID.randomUUID(), "t");
+        UUID splitter = UUID.randomUUID();
+        List<UUID> ids = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
-            java.util.UUID wire = java.util.UUID.randomUUID();
+            UUID wire = UUID.randomUUID();
             ids.add(wire);
-            sheet.connect(new io.github.leadassimilator.reticulum.graph.Wire(wire, splitter, 0, java.util.UUID.randomUUID(), 0, i));
+            sheet.connect(new Wire(wire, splitter, 0, UUID.randomUUID(), 0, i));
         }
-        sheet.orderWires(java.util.List.of(ids.get(2), ids.get(0), ids.get(1)));
-        java.util.Map<java.util.UUID, Integer> order = new java.util.HashMap<>();
+        sheet.orderWires(List.of(ids.get(2), ids.get(0), ids.get(1)));
+        Map<UUID, Integer> order = new HashMap<>();
         sheet.wires().forEach(w -> order.put(w.id(), w.order()));
         check(helper, order.get(ids.get(2)) == 0 && order.get(ids.get(0)) == 1 && order.get(ids.get(1)) == 2, "wrong order " + order);
         helper.succeed();
@@ -978,9 +1033,9 @@ public final class EngineTests {
     @GameTest(template = "empty")
     public static void controllerShowsItsAntenna(GameTestHelper helper) {
         BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
-        helper.getLevel().setBlock(pos, io.github.leadassimilator.reticulum.registry.ModBlocks.CONTROLLER.get().defaultBlockState(), 3);
-        var controller = (io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getLevel().getBlockEntity(pos);
-        var antenna = io.github.leadassimilator.reticulum.block.ControllerBlock.ANTENNA;
+        helper.getLevel().setBlock(pos, ModBlocks.CONTROLLER.get().defaultBlockState(), 3);
+        var controller = (ControllerBlockEntity) helper.getLevel().getBlockEntity(pos);
+        var antenna = ControllerBlock.ANTENNA;
         controller.setAntennaTier(2);
         check(helper, helper.getLevel().getBlockState(pos).getValue(antenna) == 2, "the controller doesn't show a tier 2 antenna");
         check(helper, helper.getLevel().getBlockEntity(pos) == controller, "changing the look replaced the controller's block entity");
@@ -992,16 +1047,16 @@ public final class EngineTests {
     @GameTest(template = "empty")
     public static void brokenControllerKeepsItsAntenna(GameTestHelper helper) {
         BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
-        helper.getLevel().setBlock(pos, io.github.leadassimilator.reticulum.registry.ModBlocks.CONTROLLER.get().defaultBlockState(), 3);
-        var controller = (io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getLevel().getBlockEntity(pos);
+        helper.getLevel().setBlock(pos, ModBlocks.CONTROLLER.get().defaultBlockState(), 3);
+        var controller = (ControllerBlockEntity) helper.getLevel().getBlockEntity(pos);
         controller.setAntennaTier(2);
         helper.getLevel().destroyBlock(pos, true);
         check(helper, helper.getLevel().getBlockState(pos).isAir(), "the controller didn't break in one go");
-        var drops = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(1.5));
+        var drops = helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(pos).inflate(1.5));
         check(helper, drops.size() == 1, "expected just the controller to drop, got " + drops.stream().map(e -> e.getItem().toString()).toList());
         var stack = drops.get(0).getItem();
-        check(helper, stack.is(io.github.leadassimilator.reticulum.registry.ModItems.CONTROLLER.get())
-                && stack.getOrDefault(io.github.leadassimilator.reticulum.registry.ModDataComponents.ANTENNA_TIER.get(), 0) == 2,
+        check(helper, stack.is(ModItems.CONTROLLER.get())
+                && stack.getOrDefault(ModDataComponents.ANTENNA_TIER.get(), 0) == 2,
                 "the dropped controller didn't keep its tier 2 antenna: " + stack);
         helper.succeed();
     }
@@ -1014,19 +1069,19 @@ public final class EngineTests {
         var level = helper.getLevel();
         BlockPos left = helper.absolutePos(rig.devices().get(0));
         BlockPos right = helper.absolutePos(rig.devices().get(1));
-        var lit = io.github.leadassimilator.reticulum.network.Identifies.deviceOrFace(Devices.global(level, right), Direction.WEST);
-        io.github.leadassimilator.reticulum.network.Identifies.set(level.getServer(), rig.network(), lit, true);
+        var lit = Identifies.deviceOrFace(Devices.global(level, right), Direction.WEST);
+        Identifies.set(level.getServer(), rig.network(), lit, true);
         // A fake player: a mock one "joins", and other mods (Jade) then try to send it packets.
-        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
+        var player = FakePlayerFactory.getMinecraft(level);
         player.setShiftKeyDown(true);
-        ItemStack tool = new ItemStack(io.github.leadassimilator.reticulum.registry.ModItems.NETWORK_TOOL.get());
-        tool.set(io.github.leadassimilator.reticulum.registry.ModDataComponents.TOOL_MODE.get(), io.github.leadassimilator.reticulum.item.ToolMode.IDENTIFY);
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, tool);
-        var hit = new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(left).add(0.5, 0, 0), Direction.EAST, left, false);
-        tool.getItem().onItemUseFirst(tool, new net.minecraft.world.item.context.UseOnContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, hit));
-        check(helper, !io.github.leadassimilator.reticulum.network.Identifies.isOn(rig.network(), lit), "the lit face across the surface stayed on");
-        var wrong = io.github.leadassimilator.reticulum.network.Identifies.deviceOrFace(Devices.global(level, left), Direction.EAST);
-        check(helper, !io.github.leadassimilator.reticulum.network.Identifies.isOn(rig.network(), wrong), "the neighboring face was lit instead");
+        ItemStack tool = new ItemStack(ModItems.NETWORK_TOOL.get());
+        tool.set(ModDataComponents.TOOL_MODE.get(), ToolMode.IDENTIFY);
+        player.setItemInHand(InteractionHand.MAIN_HAND, tool);
+        var hit = new BlockHitResult(Vec3.atCenterOf(left).add(0.5, 0, 0), Direction.EAST, left, false);
+        tool.getItem().onItemUseFirst(tool, new UseOnContext(player, InteractionHand.MAIN_HAND, hit));
+        check(helper, !Identifies.isOn(rig.network(), lit), "the lit face across the surface stayed on");
+        var wrong = Identifies.deviceOrFace(Devices.global(level, left), Direction.EAST);
+        check(helper, !Identifies.isOn(rig.network(), wrong), "the neighboring face was lit instead");
         helper.succeed();
     }
 
@@ -1035,12 +1090,12 @@ public final class EngineTests {
     @GameTest(template = "empty")
     public static void networksLoadedWithoutSettingsDontShareThem(GameTestHelper helper) {
         // Two networks saved with no switches or overflow of their own (all defaults), then loaded.
-        var ops = net.minecraft.nbt.NbtOps.INSTANCE;
-        java.util.function.Function<String, io.github.leadassimilator.reticulum.network.Network> load = name -> {
-            net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
-            tag.putString("id", java.util.UUID.randomUUID().toString());
+        var ops = NbtOps.INSTANCE;
+        Function<String, Network> load = name -> {
+            CompoundTag tag = new CompoundTag();
+            tag.putString("id", UUID.randomUUID().toString());
             tag.putString("name", name);
-            return io.github.leadassimilator.reticulum.network.Network.CODEC.parse(ops, tag).getOrThrow();
+            return Network.CODEC.parse(ops, tag).getOrThrow();
         };
         var a = load.apply("A");
         var b = load.apply("B");
@@ -1057,15 +1112,15 @@ public final class EngineTests {
     public static void deviceContentsListsWhatABlockHolds(GameTestHelper helper) {
         BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
         helper.getLevel().setBlock(pos, Blocks.BARREL.defaultBlockState(), 3);
-        var barrel = (net.minecraft.world.level.block.entity.BarrelBlockEntity) helper.getLevel().getBlockEntity(pos);
+        var barrel = (BarrelBlockEntity) helper.getLevel().getBlockEntity(pos);
         barrel.setItem(0, new ItemStack(Items.COBBLESTONE, 40));
         barrel.setItem(1, new ItemStack(Items.COBBLESTONE, 24));
         barrel.setItem(2, new ItemStack(Items.IRON_INGOT, 3));
-        var entries = io.github.leadassimilator.reticulum.protocol.web.DeviceContents.read(helper.getLevel(), pos, "item").getAsJsonArray("entries");
-        java.util.Map<String, Long> found = new java.util.HashMap<>();
+        var entries = DeviceContents.read(helper.getLevel(), pos, "item").getAsJsonArray("entries");
+        Map<String, Long> found = new HashMap<>();
         entries.forEach(e -> found.put(e.getAsJsonObject().get("id").getAsString(), e.getAsJsonObject().get("amount").getAsLong()));
         // Every side shows the same inventory; each item still counts once.
-        check(helper, found.equals(java.util.Map.of("minecraft:cobblestone", 64L, "minecraft:iron_ingot", 3L)), "wrong contents " + found);
+        check(helper, found.equals(Map.of("minecraft:cobblestone", 64L, "minecraft:iron_ingot", 3L)), "wrong contents " + found);
         helper.succeed();
     }
 
@@ -1073,18 +1128,18 @@ public final class EngineTests {
 
     @GameTest(template = "empty")
     public static void facadesPaintAWholeStackWithAnyFullBlock(GameTestHelper helper) {
-        ItemStack stack = new ItemStack(io.github.leadassimilator.reticulum.registry.ModItems.FACADE.get(), 64);
-        check(helper, io.github.leadassimilator.reticulum.item.FacadeItem.state(stack) == null, "a new facade isn't blank");
-        check(helper, io.github.leadassimilator.reticulum.item.FacadeItem.paint(stack, Blocks.STONE_BRICKS.defaultBlockState()), "stone bricks were refused");
-        check(helper, stack.getCount() == 64 && io.github.leadassimilator.reticulum.item.FacadeItem.state(stack) == Blocks.STONE_BRICKS.defaultBlockState(),
+        ItemStack stack = new ItemStack(ModItems.FACADE.get(), 64);
+        check(helper, FacadeItem.state(stack) == null, "a new facade isn't blank");
+        check(helper, FacadeItem.paint(stack, Blocks.STONE_BRICKS.defaultBlockState()), "stone bricks were refused");
+        check(helper, stack.getCount() == 64 && FacadeItem.state(stack) == Blocks.STONE_BRICKS.defaultBlockState(),
                 "the stack wasn't painted: " + stack);
-        var log = Blocks.OAK_LOG.defaultBlockState().setValue(net.minecraft.world.level.block.RotatedPillarBlock.AXIS, Direction.Axis.X);
-        check(helper, io.github.leadassimilator.reticulum.item.FacadeItem.paint(stack, log) && io.github.leadassimilator.reticulum.item.FacadeItem.state(stack) == log,
+        var log = Blocks.OAK_LOG.defaultBlockState().setValue(RotatedPillarBlock.AXIS, Direction.Axis.X);
+        check(helper, FacadeItem.paint(stack, log) && FacadeItem.state(stack) == log,
                 "a sideways log wasn't kept as it is");
-        check(helper, !io.github.leadassimilator.reticulum.item.FacadeItem.paint(stack, Blocks.TORCH.defaultBlockState()), "a torch (not a full block) was accepted");
-        check(helper, !io.github.leadassimilator.reticulum.item.FacadeItem.paint(stack, Blocks.CHEST.defaultBlockState()), "a chest (block entity) was accepted");
-        check(helper, io.github.leadassimilator.reticulum.item.FacadeItem.state(stack) == log, "a refused block changed the stack");
-        check(helper, io.github.leadassimilator.reticulum.item.FacadeItem.paint(stack, null) && io.github.leadassimilator.reticulum.item.FacadeItem.state(stack) == null,
+        check(helper, !FacadeItem.paint(stack, Blocks.TORCH.defaultBlockState()), "a torch (not a full block) was accepted");
+        check(helper, !FacadeItem.paint(stack, Blocks.CHEST.defaultBlockState()), "a chest (block entity) was accepted");
+        check(helper, FacadeItem.state(stack) == log, "a refused block changed the stack");
+        check(helper, FacadeItem.paint(stack, null) && FacadeItem.state(stack) == null,
                 "the stack wasn't made blank again");
         helper.succeed();
     }
@@ -1093,7 +1148,7 @@ public final class EngineTests {
     public static void facadedConnectorStillReachesItsDevice(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
         BlockPos connector = helper.absolutePos(new BlockPos(3, 1, 1));
-        var be = (io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity) helper.getLevel().getBlockEntity(connector);
+        var be = (NetworkBlockEntity) helper.getLevel().getBlockEntity(connector);
         be.setFacade(Blocks.STONE_BRICKS.defaultBlockState());
         rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 16));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
@@ -1106,8 +1161,8 @@ public final class EngineTests {
             check(helper, rig.count(1, Items.COBBLESTONE) == 16, "items didn't move through a facaded connector");
             // Breaking the connector drops its facade.
             helper.getLevel().destroyBlock(connector, false);
-            var drops = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(connector).inflate(1.5));
-            check(helper, drops.stream().anyMatch(e -> io.github.leadassimilator.reticulum.item.FacadeItem.state(e.getItem()) == Blocks.STONE_BRICKS.defaultBlockState()),
+            var drops = helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(connector).inflate(1.5));
+            check(helper, drops.stream().anyMatch(e -> FacadeItem.state(e.getItem()) == Blocks.STONE_BRICKS.defaultBlockState()),
                     "no facade dropped when the connector broke");
         });
     }
@@ -1117,8 +1172,8 @@ public final class EngineTests {
     /** Switches the whole server to the balanced power preset, so it runs in a batch of its own and switches it back. */
     @GameTest(template = "empty", batch = "power", timeoutTicks = 200)
     public static void networksNeedPowerWhenTheServerChargesForIt(GameTestHelper helper) {
-        var preset = io.github.leadassimilator.reticulum.ReticulumConfig.POWER_PRESET;
-        preset.set(io.github.leadassimilator.reticulum.engine.Power.Preset.BALANCED);
+        var preset = ReticulumConfig.POWER_PRESET;
+        preset.set(Power.Preset.BALANCED);
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
@@ -1135,7 +1190,7 @@ public final class EngineTests {
                 .thenExecute(() -> {
                     check(helper, rig.runtime().powered(), "network still unpowered");
                     check(helper, controller.energy() < charged[0], "running cost nothing");
-                    preset.set(io.github.leadassimilator.reticulum.engine.Power.Preset.FREE);
+                    preset.set(Power.Preset.FREE);
                 })
                 .thenSucceed();
     }
@@ -1146,30 +1201,30 @@ public final class EngineTests {
     public static void identifyLightsDevicesAndFacesForViewers(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.BARREL);
         var server = helper.getLevel().getServer();
-        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());
+        var player = FakePlayerFactory.getMinecraft(helper.getLevel());
         GlobalPos barrel = rig.device(0);
-        rig.network().device(barrel).setFaceName(io.github.leadassimilator.reticulum.network.FaceKey.NORTH, "Intake");
-        var device = io.github.leadassimilator.reticulum.network.Identify.device(barrel, 0);
-        var face = io.github.leadassimilator.reticulum.network.Identify.face(barrel, io.github.leadassimilator.reticulum.network.FaceKey.NORTH, 0);
-        check(helper, io.github.leadassimilator.reticulum.network.Identifies.toggle(server, rig.network(), device), "device didn't light up");
-        check(helper, io.github.leadassimilator.reticulum.network.Identifies.toggle(server, rig.network(), face), "face didn't light up");
-        var markers = io.github.leadassimilator.reticulum.network.Identifies.markersFor(player);
+        rig.network().device(barrel).setFaceName(FaceKey.NORTH, "Intake");
+        var device = Identify.device(barrel, 0);
+        var face = Identify.face(barrel, FaceKey.NORTH, 0);
+        check(helper, Identifies.toggle(server, rig.network(), device), "device didn't light up");
+        check(helper, Identifies.toggle(server, rig.network(), face), "face didn't light up");
+        var markers = Identifies.markersFor(player);
         check(helper, markers.stream().anyMatch(m -> m.pos().equals(barrel) && m.face().isEmpty()), "no marker for the device: " + markers);
         check(helper, markers.stream().anyMatch(m -> m.pos().equals(barrel) && m.face().equals(Optional.of(Direction.NORTH)) && m.label().endsWith("› Intake")),
                 "no named marker for the face: " + markers);
         // Only this barrel's markers: other tests light things up alongside.
         check(helper, markers.stream().filter(m -> m.pos().equals(barrel)).map(m -> m.color()).distinct().count() == 2, "the two identifies share a color");
-        check(helper, !io.github.leadassimilator.reticulum.network.Identifies.toggle(server, rig.network(), device), "device didn't turn off");
-        io.github.leadassimilator.reticulum.network.Identifies.clear(server, rig.network());
-        check(helper, io.github.leadassimilator.reticulum.network.Identifies.markersFor(player).stream().noneMatch(m -> m.pos().equals(barrel)),
+        check(helper, !Identifies.toggle(server, rig.network(), device), "device didn't turn off");
+        Identifies.clear(server, rig.network());
+        check(helper, Identifies.markersFor(player).stream().noneMatch(m -> m.pos().equals(barrel)),
                 "still lit after clearing");
         helper.succeed();
     }
 
     @GameTest(template = "empty")
     public static void antennaTiersReach(GameTestHelper helper) {
-        var overworld = net.minecraft.world.level.Level.OVERWORLD;
-        var nether = net.minecraft.world.level.Level.NETHER;
+        var overworld = Level.OVERWORLD;
+        var nether = Level.NETHER;
         GlobalPos controller = GlobalPos.of(overworld, BlockPos.ZERO);
         GlobalPos near = GlobalPos.of(overworld, new BlockPos(100, 0, 0));
         GlobalPos far = GlobalPos.of(overworld, new BlockPos(1000, 0, 0));
@@ -1186,7 +1241,7 @@ public final class EngineTests {
         String json = "{\"id\":\"" + UUID.randomUUID() + "\",\"name\":\"old\",\"nodes\":["
                 + "{\"id\":\"" + UUID.randomUUID() + "\",\"settings\":{\"kind\":\"me_port\"}},"
                 + "{\"id\":\"" + UUID.randomUUID() + "\",\"settings\":{\"kind\":\"filter\",\"expression\":\"\"}}]}";
-        Sheet sheet = Sheet.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, com.google.gson.JsonParser.parseString(json)).getOrThrow();
+        Sheet sheet = Sheet.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(json)).getOrThrow();
         check(helper, sheet.nodes().size() == 1 && sheet.nodes().getFirst().kind() == NodeSettings.Kind.FILTER,
                 "expected only the filter to load, got " + sheet.nodes());
         helper.succeed();
@@ -1227,7 +1282,7 @@ public final class EngineTests {
         Node source = rig.source(0, ResourceKind.ITEM, List.of(), 1);
         UUID toFirst = UUID.randomUUID();
         UUID toSecond = UUID.randomUUID();
-        Node splitter = rig.node(new NodeSettings.SplitterSettings(NodeSettings.SplitMode.WEIGHTED, java.util.Map.of(toFirst, 3, toSecond, 1)));
+        Node splitter = rig.node(new NodeSettings.SplitterSettings(NodeSettings.SplitMode.WEIGHTED, Map.of(toFirst, 3, toSecond, 1)));
         rig.wire(source, splitter);
         rig.sheet().connect(new Wire(toFirst, splitter.id(), 0, rig.sink(1, ResourceKind.ITEM, List.of()).id(), 0, 0));
         rig.sheet().connect(new Wire(toSecond, splitter.id(), 0, rig.sink(2, ResourceKind.ITEM, List.of()).id(), 0, 1));
@@ -1329,7 +1384,7 @@ public final class EngineTests {
         helper.setBlock(rig.devices().get(0), lever(true));
         rig.signal(rig.redstoneFrom(rig.device(0)), rig.redstoneTo(rig.device(2)), 0);
         BlockPos connector = new BlockPos(5, 1, 1);
-        var be = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(connector);
+        var be = (ConnectorBlockEntity) helper.getBlockEntity(connector);
         helper.startSequence()
                 .thenWaitUntil(() -> check(helper, be.power(Direction.SOUTH) > 0, "connector not powering the lamp"))
                 .thenExecute(() -> helper.setBlock(rig.devices().get(2), Blocks.AIR))
@@ -1386,14 +1441,14 @@ public final class EngineTests {
     /** Slot-range tests with the server's fallback through faces on: their own batch, which turns it on and off. */
     static final String SLOT_FACES = "slot_faces";
 
-    @net.minecraft.gametest.framework.BeforeBatch(batch = SLOT_FACES)
-    public static void slotRangesThroughFacesOn(net.minecraft.server.level.ServerLevel level) {
-        io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(true);
+    @BeforeBatch(batch = SLOT_FACES)
+    public static void slotRangesThroughFacesOn(ServerLevel level) {
+        ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(true);
     }
 
-    @net.minecraft.gametest.framework.AfterBatch(batch = SLOT_FACES)
-    public static void slotRangesThroughFacesOff(net.minecraft.server.level.ServerLevel level) {
-        io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(false);
+    @AfterBatch(batch = SLOT_FACES)
+    public static void slotRangesThroughFacesOff(ServerLevel level) {
+        ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(false);
     }
 
     /**
@@ -1427,7 +1482,7 @@ public final class EngineTests {
         Node source = rig.source(0, ResourceKind.ITEM, List.of(), 0);
         rig.wire(source, sink);
         helper.runAfterDelay(20, () -> {
-            check(helper, status(rig, source) == io.github.leadassimilator.reticulum.engine.Status.TARGET_FULL && rig.count(0, Items.COAL) == 8,
+            check(helper, status(rig, source) == Status.TARGET_FULL && rig.count(0, Items.COAL) == 8,
                     "a full chest says " + status(rig, source));
             helper.succeed();
         });
@@ -1441,10 +1496,10 @@ public final class EngineTests {
     public static void aGlowingFacadeLightsTheServersWorld(GameTestHelper helper) {
         place(helper, new BlockPos(2, 1, 2), ModBlocks.CABLE.get(), null);
         BlockPos at = helper.absolutePos(new BlockPos(2, 1, 2));
-        var be = (io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity) helper.getLevel().getBlockEntity(at);
+        var be = (NetworkBlockEntity) helper.getLevel().getBlockEntity(at);
         be.setFacade(Blocks.GLOWSTONE.defaultBlockState());
         helper.runAfterDelay(20, () -> {
-            int light = helper.getLevel().getBrightness(net.minecraft.world.level.LightLayer.BLOCK, at.above());
+            int light = helper.getLevel().getBrightness(LightLayer.BLOCK, at.above());
             check(helper, light >= 13, "beside the glowstone facade the block light is " + light);
             boolean[] source = {false};
             helper.getLevel().getChunkAt(at).findBlockLightSources((pos, state) -> source[0] |= pos.equals(at));
@@ -1458,10 +1513,10 @@ public final class EngineTests {
     public static void filtersCantStallTheServer(GameTestHelper helper) throws Exception {
         long start = System.nanoTime();
         String id = "minecraft:" + "a".repeat(40);
-        boolean glob = io.github.leadassimilator.reticulum.filter.Filters.idMatcher("********************q").test(id);
-        boolean globHit = io.github.leadassimilator.reticulum.filter.Filters.idMatcher("*:a*a?a").test(id);
-        boolean regex = io.github.leadassimilator.reticulum.filter.Filters.textMatcher(
-                new io.github.leadassimilator.reticulum.filter.FilterExpr.Atom("name", "^(a|aa)+$", true)).test("a".repeat(49) + "b");
+        boolean glob = Filters.idMatcher("********************q").test(id);
+        boolean globHit = Filters.idMatcher("*:a*a?a").test(id);
+        boolean regex = Filters.textMatcher(
+                new FilterExpr.Atom("name", "^(a|aa)+$", true)).test("a".repeat(49) + "b");
         long ms = (System.nanoTime() - start) / 1_000_000;
         check(helper, !glob && globHit && !regex, "wrong answers: " + glob + " " + globHit + " " + regex);
         check(helper, ms < 1000, "filters took " + ms + " ms");
@@ -1471,12 +1526,12 @@ public final class EngineTests {
     /** FE stored in a block, read once (through its unsided handler, or the first face that answers). */
     static long energyStored(GameTestHelper helper, BlockPos rel) {
         BlockPos pos = helper.absolutePos(rel);
-        var storage = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, pos, null);
+        var storage = helper.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK, pos, null);
         for (Direction side : Direction.values()) {
             if (storage != null) {
                 break;
             }
-            storage = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, pos, side);
+            storage = helper.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK, pos, side);
         }
         return storage == null ? -1 : storage.getEnergyStored();
     }
@@ -1488,7 +1543,7 @@ public final class EngineTests {
         for (int round = 0; round < 10_000 && left > 0; round++) {
             boolean any = false;
             for (Direction side : Direction.values()) {
-                var storage = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, pos, side);
+                var storage = helper.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK, pos, side);
                 if (storage != null && left > 0) {
                     int got = storage.receiveEnergy((int) Math.min(left, Integer.MAX_VALUE), false);
                     left -= got;
@@ -1504,12 +1559,12 @@ public final class EngineTests {
     /** mB of fluid a block holds, counted once (its unsided handler, or the first face that answers). */
     static long fluidStored(GameTestHelper helper, BlockPos rel) {
         BlockPos pos = helper.absolutePos(rel);
-        var handler = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, null);
+        var handler = helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, null);
         for (Direction side : Direction.values()) {
             if (handler != null) {
                 break;
             }
-            handler = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, side);
+            handler = helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, side);
         }
         long total = 0;
         for (int tank = 0; handler != null && tank < handler.getTanks(); tank++) {
@@ -1521,15 +1576,15 @@ public final class EngineTests {
     @GameTest(template = "empty")
     public static void evenShareHandsOutRemainder(GameTestHelper helper) {
         long[] share = shareFor(10, new long[] {100, 100, 100}, false);
-        check(helper, share[0] + share[1] + share[2] == 10 && share[0] == 4 && share[1] == 3 && share[2] == 3, "uneven split " + java.util.Arrays.toString(share));
+        check(helper, share[0] + share[1] + share[2] == 10 && share[0] == 4 && share[1] == 3 && share[2] == 3, "uneven split " + Arrays.toString(share));
         share = shareFor(100, new long[] {10, 100, 100}, false);
-        check(helper, share[0] == 10 && share[1] == 45 && share[2] == 45, "unused share not passed on " + java.util.Arrays.toString(share));
+        check(helper, share[0] == 10 && share[1] == 45 && share[2] == 45, "unused share not passed on " + Arrays.toString(share));
         share = shareFor(100, new long[] {60, 60}, true);
-        check(helper, share[0] == 60 && share[1] == 40, "priority fill wrong " + java.util.Arrays.toString(share));
+        check(helper, share[0] == 60 && share[1] == 40, "priority fill wrong " + Arrays.toString(share));
         share = weightedShareFor(100, new long[] {100, 100}, new long[] {3, 1});
-        check(helper, share[0] == 75 && share[1] == 25, "weighted split wrong " + java.util.Arrays.toString(share));
+        check(helper, share[0] == 75 && share[1] == 25, "weighted split wrong " + Arrays.toString(share));
         share = weightedShareFor(100, new long[] {10, 100}, new long[] {3, 1});
-        check(helper, share[0] == 10 && share[1] == 90, "weighted split didn't pass the unused share on " + java.util.Arrays.toString(share));
+        check(helper, share[0] == 10 && share[1] == 90, "weighted split didn't pass the unused share on " + Arrays.toString(share));
         helper.succeed();
     }
 
@@ -1576,7 +1631,7 @@ public final class EngineTests {
         Rig rig = rig(helper, Blocks.FURNACE, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.IRON_ORE, 8));
         rig.container(0).setItem(2, new ItemStack(Items.IRON_INGOT, 5));
-        NodeSettings.Output bottom = new NodeSettings.Output(ResourceKind.ITEM, List.of(io.github.leadassimilator.reticulum.network.FaceKey.DOWN),
+        NodeSettings.Output bottom = new NodeSettings.Output(ResourceKind.ITEM, List.of(FaceKey.DOWN),
                 Optional.empty(), List.of(), 64, 1, 0);
         rig.wire(rig.output(0, bottom), rig.sink(1, ResourceKind.ITEM, List.of()));
         helper.runAfterDelay(20, () -> {
@@ -1602,8 +1657,8 @@ public final class EngineTests {
         });
     }
 
-    private static io.github.leadassimilator.reticulum.engine.Status status(Rig rig, Node node) {
-        return io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(rig.network().id()).statuses().get(node.id());
+    private static Status status(Rig rig, Node node) {
+        return NetworkTicker.runtime(rig.network().id()).statuses().get(node.id());
     }
 
     @GameTest(template = "empty")
@@ -1612,7 +1667,7 @@ public final class EngineTests {
         Node source = rig.source(0, ResourceKind.ITEM, List.of(), 64);
         rig.wire(source, rig.sink(1, ResourceKind.ITEM, List.of()));
         helper.runAfterDelay(5, () -> {
-            check(helper, status(rig, source) == io.github.leadassimilator.reticulum.engine.Status.SOURCE_EMPTY,
+            check(helper, status(rig, source) == Status.SOURCE_EMPTY,
                     "expected source_empty, got " + status(rig, source));
             helper.succeed();
         });
@@ -1629,7 +1684,7 @@ public final class EngineTests {
         Node source = rig.source(0, ResourceKind.ITEM, List.of(), 64);
         rig.wire(source, rig.sink(1, ResourceKind.ITEM, List.of()));
         helper.runAfterDelay(5, () -> {
-            check(helper, status(rig, source) == io.github.leadassimilator.reticulum.engine.Status.TARGET_FULL,
+            check(helper, status(rig, source) == Status.TARGET_FULL,
                     "expected target_full, got " + status(rig, source));
             sink.setItem(0, ItemStack.EMPTY);
             helper.runAfterDelay(20, () -> {
@@ -1696,12 +1751,12 @@ public final class EngineTests {
         Node inner = b.add(Node.of(new NodeSettings.InstanceSettings(a.id(), Map.of(
                 slots[0].id(), new NodeSettings.Binding(rig.device(0), 0), slots[1].id(), new NodeSettings.Binding(rig.device(1), 0)))));
         rig.network().sheets().add(b);
-        java.util.function.BiFunction<Integer, Integer, Map<UUID, NodeSettings.Binding>> filled = (from, to) -> Map.of(
-                io.github.leadassimilator.reticulum.graph.Blueprints.nested(inner.id(), slots[0].id()), new NodeSettings.Binding(rig.device(from), 0),
-                io.github.leadassimilator.reticulum.graph.Blueprints.nested(inner.id(), slots[1].id()), new NodeSettings.Binding(rig.device(to), 0));
+        BiFunction<Integer, Integer, Map<UUID, NodeSettings.Binding>> filled = (from, to) -> Map.of(
+                Blueprints.nested(inner.id(), slots[0].id()), new NodeSettings.Binding(rig.device(from), 0),
+                Blueprints.nested(inner.id(), slots[1].id()), new NodeSettings.Binding(rig.device(to), 0));
         rig.node(new NodeSettings.InstanceSettings(b.id(), filled.apply(2, 3)));
         rig.node(new NodeSettings.InstanceSettings(b.id(), filled.apply(4, 5)));
-        check(helper, io.github.leadassimilator.reticulum.graph.Blueprints.slots(rig.network(), b).size() == 2, "B doesn't count A's two slots as its own");
+        check(helper, Blueprints.slots(rig.network(), b).size() == 2, "B doesn't count A's two slots as its own");
         helper.succeedWhen(() -> {
             check(helper, rig.count(3, Items.IRON_INGOT) == 5, "the first placement didn't move between its own blocks");
             check(helper, rig.count(5, Items.GOLD_INGOT) == 5, "the second placement didn't move between its own blocks");

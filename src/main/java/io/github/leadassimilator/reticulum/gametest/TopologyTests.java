@@ -1,27 +1,56 @@
 package io.github.leadassimilator.reticulum.gametest;
 
-import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiFunction;
 
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.block.Link;
+import io.github.leadassimilator.reticulum.block.LinkedBlock;
+import io.github.leadassimilator.reticulum.block.Orientation;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
+import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.engine.NetworkTicker;
+import io.github.leadassimilator.reticulum.graph.Node;
+import io.github.leadassimilator.reticulum.graph.NodeSettings;
+import io.github.leadassimilator.reticulum.graph.ResourceKind;
+import io.github.leadassimilator.reticulum.graph.Sheet;
+import io.github.leadassimilator.reticulum.graph.Wire;
+import io.github.leadassimilator.reticulum.lookat.LookAt;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Devices;
+import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.network.Switches;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
+import io.github.leadassimilator.reticulum.registry.ModDataComponents;
+import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.core.Vec3i;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.StairBlock;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -79,15 +108,15 @@ public final class TopologyTests {
         Network a = network(helper, new BlockPos(1, 1, 1));
         Network b = network(helper, new BlockPos(5, 1, 5));
         check(helper, a != b, "the two controllers share a network");
-        a.switches().setRedstone(io.github.leadassimilator.reticulum.network.Switches.Redstone.LOW);
+        a.switches().setRedstone(Switches.Redstone.LOW);
         // B reaches its wireless connector with an antenna (without one, a connector no cable joins does nothing).
-        ((io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getBlockEntity(new BlockPos(5, 1, 5))).setAntennaTier(1);
+        ((ControllerBlockEntity) helper.getBlockEntity(new BlockPos(5, 1, 5))).setAntennaTier(1);
 
         // Placed from a stack bound to B, against A's controller.
         BlockPos at = new BlockPos(2, 1, 1);
         helper.setBlock(at, ModBlocks.CONNECTOR.get());
-        net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(ModBlocks.CONNECTOR.get());
-        stack.set(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get(), b.id());
+        ItemStack stack = new ItemStack(ModBlocks.CONNECTOR.get());
+        stack.set(ModDataComponents.NETWORK_ID.get(), b.id());
         be(helper, at).applyComponentsFromItemStack(stack);
         Topology.onPlaced(helper.getLevel(), helper.absolutePos(at), Direction.WEST, null);
 
@@ -96,16 +125,16 @@ public final class TopologyTests {
         check(helper, b.connectors().stream().anyMatch(c -> c.devices().contains(controllerA)), "the connector doesn't reach A's controller as a device");
 
         // B always powers A's controller: A, set to stop while powered, stops.
-        var timer = io.github.leadassimilator.reticulum.graph.Node.of(new io.github.leadassimilator.reticulum.graph.NodeSettings.TimerSettings(1));
-        var lamp = io.github.leadassimilator.reticulum.graph.Node.of(new io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings(controllerA,
-                java.util.List.of(new io.github.leadassimilator.reticulum.graph.NodeSettings.Input(io.github.leadassimilator.reticulum.graph.ResourceKind.REDSTONE,
-                        java.util.List.of(), java.util.Optional.empty(), java.util.List.of())), java.util.List.of()));
+        var timer = Node.of(new NodeSettings.TimerSettings(1));
+        var lamp = Node.of(new NodeSettings.DeviceSettings(controllerA,
+                List.of(new NodeSettings.Input(ResourceKind.REDSTONE,
+                        List.of(), Optional.empty(), List.of())), List.of()));
         b.root().add(timer);
         b.root().add(lamp);
-        b.root().connect(new io.github.leadassimilator.reticulum.graph.Wire(UUID.randomUUID(), timer.id(), 0, lamp.id(), 0, 0));
+        b.root().connect(new Wire(UUID.randomUUID(), timer.id(), 0, lamp.id(), 0, 0));
         helper.succeedWhen(() -> {
             check(helper, helper.getLevel().getBestNeighborSignal(helper.absolutePos(new BlockPos(1, 1, 1))) > 0, "A's controller isn't powered by B");
-            check(helper, io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(a.id()).sheetsOff().contains(a.root().id()),
+            check(helper, NetworkTicker.runtime(a.id()).sheetsOff().contains(a.root().id()),
                     "A kept running while its controller was powered");
         });
     }
@@ -119,8 +148,8 @@ public final class TopologyTests {
         Network b = network(helper, new BlockPos(5, 1, 5));
         BlockPos at = new BlockPos(2, 1, 1);
         helper.setBlock(at, ModBlocks.CONNECTOR.get());
-        net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(ModBlocks.CONNECTOR.get());
-        stack.set(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get(), b.id());
+        ItemStack stack = new ItemStack(ModBlocks.CONNECTOR.get());
+        stack.set(ModDataComponents.NETWORK_ID.get(), b.id());
         be(helper, at).applyComponentsFromItemStack(stack);
         Topology.onPlaced(helper.getLevel(), helper.absolutePos(at), Direction.WEST, null);
         check(helper, b.id().equals(net(helper, at)), "the bound connector didn't stay on its own network");
@@ -180,7 +209,7 @@ public final class TopologyTests {
         helper.setBlock(new BlockPos(4, 1, 2), Blocks.CHEST);
         place(helper, new BlockPos(4, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
         UUID a = net(helper, new BlockPos(1, 1, 1));
-        net.minecraft.core.GlobalPos chest = net.minecraft.core.GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(4, 1, 2)));
+        GlobalPos chest = GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(4, 1, 2)));
         network(helper, new BlockPos(1, 1, 1)).device(chest).setName("ore box");
         // Cut 3-4 off from A: it stays A's (A's controller is still there).
         Topology.toggle(helper.getLevel(), helper.absolutePos(new BlockPos(2, 1, 1)), Direction.EAST, null);
@@ -247,18 +276,18 @@ public final class TopologyTests {
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
         UUID network = net(helper, new BlockPos(1, 1, 1));
-        var connector = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(3, 1, 1));
+        var connector = (ConnectorBlockEntity) be(helper, new BlockPos(3, 1, 1));
         UUID id = connector.connectorId();
         var registries = helper.getLevel().registryAccess();
         var data = connector.saveWithFullMetadata(registries);
         var level = helper.getLevel();
         level.setBlock(helper.absolutePos(new BlockPos(3, 1, 1)), Blocks.AIR.defaultBlockState(),
-                net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
+                Block.UPDATE_MOVE_BY_PISTON | Block.UPDATE_ALL);
         BlockPos to = helper.absolutePos(new BlockPos(3, 1, 6));
-        level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), Block.UPDATE_ALL);
         level.getBlockEntity(to).loadWithComponents(data, registries);
         helper.runAfterDelay(5, () -> {
-            var moved = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(3, 1, 6));
+            var moved = (ConnectorBlockEntity) be(helper, new BlockPos(3, 1, 6));
             check(helper, id.equals(moved.connectorId()), "the moved connector got a new id (taken for a copy)");
             check(helper, network.equals(net(helper, new BlockPos(3, 1, 6))), "the moved connector lost its network");
             helper.succeed();
@@ -276,22 +305,22 @@ public final class TopologyTests {
         place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
         Network a = network(helper, new BlockPos(1, 1, 1));
         a.setOwner(UUID.randomUUID(), "someone");
-        a.setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PRIVATE);
-        var connector = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(3, 1, 1));
+        a.setAccessMode(AccessMode.PRIVATE);
+        var connector = (ConnectorBlockEntity) be(helper, new BlockPos(3, 1, 1));
         UUID id = connector.connectorId();
         var registries = helper.getLevel().registryAccess();
         var data = connector.saveWithFullMetadata(registries);
         var level = helper.getLevel();
         level.setBlock(helper.absolutePos(new BlockPos(3, 1, 1)), Blocks.AIR.defaultBlockState(),
-                net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
+                Block.UPDATE_MOVE_BY_PISTON | Block.UPDATE_ALL);
         BlockPos to = helper.absolutePos(new BlockPos(2, 1, 2));
-        level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), Block.UPDATE_ALL);
         var landed = level.getBlockEntity(to);
         landed.loadWithComponents(data, registries);
         // Saved and loaded again where it landed, in the same tick: before it connects up.
         landed.loadWithComponents(landed.saveWithFullMetadata(registries), registries);
         helper.runAfterDelay(5, () -> {
-            var moved = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(2, 1, 2));
+            var moved = (ConnectorBlockEntity) be(helper, new BlockPos(2, 1, 2));
             check(helper, id.equals(moved.connectorId()), "the moved connector got a new id");
             check(helper, a.id().equals(net(helper, new BlockPos(2, 1, 2))), "the moved connector lost its network");
             check(helper, Topology.connected(level, to, Direction.NORTH), "the moved connector was cut off from its own private network");
@@ -314,17 +343,17 @@ public final class TopologyTests {
         Network a = network(helper, new BlockPos(1, 1, 1));
         Network b = network(helper, new BlockPos(1, 1, 4));
         UUID owner = UUID.randomUUID();
-        for (Network n : java.util.List.of(a, b)) {
+        for (Network n : List.of(a, b)) {
             n.setOwner(owner, "someone");
-            n.setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PRIVATE);
+            n.setAccessMode(AccessMode.PRIVATE);
         }
         var registries = helper.getLevel().registryAccess();
         var data = be(helper, new BlockPos(3, 1, 1)).saveWithFullMetadata(registries);
         var level = helper.getLevel();
         level.setBlock(helper.absolutePos(new BlockPos(3, 1, 1)), Blocks.AIR.defaultBlockState(),
-                net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
+                Block.UPDATE_MOVE_BY_PISTON | Block.UPDATE_ALL);
         BlockPos to = helper.absolutePos(new BlockPos(2, 1, 2));
-        level.setBlock(to, ModBlocks.CABLE.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        level.setBlock(to, ModBlocks.CABLE.get().defaultBlockState(), Block.UPDATE_ALL);
         level.getBlockEntity(to).loadWithComponents(data, registries);
         helper.runAfterDelay(5, () -> {
             check(helper, a.id().equals(net(helper, new BlockPos(2, 1, 2))), "the moved cable left its network");
@@ -348,28 +377,28 @@ public final class TopologyTests {
         UUID a = net(helper, new BlockPos(1, 1, 1));
         Network b = network(helper, new BlockPos(1, 1, 5));
         b.setOwner(UUID.randomUUID(), "someone");
-        b.setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PRIVATE);
+        b.setAccessMode(AccessMode.PRIVATE);
 
         var connector = be(helper, new BlockPos(3, 1, 1));
         var registries = helper.getLevel().registryAccess();
         var data = connector.saveWithFullMetadata(registries);
         var level = helper.getLevel();
         level.setBlock(helper.absolutePos(new BlockPos(3, 1, 1)), Blocks.AIR.defaultBlockState(),
-                net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
+                Block.UPDATE_MOVE_BY_PISTON | Block.UPDATE_ALL);
         BlockPos to = helper.absolutePos(new BlockPos(3, 1, 5));
-        level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), Block.UPDATE_ALL);
         level.getBlockEntity(to).loadWithComponents(data, registries);
         helper.runAfterDelay(5, () -> {
             check(helper, a.equals(net(helper, new BlockPos(3, 1, 5))), "the moved connector joined another owner's private network");
             check(helper, !Topology.connected(level, to, Direction.WEST), "the moved connector is cabled into the private network");
 
             // The same move against a public network joins it.
-            b.setAccessMode(io.github.leadassimilator.reticulum.security.AccessMode.PUBLIC);
+            b.setAccessMode(AccessMode.PUBLIC);
             var again = be(helper, new BlockPos(3, 1, 5)).saveWithFullMetadata(registries);
             level.setBlock(to, Blocks.AIR.defaultBlockState(),
-                    net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
+                    Block.UPDATE_MOVE_BY_PISTON | Block.UPDATE_ALL);
             BlockPos next = helper.absolutePos(new BlockPos(2, 1, 6));
-            level.setBlock(next, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+            level.setBlock(next, ModBlocks.CONNECTOR.get().defaultBlockState(), Block.UPDATE_ALL);
             level.getBlockEntity(next).loadWithComponents(again, registries);
             helper.runAfterDelay(5, () -> {
                 check(helper, b.id().equals(net(helper, new BlockPos(2, 1, 6))), "the moved connector didn't join the public network");
@@ -389,22 +418,22 @@ public final class TopologyTests {
         place(helper, new BlockPos(1, 1, 2), ModBlocks.CONNECTOR.get(), Direction.NORTH);
         var level = helper.getLevel();
         Topology.toggle(level, helper.absolutePos(new BlockPos(1, 1, 1)), Direction.EAST, null);
-        ((io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(1, 1, 2))).setDeviceEnabled(Direction.WEST, false);
+        ((ConnectorBlockEntity) be(helper, new BlockPos(1, 1, 2))).setDeviceEnabled(Direction.WEST, false);
         check(helper, !Topology.connected(level, helper.absolutePos(new BlockPos(1, 1, 1)), Direction.EAST), "the joint wasn't cut");
 
-        var template = new net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate();
-        template.fillFromWorld(level, helper.absolutePos(new BlockPos(1, 1, 1)), new net.minecraft.core.Vec3i(2, 1, 2), false, null);
+        var template = new StructureTemplate();
+        template.fillFromWorld(level, helper.absolutePos(new BlockPos(1, 1, 1)), new Vec3i(2, 1, 2), false, null);
         // Turned a quarter clockwise: x becomes z, so the cut joint (east of the first cable) now lies south of it.
         BlockPos at = helper.absolutePos(new BlockPos(5, 1, 1));
-        var settings = new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings()
-                .setRotation(net.minecraft.world.level.block.Rotation.CLOCKWISE_90);
-        template.placeInWorld(level, at, at, settings, level.getRandom(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        var settings = new StructurePlaceSettings()
+                .setRotation(Rotation.CLOCKWISE_90);
+        template.placeInWorld(level, at, at, settings, level.getRandom(), Block.UPDATE_ALL);
         helper.runAfterDelay(5, () -> {
             check(helper, be(helper, new BlockPos(5, 1, 1)).isManuallyDisconnected(Direction.SOUTH), "the cut didn't turn with the cable");
             check(helper, !be(helper, new BlockPos(5, 1, 1)).isManuallyDisconnected(Direction.EAST), "the cut stayed on its old side");
             check(helper, !Topology.connected(level, at, Direction.SOUTH), "the turned cables are joined");
             // The connector stood south of the first cable: turned, it is west of it, its switched-off side (west) now north.
-            var connector = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(4, 1, 1));
+            var connector = (ConnectorBlockEntity) be(helper, new BlockPos(4, 1, 1));
             check(helper, !connector.isDeviceEnabled(Direction.NORTH) && connector.isDeviceEnabled(Direction.WEST), "the device side didn't turn");
             helper.succeed();
         });
@@ -419,15 +448,15 @@ public final class TopologyTests {
         var level = helper.getLevel();
         BlockPos at = helper.absolutePos(new BlockPos(1, 1, 1));
         Topology.toggle(level, at, Direction.EAST, null);
-        level.setBlock(at, level.getBlockState(at).rotate(level, at, net.minecraft.world.level.block.Rotation.CLOCKWISE_90),
-                net.minecraft.world.level.block.Block.UPDATE_ALL);
+        level.setBlock(at, level.getBlockState(at).rotate(level, at, Rotation.CLOCKWISE_90),
+                Block.UPDATE_ALL);
         helper.runAfterDelay(3, () -> {
             check(helper, be(helper, new BlockPos(1, 1, 1)).isManuallyDisconnected(Direction.EAST), "the cut moved off its neighbor");
             check(helper, Topology.connected(level, at, Direction.SOUTH), "the cable was cut from its other neighbor");
             var state = level.getBlockState(at);
-            var links = ((io.github.leadassimilator.reticulum.block.LinkedBlock) state.getBlock()).linkProperties();
-            check(helper, state.getValue(links.get(Direction.SOUTH)) == io.github.leadassimilator.reticulum.block.Link.CABLE
-                    && state.getValue(links.get(Direction.EAST)) == io.github.leadassimilator.reticulum.block.Link.NONE,
+            var links = ((LinkedBlock) state.getBlock()).linkProperties();
+            check(helper, state.getValue(links.get(Direction.SOUTH)) == Link.CABLE
+                    && state.getValue(links.get(Direction.EAST)) == Link.NONE,
                     "the turned cable's arms weren't drawn again: " + state);
             helper.succeed();
         });
@@ -440,19 +469,19 @@ public final class TopologyTests {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         Topology.toggle(level, helper.absolutePos(new BlockPos(1, 1, 1)), Direction.EAST, null);
-        var stairs = net.minecraft.world.level.block.Blocks.OAK_STAIRS.defaultBlockState()
-                .setValue(net.minecraft.world.level.block.StairBlock.FACING, Direction.NORTH);
+        var stairs = Blocks.OAK_STAIRS.defaultBlockState()
+                .setValue(StairBlock.FACING, Direction.NORTH);
         be(helper, new BlockPos(2, 1, 1)).setFacade(stairs);
-        var template = new net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate();
-        template.fillFromWorld(level, helper.absolutePos(new BlockPos(1, 1, 1)), new net.minecraft.core.Vec3i(2, 1, 1), false, null);
+        var template = new StructureTemplate();
+        template.fillFromWorld(level, helper.absolutePos(new BlockPos(1, 1, 1)), new Vec3i(2, 1, 1), false, null);
         BlockPos at = helper.absolutePos(new BlockPos(5, 1, 1));
-        var settings = new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings()
-                .setRotation(net.minecraft.world.level.block.Rotation.CLOCKWISE_90);
-        template.placeInWorld(level, at, at, settings, level.getRandom(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        var settings = new StructurePlaceSettings()
+                .setRotation(Rotation.CLOCKWISE_90);
+        template.placeInWorld(level, at, at, settings, level.getRandom(), Block.UPDATE_ALL);
         helper.runAfterDelay(5, () -> {
             // Turned a quarter clockwise: the cable east of the controller is now south of it, its stairs facing east.
             var facade = be(helper, new BlockPos(5, 1, 2)).facade();
-            check(helper, facade != null && facade.getValue(net.minecraft.world.level.block.StairBlock.FACING) == Direction.EAST,
+            check(helper, facade != null && facade.getValue(StairBlock.FACING) == Direction.EAST,
                     "the facade didn't turn: " + facade);
             check(helper, be(helper, new BlockPos(5, 1, 1)).isManuallyDisconnected(Direction.SOUTH), "the controller's cut didn't turn");
             check(helper, !be(helper, new BlockPos(5, 1, 1)).isManuallyDisconnected(Direction.EAST), "the controller's cut stayed put");
@@ -466,11 +495,11 @@ public final class TopologyTests {
         var level = helper.getLevel();
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CABLE.get(), null);
         BlockPos at = helper.absolutePos(new BlockPos(1, 1, 1));
-        var stairs = net.minecraft.world.level.block.Blocks.OAK_STAIRS.defaultBlockState()
-                .setValue(net.minecraft.world.level.block.StairBlock.FACING, Direction.NORTH);
+        var stairs = Blocks.OAK_STAIRS.defaultBlockState()
+                .setValue(StairBlock.FACING, Direction.NORTH);
         be(helper, new BlockPos(1, 1, 1)).setFacade(stairs);
-        level.setBlock(at, level.getBlockState(at).rotate(level, at, net.minecraft.world.level.block.Rotation.CLOCKWISE_90),
-                net.minecraft.world.level.block.Block.UPDATE_ALL);
+        level.setBlock(at, level.getBlockState(at).rotate(level, at, Rotation.CLOCKWISE_90),
+                Block.UPDATE_ALL);
         helper.runAfterDelay(3, () -> {
             check(helper, stairs.equals(be(helper, new BlockPos(1, 1, 1)).facade()), "the facade turned in place: " + be(helper, new BlockPos(1, 1, 1)).facade());
             helper.succeed();
@@ -480,16 +509,16 @@ public final class TopologyTests {
     /** Turning or mirroring an orientation moves every side as the game turns or mirrors that side. */
     @GameTest(template = "empty")
     public static void orientationsFollowTheGamesTurns(GameTestHelper helper) {
-        for (var o : io.github.leadassimilator.reticulum.block.Orientation.values()) {
+        for (var o : Orientation.values()) {
             for (Direction d : Direction.values()) {
                 check(helper, o.toLaid(o.toWorld(d)) == d, o + " doesn't turn back");
-                var stairs = net.minecraft.world.level.block.Blocks.OAK_STAIRS.defaultBlockState()
-                        .setValue(net.minecraft.world.level.block.StairBlock.FACING, d.getAxis().isHorizontal() ? d : Direction.NORTH);
+                var stairs = Blocks.OAK_STAIRS.defaultBlockState()
+                        .setValue(StairBlock.FACING, d.getAxis().isHorizontal() ? d : Direction.NORTH);
                 check(helper, o.toLaid(o.toWorld(stairs)) == stairs, o + " doesn't turn a block state back");
-                for (var r : net.minecraft.world.level.block.Rotation.values()) {
+                for (var r : Rotation.values()) {
                     check(helper, o.rotate(r).toWorld(d) == r.rotate(o.toWorld(d)), o + " turned " + r);
                 }
-                for (var m : net.minecraft.world.level.block.Mirror.values()) {
+                for (var m : Mirror.values()) {
                     check(helper, o.mirror(m).toWorld(d) == m.mirror(o.toWorld(d)), o + " mirrored " + m);
                 }
             }
@@ -591,7 +620,7 @@ public final class TopologyTests {
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         UUID id = net(helper, new BlockPos(1, 1, 1));
         // Something worth keeping; an empty network is deleted along with its controller.
-        network(helper, new BlockPos(1, 1, 1)).sheets().add(new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "work"));
+        network(helper, new BlockPos(1, 1, 1)).sheets().add(new Sheet(UUID.randomUUID(), "work"));
 
         helper.setBlock(new BlockPos(1, 1, 1), Blocks.AIR);
         check(helper, NetworkManager.network(helper.getLevel().getServer(), id).controller() == null, "controller position not cleared");
@@ -615,11 +644,11 @@ public final class TopologyTests {
         BlockPos chest = helper.absolutePos(new BlockPos(3, 1, 1));
         DeviceRecord record = network.device(Devices.global(helper.getLevel(), chest));
         record.setName("Ore chest");
-        record.setFaceName(io.github.leadassimilator.reticulum.network.FaceKey.UP, "Input");
+        record.setFaceName(FaceKey.UP, "Input");
 
-        var lines = io.github.leadassimilator.reticulum.lookat.LookAt.describe(helper.getLevel(), chest, Direction.UP,
-                helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL));
-        String text = lines.stream().map(net.minecraft.network.chat.Component::getString).reduce("", (a, b) -> a + "|" + b);
+        var lines = LookAt.describe(helper.getLevel(), chest, Direction.UP,
+                helper.makeMockPlayer(GameType.SURVIVAL));
+        String text = lines.stream().map(Component::getString).reduce("", (a, b) -> a + "|" + b);
         check(helper, text.contains("Ore chest"), "device name missing: " + text);
         check(helper, text.contains("Input"), "face name missing: " + text);
         check(helper, text.contains(network.name()), "network name missing: " + text);
@@ -630,9 +659,9 @@ public final class TopologyTests {
     public static void toolTargetsTheArmUnderTheCrosshair(GameTestHelper helper) {
         BlockPos pos = BlockPos.ZERO;
         // Looking south into the north face of a cable, from 2 blocks away.
-        java.util.function.BiFunction<Double, Double, Direction> aim = (x, y) -> {
-            net.minecraft.world.phys.Vec3 from = new net.minecraft.world.phys.Vec3(x, y, -2);
-            net.minecraft.world.phys.Vec3 to = new net.minecraft.world.phys.Vec3(x, y, 3);
+        BiFunction<Double, Double, Direction> aim = (x, y) -> {
+            Vec3 from = new Vec3(x, y, -2);
+            Vec3 to = new Vec3(x, y, 3);
             return Topology.targetSide(pos, false, from, to, Direction.NORTH);
         };
         check(helper, aim.apply(0.5, 0.5) == Direction.NORTH, "center should target the north arm");
@@ -641,8 +670,8 @@ public final class TopologyTests {
         check(helper, aim.apply(0.5, 0.7) == Direction.UP, "just above the core should target the up arm");
         check(helper, aim.apply(0.9, 0.9) == Direction.EAST || aim.apply(0.9, 0.9) == Direction.UP, "corner should pick a nearby arm");
         // Looking down steeply from above and to the side, past the east arm: must not fall back to the top.
-        net.minecraft.world.phys.Vec3 eye = new net.minecraft.world.phys.Vec3(1.6, 1.6, -1.0);
-        net.minecraft.world.phys.Vec3 through = new net.minecraft.world.phys.Vec3(0.95, 0.35, 0.5);
+        Vec3 eye = new Vec3(1.6, 1.6, -1.0);
+        Vec3 through = new Vec3(0.95, 0.35, 0.5);
         Direction steep = Topology.targetSide(pos, true, eye, eye.add(through.subtract(eye).scale(3)), Direction.UP);
         check(helper, steep == Direction.EAST, "steep look past the east arm should target east, got " + steep);
         helper.succeed();
@@ -653,7 +682,7 @@ public final class TopologyTests {
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), null);
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         Network network = network(helper, new BlockPos(1, 1, 1));
-        network.sheets().add(new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "keep me"));
+        network.sheets().add(new Sheet(UUID.randomUUID(), "keep me"));
         // Broken in creative: no item, so the new controller has no remembered network.
         helper.setBlock(new BlockPos(1, 1, 1), Blocks.AIR);
         place(helper, new BlockPos(1, 1, 1), ModBlocks.CONTROLLER.get(), Direction.EAST);
@@ -679,7 +708,7 @@ public final class TopologyTests {
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
         Network a = network(helper, new BlockPos(1, 1, 1));
-        a.sheets().add(new io.github.leadassimilator.reticulum.graph.Sheet(UUID.randomUUID(), "from A"));
+        a.sheets().add(new Sheet(UUID.randomUUID(), "from A"));
         var barrel = Devices.global(helper.getLevel(), helper.absolutePos(new BlockPos(3, 1, 2)));
         a.device(barrel).setName("Logs");
         helper.setBlock(new BlockPos(1, 1, 1), Blocks.AIR);
@@ -699,7 +728,7 @@ public final class TopologyTests {
         check(helper, NetworkManager.network(helper.getLevel().getServer(), a.id()) == b, "A was not merged into B");
         check(helper, b.id().equals(net(helper, new BlockPos(3, 1, 1))), "A's connector not on B");
         check(helper, b.device(barrel) != null && "Logs".equals(b.device(barrel).name()), "device name lost in the merge");
-        check(helper, b.device(barrel).state() == io.github.leadassimilator.reticulum.network.DeviceRecord.State.ACTIVE, "merged device not active");
+        check(helper, b.device(barrel).state() == DeviceRecord.State.ACTIVE, "merged device not active");
         check(helper, b.sheets().stream().anyMatch(sh -> sh.name().equals("from A")), "A's sheet lost in the merge");
         helper.succeed();
     }

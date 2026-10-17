@@ -1,23 +1,29 @@
 package io.github.leadassimilator.reticulum.client;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map;
 import java.util.UUID;
-
 
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import io.github.leadassimilator.reticulum.ReticulumClientConfig;
+import io.github.leadassimilator.reticulum.client.screen.AlarmSettingsScreen;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.item.ToolMode;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
@@ -37,7 +43,7 @@ public final class AlarmClient {
     private static Map<UUID, Integer> states = Map.of();
     private static List<Payloads.StatusMarker> markers = List.of();
     /** The level the markers are about. */
-    private static net.minecraft.client.multiplayer.ClientLevel markersLevel;
+    private static ClientLevel markersLevel;
     /** How long each of a block's labels shows before the next. */
     private static final long CYCLE_MS = 3000;
 
@@ -127,7 +133,7 @@ public final class AlarmClient {
     }
 
     public static void openSettings() {
-        Minecraft.getInstance().setScreen(new io.github.leadassimilator.reticulum.client.screen.AlarmSettingsScreen());
+        Minecraft.getInstance().setScreen(new AlarmSettingsScreen());
     }
 
     // ---------------------------------------------------------------- each tick
@@ -172,7 +178,7 @@ public final class AlarmClient {
      * other one at {@code pitch2}). An unknown sound id plays {@code fallback}.
      */
     private static void playToolSound(Minecraft mc, long time, String id, double pitch, double pitch2, boolean twoTone, int everySeconds,
-            net.minecraft.sounds.SoundEvent fallback) {
+            SoundEvent fallback) {
         // The game frozen (/tick freeze): its time stands still, so a matching tick would play every client tick.
         if (mc.level == null || !mc.level.tickRateManager().runsNormally()) {
             return;
@@ -182,14 +188,14 @@ public final class AlarmClient {
         if (twoTone ? phase >= 40 || phase % 10 != 0 : phase != 0) {
             return;
         }
-        net.minecraft.resources.ResourceLocation location = net.minecraft.resources.ResourceLocation.tryParse(id);
-        net.minecraft.sounds.SoundEvent sound = location == null ? null : net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.get(location);
+        ResourceLocation location = ResourceLocation.tryParse(id);
+        SoundEvent sound = location == null ? null : BuiltInRegistries.SOUND_EVENT.get(location);
         float at = (float) (twoTone && (phase / 10) % 2 == 1 ? pitch2 : pitch);
         mc.getSoundManager().play(SimpleSoundInstance.forUI(sound != null ? sound : fallback, at, 0.6f));
     }
 
     /** Whether the tool in Status mode marks this block now (a beacon's own text then steps aside). */
-    public static boolean marks(net.minecraft.core.BlockPos pos) {
+    public static boolean marks(BlockPos pos) {
         Player player = Minecraft.getInstance().player;
         if (player == null || markers.isEmpty() || !holdingStatusTool(player)) {
             return false;
@@ -216,7 +222,7 @@ public final class AlarmClient {
 
     /** Where a network tool sounds from: the hotbar and the off hand. */
     private static List<ItemStack> hotbar(Player player) {
-        List<ItemStack> out = new java.util.ArrayList<>(10);
+        List<ItemStack> out = new ArrayList<>(10);
         for (int slot = 0; slot < 9; slot++) {
             out.add(player.getInventory().getItem(slot));
         }
@@ -251,10 +257,10 @@ public final class AlarmClient {
         Font font = mc.font;
         // A block can have several things wrong (a beacon carries every alarm of its network): one outline in the worst
         // one's color, and the labels taking turns every few seconds.
-        java.util.Map<net.minecraft.core.BlockPos, List<Payloads.StatusMarker>> byBlock = new java.util.LinkedHashMap<>();
+        Map<BlockPos, List<Payloads.StatusMarker>> byBlock = new LinkedHashMap<>();
         for (Payloads.StatusMarker marker : markers) {
             if (marker.severity() == 1 ? criticals : warnings) {
-                byBlock.computeIfAbsent(marker.pos(), k -> new java.util.ArrayList<>()).add(marker);
+                byBlock.computeIfAbsent(marker.pos(), k -> new ArrayList<>()).add(marker);
             }
         }
         for (var entry : byBlock.entrySet()) {

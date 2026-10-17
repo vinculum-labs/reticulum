@@ -4,6 +4,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
 
+import io.github.leadassimilator.reticulum.client.ScreenHighlight;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.protocol.Views;
@@ -72,8 +73,8 @@ public class DeviceFacesScreen extends QuickScreen {
         int y = top + 30;
         for (FaceKey face : FaceKey.values()) {
             if (face.direction() != null) {
-                addRenderableWidget(BlockScreen.idButton(this, view.pos(), left + WIDTH - 22, y - 1, device.faceIdentified(face), java.util.Optional.of(side),
-                        java.util.Optional.of(face), view.canUse()));
+                addRenderableWidget(BlockScreen.idButton(this, view.pos(), left + WIDTH - 22, y - 1, device.faceIdentified(face), Optional.of(side),
+                        Optional.of(face), view.canUse()));
             }
             Component name = Component.translatable("screen.reticulum.face." + face.getSerializedName());
             faces.put(face, nameBox("face/" + face.getSerializedName(), left + 80, y, WIDTH - 80 - 26, name, device.faceName(face), name, view.canEdit()));
@@ -109,7 +110,7 @@ public class DeviceFacesScreen extends QuickScreen {
                 focusedFace = entry.getKey().direction();
             }
         }
-        io.github.leadassimilator.reticulum.client.ScreenHighlight.set(devicePos, focusedFace);
+        ScreenHighlight.set(devicePos, focusedFace);
         super.render(graphics, mouseX, mouseY, partialTick);
         renderCompass(graphics, left, WIDTH, top);
         Views.SideView device = view.side(side);

@@ -4,6 +4,7 @@ import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.block.entity.CableBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
+import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -23,8 +24,8 @@ public final class ModBlockEntities {
             () -> BlockEntityType.Builder.of(ControllerBlockEntity::new, ModBlocks.CONTROLLER.get()).build(null));
 
     @SuppressWarnings("DataFlowIssue")
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity>> STATUS_BEACON =
-            BLOCK_ENTITIES.register("status_beacon", () -> BlockEntityType.Builder.of(io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity::new,
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<StatusBeaconBlockEntity>> STATUS_BEACON =
+            BLOCK_ENTITIES.register("status_beacon", () -> BlockEntityType.Builder.of(StatusBeaconBlockEntity::new,
                     ModBlocks.STATUS_BEACON.get()).build(null));
 
     private ModBlockEntities() {

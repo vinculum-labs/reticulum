@@ -1,7 +1,10 @@
 package io.github.leadassimilator.reticulum.block.entity;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
@@ -14,11 +17,15 @@ import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
+import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.util.LowercaseName;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
@@ -42,7 +49,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     }
 
     /** Loaded beacons on the client, for the glow and the sound (drawn and played each frame and tick). */
-    public static final Set<StatusBeaconBlockEntity> CLIENT_LOADED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    public static final Set<StatusBeaconBlockEntity> CLIENT_LOADED = ConcurrentHashMap.newKeySet();
 
     private Mode mode = Mode.NETWORK;
     private BeaconLook warning = BeaconLook.WARNING;
@@ -183,20 +190,20 @@ public class StatusBeaconBlockEntity extends BlockEntity {
      * public and ownerless networks only. Kept in the block's data only, never on the item, so beacons stack.
      */
     @Nullable
-    private java.util.UUID placer;
+    private UUID placer;
 
     @Nullable
-    public java.util.UUID placer() {
+    public UUID placer() {
         return placer;
     }
 
-    public void setPlacer(@Nullable java.util.UUID placer) {
+    public void setPlacer(@Nullable UUID placer) {
         this.placer = placer;
         setChanged();
     }
 
     private boolean mayWatch(Network network) {
-        if (network.owner() == null || network.accessMode() == io.github.leadassimilator.reticulum.security.AccessMode.PUBLIC) {
+        if (network.owner() == null || network.accessMode() == AccessMode.PUBLIC) {
             return true;
         }
         return placer != null && (placer.equals(network.owner()) || network.members().containsKey(placer));
@@ -205,7 +212,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     /** Every network it is a device of, whether or not it may watch them: who may change it is decided by these. */
     public List<Network> sitsOn(ServerLevel level) {
         GlobalPos at = Devices.global(level, worldPosition);
-        List<Network> out = new java.util.ArrayList<>();
+        List<Network> out = new ArrayList<>();
         for (Network network : NetworkManager.networksWith(level.getServer(), at)) {
             DeviceRecord record = network.device(at);
             if (record != null && record.state() == DeviceRecord.State.ACTIVE) {
@@ -341,8 +348,8 @@ public class StatusBeaconBlockEntity extends BlockEntity {
             placer = tag.getUUID("placer");
         }
         if (tag.contains("alarm_texts")) {
-            List<String> texts = new java.util.ArrayList<>();
-            tag.getList("alarm_texts", net.minecraft.nbt.Tag.TAG_STRING).forEach(t -> texts.add(t.getAsString()));
+            List<String> texts = new ArrayList<>();
+            tag.getList("alarm_texts", Tag.TAG_STRING).forEach(t -> texts.add(t.getAsString()));
             alarmTexts = List.copyOf(texts);
         }
         // New looks on the client: the lens is tinted by the look, so its chunk is drawn again.
@@ -355,8 +362,8 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         tag.put("settings", settings());
-        net.minecraft.nbt.ListTag texts = new net.minecraft.nbt.ListTag();
-        alarmTexts.forEach(text -> texts.add(net.minecraft.nbt.StringTag.valueOf(text)));
+        ListTag texts = new ListTag();
+        alarmTexts.forEach(text -> texts.add(StringTag.valueOf(text)));
         tag.put("alarm_texts", texts);
         return tag;
     }

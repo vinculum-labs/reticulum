@@ -4,6 +4,7 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.protocol.Screens;
@@ -31,6 +32,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.neoforged.neoforge.common.util.FakePlayer;
 
 /** Base for cables, connectors and controllers. Hands placement, removal and shape updates to {@link Topology}. */
 public abstract class NetworkBlock extends BaseEntityBlock {
@@ -72,7 +74,7 @@ public abstract class NetworkBlock extends BaseEntityBlock {
             // A fake player (a Deployer, a block placer) is automation, not a player: the block goes in as if placed by a
             // machine, so a controller it places starts a network a real player can claim rather than one nobody can open.
             Topology.onPlaced(serverLevel, pos, against,
-                    placer instanceof ServerPlayer player && !(player instanceof net.neoforged.neoforge.common.util.FakePlayer) ? player : null);
+                    placer instanceof ServerPlayer player && !(player instanceof FakePlayer) ? player : null);
         }
     }
 
@@ -87,13 +89,13 @@ public abstract class NetworkBlock extends BaseEntityBlock {
             level.scheduleTick(pos, this, 1);
         } else if (!level.isClientSide && oldState.hasProperty(LinkedBlock.ORIENTATION) && state.hasProperty(LinkedBlock.ORIENTATION)
                 && oldState.getValue(LinkedBlock.ORIENTATION) != state.getValue(LinkedBlock.ORIENTATION)
-                && level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity be) {
+                && level.getBlockEntity(pos) instanceof NetworkBlockEntity be) {
             // Turned where it stands (a wrench of another mod): its joints are with the same neighbors as before, so
             // what it keeps by side stays on the same sides of the world, and its arms are drawn to them again (the
             // turn moved them along). The block entity gets its new state now; the game would only after this.
             be.setBlockState(state);
             be.keepSides(oldState.getValue(LinkedBlock.ORIENTATION), state.getValue(LinkedBlock.ORIENTATION));
-            if (be instanceof io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity && level instanceof ServerLevel server) {
+            if (be instanceof ConnectorBlockEntity && level instanceof ServerLevel server) {
                 Topology.rescanConnector(server, pos);
             }
             if (level instanceof ServerLevel server) {

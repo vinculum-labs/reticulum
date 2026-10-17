@@ -6,13 +6,16 @@ import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.block.ConnectorBlock;
 import io.github.leadassimilator.reticulum.block.Link;
+import io.github.leadassimilator.reticulum.block.Orientation;
 import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
@@ -67,7 +70,7 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     }
 
     @Override
-    public void keepSides(io.github.leadassimilator.reticulum.block.Orientation was, io.github.leadassimilator.reticulum.block.Orientation now) {
+    public void keepSides(Orientation was, Orientation now) {
         disabledDevices = keptSides(disabledDevices, was, now);
         super.keepSides(was, now);
     }
@@ -145,11 +148,11 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
      * the recorded place still being that connector (or that place not loaded, or no record) makes this a copy. Order,
      * timing and restarts don't matter, and two live connectors never share an id.
      */
-    private boolean isOriginal(java.util.UUID id) {
-        if (!(level instanceof net.minecraft.server.level.ServerLevel server)) {
+    private boolean isOriginal(UUID id) {
+        if (!(level instanceof ServerLevel server)) {
             return false;
         }
-        var network = io.github.leadassimilator.reticulum.network.NetworkManager.network(server.getServer(), networkId());
+        var network = NetworkManager.network(server.getServer(), networkId());
         var record = network == null ? null : network.connector(id);
         if (record == null) {
             return false;

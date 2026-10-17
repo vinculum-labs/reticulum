@@ -1,8 +1,10 @@
 package io.github.leadassimilator.reticulum.datagen;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.registry.ModItems;
 import net.minecraft.data.PackOutput;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.model.generators.ItemModelProvider;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
 
@@ -11,8 +13,8 @@ public class ModItemModels extends ItemModelProvider {
         super(output, Reticulum.MODID, files);
     }
 
-    private static final net.minecraft.resources.ResourceLocation TOOL_MODE = io.github.leadassimilator.reticulum.item.NetworkToolItem.MODE_PROPERTY;
-    private static final net.minecraft.resources.ResourceLocation ALARM = io.github.leadassimilator.reticulum.item.NetworkToolItem.ALARM_PROPERTY;
+    private static final ResourceLocation TOOL_MODE = NetworkToolItem.MODE_PROPERTY;
+    private static final ResourceLocation ALARM = NetworkToolItem.ALARM_PROPERTY;
 
     @Override
     protected void registerModels() {

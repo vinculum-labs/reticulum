@@ -1,6 +1,7 @@
 package io.github.leadassimilator.reticulum.integration.jade;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.lookat.LookAt;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -44,7 +45,7 @@ public class ReticulumJadePlugin implements IWailaPlugin {
         public void appendServerData(CompoundTag data, BlockAccessor accessor) {
             // Holding the network tool, the lines show under the crosshair (for every block): not here as well.
             if (!(accessor.getLevel() instanceof ServerLevel level)
-                    || !io.github.leadassimilator.reticulum.item.NetworkToolItem.held(accessor.getPlayer()).isEmpty()) {
+                    || !NetworkToolItem.held(accessor.getPlayer()).isEmpty()) {
                 return;
             }
             ListTag lines = new ListTag();

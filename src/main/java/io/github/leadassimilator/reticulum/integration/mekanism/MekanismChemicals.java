@@ -1,7 +1,9 @@
 package io.github.leadassimilator.reticulum.integration.mekanism;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
@@ -9,6 +11,7 @@ import javax.annotation.Nullable;
 import io.github.leadassimilator.reticulum.filter.FilterException;
 import io.github.leadassimilator.reticulum.filter.FilterExpr;
 import io.github.leadassimilator.reticulum.filter.Filters;
+import io.github.leadassimilator.reticulum.protocol.web.DeviceContents;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import mekanism.api.Action;
 import mekanism.api.MekanismAPI;
@@ -16,8 +19,10 @@ import mekanism.api.chemical.Chemical;
 import mekanism.api.chemical.ChemicalStack;
 import mekanism.api.chemical.IChemicalHandler;
 import mekanism.api.datamaps.IMekanismDataMapTypes;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
 import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
@@ -93,16 +98,16 @@ public final class MekanismChemicals {
     }
 
     /** What chemicals a block holds, by id, for the editor's filter picker (the largest amount any one side shows). */
-    public static void collect(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos pos, java.util.Map<ResourceLocation, Long> totals) {
-        for (IChemicalHandler handler : io.github.leadassimilator.reticulum.protocol.web.DeviceContents.handlers(level, pos, CAPABILITY)) {
-            java.util.Map<ResourceLocation, Long> one = new java.util.LinkedHashMap<>();
+    public static void collect(ServerLevel level, BlockPos pos, Map<ResourceLocation, Long> totals) {
+        for (IChemicalHandler handler : DeviceContents.handlers(level, pos, CAPABILITY)) {
+            Map<ResourceLocation, Long> one = new LinkedHashMap<>();
             for (int tank = 0; tank < handler.getChemicalTanks(); tank++) {
                 ChemicalStack stack = handler.getChemicalInTank(tank);
                 if (!stack.isEmpty()) {
                     one.merge(id(stack), stack.getAmount(), Long::sum);
                 }
             }
-            io.github.leadassimilator.reticulum.protocol.web.DeviceContents.keepLargest(totals, one);
+            DeviceContents.keepLargest(totals, one);
         }
     }
 

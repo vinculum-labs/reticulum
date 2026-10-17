@@ -1,5 +1,7 @@
 package io.github.leadassimilator.telispex.client;
 
+import java.nio.charset.StandardCharsets;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -78,7 +80,7 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             return;
         }
         // Too large for one packet: compressed and sent in pieces.
-        int bytes = json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        int bytes = json.getBytes(StandardCharsets.UTF_8).length;
         boolean large = bytes > RelayPayloads.MAX_REQUEST_CHARS;
         if (bytes > RelayPayloads.MAX_REQUEST_BYTES) {
             page.refuse(id, "Request too large");

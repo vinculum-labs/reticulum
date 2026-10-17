@@ -3,8 +3,15 @@ package io.github.leadassimilator.reticulum.client;
 import io.github.leadassimilator.reticulum.client.screen.BlockScreen;
 import io.github.leadassimilator.reticulum.client.screen.ControllerScreen;
 import io.github.leadassimilator.reticulum.client.screen.DeviceFacesScreen;
+import io.github.leadassimilator.reticulum.client.screen.NetworkPickerScreen;
+import io.github.leadassimilator.reticulum.client.screen.QuickScreen;
+import io.github.leadassimilator.reticulum.client.screen.StatusBeaconScreen;
+import io.github.leadassimilator.reticulum.item.NetworkToolItem;
+import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.protocol.Views;
 import net.minecraft.client.Minecraft;
+import net.neoforged.neoforge.client.event.InputEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /** Client-only handling of server-to-client payloads. Only referenced from lambdas so servers never load it. */
 public final class ClientPayloadHandler {
@@ -31,30 +38,30 @@ public final class ClientPayloadHandler {
         }
     }
 
-    public static void openBeaconScreen(io.github.leadassimilator.reticulum.protocol.Payloads.OpenBeaconScreen payload) {
+    public static void openBeaconScreen(Payloads.OpenBeaconScreen payload) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof io.github.leadassimilator.reticulum.client.screen.StatusBeaconScreen open && open.pos().equals(payload.pos())) {
+        if (mc.screen instanceof StatusBeaconScreen open && open.pos().equals(payload.pos())) {
             open.refresh(payload);
         } else if (!payload.refresh() && mayReplace(mc)) {
-            mc.setScreen(new io.github.leadassimilator.reticulum.client.screen.StatusBeaconScreen(payload));
+            mc.setScreen(new StatusBeaconScreen(payload));
         }
     }
 
-    public static void openNetworkPicker(io.github.leadassimilator.reticulum.protocol.Payloads.OpenNetworkPicker payload) {
+    public static void openNetworkPicker(Payloads.OpenNetworkPicker payload) {
         if (mayReplace(Minecraft.getInstance())) {
-            Minecraft.getInstance().setScreen(new io.github.leadassimilator.reticulum.client.screen.NetworkPickerScreen(payload.connector(), payload.choices()));
+            Minecraft.getInstance().setScreen(new NetworkPickerScreen(payload.connector(), payload.choices()));
         }
     }
 
     /** Sneak + scroll with the network tool in hand switches its mode instead of the hotbar slot. */
-    public static void onScroll(net.neoforged.neoforge.client.event.InputEvent.MouseScrollingEvent event) {
+    public static void onScroll(InputEvent.MouseScrollingEvent event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen != null || mc.player == null || !mc.player.isShiftKeyDown() || event.getScrollDeltaY() == 0
-                || !(mc.player.getMainHandItem().getItem() instanceof io.github.leadassimilator.reticulum.item.NetworkToolItem)) {
+                || !(mc.player.getMainHandItem().getItem() instanceof NetworkToolItem)) {
             return;
         }
-        net.neoforged.neoforge.network.PacketDistributor.sendToServer(
-                new io.github.leadassimilator.reticulum.protocol.Payloads.CycleToolMode(event.getScrollDeltaY() > 0 ? -1 : 1));
+        PacketDistributor.sendToServer(
+                new Payloads.CycleToolMode(event.getScrollDeltaY() > 0 ? -1 : 1));
         event.setCanceled(true);
     }
 
@@ -75,6 +82,6 @@ public final class ClientPayloadHandler {
      * inventory or chat the player opened meanwhile.
      */
     private static boolean mayReplace(Minecraft mc) {
-        return mc.screen == null || mc.screen instanceof io.github.leadassimilator.reticulum.client.screen.QuickScreen;
+        return mc.screen == null || mc.screen instanceof QuickScreen;
     }
 }

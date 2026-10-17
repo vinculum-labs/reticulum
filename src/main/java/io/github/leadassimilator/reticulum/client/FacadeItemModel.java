@@ -2,6 +2,8 @@ package io.github.leadassimilator.reticulum.client;
 
 import javax.annotation.Nullable;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.item.FacadeItem;
 import io.github.leadassimilator.reticulum.registry.ModItems;
@@ -63,11 +65,11 @@ public final class FacadeItemModel extends BakedModelWrapper<BakedModel> {
             graphics.pose().pushPose();
             graphics.pose().translate(x, y, 200);
             graphics.pose().scale(0.75f, 0.75f, 1f);
-            com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+            RenderSystem.enableBlend();
             graphics.setColor(1f, 1f, 1f, 0.5f);
             graphics.blit(BADGE, 0, 0, 0, 0, 8, 8, 8, 8);
             graphics.setColor(1f, 1f, 1f, 1f);
-            com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+            RenderSystem.disableBlend();
             graphics.pose().popPose();
             return true;
         });

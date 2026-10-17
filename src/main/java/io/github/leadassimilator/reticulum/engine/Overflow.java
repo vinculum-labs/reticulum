@@ -9,6 +9,8 @@ import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.network.OverflowBuffer;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -23,7 +25,7 @@ final class Overflow {
     }
 
     static void add(NetworkRuntime.Context ctx, ItemStack stack) {
-        io.github.leadassimilator.reticulum.network.OverflowBuffer.addItem(ctx.network().overflowItems(), stack);
+        OverflowBuffer.addItem(ctx.network().overflowItems(), stack);
         NetworkManager.overflowChanged(ctx.server(), ctx.network());
     }
 
@@ -115,7 +117,7 @@ final class Overflow {
             int placed = offer.getCount() - to.insert(offer, false).getCount();
             if (placed > 0) {
                 ctx.runtime().chargeOperation();
-                ctx.runtime().delivered(route, placed, "item:" + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(held.getItem()));
+                ctx.runtime().delivered(route, placed, "item:" + BuiltInRegistries.ITEM.getKey(held.getItem()));
                 held.shrink(placed);
                 changed = true;
                 if (held.isEmpty()) {

@@ -1,72 +1,86 @@
 package io.github.leadassimilator.reticulum.block;
 
+import javax.annotation.Nullable;
+
 import com.mojang.serialization.MapCodec;
 
-import io.github.leadassimilator.reticulum.topology.Topology;
-import io.github.leadassimilator.reticulum.security.Role;
-import io.github.leadassimilator.reticulum.security.Access;
 import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
 import io.github.leadassimilator.reticulum.item.AntennaItem;
 import io.github.leadassimilator.reticulum.item.ConnectorItem;
+import io.github.leadassimilator.reticulum.item.NetworkStamp;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import io.github.leadassimilator.reticulum.registry.ModItems;
+import io.github.leadassimilator.reticulum.security.Access;
+import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
+import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
 
 public class ControllerBlock extends NetworkBlock {
     public static final MapCodec<ControllerBlock> CODEC = simpleCodec(ControllerBlock::new);
     /** The antenna tier installed (0: none), shown on the top face. The block entity holds the truth and sets this. */
-    public static final net.minecraft.world.level.block.state.properties.IntegerProperty ANTENNA =
-            net.minecraft.world.level.block.state.properties.IntegerProperty.create("antenna", 0, 3);
+    public static final IntegerProperty ANTENNA =
+            IntegerProperty.create("antenna", 0, 3);
 
     /** Which way its front faces (towards whoever placed it); the antenna on top lies along that edge. */
-    public static final net.minecraft.world.level.block.state.properties.DirectionProperty FACING =
-            net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING;
+    public static final DirectionProperty FACING =
+            BlockStateProperties.HORIZONTAL_FACING;
 
     public ControllerBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(ANTENNA, 0).setValue(FACING, net.minecraft.core.Direction.NORTH)
+        registerDefaultState(stateDefinition.any().setValue(ANTENNA, 0).setValue(FACING, Direction.NORTH)
                 .setValue(LinkedBlock.ORIENTATION, Orientation.TURN_0));
     }
 
     @Override
-    protected void createBlockStateDefinition(net.minecraft.world.level.block.state.StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         // Its cut joints are kept as laid out and turn with it, as a cable's do (see Orientation).
         builder.add(ANTENNA, FACING, LinkedBlock.ORIENTATION);
     }
 
-    @javax.annotation.Nullable
+    @Nullable
     @Override
-    public BlockState getStateForPlacement(net.minecraft.world.item.context.BlockPlaceContext context) {
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
         BlockState state = super.getStateForPlacement(context);
         // A controller item that kept its antenna shows it from the start.
-        int antenna = context.getItemInHand().getOrDefault(io.github.leadassimilator.reticulum.registry.ModDataComponents.ANTENNA_TIER.get(), 0);
+        int antenna = context.getItemInHand().getOrDefault(ModDataComponents.ANTENNA_TIER.get(), 0);
         return state == null ? null : state.setValue(FACING, context.getHorizontalDirection().getOpposite()).setValue(ANTENNA, antenna);
     }
 
     @Override
-    protected BlockState rotate(BlockState state, net.minecraft.world.level.block.Rotation rotation) {
+    protected BlockState rotate(BlockState state, Rotation rotation) {
         return state.setValue(FACING, rotation.rotate(state.getValue(FACING)))
                 .setValue(LinkedBlock.ORIENTATION, state.getValue(LinkedBlock.ORIENTATION).rotate(rotation));
     }
 
     @Override
-    protected BlockState mirror(BlockState state, net.minecraft.world.level.block.Mirror mirror) {
+    protected BlockState mirror(BlockState state, Mirror mirror) {
         return state.setValue(FACING, mirror.mirror(state.getValue(FACING)))
                 .setValue(LinkedBlock.ORIENTATION, state.getValue(LinkedBlock.ORIENTATION).mirror(mirror));
     }
@@ -106,7 +120,7 @@ public class ControllerBlock extends NetworkBlock {
         if (!(level.getBlockEntity(pos) instanceof ControllerBlockEntity controller)) {
             return;
         }
-        Network network = Topology.network((net.minecraft.server.level.ServerLevel) level, pos);
+        Network network = Topology.network((ServerLevel) level, pos);
         if (network != null && Access.require(player, network, Role.EDITOR) == null) {
             return;
         }
@@ -119,7 +133,7 @@ public class ControllerBlock extends NetworkBlock {
         stack.consume(1, player);
         // In creative nothing was used up, so nothing is given back either.
         if (!old.isEmpty() && !player.getAbilities().instabuild) {
-            net.neoforged.neoforge.items.ItemHandlerHelper.giveItemToPlayer(player, old);
+            ItemHandlerHelper.giveItemToPlayer(player, old);
         }
         if (network != null) {
             NetworkManager.changed(player.server, network);
@@ -136,14 +150,14 @@ public class ControllerBlock extends NetworkBlock {
             player.displayClientMessage(Component.translatable("message.reticulum.antenna_none_installed"), true);
             return;
         }
-        Network network = Topology.network((net.minecraft.server.level.ServerLevel) level, pos);
+        Network network = Topology.network((ServerLevel) level, pos);
         if (network != null && Access.require(player, network, Role.EDITOR) == null) {
             return;
         }
         ItemStack old = ModItems.antenna(controller.antennaTier());
         controller.setAntennaTier(0);
         if (!player.getAbilities().instabuild) {
-            net.neoforged.neoforge.items.ItemHandlerHelper.giveItemToPlayer(player, old);
+            ItemHandlerHelper.giveItemToPlayer(player, old);
         }
         if (network != null) {
             NetworkManager.changed(player.server, network);
@@ -156,11 +170,11 @@ public class ControllerBlock extends NetworkBlock {
         if (!(level.getBlockEntity(pos) instanceof ControllerBlockEntity controller)) {
             return;
         }
-        Network network = Access.require(player, Topology.network((net.minecraft.server.level.ServerLevel) level, pos), Role.USER);
+        Network network = Access.require(player, Topology.network((ServerLevel) level, pos), Role.USER);
         if (network == null) {
             return;
         }
-        io.github.leadassimilator.reticulum.item.NetworkStamp.set(stack, network);
+        NetworkStamp.set(stack, network);
         player.displayClientMessage(Component.translatable("message.reticulum.stack_bound", stack.getCount(), network.name()), true);
     }
 

@@ -1,15 +1,22 @@
 package io.github.leadassimilator.reticulum.protocol;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import io.github.leadassimilator.reticulum.network.FaceKey;
+import io.github.leadassimilator.reticulum.network.Switches;
 import io.github.leadassimilator.reticulum.security.AccessMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs;
 
 /** Read-only snapshots the server sends to the in-game quick screens. */
 public final class Views {
@@ -76,7 +83,7 @@ public final class Views {
     /** Connector and cable screens share this view; cables have no connector name. */
     /** {@code bindable}: a connector no cable joins, so its network is picked in its screen. */
     public record BlockView(BlockPos pos, boolean connector, String networkName, String defaultName, String customName,
-            List<SideView> sides, boolean canEdit, java.util.Optional<net.minecraft.network.chat.Component> pickHint, boolean identified, boolean canUse) {
+            List<SideView> sides, boolean canEdit, Optional<Component> pickHint, boolean identified, boolean canUse) {
         public static final StreamCodec<RegistryFriendlyByteBuf, BlockView> STREAM_CODEC = StreamCodec.of(
                 (buf, v) -> {
                     buf.writeBlockPos(v.pos);
@@ -86,13 +93,13 @@ public final class Views {
                     buf.writeUtf(v.customName);
                     buf.writeCollection(v.sides, (b, s) -> SideView.STREAM_CODEC.encode((RegistryFriendlyByteBuf) b, s));
                     buf.writeBoolean(v.canEdit);
-                    buf.writeOptional(v.pickHint, (b, c) -> net.minecraft.network.chat.ComponentSerialization.TRUSTED_STREAM_CODEC.encode((RegistryFriendlyByteBuf) b, c));
+                    buf.writeOptional(v.pickHint, (b, c) -> ComponentSerialization.TRUSTED_STREAM_CODEC.encode((RegistryFriendlyByteBuf) b, c));
                     buf.writeBoolean(v.identified);
                     buf.writeBoolean(v.canUse);
                 },
                 buf -> new BlockView(buf.readBlockPos(), buf.readBoolean(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
                         buf.readList(b -> SideView.STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)), buf.readBoolean(),
-                        buf.readOptional(b -> net.minecraft.network.chat.ComponentSerialization.TRUSTED_STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)),
+                        buf.readOptional(b -> ComponentSerialization.TRUSTED_STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)),
                         buf.readBoolean(), buf.readBoolean()));
 
         public SideView side(Direction dir) {
@@ -110,9 +117,9 @@ public final class Views {
      * A sheet in the controller screen's list, which runs down the tree: {@code depth} below the root (0 for the
      * root's own sheets), {@code enabled} its own switch, {@code parentOff} a sheet above it off.
      */
-    public record SheetEntry(java.util.UUID id, String name, int depth, boolean enabled, boolean parentOff, boolean gateOff, int errors) {
-        public static final StreamCodec<RegistryFriendlyByteBuf, SheetEntry> STREAM_CODEC = net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs.composite(
-                net.minecraft.core.UUIDUtil.STREAM_CODEC, SheetEntry::id,
+    public record SheetEntry(UUID id, String name, int depth, boolean enabled, boolean parentOff, boolean gateOff, int errors) {
+        public static final StreamCodec<RegistryFriendlyByteBuf, SheetEntry> STREAM_CODEC = NeoForgeStreamCodecs.composite(
+                UUIDUtil.STREAM_CODEC, SheetEntry::id,
                 ByteBufCodecs.STRING_UTF8, SheetEntry::name,
                 ByteBufCodecs.VAR_INT, SheetEntry::depth,
                 ByteBufCodecs.BOOL, SheetEntry::enabled,
@@ -126,9 +133,9 @@ public final class Views {
      * {@code running}: the network ticks now. {@code redstoneMode}: what redstone at the controller does. {@code overflow}:
      * a line per thing in the overflow buffer.
      */
-    public record ControllerView(BlockPos pos, java.util.UUID networkId, String networkName, String ownerName, AccessMode mode, boolean hasPassword,
+    public record ControllerView(BlockPos pos, UUID networkId, String networkName, String ownerName, AccessMode mode, boolean hasPassword,
             int connectors, int devices, int orphans, boolean canEdit, boolean canAdmin, int antenna,
-            boolean enabled, boolean running, io.github.leadassimilator.reticulum.network.Switches.Redstone redstoneMode, List<SheetEntry> sheets,
+            boolean enabled, boolean running, Switches.Redstone redstoneMode, List<SheetEntry> sheets,
             List<String> overflow, String power) {
         public static final StreamCodec<RegistryFriendlyByteBuf, ControllerView> STREAM_CODEC = StreamCodec.of(
                 (buf, v) -> {
@@ -154,7 +161,7 @@ public final class Views {
                 buf -> new ControllerView(buf.readBlockPos(), buf.readUUID(), buf.readUtf(), buf.readUtf(), AccessMode.STREAM_CODEC.decode(buf),
                         buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
                         ByteBufCodecs.VAR_INT.decode(buf), buf.readBoolean(), buf.readBoolean(), ByteBufCodecs.VAR_INT.decode(buf),
-                        buf.readBoolean(), buf.readBoolean(), buf.readEnum(io.github.leadassimilator.reticulum.network.Switches.Redstone.class),
+                        buf.readBoolean(), buf.readBoolean(), buf.readEnum(Switches.Redstone.class),
                         buf.readList(b -> SheetEntry.STREAM_CODEC.decode((RegistryFriendlyByteBuf) b)), buf.readList(b -> b.readUtf()),
                         buf.readUtf()));
     }

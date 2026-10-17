@@ -1,11 +1,19 @@
 package io.github.leadassimilator.reticulum.engine;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
+
+import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
 
@@ -21,7 +29,7 @@ final class ItemPort {
      * The faces behind an unsided handler that may only show the inventory (a slot range, faces left to work out, the
      * server's fallback on), or null: what it takes in no slot at all, while a face would, goes in through them.
      */
-    @javax.annotation.Nullable
+    @Nullable
     final List<IItemHandler> fallback;
 
     ItemPort(List<IItemHandler> handlers, List<IItemHandler> view, Optional<NodeSettings.SlotRange> range) {
@@ -29,7 +37,7 @@ final class ItemPort {
     }
 
     ItemPort(List<IItemHandler> handlers, List<IItemHandler> view, Optional<NodeSettings.SlotRange> range,
-            @javax.annotation.Nullable List<IItemHandler> fallback) {
+            @Nullable List<IItemHandler> fallback) {
         this.handlers = handlers;
         this.view = view.isEmpty() ? handlers : view;
         this.range = range;
@@ -66,7 +74,7 @@ final class ItemPort {
     long count(Predicate<ItemStack> which) {
         long total = 0;
         // Several faces may show one slot: its live stack is counted once.
-        java.util.Set<ItemStack> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        Set<ItemStack> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         for (IItemHandler handler : view) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 if (!inRange(slot)) {
@@ -131,7 +139,7 @@ final class ItemPort {
     }
 
     /** {@link #onlyThroughFaces} by kind of item, worked out once for this port. */
-    private final java.util.Map<net.minecraft.world.item.Item, Boolean> onlyThroughFaces = new java.util.HashMap<>();
+    private final Map<Item, Boolean> onlyThroughFaces = new HashMap<>();
 
     /** Whether any slot of these handlers takes some of {@code stack} (simulated), whatever the range. */
     private static boolean takesAnywhere(List<IItemHandler> handlers, ItemStack stack) {

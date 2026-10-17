@@ -2,6 +2,7 @@ package io.github.leadassimilator.reticulum.client.screen;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 import io.github.leadassimilator.reticulum.block.StatusBeaconBlock;
 import io.github.leadassimilator.reticulum.block.entity.BeaconLook;
@@ -145,7 +146,7 @@ public class StatusBeaconScreen extends QuickScreen {
     private long lastSent;
 
     /** Changes the edited look, sends it, and redraws. */
-    private void change(java.util.function.Consumer<CompoundTag> edit) {
+    private void change(Consumer<CompoundTag> edit) {
         CompoundTag look = own(selected);
         if (look == null) {
             return;

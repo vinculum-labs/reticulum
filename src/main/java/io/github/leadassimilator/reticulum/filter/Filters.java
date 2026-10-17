@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -248,8 +249,8 @@ public final class Filters {
      * for any other key, which is the resource's own to compile.
      */
     @Nullable
-    public static <T> Test<T> commonAtom(FilterExpr.Atom atom, java.util.function.Function<T, ResourceLocation> id,
-            java.util.function.Function<ResourceLocation, Predicate<T>> tag, java.util.function.Function<T, String> name) throws FilterException {
+    public static <T> Test<T> commonAtom(FilterExpr.Atom atom, Function<T, ResourceLocation> id,
+            Function<ResourceLocation, Predicate<T>> tag, Function<T, String> name) throws FilterException {
         String value = atom.value();
         return switch (atom.key()) {
             case "id" -> {

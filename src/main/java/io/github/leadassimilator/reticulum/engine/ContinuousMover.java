@@ -1,10 +1,13 @@
 package io.github.leadassimilator.reticulum.engine;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
+import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.filter.Filters;
@@ -12,6 +15,7 @@ import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.network.Network;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -178,7 +182,7 @@ final class ContinuousMover {
 
         @Override
         public String chartKey(FluidStack kind) {
-            return "fluid:" + net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(kind.getFluid());
+            return "fluid:" + BuiltInRegistries.FLUID.getKey(kind.getFluid());
         }
 
         @Override
@@ -263,9 +267,9 @@ final class ContinuousMover {
     }
 
     /** As {@link #weights(List)}, an output's weight shared only by the routes out of it that want something ({@code demand} > 0). */
-    static long[] weights(List<CompiledSheet.Route> routes, @javax.annotation.Nullable long[] demand) {
+    static long[] weights(List<CompiledSheet.Route> routes, @Nullable long[] demand) {
         // How many routes go out of each weighted splitter's output.
-        Map<java.util.List<Object>, Integer> sharing = new java.util.HashMap<>();
+        Map<List<Object>, Integer> sharing = new HashMap<>();
         for (int r = 0; r < routes.size(); r++) {
             if (demand != null && demand[r] <= 0) {
                 continue;
@@ -273,7 +277,7 @@ final class ContinuousMover {
             CompiledSheet.Route route = routes.get(r);
             for (CompiledSheet.Branch branch : route.branches()) {
                 if (branch.mode() == NodeSettings.SplitMode.WEIGHTED) {
-                    sharing.merge(java.util.List.of(branch.node(), branch.index()), 1, Integer::sum);
+                    sharing.merge(List.of(branch.node(), branch.index()), 1, Integer::sum);
                 }
             }
         }
@@ -283,7 +287,7 @@ final class ContinuousMover {
             double weight = 1;
             for (CompiledSheet.Branch branch : routes.get(i).branches()) {
                 if (branch.mode() == NodeSettings.SplitMode.WEIGHTED) {
-                    weight *= Math.max(0, branch.weight()) / (double) sharing.getOrDefault(java.util.List.of(branch.node(), branch.index()), 1);
+                    weight *= Math.max(0, branch.weight()) / (double) sharing.getOrDefault(List.of(branch.node(), branch.index()), 1);
                 }
             }
             exact[i] = weight;
@@ -303,7 +307,7 @@ final class ContinuousMover {
      */
     static long[] share(long supply, long[] demand, boolean inOrder) {
         long[] even = new long[demand.length];
-        java.util.Arrays.fill(even, 1);
+        Arrays.fill(even, 1);
         return share(supply, demand, inOrder, even);
     }
 

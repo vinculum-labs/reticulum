@@ -1,13 +1,17 @@
 package io.github.leadassimilator.reticulum.graph;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
 
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.network.Network;
-
 
 /**
  * Blueprints: reusable sheets whose device nodes are slots, placeholders for a kind of block. An instance of one (an instance
@@ -54,7 +58,7 @@ public final class Blueprints {
      * blueprint's node and the slot's key in that one, as the engine names the nodes it pastes.
      */
     public static UUID nested(UUID placed, UUID key) {
-        return UUID.nameUUIDFromBytes((placed + "/" + key).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return UUID.nameUUIDFromBytes((placed + "/" + key).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -62,15 +66,15 @@ public final class Blueprints {
      * blueprints placed in it (any depth) by {@link #nested} keys. Each placement fills them all with blocks of its own.
      */
     public static Map<UUID, Node> slots(Network network, @Nullable Sheet blueprint) {
-        Map<UUID, Node> out = new java.util.LinkedHashMap<>();
+        Map<UUID, Node> out = new LinkedHashMap<>();
         if (blueprint != null) {
-            collect(network, blueprint, key -> key, out, 0, new java.util.HashSet<>());
+            collect(network, blueprint, key -> key, out, 0, new HashSet<>());
         }
         return out;
     }
 
-    private static void collect(Network network, Sheet blueprint, java.util.function.UnaryOperator<UUID> key, Map<UUID, Node> out, int depth,
-            java.util.Set<UUID> path) {
+    private static void collect(Network network, Sheet blueprint, UnaryOperator<UUID> key, Map<UUID, Node> out, int depth,
+            Set<UUID> path) {
         if (depth >= NESTING || !path.add(blueprint.id())) {
             return;
         }
@@ -90,7 +94,7 @@ public final class Blueprints {
     public static Map<UUID, NodeSettings.Binding> liveBindings(Network network, @Nullable Sheet blueprint, NodeSettings.InstanceSettings instance) {
         Map<UUID, NodeSettings.Binding> out = new HashMap<>();
         if (blueprint != null) {
-            java.util.Set<UUID> keys = slots(network, blueprint).keySet();
+            Set<UUID> keys = slots(network, blueprint).keySet();
             instance.bindings().forEach((slot, binding) -> {
                 if (keys.contains(slot)) {
                     out.put(slot, binding);

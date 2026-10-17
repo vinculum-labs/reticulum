@@ -1,13 +1,26 @@
 package io.github.leadassimilator.reticulum.network;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
+import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
 
+import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
+import io.github.leadassimilator.reticulum.engine.NetworkTicker;
+import io.github.leadassimilator.reticulum.filter.FilterRefs;
+import io.github.leadassimilator.reticulum.graph.Node;
+import io.github.leadassimilator.reticulum.graph.NodeSettings;
+import io.github.leadassimilator.reticulum.graph.Sheet;
 import io.github.leadassimilator.reticulum.security.AccessMode;
 import io.github.leadassimilator.reticulum.security.Member;
 import io.github.leadassimilator.reticulum.security.Role;
@@ -163,11 +176,11 @@ public final class NetworkManager {
      * never loads the chunk.
      */
     @Nullable
-    public static io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity controller(MinecraftServer server, Network network) {
+    public static ControllerBlockEntity controller(MinecraftServer server, Network network) {
         GlobalPos at = network.controller();
         ServerLevel level = at == null ? null : server.getLevel(at.dimension());
         if (level == null || !level.isLoaded(at.pos())
-                || !(level.getBlockEntity(at.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity controller)) {
+                || !(level.getBlockEntity(at.pos()) instanceof ControllerBlockEntity controller)) {
             return null;
         }
         return network(server, controller.networkId()) == network ? controller : null;
@@ -179,18 +192,18 @@ public final class NetworkManager {
      * replaces it.
      */
     public static boolean inUse(Network network, GlobalPos pos) {
-        for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
-            for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
-                if (node.settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings instance
-                        && java.util.stream.Stream.concat(instance.bindings().values().stream(), instance.layout().values().stream())
+        for (Sheet sheet : network.sheets()) {
+            for (Node node : sheet.nodes()) {
+                if (node.settings() instanceof NodeSettings.InstanceSettings instance
+                        && Stream.concat(instance.bindings().values().stream(), instance.layout().values().stream())
                                 .anyMatch(b -> pos.equals(b.device()))) {
                     return true;
                 }
                 GlobalPos used = switch (node.settings()) {
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings s -> s.device();
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings s -> s.device();
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneInSettings s -> s.device();
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneOutSettings s -> s.device();
+                    case NodeSettings.DeviceSettings s -> s.device();
+                    case NodeSettings.LevelSettings s -> s.device();
+                    case NodeSettings.RedstoneInSettings s -> s.device();
+                    case NodeSettings.RedstoneOutSettings s -> s.device();
                     default -> null;
                 };
                 if (pos.equals(used)) {
@@ -230,7 +243,7 @@ public final class NetworkManager {
             return;
         }
         boolean present = level != null && (Devices.isDevice(level, pos.pos())
-                || level.getBlockEntity(pos.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity)
+                || level.getBlockEntity(pos.pos()) instanceof ControllerBlockEntity)
                 && Objects.equals(Devices.blockId(level, pos.pos()), record.blockId());
         record.setState(present ? DeviceRecord.State.ORPHANED : DeviceRecord.State.MISSING);
     }
@@ -262,28 +275,28 @@ public final class NetworkManager {
             target.setName(old.name());
         }
         old.faceNames().forEach(target::setFaceName);
-        for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
-            for (io.github.leadassimilator.reticulum.graph.Node node : List.copyOf(sheet.nodes())) {
-                io.github.leadassimilator.reticulum.graph.NodeSettings moved = switch (node.settings()) {
+        for (Sheet sheet : network.sheets()) {
+            for (Node node : List.copyOf(sheet.nodes())) {
+                NodeSettings moved = switch (node.settings()) {
                     // A blueprint slot keeps its kind of block (its device is only where its layout measures from).
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings d when d.device().equals(from) ->
-                            new io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings(to, d.inputs(), d.outputs(), d.block());
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings l when l.device().equals(from) ->
+                    case NodeSettings.DeviceSettings d when d.device().equals(from) ->
+                            new NodeSettings.DeviceSettings(to, d.inputs(), d.outputs(), d.block());
+                    case NodeSettings.LevelSettings l when l.device().equals(from) ->
                             l.reading(to, l.faces());
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneInSettings r when r.device().equals(from) ->
-                            new io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneInSettings(to, r.faces(), r.comparator());
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneOutSettings r when r.device().equals(from) ->
-                            new io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneOutSettings(to, r.faces(), r.whileOff());
+                    case NodeSettings.RedstoneInSettings r when r.device().equals(from) ->
+                            new NodeSettings.RedstoneInSettings(to, r.faces(), r.comparator());
+                    case NodeSettings.RedstoneOutSettings r when r.device().equals(from) ->
+                            new NodeSettings.RedstoneOutSettings(to, r.faces(), r.whileOff());
                     // An instance whose slot the device filled: the new block fills it, turned the same. One placed in a
                     // blueprint: its slots' layout measures from the new block, as the blueprint's own slots do.
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings c when java.util.stream.Stream.concat(
+                    case NodeSettings.InstanceSettings c when Stream.concat(
                             c.bindings().values().stream(), c.layout().values().stream()).anyMatch(b -> from.equals(b.device())) -> {
-                        java.util.function.UnaryOperator<java.util.Map<UUID, io.github.leadassimilator.reticulum.graph.NodeSettings.Binding>> relinked = map -> {
-                            java.util.Map<UUID, io.github.leadassimilator.reticulum.graph.NodeSettings.Binding> out = new java.util.LinkedHashMap<>();
-                            map.forEach((slot, b) -> out.put(slot, from.equals(b.device()) ? new io.github.leadassimilator.reticulum.graph.NodeSettings.Binding(to, b.turns()) : b));
+                        UnaryOperator<Map<UUID, NodeSettings.Binding>> relinked = map -> {
+                            Map<UUID, NodeSettings.Binding> out = new LinkedHashMap<>();
+                            map.forEach((slot, b) -> out.put(slot, from.equals(b.device()) ? new NodeSettings.Binding(to, b.turns()) : b));
                             return out;
                         };
-                        yield new io.github.leadassimilator.reticulum.graph.NodeSettings.InstanceSettings(c.sheet(), relinked.apply(c.bindings()), relinked.apply(c.layout()));
+                        yield new NodeSettings.InstanceSettings(c.sheet(), relinked.apply(c.bindings()), relinked.apply(c.layout()));
                     }
                     default -> null;
                 };
@@ -293,11 +306,11 @@ public final class NetworkManager {
             }
         }
         network.identified().replaceAll(identify -> identify.device().filter(from::equals).isPresent()
-                ? new Identify(identify.kind(), identify.connector(), java.util.Optional.of(to), identify.face(), identify.color(), identify.since())
+                ? new Identify(identify.kind(), identify.connector(), Optional.of(to), identify.face(), identify.color(), identify.since())
                 : identify);
         // Its charts too (one the new device has already is kept once); their history starts again.
-        java.util.Set<String> charted = new java.util.HashSet<>();
-        network.charts().replaceAll(c -> c.device().filter(from::equals).isPresent() ? new ChartSeries(c.kind(), c.id(), java.util.Optional.of(to), c.resource()) : c);
+        Set<String> charted = new HashSet<>();
+        network.charts().replaceAll(c -> c.device().filter(from::equals).isPresent() ? new ChartSeries(c.kind(), c.id(), Optional.of(to), c.resource()) : c);
         network.charts().removeIf(c -> !charted.add(c.key()));
         network.deviceMap().remove(from);
         changed(server, network);
@@ -326,7 +339,7 @@ public final class NetworkManager {
         }
         network.bump();
         data(server).remove(network.id());
-        io.github.leadassimilator.reticulum.engine.NetworkTicker.forget(server, network);
+        NetworkTicker.forget(server, network);
     }
 
     /**
@@ -347,7 +360,7 @@ public final class NetworkManager {
         if (into.sheets().size() + from.sheets().size() > Limits.SHEETS) {
             return "together they would have more than " + Limits.SHEETS + " sheets";
         }
-        java.util.Set<UUID> members = new java.util.HashSet<>(into.members().keySet());
+        Set<UUID> members = new HashSet<>(into.members().keySet());
         members.addAll(from.members().keySet());
         if (from.owner() != null) {
             members.add(from.owner());
@@ -367,13 +380,13 @@ public final class NetworkManager {
 
     /** Whether any filter or template of the network names template {@code name}. */
     private static boolean mentioned(Network network, String name) {
-        if (network.filters().values().stream().anyMatch(e -> io.github.leadassimilator.reticulum.filter.FilterRefs.mentions(e, name))) {
+        if (network.filters().values().stream().anyMatch(e -> FilterRefs.mentions(e, name))) {
             return true;
         }
-        for (io.github.leadassimilator.reticulum.graph.Sheet sheet : network.sheets()) {
-            for (io.github.leadassimilator.reticulum.graph.Node node : sheet.nodes()) {
-                for (String filter : io.github.leadassimilator.reticulum.filter.FilterRefs.filters(node.settings())) {
-                    if (io.github.leadassimilator.reticulum.filter.FilterRefs.mentions(filter, name)) {
+        for (Sheet sheet : network.sheets()) {
+            for (Node node : sheet.nodes()) {
+                for (String filter : FilterRefs.filters(node.settings())) {
+                    if (FilterRefs.mentions(filter, name)) {
                         return true;
                     }
                 }
@@ -388,7 +401,7 @@ public final class NetworkManager {
         }
         Role most = cap.atLeast(Role.ADMIN) ? Role.ADMIN : cap;
         // The absorbed network's root becomes a sheet named after it, placed in this one's root with all it holds.
-        io.github.leadassimilator.reticulum.graph.Sheet fromRoot = from.root();
+        Sheet fromRoot = from.root();
         fromRoot.setName(from.name());
         fromRoot.setRoot(false);
         for (Map.Entry<String, String> template : List.copyOf(from.filters().entrySet())) {
@@ -407,17 +420,17 @@ public final class NetworkManager {
             String to = renamed;
             from.filters().remove(name);
             from.filters().put(to, template.getValue());
-            from.filters().replaceAll((k, v) -> io.github.leadassimilator.reticulum.filter.FilterRefs.rename(v, name, to));
-            for (io.github.leadassimilator.reticulum.graph.Sheet sheet : from.sheets()) {
-                for (io.github.leadassimilator.reticulum.graph.Node node : List.copyOf(sheet.nodes())) {
-                    var settings = io.github.leadassimilator.reticulum.filter.FilterRefs.rename(node.settings(),
-                            e -> e == null ? null : io.github.leadassimilator.reticulum.filter.FilterRefs.rename(e, name, to));
+            from.filters().replaceAll((k, v) -> FilterRefs.rename(v, name, to));
+            for (Sheet sheet : from.sheets()) {
+                for (Node node : List.copyOf(sheet.nodes())) {
+                    var settings = FilterRefs.rename(node.settings(),
+                            e -> e == null ? null : FilterRefs.rename(e, name, to));
                     if (!settings.equals(node.settings())) {
                         sheet.replace(node.with(settings));
                     }
                 }
             }
-            io.github.leadassimilator.reticulum.Reticulum.LOGGER.info("Merging {} into {}: its filter template @{} is @{} now ({} has its own @{})",
+            Reticulum.LOGGER.info("Merging {} into {}: its filter template @{} is @{} now ({} has its own @{})",
                     from.name(), into.name(), name, to, into.name(), name);
         }
         into.sheets().addAll(from.sheets());
@@ -440,7 +453,7 @@ public final class NetworkManager {
         }
         from.signalMemory().forEach(into.signalMemory()::putIfAbsent);
         int leftOut = 0;
-        for (io.github.leadassimilator.reticulum.network.Identify identify : from.identified()) {
+        for (Identify identify : from.identified()) {
             if (into.identified().stream().noneMatch(identify::sameTarget)) {
                 if (into.identified().size() < Limits.IDENTIFIES) {
                     into.identified().add(identify);
@@ -459,7 +472,7 @@ public final class NetworkManager {
             }
         }
         if (leftOut > 0) {
-            io.github.leadassimilator.reticulum.Reticulum.LOGGER.warn("Merging {} into {}: {} identifies or charts didn't fit (limits) and were left out",
+            Reticulum.LOGGER.warn("Merging {} into {}: {} identifies or charts didn't fit (limits) and were left out",
                     from.name(), into.name(), leftOut);
         }
         for (ConnectorRecord connector : from.connectors()) {

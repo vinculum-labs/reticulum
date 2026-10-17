@@ -2,13 +2,16 @@ package io.github.leadassimilator.reticulum.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 
+import io.github.leadassimilator.reticulum.block.entity.BeaconLook;
 import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
+import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BeaconRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 
 /** A Status Beacon's beam, in its look's color, up to the sky and down to the bottom of the world (or to a solid block). */
 public class StatusBeaconRenderer implements BlockEntityRenderer<StatusBeaconBlockEntity> {
@@ -18,14 +21,14 @@ public class StatusBeaconRenderer implements BlockEntityRenderer<StatusBeaconBlo
     public StatusBeaconRenderer(BlockEntityRendererProvider.Context context) {
     }
 
-    public static void register(net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) {
-        event.registerBlockEntityRenderer(io.github.leadassimilator.reticulum.registry.ModBlockEntities.STATUS_BEACON.get(), StatusBeaconRenderer::new);
+    public static void register(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(ModBlockEntities.STATUS_BEACON.get(), StatusBeaconRenderer::new);
     }
 
     @Override
     public void render(StatusBeaconBlockEntity beacon, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        io.github.leadassimilator.reticulum.block.entity.BeaconLook look = beacon.look();
-        if (look == null || !look.has(io.github.leadassimilator.reticulum.block.entity.BeaconLook.BEAM) || beacon.getLevel() == null) {
+        BeaconLook look = beacon.look();
+        if (look == null || !look.has(BeaconLook.BEAM) || beacon.getLevel() == null) {
             return;
         }
         int color = 0xFF000000 | look.color();

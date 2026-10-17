@@ -1,5 +1,10 @@
 package io.github.leadassimilator.reticulum.network;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -12,13 +17,18 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.storage.LevelResource;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 /** All networks on the server, stored once in the overworld's data folder. */
 public final class ReticulumSavedData extends SavedData {
@@ -56,7 +66,7 @@ public final class ReticulumSavedData extends SavedData {
         // Made fresh although the file is there: Minecraft couldn't read it at all (a broken file), so load never ran.
         if (!data.checkedFile) {
             data.checkedFile = true;
-            if (!data.loaded && java.nio.file.Files.exists(file(server))) {
+            if (!data.loaded && Files.exists(file(server))) {
                 data.loadError = "the file itself couldn't be read";
             }
         }
@@ -74,15 +84,15 @@ public final class ReticulumSavedData extends SavedData {
     private void keepUnreadable(MinecraftServer server) {
         String error = loadError;
         loadError = null;
-        java.nio.file.Path file = file(server);
-        String stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
-        java.nio.file.Path copy = file.resolveSibling(FILE_NAME + ".dat.unreadable-" + stamp);
+        Path file = file(server);
+        String stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
+        Path copy = file.resolveSibling(FILE_NAME + ".dat.unreadable-" + stamp);
         try {
-            java.nio.file.Files.copy(file, copy);
+            Files.copy(file, copy);
             keptAs = copy.getFileName().toString();
             Reticulum.LOGGER.error("Reticulum couldn't read all of its saved networks ({}). The file was copied to {} and "
                     + "the networks that couldn't be read start empty.", error, copy);
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             keptAs = null;
             refuseSave = true;
             Reticulum.LOGGER.error("Reticulum couldn't read all of its saved networks ({}), nor copy the file aside: nothing is saved over it "
@@ -90,8 +100,8 @@ public final class ReticulumSavedData extends SavedData {
         }
     }
 
-    private static java.nio.file.Path file(MinecraftServer server) {
-        return server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("data").resolve(FILE_NAME + ".dat");
+    private static Path file(MinecraftServer server) {
+        return server.getWorldPath(LevelResource.ROOT).resolve("data").resolve(FILE_NAME + ".dat");
     }
 
     /** Whether this came from the file (load ran), and whether that was checked after it was first asked for. */
@@ -99,14 +109,14 @@ public final class ReticulumSavedData extends SavedData {
     private boolean checkedFile;
 
     /** Operators joining are told when the saved networks couldn't be read, and where the copy is. */
-    public static void onLoggedIn(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
-        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) || !player.hasPermissions(2)) {
+    public static void onLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || !player.hasPermissions(2)) {
             return;
         }
         ReticulumSavedData data = get(player.server);
         if (data.keptAs != null) {
-            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.save_unreadable", data.keptAs)
-                    .withStyle(net.minecraft.ChatFormatting.RED));
+            player.sendSystemMessage(Component.translatable("message.reticulum.save_unreadable", data.keptAs)
+                    .withStyle(ChatFormatting.RED));
         }
     }
 

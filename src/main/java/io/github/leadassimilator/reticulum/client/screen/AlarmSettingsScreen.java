@@ -1,5 +1,7 @@
 package io.github.leadassimilator.reticulum.client.screen;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import io.github.leadassimilator.reticulum.ReticulumClientConfig;
@@ -8,6 +10,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -36,7 +39,7 @@ public class AlarmSettingsScreen extends QuickScreen {
     /** Where each severity's sound section starts. */
     private final int[] sectionTop = new int[2];
     /** Labels beside boxes, placed with them. */
-    private final java.util.List<Label> labels = new java.util.ArrayList<>();
+    private final List<Label> labels = new ArrayList<>();
     private static final int LABEL_GAP = 6;
     private static final int GROUP_GAP = 14;
 
@@ -121,7 +124,7 @@ public class AlarmSettingsScreen extends QuickScreen {
         addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.beacon_preview"),
                 b -> SoundSearch.preview(soundId(critical).get(), pitch(critical).get().floatValue())).bounds(left + WIDTH - 20, y - 1, 20, 18).build());
         if (!search[index].isBlank()) {
-            java.util.List<String> found = SoundSearch.matches(search[index]);
+            List<String> found = SoundSearch.matches(search[index]);
             if (!found.isEmpty()) {
                 overlay(new SoundDropdown(font, left, y, 16, WIDTH, height, found, id -> {
                     soundId(critical).set(id);
@@ -177,7 +180,7 @@ public class AlarmSettingsScreen extends QuickScreen {
     private void every(int x, int y, ModConfigSpec.IntValue value, String key) {
         EditBox box = kept(key, new SeeThroughTextBox(font, x, y, 40, 16, Component.translatable("screen.reticulum.alarm_sound_every")));
         box.setMaxLength(4);
-        box.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("screen.reticulum.alarm_sound_every_hint")));
+        box.setTooltip(Tooltip.create(Component.translatable("screen.reticulum.alarm_sound_every_hint")));
         box.setValue(Integer.toString(value.getAsInt()));
         box.setResponder(text -> {
             try {

@@ -1,18 +1,24 @@
 package io.github.leadassimilator.reticulum.engine;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
+import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
 
 /**
@@ -76,7 +82,7 @@ public final class Alarms {
     private record Cached(long tick, List<Alarm> alarms) {
     }
 
-    private static final java.util.Map<UUID, Cached> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<UUID, Cached> CACHE = new ConcurrentHashMap<>();
 
     /** Forgets every network's list (the server stopped). */
     public static void forgetAll() {
@@ -99,7 +105,7 @@ public final class Alarms {
     }
 
     /** A device an alarm going off reads (through any signal nodes in between): where the trouble is. */
-    public record Source(net.minecraft.core.GlobalPos device, AlarmSeverity severity, String message) {
+    public record Source(GlobalPos device, AlarmSeverity severity, String message) {
     }
 
     /** The devices behind every alarm node going off, found by following its wires upstream to Level sensors and redstone reads. */
@@ -109,10 +115,10 @@ public final class Alarms {
             return out;
         }
         for (Signals.Raised raised : NetworkTicker.runtime(network.id()).raisedAlarms()) {
-            java.util.Map<UUID, CompiledSheet.SignalNode> byId = new java.util.HashMap<>();
+            Map<UUID, CompiledSheet.SignalNode> byId = new HashMap<>();
             raised.sheet().signals().forEach(node -> byId.put(node.node().id(), node));
             String message = raised.alarm().message().isBlank() ? raised.node().node().label().orElse("Alarm") : raised.alarm().message();
-            java.util.ArrayDeque<UUID> todo = new java.util.ArrayDeque<>(raised.node().inputs().stream().flatMap(List::stream).toList());
+            ArrayDeque<UUID> todo = new ArrayDeque<>(raised.node().inputs().stream().flatMap(List::stream).toList());
             Set<UUID> seen = new HashSet<>();
             while (!todo.isEmpty() && seen.size() < 256) {
                 UUID id = todo.poll();
@@ -121,9 +127,9 @@ public final class Alarms {
                     continue;
                 }
                 switch (node.node().settings()) {
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.LevelSettings level ->
+                    case NodeSettings.LevelSettings level ->
                             out.add(new Source(level.device(), raised.alarm().severity(), message));
-                    case io.github.leadassimilator.reticulum.graph.NodeSettings.RedstoneInSettings in ->
+                    case NodeSettings.RedstoneInSettings in ->
                             out.add(new Source(in.device(), raised.alarm().severity(), message));
                     default -> node.inputs().forEach(todo::addAll);
                 }

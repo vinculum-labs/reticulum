@@ -1,7 +1,12 @@
 package io.github.leadassimilator.reticulum.graph;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -58,7 +63,7 @@ public final class Sheet {
         this.root = root;
         this.nodes.addAll(nodes);
         // Wires whose ends are gone (nodes of a kind that no longer exists are left out on load) go with them.
-        java.util.Set<UUID> ids = new java.util.HashSet<>();
+        Set<UUID> ids = new HashSet<>();
         nodes.forEach(n -> ids.add(n.id()));
         wires.stream().filter(w -> ids.contains(w.from()) && ids.contains(w.to())).forEach(this.wires::add);
     }
@@ -76,11 +81,11 @@ public final class Sheet {
      * sit beside the original. Device references stay as they are.
      */
     public Sheet copyWithNewIds(String name) {
-        return copyWithNewIds(name, new java.util.HashMap<>());
+        return copyWithNewIds(name, new HashMap<>());
     }
 
     /** As {@link #copyWithNewIds(String)}, filling {@code ids} with each node's new id by its old one. */
-    public Sheet copyWithNewIds(String name, java.util.Map<UUID, UUID> ids) {
+    public Sheet copyWithNewIds(String name, Map<UUID, UUID> ids) {
         Sheet copy = new Sheet(UUID.randomUUID(), name);
         copy.setInterval(interval);
         copy.priority = priority;
@@ -90,7 +95,7 @@ public final class Sheet {
             ids.put(node.id(), id);
             copy.add(node.withId(id));
         }
-        java.util.Map<UUID, UUID> wireIds = new java.util.HashMap<>();
+        Map<UUID, UUID> wireIds = new HashMap<>();
         for (Wire wire : wires) {
             if (ids.containsKey(wire.from()) && ids.containsKey(wire.to())) {
                 UUID id = UUID.randomUUID();
@@ -213,7 +218,7 @@ public final class Sheet {
     public boolean assignPinSlots() {
         boolean changed = false;
         for (boolean input : new boolean[] {true, false}) {
-            java.util.Set<Integer> used = new java.util.HashSet<>();
+            Set<Integer> used = new HashSet<>();
             List<Node> unslotted = new ArrayList<>();
             for (Node node : pins(input)) {
                 int slot = ((NodeSettings.SheetPinSettings) node.settings()).slot();
@@ -243,7 +248,7 @@ public final class Sheet {
                 pins.add(node);
             }
         }
-        pins.sort(java.util.Comparator.comparingDouble(Node::y).thenComparingDouble(Node::x).thenComparing(n -> n.id().toString()));
+        pins.sort(Comparator.comparingDouble(Node::y).thenComparingDouble(Node::x).thenComparing(n -> n.id().toString()));
         return pins;
     }
 

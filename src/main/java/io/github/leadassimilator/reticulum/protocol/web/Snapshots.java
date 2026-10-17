@@ -1,8 +1,13 @@
 package io.github.leadassimilator.reticulum.protocol.web;
 
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+
+import javax.annotation.Nullable;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -11,30 +16,43 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
 
+import io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
+import io.github.leadassimilator.reticulum.engine.Alarms;
 import io.github.leadassimilator.reticulum.engine.CompiledSheet;
 import io.github.leadassimilator.reticulum.engine.NetworkRuntime;
 import io.github.leadassimilator.reticulum.engine.NetworkTicker;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
-import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.graph.Sheet;
+import io.github.leadassimilator.reticulum.integration.Mods;
+import io.github.leadassimilator.reticulum.network.ChartSeries;
 import io.github.leadassimilator.reticulum.network.ConnectorRecord;
 import io.github.leadassimilator.reticulum.network.DeviceRecord;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.network.FaceKey;
+import io.github.leadassimilator.reticulum.network.Identifies;
+import io.github.leadassimilator.reticulum.network.Identify;
 import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.network.NetworkManager;
+import io.github.leadassimilator.reticulum.security.Member;
 import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.security.Security;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.items.IItemHandler;
 
 /** JSON views of networks for the web UI. Sheets use the same codecs as saving, so the two can't drift apart. */
 final class Snapshots {
@@ -70,7 +88,7 @@ final class Snapshots {
         out.add("memory", memory);
         // What is going off, for its tab and the dashboard (sent every second the list changes).
         JsonArray alarms = new JsonArray();
-        for (io.github.leadassimilator.reticulum.engine.Alarms.Alarm alarm : io.github.leadassimilator.reticulum.engine.Alarms.cached(server, network)) {
+        for (Alarms.Alarm alarm : Alarms.cached(server, network)) {
             JsonObject json = new JsonObject();
             json.addProperty("key", alarm.key());
             json.addProperty("severity", alarm.severity().getSerializedName());
@@ -88,22 +106,22 @@ final class Snapshots {
         return out;
     }
 
-    static JsonObject full(MinecraftServer server, Network network, net.minecraft.world.entity.player.Player player) {
-        JsonObject out = summary(server, network, io.github.leadassimilator.reticulum.security.Security.role(network, player));
+    static JsonObject full(MinecraftServer server, Network network, Player player) {
+        JsonObject out = summary(server, network, Security.role(network, player));
         out.addProperty("revision", network.revision());
         // As the server decides edits (an operator's bypass included), so the editor offers what it will accept; not
         // logged as a bypass, since showing isn't doing.
-        out.addProperty("canEdit", io.github.leadassimilator.reticulum.security.Security.could(network, player, Role.EDITOR));
-        boolean canAdmin = io.github.leadassimilator.reticulum.security.Security.could(network, player, Role.ADMIN);
+        out.addProperty("canEdit", Security.could(network, player, Role.EDITOR));
+        boolean canAdmin = Security.could(network, player, Role.ADMIN);
         out.addProperty("canAdmin", canAdmin);
         // Deleting takes the owner (or an operator's bypass), as the server checks it.
-        out.addProperty("canDelete", io.github.leadassimilator.reticulum.security.Security.could(network, player, Role.OWNER));
+        out.addProperty("canDelete", Security.could(network, player, Role.OWNER));
         out.addProperty("hasPassword", network.passwordHash() != null);
         out.addProperty("root", network.root().id().toString());
         out.addProperty("redstone", network.switches().redstone().getSerializedName());
         JsonArray identified = new JsonArray();
-        for (io.github.leadassimilator.reticulum.network.Identify identify : network.identified()) {
-            JsonObject json = encode(server, io.github.leadassimilator.reticulum.network.Identify.CODEC, identify).getAsJsonObject();
+        for (Identify identify : network.identified()) {
+            JsonObject json = encode(server, Identify.CODEC, identify).getAsJsonObject();
             json.addProperty("label", label(server, network, identify));
             identified.add(json);
         }
@@ -111,7 +129,7 @@ final class Snapshots {
         if (canAdmin) {
             // The member list is shown to those who can change it.
             JsonArray members = new JsonArray();
-            for (io.github.leadassimilator.reticulum.security.Member member : network.members().values()) {
+            for (Member member : network.members().values()) {
                 JsonObject m = new JsonObject();
                 m.addProperty("id", member.id().toString());
                 m.addProperty("name", member.name());
@@ -126,7 +144,7 @@ final class Snapshots {
 
         NetworkRuntime runtime = NetworkTicker.runtime(network.id());
         JsonArray sheets = new JsonArray();
-        Map<java.util.UUID, Network.Placement> placements = network.placements();
+        Map<UUID, Network.Placement> placements = network.placements();
         for (Sheet sheet : network.sheets()) {
             JsonObject json = encode(server, Sheet.CODEC, sheet).getAsJsonObject();
             // Where it sits in the tree, and its own switch (its sheet node's; the root's is the network's).
@@ -158,20 +176,20 @@ final class Snapshots {
         out.add("sheets", sheets);
 
         // Faces touching a connector carry redstone; faces touching a connector's ME side are ME pins.
-        Map<GlobalPos, java.util.Set<FaceKey>> redstone = new java.util.HashMap<>();
-        Map<GlobalPos, java.util.Set<FaceKey>> meFacesOf = new java.util.HashMap<>();
+        Map<GlobalPos, Set<FaceKey>> redstone = new HashMap<>();
+        Map<GlobalPos, Set<FaceKey>> meFacesOf = new HashMap<>();
         for (ConnectorRecord connector : network.connectors()) {
             BlockPos at = connector.pos().pos();
             for (GlobalPos device : connector.devices()) {
-                net.minecraft.core.Direction toConnector = io.github.leadassimilator.reticulum.network.Devices.facing(device.pos(), at);
+                Direction toConnector = Devices.facing(device.pos(), at);
                 if (toConnector != null) {
-                    redstone.computeIfAbsent(device, k -> java.util.EnumSet.noneOf(FaceKey.class)).add(FaceKey.of(toConnector));
+                    redstone.computeIfAbsent(device, k -> EnumSet.noneOf(FaceKey.class)).add(FaceKey.of(toConnector));
                 }
             }
             ServerLevel connectorLevel = Mods.AE2 ? server.getLevel(connector.pos().dimension()) : null;
             if (connectorLevel != null && connectorLevel.isLoaded(at)) {
-                for (net.minecraft.core.Direction side : io.github.leadassimilator.reticulum.integration.Mods.ME.sides(connectorLevel, at)) {
-                    meFacesOf.computeIfAbsent(GlobalPos.of(connector.pos().dimension(), at.relative(side)), k -> java.util.EnumSet.noneOf(FaceKey.class))
+                for (Direction side : Mods.ME.sides(connectorLevel, at)) {
+                    meFacesOf.computeIfAbsent(GlobalPos.of(connector.pos().dimension(), at.relative(side)), k -> EnumSet.noneOf(FaceKey.class))
                             .add(FaceKey.of(side.getOpposite()));
                 }
             }
@@ -181,10 +199,10 @@ final class Snapshots {
             JsonObject device = device(server, record);
             if (device.get("resources") instanceof JsonObject resources) {
                 JsonArray redstoneFaces = new JsonArray();
-                redstone.getOrDefault(record.pos(), java.util.Set.of()).forEach(f -> redstoneFaces.add(f.getSerializedName()));
+                redstone.getOrDefault(record.pos(), Set.of()).forEach(f -> redstoneFaces.add(f.getSerializedName()));
                 resources.add(ResourceKind.REDSTONE.getSerializedName(), redstoneFaces);
                 JsonArray meFaces = new JsonArray();
-                meFacesOf.getOrDefault(record.pos(), java.util.Set.of()).forEach(f -> meFaces.add(f.getSerializedName()));
+                meFacesOf.getOrDefault(record.pos(), Set.of()).forEach(f -> meFaces.add(f.getSerializedName()));
                 if (!meFaces.isEmpty()) {
                     resources.add(ResourceKind.ME.getSerializedName(), meFaces);
                 }
@@ -198,11 +216,11 @@ final class Snapshots {
         out.add("power", WebApi.powerJson(runtime.powerState(server, network)));
         out.add("devices", devices);
         JsonArray charts = new JsonArray();
-        for (io.github.leadassimilator.reticulum.network.ChartSeries chart : network.charts()) {
-            JsonObject json = encode(server, io.github.leadassimilator.reticulum.network.ChartSeries.CODEC, chart).getAsJsonObject();
+        for (ChartSeries chart : network.charts()) {
+            JsonObject json = encode(server, ChartSeries.CODEC, chart).getAsJsonObject();
             json.addProperty("key", chart.key());
             json.addProperty("series", chart.seriesId().toString());
-            if (chart.kind() == io.github.leadassimilator.reticulum.network.ChartSeries.Kind.THROUGH) {
+            if (chart.kind() == ChartSeries.Kind.THROUGH) {
                 json.addProperty("seriesIn", chart.seriesId(true).toString());
                 json.addProperty("seriesOut", chart.seriesId(false).toString());
             }
@@ -210,9 +228,9 @@ final class Snapshots {
         }
         out.add("charts", charts);
         JsonObject totals = new JsonObject();
-        for (io.github.leadassimilator.reticulum.graph.ResourceKind kind : io.github.leadassimilator.reticulum.graph.ResourceKind.values()) {
-            if (kind != io.github.leadassimilator.reticulum.graph.ResourceKind.REDSTONE && kind != io.github.leadassimilator.reticulum.graph.ResourceKind.ME) {
-                totals.addProperty(kind.getSerializedName(), io.github.leadassimilator.reticulum.network.ChartSeries.totalId(kind).toString());
+        for (ResourceKind kind : ResourceKind.values()) {
+            if (kind != ResourceKind.REDSTONE && kind != ResourceKind.ME) {
+                totals.addProperty(kind.getSerializedName(), ChartSeries.totalId(kind).toString());
             }
         }
         out.add("chartTotals", totals);
@@ -232,7 +250,7 @@ final class Snapshots {
                 ServerLevel connectorLevel = server.getLevel(connector.pos().dimension());
                 if (connectorLevel != null && connectorLevel.isLoaded(connector.pos().pos())) {
                     JsonArray me = new JsonArray();
-                    io.github.leadassimilator.reticulum.integration.Mods.ME.sides(connectorLevel, connector.pos().pos())
+                    Mods.ME.sides(connectorLevel, connector.pos().pos())
                             .forEach(side -> me.add(side.getSerializedName()));
                     json.add("me", me);
                 }
@@ -289,7 +307,7 @@ final class Snapshots {
         if (level != null && level.isLoaded(at)) {
             BlockState state = level.getBlockState(at);
             // Another network's controller: only redstone, to switch that network (its own redstone setting decides how).
-            boolean controller = level.getBlockEntity(at) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity;
+            boolean controller = level.getBlockEntity(at) instanceof ControllerBlockEntity;
             json.addProperty("defaultName", Devices.defaultName(level, at));
             json.addProperty("icon", BuiltInRegistries.ITEM.getKey(Devices.icon(level, at).getItem()).toString());
             JsonObject resources = new JsonObject();
@@ -304,7 +322,7 @@ final class Snapshots {
             JsonArray energyIn = new JsonArray();
             JsonArray energyOut = new JsonArray();
             for (FaceKey face : FaceKey.values()) {
-                if (!controller && level.getCapability(Capabilities.EnergyStorage.BLOCK, at, face.direction()) instanceof net.neoforged.neoforge.energy.IEnergyStorage energy) {
+                if (!controller && level.getCapability(Capabilities.EnergyStorage.BLOCK, at, face.direction()) instanceof IEnergyStorage energy) {
                     if (energy.canReceive()) {
                         energyIn.add(face.getSerializedName());
                     }
@@ -319,13 +337,13 @@ final class Snapshots {
             json.addProperty("takesRedstone", Devices.takesRedstone(level, at));
             json.addProperty("loaded", true);
         } else {
-            json.addProperty("defaultName", Devices.defaultName(net.minecraft.network.chat.Component.literal(record.blockId().getPath()), at));
+            json.addProperty("defaultName", Devices.defaultName(Component.literal(record.blockId().getPath()), at));
             json.addProperty("loaded", false);
         }
         return json;
     }
 
-    private static JsonArray faces(ServerLevel level, BlockPos pos, net.neoforged.neoforge.capabilities.BlockCapability<?, net.minecraft.core.Direction> capability) {
+    private static JsonArray faces(ServerLevel level, BlockPos pos, BlockCapability<?, Direction> capability) {
         JsonArray faces = new JsonArray();
         for (FaceKey face : FaceKey.values()) {
             if (usable(level.getCapability(capability, pos, face.direction()))) {
@@ -339,19 +357,19 @@ final class Snapshots {
      * Whether a handler can actually hold or pass something. Some blocks offer an empty one on every face (AE2 gives
      * its machines, the ME controller included, an item handler with no slots), which isn't something to move from.
      */
-    private static boolean usable(@javax.annotation.Nullable Object handler) {
+    private static boolean usable(@Nullable Object handler) {
         return switch (handler) {
             case null -> false;
-            case net.neoforged.neoforge.items.IItemHandler items -> items.getSlots() > 0;
-            case net.neoforged.neoforge.fluids.capability.IFluidHandler fluids -> fluids.getTanks() > 0;
-            case net.neoforged.neoforge.energy.IEnergyStorage energy -> energy.getMaxEnergyStored() > 0 || energy.canReceive() || energy.canExtract();
+            case IItemHandler items -> items.getSlots() > 0;
+            case IFluidHandler fluids -> fluids.getTanks() > 0;
+            case IEnergyStorage energy -> energy.getMaxEnergyStored() > 0 || energy.canReceive() || energy.canExtract();
             default -> true;
         };
     }
 
     /** The name shown for an identify in the editor's Identified panel (the same as above it in the world). */
-    private static String label(MinecraftServer server, Network network, io.github.leadassimilator.reticulum.network.Identify identify) {
-        return io.github.leadassimilator.reticulum.network.Identifies.label(server, network, identify);
+    private static String label(MinecraftServer server, Network network, Identify identify) {
+        return Identifies.label(server, network, identify);
     }
 
     /** The controller's antenna tier, or 0 when it has none or isn't loaded. */
@@ -360,7 +378,7 @@ final class Snapshots {
         return controller == null ? 0 : controller.antennaTier();
     }
 
-    static boolean visible(Network network, net.minecraft.world.entity.player.Player player) {
+    static boolean visible(Network network, Player player) {
         return Security.canView(network, player);
     }
 }

@@ -2,8 +2,10 @@ package io.github.leadassimilator.reticulum.engine;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import io.github.leadassimilator.reticulum.filter.Filters;
@@ -129,12 +131,12 @@ final class TankFlow {
         // Room left in each target this tick: several routes may end at the same block (two inputs of one machine).
         // Free room as each set of faces sees it (a machine's input side may have room its output side hasn't), less
         // what is already planned into the same handlers (one store reached several ways counts once).
-        Map<java.util.List<Object>, Long> room = new HashMap<>();
-        Map<Object, Long> plannedInto = new java.util.IdentityHashMap<>();
+        Map<List<Object>, Long> room = new HashMap<>();
+        Map<Object, Long> plannedInto = new IdentityHashMap<>();
         Map<GlobalPos, Long> plannedDevice = new HashMap<>();
         Map<GlobalPos, Long> plannedAuto = new HashMap<>();
         // What each sink node's caps still allow this tick, once a route into it has asked.
-        Map<java.util.UUID, Long> capLeft = new HashMap<>();
+        Map<UUID, Long> capLeft = new HashMap<>();
         for (CompiledSheet.Route route : ordered) {
             NodeSettings.Port port = route.sinkSettings().port();
             List<H> to = tank.handlers(ctx, port);
@@ -157,7 +159,7 @@ final class TankFlow {
                 why = Status.furthest(why, capRoom <= 0 ? Status.CAP_REACHED : Status.RATE_LIMITED);
                 continue;
             }
-            java.util.List<Object> through = java.util.List.of(port.device(), java.util.Set.copyOf(port.faces()));
+            List<Object> through = List.of(port.device(), Set.copyOf(port.faces()));
             long seen = room.computeIfAbsent(through, key -> {
                 long best = 0;
                 for (H handler : to) {

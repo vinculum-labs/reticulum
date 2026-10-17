@@ -1,5 +1,8 @@
 package io.github.leadassimilator.telispex.client.view;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import javax.annotation.Nullable;
 
 import org.lwjgl.PointerBuffer;
@@ -395,7 +398,7 @@ final class CompositionView {
     }
 
     /** Libraries held for the session: JNA caches them weakly and unloads one nothing refers to. */
-    private static final java.util.Map<String, NativeLibrary> LIBRARIES = new java.util.HashMap<>();
+    private static final Map<String, NativeLibrary> LIBRARIES = new HashMap<>();
 
     private static NativeLibrary library(String name) {
         return LIBRARIES.computeIfAbsent(name, NativeLibrary::getInstance);

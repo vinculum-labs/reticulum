@@ -11,6 +11,7 @@ import javax.annotation.Nullable;
 import com.google.gson.JsonObject;
 
 import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.telispex.client.Icons;
 import io.github.leadassimilator.telispex.client.Page;
 import io.github.leadassimilator.telispex.client.PageListener;
@@ -45,7 +46,7 @@ public final class WebBridge {
                 .openInBrowser(a -> openInBrowser())
                 .register();
         Icons.register("chemical", id -> {
-            var chemicals = io.github.leadassimilator.reticulum.integration.Mods.CHEMICALS;
+            var chemicals = Mods.CHEMICALS;
             var icon = chemicals == null ? null : chemicals.icon(id);
             return icon == null ? Icons.transparent() : Icons.sprite(id, icon.texture(), icon.tint());
         });

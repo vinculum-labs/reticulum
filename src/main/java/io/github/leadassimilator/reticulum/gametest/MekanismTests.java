@@ -1,13 +1,19 @@
 package io.github.leadassimilator.reticulum.gametest;
 
-import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
-import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 import static io.github.leadassimilator.reticulum.gametest.EngineTests.SLOT_FACES;
-import static io.github.leadassimilator.reticulum.gametest.EngineTests.rig;
 import static io.github.leadassimilator.reticulum.gametest.EngineTests.energyStored;
 import static io.github.leadassimilator.reticulum.gametest.EngineTests.fillEnergy;
 import static io.github.leadassimilator.reticulum.gametest.EngineTests.fluidStored;
+import static io.github.leadassimilator.reticulum.gametest.EngineTests.rig;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.reticulum.gametest.EngineTests.Rig;
 import io.github.leadassimilator.reticulum.graph.Node;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
@@ -16,9 +22,6 @@ import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.network.Devices;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import io.github.leadassimilator.reticulum.topology.Topology;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
@@ -28,8 +31,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import io.github.leadassimilator.reticulum.gametest.EngineTests.Rig;
-import io.github.leadassimilator.reticulum.Reticulum;
+import net.minecraft.world.level.material.Fluids;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -172,10 +177,10 @@ public final class MekanismTests {
         // Mekanism's unsided handler is read-only: fill through the faces.
         int left = 10_000;
         for (Direction side : Direction.values()) {
-            var handler = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, from, side);
+            var handler = helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, from, side);
             if (handler != null && left > 0) {
-                left -= handler.fill(new net.neoforged.neoforge.fluids.FluidStack(net.minecraft.world.level.material.Fluids.WATER, left),
-                        net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
+                left -= handler.fill(new FluidStack(Fluids.WATER, left),
+                        IFluidHandler.FluidAction.EXECUTE);
             }
         }
         check(helper, fluidStored(helper, rig.devices().get(0)) == 10_000, "couldn't fill the source tank");
@@ -218,7 +223,7 @@ public final class MekanismTests {
      */
     @GameTest(template = "empty", timeoutTicks = 100)
     public static void mekanismCableConnectsToAConnectorsDeviceSideOnly(GameTestHelper helper) {
-        if (!io.github.leadassimilator.reticulum.integration.Mods.MEKANISM) {
+        if (!Mods.MEKANISM) {
             helper.succeed();
             return;
         }
@@ -231,7 +236,7 @@ public final class MekanismTests {
                 .thenWaitUntil(() -> check(helper, MekanismTestSupport.transmitterConnects(helper.getLevel(), cable, Direction.WEST),
                         "the cable doesn't connect to the connector's device side"))
                 .thenExecute(() -> {
-                    check(helper, helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, connector, Direction.WEST) == null,
+                    check(helper, helper.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, connector, Direction.WEST) == null,
                             "the connector offers a handler toward its controller");
                     Topology.toggle(helper.getLevel(), connector, Direction.EAST, null);
                 })

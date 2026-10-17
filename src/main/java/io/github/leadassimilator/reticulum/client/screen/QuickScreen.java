@@ -6,10 +6,14 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import org.lwjgl.glfw.GLFW;
+
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import io.github.leadassimilator.reticulum.network.Limits;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -122,16 +126,16 @@ public abstract class QuickScreen extends Screen {
 
     /** A widget over the others (a dropdown): drawn after them, and given clicks and scrolls before them. */
     @Nullable
-    private net.minecraft.client.gui.components.AbstractWidget overlay;
+    private AbstractWidget overlay;
     @Nullable
-    private net.minecraft.client.gui.components.AbstractWidget pendingOverlay;
+    private AbstractWidget pendingOverlay;
 
     /** The overlay was closed with Esc: forget what made it (a search), so the next rebuild doesn't bring it back. */
     protected void overlayDismissed() {
     }
 
     /** Sets the overlay; it is added once {@link #init} is done, so it comes after (over) everything else. */
-    protected void overlay(net.minecraft.client.gui.components.AbstractWidget widget) {
+    protected void overlay(AbstractWidget widget) {
         pendingOverlay = widget;
     }
 
@@ -177,7 +181,7 @@ public abstract class QuickScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        boolean enter = keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER;
+        boolean enter = keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER;
         if (enter && getFocused() instanceof EditBox) {
             commit();
             setFocused(null);
@@ -188,7 +192,7 @@ public abstract class QuickScreen extends Screen {
             return true;
         }
         // Esc with a dropdown open closes the dropdown, not the screen.
-        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && overlay != null) {
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE && overlay != null) {
             removeWidget(overlay);
             overlay = null;
             overlayDismissed();
@@ -214,7 +218,7 @@ public abstract class QuickScreen extends Screen {
         super.tick();
         BlockPos pos = block();
         if (pos != null && minecraft.player != null && minecraft.level != null && (!(minecraft.level.getBlockEntity(pos) instanceof NetworkBlockEntity
-                || minecraft.level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity)
+                || minecraft.level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity)
                 || minecraft.player.position().distanceToSqr(Vec3.atCenterOf(pos)) > reach() * reach())) {
             // Broken, or walked away from: the server would refuse anything done here now.
             minecraft.setScreen(null);

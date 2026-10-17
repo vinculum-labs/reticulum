@@ -5,6 +5,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
+import io.github.leadassimilator.reticulum.client.screen.FacadeScreen;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.registry.ModDataComponents;
 import io.github.leadassimilator.reticulum.registry.ModItems;
@@ -87,7 +88,7 @@ public class FacadeItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         if (level.isClientSide) {
-            io.github.leadassimilator.reticulum.client.screen.FacadeScreen.open(hand);
+            FacadeScreen.open(hand);
         }
         return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide);
     }

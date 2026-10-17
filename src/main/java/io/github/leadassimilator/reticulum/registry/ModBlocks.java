@@ -4,6 +4,7 @@ import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.block.CableBlock;
 import io.github.leadassimilator.reticulum.block.ConnectorBlock;
 import io.github.leadassimilator.reticulum.block.ControllerBlock;
+import io.github.leadassimilator.reticulum.block.StatusBeaconBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
@@ -17,9 +18,9 @@ public final class ModBlocks {
             BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(0.5f).sound(SoundType.METAL).noOcclusion().dynamicShape()));
     public static final DeferredBlock<ConnectorBlock> CONNECTOR = BLOCKS.register("connector", () -> new ConnectorBlock(
             BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.0f).sound(SoundType.METAL).noOcclusion().dynamicShape()));
-    public static final DeferredBlock<io.github.leadassimilator.reticulum.block.StatusBeaconBlock> STATUS_BEACON = BLOCKS.register("status_beacon",
-            () -> new io.github.leadassimilator.reticulum.block.StatusBeaconBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.5f)
-                    .sound(SoundType.METAL).lightLevel(state -> state.getValue(io.github.leadassimilator.reticulum.block.StatusBeaconBlock.SHOWN) == 0 ? 0 : 15)));
+    public static final DeferredBlock<StatusBeaconBlock> STATUS_BEACON = BLOCKS.register("status_beacon",
+            () -> new StatusBeaconBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(1.5f)
+                    .sound(SoundType.METAL).lightLevel(state -> state.getValue(StatusBeaconBlock.SHOWN) == 0 ? 0 : 15)));
     public static final DeferredBlock<ControllerBlock> CONTROLLER = BLOCKS.register("controller", () -> new ControllerBlock(
             BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL)));
 

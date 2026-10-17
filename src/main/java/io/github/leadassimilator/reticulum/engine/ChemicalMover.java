@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.filter.Filters;
 import io.github.leadassimilator.reticulum.graph.NodeSettings;
@@ -77,7 +78,7 @@ final class ChemicalMover implements ChemicalFlows {
 
         @Override
         public String chartKey(ChemicalStack kind) {
-            return "chemical:" + io.github.leadassimilator.reticulum.integration.mekanism.MekanismChemicals.id(kind);
+            return "chemical:" + MekanismChemicals.id(kind);
         }
 
         @Override
@@ -151,7 +152,7 @@ final class ChemicalMover implements ChemicalFlows {
             ChemicalStack stack = MekanismChemicals.stack(held.getKey(), held.getValue());
             if (stack == null) {
                 // A chemical whose mod is gone can never be delivered; keeping it would block chemical flows for good.
-                io.github.leadassimilator.reticulum.Reticulum.LOGGER.warn("Dropping {} mB of unknown chemical {} from {}'s overflow buffer",
+                Reticulum.LOGGER.warn("Dropping {} mB of unknown chemical {} from {}'s overflow buffer",
                         held.getValue(), held.getKey(), ctx.network().name());
                 it.remove();
                 changed = true;

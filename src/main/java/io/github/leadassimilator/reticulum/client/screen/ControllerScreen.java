@@ -1,16 +1,23 @@
 package io.github.leadassimilator.reticulum.client.screen;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
+import io.github.leadassimilator.reticulum.client.web.WebBridge;
+import io.github.leadassimilator.reticulum.item.AntennaItem;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.protocol.Views;
 import io.github.leadassimilator.reticulum.security.AccessMode;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.util.FormattedCharSequence;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
@@ -87,14 +94,14 @@ public class ControllerScreen extends QuickScreen {
         password = new EditBox(font, left + 90, top + 70, WIDTH - 90, 18, Component.translatable("screen.reticulum.password"));
         password.setMaxLength(64);
         password.setHint(Component.translatable(view.hasPassword() ? "screen.reticulum.password_keep" : "screen.reticulum.password_set"));
-        password.setFormatter((text, start) -> net.minecraft.util.FormattedCharSequence.forward("*".repeat(text.length()), net.minecraft.network.chat.Style.EMPTY));
+        password.setFormatter((text, start) -> FormattedCharSequence.forward("*".repeat(text.length()), Style.EMPTY));
         password.visible = mode == AccessMode.PASSWORD;
         password.setEditable(view.canAdmin());
         addRenderableWidget(kept("password", password));
 
         addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.open_editor"), b -> {
             onClose();
-            io.github.leadassimilator.reticulum.client.web.WebBridge.openEditor(view.networkId());
+            WebBridge.openEditor(view.networkId());
         }).bounds(left, top + 160, 120, 20).build());
 
         if (networkTab) {
@@ -106,15 +113,15 @@ public class ControllerScreen extends QuickScreen {
 
     private void initNetworkTab() {
         Button power = Button.builder(Component.translatable(view.enabled() ? "screen.reticulum.on" : "screen.reticulum.off"),
-                b -> send(Payloads.ControllerSwitch.NETWORK, java.util.Optional.empty(), view.enabled() ? 0 : 1))
+                b -> send(Payloads.ControllerSwitch.NETWORK, Optional.empty(), view.enabled() ? 0 : 1))
                 .bounds(powerX(), top + 20, POWER_WIDTH, 20).build();
         power.active = view.canEdit();
         addRenderableWidget(power);
         Button redstone = Button.builder(Component.translatable("screen.reticulum.redstone." + view.redstoneMode().getSerializedName()),
-                b -> send(Payloads.ControllerSwitch.REDSTONE, java.util.Optional.empty(), view.redstoneMode().ordinal() + 1))
+                b -> send(Payloads.ControllerSwitch.REDSTONE, Optional.empty(), view.redstoneMode().ordinal() + 1))
                 .bounds(redstoneX(), top + 20, left + WIDTH - redstoneX(), 20).build();
         redstone.active = view.canEdit();
-        redstone.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("screen.reticulum.redstone_hint")));
+        redstone.setTooltip(Tooltip.create(Component.translatable("screen.reticulum.redstone_hint")));
         addRenderableWidget(redstone);
         int y = top + 62;
         List<Views.SheetEntry> sheets = view.sheets();
@@ -122,7 +129,7 @@ public class ControllerScreen extends QuickScreen {
         for (int i = sheetScroll; i < Math.min(sheets.size(), sheetScroll + SHEET_ROWS); i++) {
             Views.SheetEntry sheet = sheets.get(i);
             Button toggle = Button.builder(Component.translatable(sheet.enabled() ? "screen.reticulum.on" : "screen.reticulum.off"),
-                    b -> send(Payloads.ControllerSwitch.SHEET, java.util.Optional.of(sheet.id()), sheet.enabled() ? 0 : 1))
+                    b -> send(Payloads.ControllerSwitch.SHEET, Optional.of(sheet.id()), sheet.enabled() ? 0 : 1))
                     .bounds(left + indent(sheet), y, 36, 16).build();
             toggle.active = view.canEdit();
             addRenderableWidget(toggle);
@@ -135,7 +142,7 @@ public class ControllerScreen extends QuickScreen {
         return Math.min(sheet.depth(), 6) * 8;
     }
 
-    private void send(int what, java.util.Optional<java.util.UUID> sheet, int value) {
+    private void send(int what, Optional<UUID> sheet, int value) {
         PacketDistributor.sendToServer(new Payloads.ControllerSwitch(view.pos(), what, sheet, value));
     }
 
@@ -196,7 +203,7 @@ public class ControllerScreen extends QuickScreen {
         String owner = view.ownerName().isEmpty() ? "-" : view.ownerName();
         graphics.drawString(font, Component.translatable("screen.reticulum.owner", owner), left, y, 0xC0C0C0);
         graphics.drawString(font, Component.translatable("screen.reticulum.counts", view.connectors(), view.devices()), left, y + 12, 0xC0C0C0);
-        graphics.drawString(font, io.github.leadassimilator.reticulum.item.AntennaItem.range(view.antenna()), left, y + 24, 0xC0C0C0);
+        graphics.drawString(font, AntennaItem.range(view.antenna()), left, y + 24, 0xC0C0C0);
         if (!view.power().isEmpty()) {
             graphics.drawString(font, view.power(), left, y + 48, 0xC0C0C0);
         }
