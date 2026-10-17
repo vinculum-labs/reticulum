@@ -19,7 +19,10 @@ displayName="${mod_name}" #mandatory
 
 #displayURL="https://change.me.to.your.mods.homepage.example.invalid/" #optional
 
-#logoFile="examplemod.png" #optional
+logoFile="reticulum.png" #optional
+
+# Pixel art: scale it without smoothing
+logoBlur=false
 
 #credits="" #optional
 
