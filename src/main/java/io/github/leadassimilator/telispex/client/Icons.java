@@ -62,11 +62,24 @@ public final class Icons {
         }
     }
 
-    /** An icon, drawn once and kept; null for a kind nobody draws. */
+    /** An icon, drawn once and kept (unless drawing it failed: asked again, it is tried again); null for a kind nobody draws. */
     @Nullable
     static CompletableFuture<byte[]> get(String kind, ResourceLocation id) {
         Function<ResourceLocation, byte[]> draw = KINDS.get(kind);
-        return draw == null ? null : CACHE.computeIfAbsent(kind + "/" + id, key -> Minecraft.getInstance().submit(() -> draw.apply(id)));
+        if (draw == null) {
+            return null;
+        }
+        String key = kind + "/" + id;
+        return CACHE.computeIfAbsent(key, k -> {
+            CompletableFuture<byte[]> png = Minecraft.getInstance().submit(() -> draw.apply(id));
+            png.whenComplete((body, error) -> {
+                if (error != null) {
+                    Telispex.LOGGER.warn("Could not draw the {} icon for {}", kind, id, error);
+                    CACHE.remove(key, png);
+                }
+            });
+            return png;
+        });
     }
 
     /** Resources reloaded (F3+T, a resource pack): icons are drawn again as they are asked for. */
