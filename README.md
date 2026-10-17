@@ -1,6 +1,6 @@
 # Reticulum
 
-A logistics mod for Minecraft 1.21.1 (NeoForge). Cables and connectors join machines into a network, and you draw
+A logistics mod for Minecraft 1.21.1 (NeoForge); `main` has the 26.1.2 version. Cables and connectors join machines into a network, and you draw
 what moves between them — items, fluids, energy, Mekanism chemicals, redstone and AE2 channels — as flow charts in a
 web editor that opens in your browser.
 
