@@ -102,7 +102,7 @@ public final class AlarmPush {
 
     /** Where things are wrong near the player, on networks they may view: offline devices and connectors, and what feeds alarms. */
     static void sendMarkers(ServerPlayer player) {
-        MinecraftServer server = player.server;
+        MinecraftServer server = player.level().getServer();
         // The tool asks every two seconds; asked faster, the rest are ignored.
         Long last = LAST_MARKERS.get(player.getUUID());
         if (last != null && server.getTickCount() - last < 20) {

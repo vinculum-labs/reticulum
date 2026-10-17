@@ -137,7 +137,7 @@ public class StatusBeaconScreen extends QuickScreen {
     private void send() {
         inFlight++;
         lastSent = System.currentTimeMillis();
-        PacketDistributor.sendToServer(new Payloads.BeaconSettings(view.pos(), settings));
+        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.BeaconSettings(view.pos(), settings));
     }
 
     /** Settings sent whose answer hasn't come back yet, and when the last went. */
@@ -458,16 +458,16 @@ public class StatusBeaconScreen extends QuickScreen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawString(font, title, left, top, 0xFFFFFF);
-        graphics.drawString(font, view.status(), left, top + 33, 0xC0C0C0);
+        graphics.drawString(font, title, left, top, 0xFFFFFFFF);
+        graphics.drawString(font, view.status(), left, top + 33, 0xFFC0C0C0);
         if (!redstone()) {
             int y = top + 44;
             if (view.alarms().isEmpty()) {
-                graphics.drawString(font, Component.translatable("screen.reticulum.beacon_quiet"), left, y, 0x80C080);
+                graphics.drawString(font, Component.translatable("screen.reticulum.beacon_quiet"), left, y, 0xFF80C080);
             }
             for (String alarm : view.alarms().subList(0, Math.min(ALARM_LINES, view.alarms().size()))) {
                 boolean critical = alarm.startsWith("!");
-                graphics.drawString(font, font.plainSubstrByWidth(alarm.substring(1), WIDTH), left, y, critical ? 0xFF5050 : 0xFFC040);
+                graphics.drawString(font, font.plainSubstrByWidth(alarm.substring(1), WIDTH), left, y, critical ? 0xFFFF5050 : 0xFFFFC040);
                 y += 10;
             }
         } else {
@@ -484,9 +484,9 @@ public class StatusBeaconScreen extends QuickScreen {
                     graphics.fill(x, pickerTop + CELL - 3, x + CELL, pickerTop + CELL, 0x80000000);
                 }
                 String number = Integer.toString(level);
-                graphics.drawString(font, number, x + (CELL - font.width(number)) / 2, pickerTop + 5, 0xFFFFFF, true);
+                graphics.drawString(font, number, x + (CELL - font.width(number)) / 2, pickerTop + 5, 0xFFFFFFFF, true);
                 if (level == view.signal()) {
-                    graphics.drawString(font, "▲", x + (CELL - font.width("▲")) / 2, pickerTop + CELL + 1, 0xFFFFFF);
+                    graphics.drawString(font, "▲", x + (CELL - font.width("▲")) / 2, pickerTop + CELL + 1, 0xFFFFFFFF);
                 }
             }
         }
@@ -494,14 +494,14 @@ public class StatusBeaconScreen extends QuickScreen {
         if (redstone() && look == null) {
             CompoundTag below = selected > 0 ? shownAt(selected - 1) : null;
             graphics.drawString(font, below == null ? Component.translatable("screen.reticulum.beacon_shows_nothing")
-                    : Component.translatable("screen.reticulum.beacon_same_as", selected - 1), left, colorTop + 4, 0xA0A0A0);
+                    : Component.translatable("screen.reticulum.beacon_same_as", selected - 1), left, colorTop + 4, 0xFFA0A0A0);
             return;
         }
         if (look == null) {
             return;
         }
-        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_color"), left, colorTop + 3, 0xE0E0E0);
-        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_text_color_row"), left, colorTop + 21, 0xE0E0E0);
+        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_color"), left, colorTop + 3, 0xFFE0E0E0);
+        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_text_color_row"), left, colorTop + 21, 0xFFE0E0E0);
         int textColorNow = look.contains("text_color") ? look.getIntOr("text_color", 0) : BeaconLook.AUTO;
         DyeColor[] dyes = DyeColor.values();
         for (int row = 0; row < 2; row++) {
@@ -529,18 +529,18 @@ public class StatusBeaconScreen extends QuickScreen {
                 graphics.fill(ax + i, ay + SWATCH - 1 - i, ax + i + 1, ay + SWATCH - i, 0xFFE0302A);
             }
             if (mouseX >= ax && mouseX < ax + SWATCH && mouseY >= ay && mouseY < ay + SWATCH) {
-                graphics.renderTooltip(font, Component.translatable(row == 0 ? "screen.reticulum.beacon_color_auto_hint"
+                graphics.setTooltipForNextFrame(font, Component.translatable(row == 0 ? "screen.reticulum.beacon_color_auto_hint"
                         : "screen.reticulum.beacon_text_color_auto_hint"), mouseX, mouseY);
             }
         }
         if (pitch != null) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_pitch"), pitch.getX(), pitch.getY() - 10, 0xE0E0E0);
-            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_pitch2"), pitch2.getX(), pitch2.getY() - 10, 0xE0E0E0);
-            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_interval"), interval.getX(), interval.getY() - 10, 0xE0E0E0);
-            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_range"), range.getX(), range.getY() - 10, 0xE0E0E0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_pitch"), pitch.getX(), pitch.getY() - 10, 0xFFE0E0E0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_pitch2"), pitch2.getX(), pitch2.getY() - 10, 0xFFE0E0E0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_interval"), interval.getX(), interval.getY() - 10, 0xFFE0E0E0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_range"), range.getX(), range.getY() - 10, 0xFFE0E0E0);
         }
         if (!view.canEdit()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_read_only"), left, pitch.getY() + 18, 0xA0A0A0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.beacon_read_only"), left, pitch.getY() + 18, 0xFFA0A0A0);
         }
     }
 

@@ -5,8 +5,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.ARGB;
 
 /**
  * A normal button with a 16x16 icon (a sprite from textures/gui/sprites) in place of its label. The label still names
@@ -27,7 +29,7 @@ public class IconButton extends Button {
     @Override
     public void renderString(GuiGraphics graphics, Font font, int color) {
         float shade = active ? 1f : 0.5f;
-        graphics.blitSprite(net.minecraft.client.renderer.RenderType::guiTextured, icon, getX() + (getWidth() - SIZE) / 2,
-                getY() + (getHeight() - SIZE) / 2, SIZE, SIZE, net.minecraft.util.ARGB.colorFromFloat(alpha, shade, shade, shade));
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, icon, getX() + (getWidth() - SIZE) / 2,
+                getY() + (getHeight() - SIZE) / 2, SIZE, SIZE, ARGB.colorFromFloat(alpha, shade, shade, shade));
     }
 }

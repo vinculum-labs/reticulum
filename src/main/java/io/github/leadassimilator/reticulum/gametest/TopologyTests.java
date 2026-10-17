@@ -4,6 +4,7 @@ import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.fail;
 
+import java.util.List;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -19,6 +20,7 @@ import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -252,7 +254,7 @@ public final class TopologyTests {
                 net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
         BlockPos to = helper.absolutePos(new BlockPos(3, 1, 6));
         level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
-        level.getBlockEntity(to).loadWithComponents(data, registries);
+        level.getBlockEntity(to).loadWithComponents(net.minecraft.world.level.storage.TagValueInput.create(net.minecraft.util.ProblemReporter.DISCARDING, registries, data));
         helper.runAfterDelay(5, () -> {
             var moved = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(3, 1, 6));
             check(helper, id.equals(moved.connectorId()), "the moved connector got a new id (taken for a copy)");
@@ -283,9 +285,9 @@ public final class TopologyTests {
         BlockPos to = helper.absolutePos(new BlockPos(2, 1, 2));
         level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
         var landed = level.getBlockEntity(to);
-        landed.loadWithComponents(data, registries);
+        landed.loadWithComponents(net.minecraft.world.level.storage.TagValueInput.create(net.minecraft.util.ProblemReporter.DISCARDING, registries, data));
         // Saved and loaded again where it landed, in the same tick: before it connects up.
-        landed.loadWithComponents(landed.saveWithFullMetadata(registries), registries);
+        landed.loadWithComponents(net.minecraft.world.level.storage.TagValueInput.create(net.minecraft.util.ProblemReporter.DISCARDING, registries, landed.saveWithFullMetadata(registries)));
         helper.runAfterDelay(5, () -> {
             var moved = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) be(helper, new BlockPos(2, 1, 2));
             check(helper, id.equals(moved.connectorId()), "the moved connector got a new id");
@@ -321,7 +323,7 @@ public final class TopologyTests {
                 net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
         BlockPos to = helper.absolutePos(new BlockPos(2, 1, 2));
         level.setBlock(to, ModBlocks.CABLE.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
-        level.getBlockEntity(to).loadWithComponents(data, registries);
+        level.getBlockEntity(to).loadWithComponents(net.minecraft.world.level.storage.TagValueInput.create(net.minecraft.util.ProblemReporter.DISCARDING, registries, data));
         helper.runAfterDelay(5, () -> {
             check(helper, a.id().equals(net(helper, new BlockPos(2, 1, 2))), "the moved cable left its network");
             check(helper, Topology.connected(level, to, Direction.NORTH), "the moved cable was cut from its own network");
@@ -354,7 +356,7 @@ public final class TopologyTests {
                 net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
         BlockPos to = helper.absolutePos(new BlockPos(3, 1, 5));
         level.setBlock(to, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
-        level.getBlockEntity(to).loadWithComponents(data, registries);
+        level.getBlockEntity(to).loadWithComponents(net.minecraft.world.level.storage.TagValueInput.create(net.minecraft.util.ProblemReporter.DISCARDING, registries, data));
         helper.runAfterDelay(5, () -> {
             check(helper, a.equals(net(helper, new BlockPos(3, 1, 5))), "the moved connector joined another owner's private network");
             check(helper, !Topology.connected(level, to, Direction.WEST), "the moved connector is cabled into the private network");
@@ -366,7 +368,7 @@ public final class TopologyTests {
                     net.minecraft.world.level.block.Block.UPDATE_MOVE_BY_PISTON | net.minecraft.world.level.block.Block.UPDATE_ALL);
             BlockPos next = helper.absolutePos(new BlockPos(2, 1, 6));
             level.setBlock(next, ModBlocks.CONNECTOR.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
-            level.getBlockEntity(next).loadWithComponents(again, registries);
+            level.getBlockEntity(next).loadWithComponents(net.minecraft.world.level.storage.TagValueInput.create(net.minecraft.util.ProblemReporter.DISCARDING, registries, again));
             helper.runAfterDelay(5, () -> {
                 check(helper, b.id().equals(net(helper, new BlockPos(2, 1, 6))), "the moved connector didn't join the public network");
                 helper.succeed();
@@ -389,7 +391,7 @@ public final class TopologyTests {
         check(helper, !Topology.connected(level, helper.absolutePos(new BlockPos(1, 1, 1)), Direction.EAST), "the joint wasn't cut");
 
         var template = new net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate();
-        template.fillFromWorld(level, helper.absolutePos(new BlockPos(1, 1, 1)), new net.minecraft.core.Vec3i(2, 1, 2), false, null);
+        template.fillFromWorld(level, helper.absolutePos(new BlockPos(1, 1, 1)), new Vec3i(2, 1, 2), false, List.of());
         // Turned a quarter clockwise: x becomes z, so the cut joint (east of the first cable) now lies south of it.
         BlockPos at = helper.absolutePos(new BlockPos(5, 1, 1));
         var settings = new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings()
@@ -440,7 +442,7 @@ public final class TopologyTests {
                 .setValue(net.minecraft.world.level.block.StairBlock.FACING, Direction.NORTH);
         be(helper, new BlockPos(2, 1, 1)).setFacade(stairs);
         var template = new net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate();
-        template.fillFromWorld(level, helper.absolutePos(new BlockPos(1, 1, 1)), new net.minecraft.core.Vec3i(2, 1, 1), false, null);
+        template.fillFromWorld(level, helper.absolutePos(new BlockPos(1, 1, 1)), new Vec3i(2, 1, 1), false, List.of());
         BlockPos at = helper.absolutePos(new BlockPos(5, 1, 1));
         var settings = new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings()
                 .setRotation(net.minecraft.world.level.block.Rotation.CLOCKWISE_90);

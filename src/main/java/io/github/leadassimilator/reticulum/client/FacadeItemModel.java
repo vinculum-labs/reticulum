@@ -9,7 +9,7 @@ import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.item.FacadeItem;
 import io.github.leadassimilator.reticulum.registry.ModItems;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.item.ItemModel;
 import net.minecraft.client.renderer.item.ItemModelResolver;
 import net.minecraft.client.renderer.item.ItemModels;
@@ -78,11 +78,11 @@ public record FacadeItemModel(ItemModel blank) implements ItemModel {
                 return false;
             }
             // Three-quarter size (6x6 GUI pixels, still sharp at larger GUI scales) and half see-through over the block.
-            graphics.pose().pushPose();
-            graphics.pose().translate(x, y, 200);
-            graphics.pose().scale(0.75f, 0.75f, 1f);
-            graphics.blit(RenderType::guiTextured, BADGE, 0, 0, 0, 0, 8, 8, 8, 8, 0x80FFFFFF);
-            graphics.pose().popPose();
+            graphics.pose().pushMatrix();
+            graphics.pose().translate(x, y);
+            graphics.pose().scale(0.75f, 0.75f);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, BADGE, 0, 0, 0, 0, 8, 8, 8, 8, 0x80FFFFFF);
+            graphics.pose().popMatrix();
             return true;
         });
     }

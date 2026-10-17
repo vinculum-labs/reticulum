@@ -37,9 +37,9 @@ public final class ScreenHighlight {
         face = targetFace;
     }
 
-    public static void onRenderLevel(RenderLevelStageEvent event) {
+    public static void onRenderLevel(RenderLevelStageEvent.AfterTranslucentBlocks event) {
         Minecraft mc = Minecraft.getInstance();
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || block == null
+        if (block == null
                 || !(mc.screen instanceof BlockScreen || mc.screen instanceof DeviceFacesScreen)) {
             return;
         }

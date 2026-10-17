@@ -40,7 +40,7 @@ public class StatusBeaconRenderer implements BlockEntityRenderer<StatusBeaconBlo
     }
 
     @Override
-    public boolean shouldRenderOffScreen(StatusBeaconBlockEntity beacon) {
+    public boolean shouldRenderOffScreen() {
         return true;
     }
 

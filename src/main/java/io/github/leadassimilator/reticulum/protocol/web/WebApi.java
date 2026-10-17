@@ -154,7 +154,7 @@ public final class WebApi {
     // ---------------------------------------------------------------- requests
 
     public static JsonObject handle(ServerPlayer player, JsonObject request, @Nullable String id) throws RequestException {
-        MinecraftServer server = player.server;
+        MinecraftServer server = player.level().getServer();
         String op = string(request, "op");
         return switch (op) {
             case "networks" -> {
@@ -379,7 +379,7 @@ public final class WebApi {
     }
 
     private static Network viewable(ServerPlayer player, JsonObject request) throws RequestException {
-        Network network = NetworkManager.network(player.server, uuid(request, "network"));
+        Network network = NetworkManager.network(player.level().getServer(), uuid(request, "network"));
         if (network == null || !Security.canView(network, player)) {
             throw new RequestException("No such network, or no access");
         }
@@ -446,7 +446,7 @@ public final class WebApi {
         }
 
         static JsonElement apply(ServerPlayer player, Network network, JsonObject edit) throws RequestException {
-            MinecraftServer server = player.server;
+            MinecraftServer server = player.level().getServer();
             String type = string(edit, "type");
             switch (type) {
                 case "importSheet" -> {

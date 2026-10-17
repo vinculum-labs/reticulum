@@ -159,7 +159,7 @@ public final class AlarmClient {
         // Status mode: where things are wrong, asked for every two seconds while held.
         if (holdingStatusTool(player)) {
             if (time % 40 == 0 && player.level().tickRateManager().runsNormally()) {
-                PacketDistributor.sendToServer(new Payloads.RequestStatusMarkers());
+                net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.RequestStatusMarkers());
             }
         } else if (!markers.isEmpty()) {
             markers = List.of();
@@ -234,9 +234,9 @@ public final class AlarmClient {
 
     // ---------------------------------------------------------------- markers
 
-    public static void onRenderLevel(RenderLevelStageEvent event) {
+    public static void onRenderLevel(RenderLevelStageEvent.AfterTranslucentBlocks event) {
         Minecraft mc = Minecraft.getInstance();
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || markers.isEmpty() || mc.level == null) {
+        if (markers.isEmpty() || mc.level == null) {
             return;
         }
         boolean warnings = ReticulumClientConfig.MARKERS_WARNING.getAsBoolean();

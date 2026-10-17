@@ -159,7 +159,7 @@ public final class WebApp {
                 && json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > RelayPayloads.MAX_REQUEST_CHARS) {
             toServer(json, null);
         } else {
-            PacketDistributor.sendToServer(new RelayPayloads.Request(id, json));
+            net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new RelayPayloads.Request(id, json));
         }
     }
 
@@ -168,7 +168,7 @@ public final class WebApp {
 
     void toServer(String json, @Nullable String requestId) {
         for (RelayPayloads.RequestPart part : RelayPayloads.splitRequest(id, NEXT_LARGE.incrementAndGet(), requestId, json)) {
-            PacketDistributor.sendToServer(part);
+            net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(part);
         }
     }
 

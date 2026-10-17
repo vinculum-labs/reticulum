@@ -88,7 +88,7 @@ public class DeviceFacesScreen extends QuickScreen {
         for (Map.Entry<FaceKey, EditBox> entry : faces.entrySet()) {
             EditBox box = entry.getValue();
             if (view.canEdit() && !box.getValue().equals(device.faceName(entry.getKey()))) {
-                PacketDistributor.sendToServer(new Payloads.RenameDevice(view.pos(), side, Optional.of(entry.getKey()), box.getValue()));
+                net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.RenameDevice(view.pos(), side, Optional.of(entry.getKey()), box.getValue()));
             }
         }
     }
@@ -113,14 +113,14 @@ public class DeviceFacesScreen extends QuickScreen {
         super.render(graphics, mouseX, mouseY, partialTick);
         renderCompass(graphics, left, WIDTH, top);
         Views.SideView device = view.side(side);
-        graphics.drawString(font, title, left, top, 0xFFFFFF);
+        graphics.drawString(font, title, left, top, 0xFFFFFFFF);
         if (!device.icon().isEmpty()) {
             graphics.renderItem(device.icon(), left, top + 10);
         }
-        graphics.drawString(font, device.displayName(), left + 20, top + 14, 0xC0C0C0);
+        graphics.drawString(font, device.displayName(), left + 20, top + 14, 0xFFC0C0C0);
         int y = top + 30;
         for (FaceKey face : FaceKey.values()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.face." + face.getSerializedName()), left, y + 5, 0xE0E0E0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.face." + face.getSerializedName()), left, y + 5, 0xFFE0E0E0);
             y += ROW;
         }
     }

@@ -107,7 +107,7 @@ public final class ReticulumSavedData extends SavedData {
         if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) || !player.hasPermissions(2)) {
             return;
         }
-        ReticulumSavedData data = get(player.server);
+        ReticulumSavedData data = get(player.level().getServer());
         if (data.keptAs != null) {
             player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("message.reticulum.save_unreadable", data.keptAs)
                     .withStyle(net.minecraft.ChatFormatting.RED));

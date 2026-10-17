@@ -172,7 +172,7 @@ public class FacadeScreen extends QuickScreen {
 
     /** Paints the stack in hand like {@code block} (blank when null), and closes. */
     public void choose(@Nullable Block block) {
-        PacketDistributor.sendToServer(new Payloads.PaintFacade(hand, Optional.ofNullable(block)));
+        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.PaintFacade(hand, Optional.ofNullable(block)));
         onClose();
     }
 
@@ -197,7 +197,7 @@ public class FacadeScreen extends QuickScreen {
         super.render(graphics, mouseX, mouseY, partialTick);
         int left = guiLeft();
         int top = guiTop();
-        graphics.drawString(font, title, left + 8, top + 6, 0xFFFFFF);
+        graphics.drawString(font, title, left + 8, top + 6, 0xFFFFFFFF);
         // What it looks like now, framed; blocks dragged from JEI are dropped here.
         ItemStack held = held();
         BlockState state = FacadeItem.state(held);
@@ -210,8 +210,8 @@ public class FacadeScreen extends QuickScreen {
         }
         Component name = state == null ? Component.translatable("screen.reticulum.facade_none") : state.getBlock().getName();
         int textWidth = PREVIEW_WIDTH - 24;
-        graphics.drawString(font, font.substrByWidth(name, textWidth).getString(), px + 21, py + 2, 0xFFFFFF);
-        graphics.drawString(font, Component.translatable("screen.reticulum.facade_count", held.getCount()), px + 21, py + 11, 0xA0A0A0);
+        graphics.drawString(font, font.substrByWidth(name, textWidth).getString(), px + 21, py + 2, 0xFFFFFFFF);
+        graphics.drawString(font, Component.translatable("screen.reticulum.facade_count", held.getCount()), px + 21, py + 11, 0xFFA0A0A0);
         // The blocks to pick from.
         int y0 = gridTop();
         Item hovered = null;
@@ -238,11 +238,11 @@ public class FacadeScreen extends QuickScreen {
             graphics.fill(x, barY, x + SCROLLBAR_WIDTH, barY + barHeight(), hot ? 0xFFE0E0E0 : 0xFFA0A0A0);
         }
         if (shown.isEmpty()) {
-            graphics.drawCenteredString(font, Component.translatable("screen.reticulum.facade_no_match"), left + WIDTH / 2, y0 + 40, 0xA0A0A0);
+            graphics.drawCenteredString(font, Component.translatable("screen.reticulum.facade_no_match"), left + WIDTH / 2, y0 + 40, 0xFFA0A0A0);
         }
-        graphics.drawWordWrap(font, hint(), left + 8, y0 + TRACK_HEIGHT + 7, WIDTH - 16, 0xA0A0A0);
+        graphics.drawWordWrap(font, hint(), left + 8, y0 + TRACK_HEIGHT + 7, WIDTH - 16, 0xFFA0A0A0);
         if (hovered != null) {
-            graphics.renderTooltip(font, new ItemStack(hovered), mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, new ItemStack(hovered), mouseX, mouseY);
         }
     }
 

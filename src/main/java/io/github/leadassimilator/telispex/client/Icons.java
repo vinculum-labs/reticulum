@@ -7,46 +7,69 @@ import java.nio.ByteOrder;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import javax.annotation.Nullable;
 
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.lwjgl.stb.STBIWriteCallback;
 import org.lwjgl.stb.STBImageWrite;
 import org.lwjgl.system.MemoryUtil;
 
-import com.mojang.blaze3d.buffers.BufferType;
-import com.mojang.blaze3d.buffers.BufferUsage;
+import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.pipeline.TextureTarget;
-import com.mojang.blaze3d.systems.CommandEncoder;
-import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.CommandEncoder;
+import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.ProjectionType;
+import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.blaze3d.textures.TextureFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import io.github.leadassimilator.telispex.Telispex;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.CachedOrthoProjectionMatrixBuffer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.client.ClientHooks;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 
 /**
  * Icons for pages, as PNGs at {@code _/icon/<kind>/<namespace>/<path>.png} beside each page: items exactly as the game
  * draws them in inventories, fluids as their still texture, and any kind a mod adds ({@link #register}). Drawn on the
- * render thread into an offscreen target, and kept until resources reload.
+ * render thread into an offscreen texture, and kept until resources reload.
  */
 public final class Icons {
     static final int SIZE = 64;
     private static final Map<String, Function<ResourceLocation, byte[]>> KINDS = new ConcurrentHashMap<>();
     private static final Map<String, CompletableFuture<byte[]>> CACHE = new ConcurrentHashMap<>();
+
+    /** The offscreen textures and their projection, made once and reused for every icon (a picker loads dozens). */
+    @Nullable
+    private static CachedOrthoProjectionMatrixBuffer projection;
+    @Nullable
+    private static GpuTexture color;
+    @Nullable
+    private static GpuTextureView colorView;
+    @Nullable
+    private static GpuTexture depth;
+    @Nullable
+    private static GpuTextureView depthView;
 
     static {
         KINDS.put("item", Icons::item);
@@ -81,87 +104,104 @@ public final class Icons {
         CACHE.clear();
     }
 
+    /** An item as inventories show it. */
     private static byte[] item(ResourceLocation id) {
         ItemStack stack = BuiltInRegistries.ITEM.getOptional(id).map(ItemStack::new).orElse(ItemStack.EMPTY);
-        return stack.isEmpty() || stack.is(Items.AIR) ? transparent() : draw(id, graphics -> graphics.renderItem(stack, 0, 0));
+        if (stack.isEmpty() || stack.is(Items.AIR)) {
+            return transparent();
+        }
+        Minecraft mc = Minecraft.getInstance();
+        ItemStackRenderState state = new ItemStackRenderState();
+        mc.getItemModelResolver().updateForTopItem(state, stack, ItemDisplayContext.GUI, mc.level, null, 0);
+        return draw(id, (pose, buffers) -> {
+            // As the game draws items in its GUI: centered, flipped upright, lit flat or as a block.
+            pose.translate(SIZE / 2f, SIZE / 2f, 0);
+            pose.scale(SIZE, -SIZE, SIZE);
+            mc.gameRenderer.getLighting().setupFor(state.usesBlockLight() ? Lighting.Entry.ITEMS_3D : Lighting.Entry.ITEMS_FLAT);
+            state.render(pose, buffers, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
+        });
     }
 
     /** A fluid as its still texture, tinted, filling the square. */
     private static byte[] fluid(ResourceLocation id) {
-        net.minecraft.world.level.material.Fluid fluid = BuiltInRegistries.FLUID.getOptional(id).orElse(null);
-        if (fluid == null || fluid == net.minecraft.world.level.material.Fluids.EMPTY) {
+        Fluid fluid = BuiltInRegistries.FLUID.getOptional(id).orElse(null);
+        if (fluid == null || fluid == Fluids.EMPTY) {
             return transparent();
         }
-        var extensions = net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions.of(fluid);
+        IClientFluidTypeExtensions extensions = IClientFluidTypeExtensions.of(fluid);
         return sprite(id, extensions.getStillTexture(), extensions.getTintColor());
     }
 
-    /** A block-atlas texture, tinted (ARGB; alpha 0 counts as opaque), as a 16x16 square. On the render thread. */
+    /** A block-atlas texture, tinted (ARGB; alpha 0 counts as opaque), filling the square. On the render thread. */
     public static byte[] sprite(ResourceLocation id, @Nullable ResourceLocation texture, int tint) {
         if (texture == null) {
             return transparent();
         }
-        var sprite = Minecraft.getInstance().getTextureAtlas(net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS).apply(texture);
+        TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(texture);
         int color = (tint >>> 24) == 0 ? 0xFF000000 | tint : tint;
-        return draw(id, graphics -> graphics.blitSprite(net.minecraft.client.renderer.RenderType::guiTextured, sprite, 0, 0, 16, 16, color));
+        return draw(id, (pose, buffers) -> {
+            VertexConsumer quad = buffers.getBuffer(RenderType.text(TextureAtlas.LOCATION_BLOCKS));
+            Matrix4f matrix = pose.last().pose();
+            vertex(quad, matrix, 0, 0, sprite.getU0(), sprite.getV0(), color);
+            vertex(quad, matrix, 0, SIZE, sprite.getU0(), sprite.getV1(), color);
+            vertex(quad, matrix, SIZE, SIZE, sprite.getU1(), sprite.getV1(), color);
+            vertex(quad, matrix, SIZE, 0, sprite.getU1(), sprite.getV0(), color);
+        });
     }
 
-    /** One offscreen target, reused for every icon (making one per icon is slow when a picker loads dozens). */
-    @Nullable
-    private static TextureTarget target;
-
-    private static TextureTarget target() {
-        if (target == null) {
-            target = new TextureTarget("Telispex icons", SIZE, SIZE, true);
-        }
-        return target;
+    private static void vertex(VertexConsumer quad, Matrix4f matrix, float x, float y, float u, float v, int color) {
+        quad.addVertex(matrix, x, y, 0).setColor(color).setUv(u, v).setLight(LightTexture.FULL_BRIGHT);
     }
 
     /**
-     * Whatever {@code draw} puts in a 16x16 GUI square, as a PNG. On the render thread, between frames; {@code id} only
-     * names it in the log should it fail. GUI and item rendering always draw to the main render target, so the icon
-     * target stands in for it meanwhile.
+     * Whatever {@code draw} puts in a {@code SIZE}-pixel square (x right, y down, from the top-left corner), as a PNG.
+     * On the render thread; {@code id} only names it in the log should it fail.
      */
-    public static byte[] draw(ResourceLocation id, java.util.function.Consumer<GuiGraphics> draw) {
+    public static byte[] draw(ResourceLocation id, BiConsumer<PoseStack, MultiBufferSource> draw) {
         Minecraft mc = Minecraft.getInstance();
-        TextureTarget target = target();
-        CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-        Matrix4fStack modelView = RenderSystem.getModelViewStack();
-        RenderTarget main = mc.mainRenderTarget;
+        GpuDevice device = RenderSystem.getDevice();
+        if (color == null) {
+            projection = new CachedOrthoProjectionMatrixBuffer("Telispex icons", -1000f, 1000f, true);
+            color = device.createTexture(() -> "Telispex icon", GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_COPY_SRC,
+                    TextureFormat.RGBA8, SIZE, SIZE, 1, 1);
+            colorView = device.createTextureView(color);
+            depth = device.createTexture(() -> "Telispex icon depth", GpuTexture.USAGE_RENDER_ATTACHMENT,
+                    mc.getMainRenderTarget().getDepthTexture().getFormat(), SIZE, SIZE, 1, 1);
+            depthView = device.createTextureView(depth);
+        }
+        CommandEncoder encoder = device.createCommandEncoder();
+        encoder.clearColorAndDepthTextures(color, 0, depth, 1.0);
+        MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         RenderSystem.backupProjectionMatrix();
-        modelView.pushMatrix();
+        RenderSystem.setProjectionMatrix(projection.getBuffer(SIZE, SIZE), ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.outputColorTextureOverride = colorView;
+        RenderSystem.outputDepthTextureOverride = depthView;
         try {
-            encoder.clearColorAndDepthTextures(target.getColorTexture(), 0, target.getDepthTexture(), 1.0);
-            mc.mainRenderTarget = target;
-            float far = ClientHooks.getGuiFarPlane();
-            RenderSystem.setProjectionMatrix(new Matrix4f().setOrtho(0, 16, 16, 0, 1000, far), ProjectionType.ORTHOGRAPHIC);
-            modelView.translation(0, 0, 10000F - far);
-            Lighting.setupFor3DItems();
-            GuiGraphics graphics = new GuiGraphics(mc, mc.renderBuffers().bufferSource());
-            draw.accept(graphics);
-            graphics.flush();
+            draw.accept(new PoseStack(), buffers);
+            buffers.endBatch();
         } catch (RuntimeException e) {
             Telispex.LOGGER.warn("Could not render icon for {}", id, e);
             return transparent();
         } finally {
-            mc.mainRenderTarget = main;
-            modelView.popMatrix();
+            RenderSystem.outputColorTextureOverride = null;
+            RenderSystem.outputDepthTextureOverride = null;
             RenderSystem.restoreProjectionMatrix();
         }
-        return read(id, target.getColorTexture(), encoder);
+        return read(id, color, encoder);
     }
 
-    /** The texture's pixels, as a PNG. Reading the buffer waits for the copy, so this returns them right away. */
+    /** The texture's pixels, as a PNG. Mapping the buffer waits for the copy, so this returns them right away. */
     private static byte[] read(ResourceLocation id, GpuTexture texture, CommandEncoder encoder) {
-        try (GpuBuffer buffer = RenderSystem.getDevice().createBuffer(() -> "Telispex icon", BufferType.PIXEL_PACK, BufferUsage.STATIC_READ,
-                SIZE * SIZE * texture.getFormat().pixelSize())) {
+        int pixelSize = texture.getFormat().pixelSize();
+        try (GpuBuffer buffer = RenderSystem.getDevice().createBuffer(() -> "Telispex icon", GpuBuffer.USAGE_COPY_DST | GpuBuffer.USAGE_MAP_READ,
+                SIZE * SIZE * pixelSize)) {
             encoder.copyTextureToBuffer(texture, buffer, 0, () -> {
             }, 0);
-            try (GpuBuffer.ReadView view = encoder.readBuffer(buffer); NativeImage image = new NativeImage(SIZE, SIZE, false)) {
+            try (GpuBuffer.MappedView view = encoder.mapBuffer(buffer, true, false); NativeImage image = new NativeImage(SIZE, SIZE, false)) {
                 for (int y = 0; y < SIZE; y++) {
                     for (int x = 0; x < SIZE; x++) {
                         // Rows come bottom up.
-                        image.setPixelABGR(x, SIZE - 1 - y, view.data().getInt((x + y * SIZE) * texture.getFormat().pixelSize()));
+                        image.setPixelABGR(x, SIZE - 1 - y, view.data().getInt((x + y * SIZE) * pixelSize));
                     }
                 }
                 return png(image);

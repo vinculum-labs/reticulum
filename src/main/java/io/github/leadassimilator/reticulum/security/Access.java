@@ -23,13 +23,13 @@ public final class Access {
     /** Whether the block is within the configured interaction distance and loaded. */
     public static boolean inReach(ServerPlayer player, BlockPos pos) {
         double max = ReticulumConfig.MAX_INTERACT_DISTANCE.getAsInt();
-        return player.position().distanceToSqr(Vec3.atCenterOf(pos)) <= max * max && player.serverLevel().isLoaded(pos);
+        return player.position().distanceToSqr(Vec3.atCenterOf(pos)) <= max * max && player.level().isLoaded(pos);
     }
 
     /** The network block at {@code pos}, if the player can reach it. */
     @Nullable
     public static NetworkBlockEntity reach(ServerPlayer player, BlockPos pos) {
-        return inReach(player, pos) ? Topology.blockEntity(player.serverLevel(), pos) : null;
+        return inReach(player, pos) ? Topology.blockEntity(player.level(), pos) : null;
     }
 
     /**

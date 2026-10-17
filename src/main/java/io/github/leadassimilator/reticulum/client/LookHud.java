@@ -73,7 +73,7 @@ public final class LookHud {
             requestedPos = target.getBlockPos();
             requestedFace = target.getDirection();
             ticksSinceRequest = 0;
-            PacketDistributor.sendToServer(new Payloads.LookRequest(requestedPos, requestedFace));
+            net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.LookRequest(requestedPos, requestedFace));
         }
     }
 
@@ -97,7 +97,7 @@ public final class LookHud {
         int y = graphics.guiHeight() / 2 + 12;
         int centerX = graphics.guiWidth() / 2;
         for (Component line : lines) {
-            graphics.drawString(mc.font, line, centerX - mc.font.width(line) / 2, y, 0xFFFFFF);
+            graphics.drawString(mc.font, line, centerX - mc.font.width(line) / 2, y, 0xFFFFFFFF);
             y += mc.font.lineHeight + 1;
         }
     }

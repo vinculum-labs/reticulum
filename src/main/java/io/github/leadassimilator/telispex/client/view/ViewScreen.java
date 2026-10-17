@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
@@ -101,17 +102,17 @@ public class ViewScreen extends Screen {
             int w = EmbeddedView.frameWidth();
             int h = EmbeddedView.frameHeight();
             float scale = (float) Minecraft.getInstance().getWindow().getGuiScale();
-            graphics.pose().pushPose();
-            graphics.pose().scale(1 / scale, 1 / scale, 1);
-            graphics.blit(net.minecraft.client.renderer.RenderType::guiTextured, frame, 0, (int) Math.ceil(BAR * scale), 0, 0, w, h, w, h);
-            graphics.pose().popPose();
+            graphics.pose().pushMatrix();
+            graphics.pose().scale(1 / scale, 1 / scale);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, frame, 0, (int) Math.ceil(BAR * scale), 0, 0, w, h, w, h);
+            graphics.pose().popMatrix();
             return;
         }
         if (Minecraft.getInstance().getWindow().isFullscreen() && EmbeddedView.hiddenByFullscreen()) {
-            graphics.drawCenteredString(font, Component.translatable("screen.telispex.fullscreen"), width / 2, height / 2 - 6, 0xE3E7EF);
-            graphics.drawCenteredString(font, Component.translatable("screen.telispex.fullscreen_hint"), width / 2, height / 2 + 6, 0xA0A0A0);
+            graphics.drawCenteredString(font, Component.translatable("screen.telispex.fullscreen"), width / 2, height / 2 - 6, 0xFFE3E7EF);
+            graphics.drawCenteredString(font, Component.translatable("screen.telispex.fullscreen_hint"), width / 2, height / 2 + 6, 0xFFA0A0A0);
         } else if (!EmbeddedView.shown()) {
-            graphics.drawCenteredString(font, Component.translatable("screen.telispex.loading"), width / 2, height / 2, 0xA0A0A0);
+            graphics.drawCenteredString(font, Component.translatable("screen.telispex.loading"), width / 2, height / 2, 0xFFA0A0A0);
         }
     }
 
@@ -122,7 +123,7 @@ public class ViewScreen extends Screen {
             setCursor(EmbeddedView.cursor());
         }
         super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawString(font, title, 6, (BAR - font.lineHeight) / 2 + 1, 0xE3E7EF);
+        graphics.drawString(font, title, 6, (BAR - font.lineHeight) / 2 + 1, 0xFFE3E7EF);
     }
 
     /**

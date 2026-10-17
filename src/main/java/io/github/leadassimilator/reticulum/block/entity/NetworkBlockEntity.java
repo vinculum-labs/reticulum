@@ -174,23 +174,20 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     }
 
     @Override
-    public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
-        readFacade(tag, registries);
+    public void handleUpdateTag(net.minecraft.world.level.storage.ValueInput input) {
+        readFacade(input);
         clientFacadeChanged();
     }
 
     @Override
-    public void onDataPacket(net.minecraft.network.Connection connection, ClientboundBlockEntityDataPacket packet, HolderLookup.Provider registries) {
-        readFacade(packet.getTag(), registries);
+    public void onDataPacket(net.minecraft.network.Connection connection, net.minecraft.world.level.storage.ValueInput input) {
+        readFacade(input);
         clientFacadeChanged();
     }
 
-    private void readFacade(CompoundTag tag, HolderLookup.Provider registries) {
-        facade = tag.contains("facade") ? NbtUtils.readBlockState(registries.lookupOrThrow(Registries.BLOCK), tag.getCompoundOrEmpty("facade")) : null;
-        // A block from a mod since removed reads as air: no facade (an invisible block with a full outline otherwise).
-        if (facade != null && facade.isAir()) {
-            facade = null;
-        }
+    private void readFacade(net.minecraft.world.level.storage.ValueInput input) {
+        // A block from a mod since removed doesn't read: no facade (an invisible block with a full outline otherwise).
+        facade = input.read("facade", BlockState.CODEC).filter(state -> !state.isAir()).orElse(null);
         lightChanged();
     }
 
@@ -269,27 +266,27 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
+    protected void loadAdditional(net.minecraft.world.level.storage.ValueInput tag) {
+        super.loadAdditional(tag);
         networkId = tag.read("network", net.minecraft.core.UUIDUtil.CODEC).orElse(null);
         manualDisconnects = tag.getByteOr("disconnected", (byte) 0);
         autoDisconnects = tag.getByteOr("auto_disconnected", (byte) 0);
         // Registered where it was saved; data copied somewhere else (ctrl+pick-block, /clone, a structure) is a new
         // block there: it joins whatever it is placed against, rather than claiming the original's network and ids.
         boolean wasRegistered = tag.getBooleanOr("registered", false);
-        boolean atOrigin = !tag.contains("registered_at") || tag.getLongOr("registered_at", 0L) == worldPosition.asLong();
+        boolean atOrigin = tag.getLong("registered_at").map(at -> at == worldPosition.asLong()).orElse(true);
         // Saved somewhere else (moved, or copied): it connects up again where it is now, joining what it touches, or
         // staying on the network it carries where it touches nothing. Whether it is a copy only matters for a
         // connector's id (see ConnectorBlockEntity).
         registered = wasRegistered && atOrigin;
         copied = wasRegistered && !atOrigin;
         arrived = copied || (!wasRegistered && tag.getBooleanOr("arrived", false));
-        readFacade(tag, registries);
+        readFacade(tag);
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
+    protected void saveAdditional(net.minecraft.world.level.storage.ValueOutput tag) {
+        super.saveAdditional(tag);
         if (networkId != null) {
             tag.store("network", net.minecraft.core.UUIDUtil.CODEC, networkId);
         }
@@ -300,8 +297,6 @@ public abstract class NetworkBlockEntity extends BlockEntity {
             tag.putBoolean("arrived", true);
         }
         tag.putLong("registered_at", worldPosition.asLong());
-        if (facade != null) {
-            tag.put("facade", NbtUtils.writeBlockState(facade));
-        }
+        tag.storeNullable("facade", BlockState.CODEC, facade);
     }
 }

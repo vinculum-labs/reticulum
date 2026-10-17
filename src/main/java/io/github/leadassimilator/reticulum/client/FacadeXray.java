@@ -45,9 +45,9 @@ public final class FacadeXray {
         FACADED.clear();
     }
 
-    public static void onRenderLevel(RenderLevelStageEvent event) {
+    public static void onRenderLevel(RenderLevelStageEvent.AfterTranslucentBlocks event) {
         Minecraft mc = Minecraft.getInstance();
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || FACADED.isEmpty() || mc.player == null || mc.level == null
+        if (FACADED.isEmpty() || mc.player == null || mc.level == null
                 || NetworkToolItem.held(mc.player).isEmpty()) {
             return;
         }

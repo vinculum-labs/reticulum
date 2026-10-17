@@ -322,29 +322,21 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     // ---------------------------------------------------------------- saving
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
-        tag.put("settings", settings());
+    protected void saveAdditional(net.minecraft.world.level.storage.ValueOutput tag) {
+        super.saveAdditional(tag);
+        tag.store("settings", CompoundTag.CODEC, settings());
         if (placer != null) {
             tag.store("placer", net.minecraft.core.UUIDUtil.CODEC, placer);
         }
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
-        if (tag.contains("settings")) {
-            readSettings(tag.getCompoundOrEmpty("settings"));
-        }
+    protected void loadAdditional(net.minecraft.world.level.storage.ValueInput tag) {
+        super.loadAdditional(tag);
+        tag.read("settings", CompoundTag.CODEC).ifPresent(this::readSettings);
         // Only from the saved block (the update sent to clients leaves it out).
-        if (tag.read("placer", net.minecraft.core.UUIDUtil.CODEC).isPresent()) {
-            placer = tag.read("placer", net.minecraft.core.UUIDUtil.CODEC).orElseThrow();
-        }
-        if (tag.contains("alarm_texts")) {
-            List<String> texts = new java.util.ArrayList<>();
-            tag.getListOrEmpty("alarm_texts").forEach(t -> t.asString().ifPresent(texts::add));
-            alarmTexts = List.copyOf(texts);
-        }
+        tag.read("placer", net.minecraft.core.UUIDUtil.CODEC).ifPresent(id -> placer = id);
+        tag.read("alarm_texts", com.mojang.serialization.Codec.STRING.listOf()).ifPresent(texts -> alarmTexts = List.copyOf(texts));
         // New looks on the client: the lens is tinted by the look, so its chunk is drawn again.
         if (level != null && level.isClientSide) {
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_IMMEDIATE);

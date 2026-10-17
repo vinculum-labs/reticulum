@@ -43,7 +43,7 @@ public final class Screens {
 
     /** The ID buttons in the connector screens: the connector itself, the device on a side, or one face of it. */
     public static void toggleIdentify(ServerPlayer player, Payloads.ToggleIdentify payload) {
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         BlockPos pos = payload.pos();
         if (!(Access.reach(player, pos) instanceof ConnectorBlockEntity connector)) {
             return;
@@ -79,25 +79,25 @@ public final class Screens {
             }
             return;
         }
-        if (!(player.serverLevel().getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
+        if (!(player.level().getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
             return;
         }
-        var watch = beacon.watch(player.serverLevel());
+        var watch = beacon.watch(player.level());
         io.github.leadassimilator.reticulum.network.Network network = watch.network();
         boolean canView = network != null && io.github.leadassimilator.reticulum.security.Security.could(network, player, Role.VIEWER);
         java.util.List<String> alarms = new java.util.ArrayList<>();
         if (beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.NETWORK && canView && watch.reachable()) {
-            for (var alarm : io.github.leadassimilator.reticulum.engine.Alarms.cached(player.server, network)) {
+            for (var alarm : io.github.leadassimilator.reticulum.engine.Alarms.cached(player.level().getServer(), network)) {
                 if (alarms.size() < 8) {
                     alarms.add((alarm.severity() == io.github.leadassimilator.reticulum.graph.NodeSettings.AlarmSeverity.CRITICAL ? "!" : "?") + alarm.message());
                 }
             }
         }
         // As mayChangeBeacon decides it: every network it sits on, not only the one it watches.
-        boolean canEdit = !player.isSpectator() && beacon.sitsOn(player.serverLevel()).stream()
+        boolean canEdit = !player.isSpectator() && beacon.sitsOn(player.level()).stream()
                 .allMatch(n -> io.github.leadassimilator.reticulum.security.Security.could(n, player, Role.USER));
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new Payloads.OpenBeaconScreen(pos, beaconStatus(player, beacon, watch),
-                beacon.settings(), player.serverLevel().getBestNeighborSignal(pos), alarms, canEdit, refresh));
+                beacon.settings(), player.level().getBestNeighborSignal(pos), alarms, canEdit, refresh));
     }
 
     /** One line on what a beacon shows: the network it watches and whether it reaches it, or the signal it gets. */
@@ -106,7 +106,7 @@ public final class Screens {
             io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Watch watch) {
         if (beacon.mode() == io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.Mode.REDSTONE) {
             return net.minecraft.network.chat.Component.translatable("lookat.reticulum.beacon_signal",
-                    player.serverLevel().getBestNeighborSignal(beacon.getBlockPos()));
+                    player.level().getBestNeighborSignal(beacon.getBlockPos()));
         }
         if (watch.network() == null) {
             return net.minecraft.network.chat.Component.translatable("lookat.reticulum.beacon_no_connector");
@@ -122,7 +122,7 @@ public final class Screens {
         }
         // Every network it sits on, not only the one it watches: one it may not watch (its placer can't see it) still
         // isn't for others to take over.
-        for (io.github.leadassimilator.reticulum.network.Network network : beacon.sitsOn(player.serverLevel())) {
+        for (io.github.leadassimilator.reticulum.network.Network network : beacon.sitsOn(player.level())) {
             if (!io.github.leadassimilator.reticulum.security.Security.canUse(network, player)) {
                 // Not named to someone who can't see it.
                 player.displayClientMessage(Access.refusal(network, player, Role.USER), true);
@@ -134,7 +134,7 @@ public final class Screens {
 
     static void setBeaconSettings(ServerPlayer player, Payloads.BeaconSettings payload) {
         if (!io.github.leadassimilator.reticulum.security.Access.inReach(player, payload.pos())
-                || !(player.serverLevel().getBlockEntity(payload.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
+                || !(player.level().getBlockEntity(payload.pos()) instanceof io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity beacon)) {
             return;
         }
         if (!mayChangeBeacon(player, beacon)) {
@@ -168,7 +168,7 @@ public final class Screens {
      * first opens its controller, as if they had placed it. Returns whether it did.
      */
     private static boolean claim(ServerPlayer player, BlockPos pos) {
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         if (player instanceof net.neoforged.neoforge.common.util.FakePlayer || player.isSpectator()
                 || !(level.getBlockEntity(pos) instanceof io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity controller)) {
             return false;
@@ -192,7 +192,7 @@ public final class Screens {
     }
 
     private static void send(ServerPlayer player, BlockPos pos, boolean refresh) {
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         NetworkBlockEntity be = Topology.blockEntity(level, pos);
         if (be == null) {
             return;
@@ -218,14 +218,14 @@ public final class Screens {
         return new Views.ControllerView(pos, network.id(), network.name(), network.ownerName(), network.accessMode(), network.passwordHash() != null,
                 network.connectors().size(), network.devices().size(), NetworkManager.orphanCount(network),
                 Security.could(network, player, Role.EDITOR), Security.could(network, player, Role.ADMIN),
-                player.serverLevel().getBlockEntity(pos) instanceof ControllerBlockEntity controller ? controller.antennaTier() : 0,
-                network.enabled(), io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(player.server, network),
+                player.level().getBlockEntity(pos) instanceof ControllerBlockEntity controller ? controller.antennaTier() : 0,
+                network.enabled(), io.github.leadassimilator.reticulum.engine.NetworkTicker.isRunning(player.level().getServer(), network),
                 network.switches().redstone(), sheetEntries(player, network), overflowLines(player, network), powerLine(player, network));
     }
 
     /** "Power: 52,000 / 1,000,000 FE (24 FE/t)", or empty when power is free. */
     private static String powerLine(ServerPlayer player, Network network) {
-        var state = io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(network.id()).powerState(player.server, network);
+        var state = io.github.leadassimilator.reticulum.engine.NetworkTicker.runtime(network.id()).powerState(player.level().getServer(), network);
         if (!state.enabled()) {
             return "";
         }
@@ -277,7 +277,7 @@ public final class Screens {
         if (!(Access.reach(player, payload.pos()) instanceof ControllerBlockEntity controller)) {
             return;
         }
-        Network network = Access.require(player, Topology.network(player.serverLevel(), payload.pos()), Role.EDITOR);
+        Network network = Access.require(player, Topology.network(player.level(), payload.pos()), Role.EDITOR);
         if (network == null) {
             return;
         }
@@ -293,7 +293,7 @@ public final class Screens {
             default -> {
             }
         }
-        NetworkManager.changed(player.server, network);
+        NetworkManager.changed(player.level().getServer(), network);
         refresh(player, payload.pos());
     }
 
@@ -362,10 +362,10 @@ public final class Screens {
 
     /** Answers the built-in HUD. Limited to blocks the player could plausibly be looking at. */
     static void lookAt(ServerPlayer player, Payloads.LookRequest payload) {
-        if (player.distanceToSqr(Vec3.atCenterOf(payload.pos())) > LOOK_DISTANCE * LOOK_DISTANCE || !player.serverLevel().isLoaded(payload.pos())) {
+        if (player.distanceToSqr(Vec3.atCenterOf(payload.pos())) > LOOK_DISTANCE * LOOK_DISTANCE || !player.level().isLoaded(payload.pos())) {
             return;
         }
-        var lines = io.github.leadassimilator.reticulum.lookat.LookAt.describe(player.serverLevel(), payload.pos(), payload.face(), player);
+        var lines = io.github.leadassimilator.reticulum.lookat.LookAt.describe(player.level(), payload.pos(), payload.face(), player);
         PacketDistributor.sendToPlayer(player, new Payloads.LookResponse(payload.pos(), lines.size() > 16 ? lines.subList(0, 16) : lines));
     }
 
@@ -384,7 +384,7 @@ public final class Screens {
         if (reachable(player, payload.pos()) == null) {
             return;
         }
-        Component message = Topology.toggle(player.serverLevel(), payload.pos(), payload.side(), player);
+        Component message = Topology.toggle(player.level(), payload.pos(), payload.side(), player);
         player.displayClientMessage(message, true);
         refresh(player, payload.pos());
     }
@@ -400,7 +400,7 @@ public final class Screens {
         ConnectorRecord record = network.connector(connector.connectorId());
         if (record != null) {
             record.setName(clip(payload.name()));
-            NetworkManager.changed(player.server, network);
+            NetworkManager.changed(player.level().getServer(), network);
         }
         refresh(player, payload.pos());
     }
@@ -424,7 +424,7 @@ public final class Screens {
         } else {
             record.setName(clip(payload.name()));
         }
-        NetworkManager.changed(player.server, network);
+        NetworkManager.changed(player.level().getServer(), network);
         refresh(player, payload.pos());
     }
 
@@ -432,7 +432,7 @@ public final class Screens {
         if (!(reachable(player, payload.pos()) instanceof ControllerBlockEntity controller)) {
             return;
         }
-        Network network = Access.require(player, Topology.network(player.serverLevel(), payload.pos()), Role.EDITOR);
+        Network network = Access.require(player, Topology.network(player.level(), payload.pos()), Role.EDITOR);
         if (network == null) {
             return;
         }
@@ -447,13 +447,13 @@ public final class Screens {
                 player.displayClientMessage(e.message(), true);
             }
         }
-        NetworkManager.changed(player.server, network);
+        NetworkManager.changed(player.level().getServer(), network);
         refresh(player, payload.pos());
     }
 
     @Nullable
     private static Network editableNetwork(ServerPlayer player, NetworkBlockEntity be) {
-        return Access.require(player, NetworkManager.network(player.server, Topology.networkOf(player.serverLevel(), be)), Role.EDITOR);
+        return Access.require(player, NetworkManager.network(player.level().getServer(), Topology.networkOf(player.level(), be)), Role.EDITOR);
     }
 
     private static String clip(String name) {

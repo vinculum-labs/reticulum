@@ -81,7 +81,7 @@ public class BlockScreen extends QuickScreen {
             // Another network for it: what that does (bind, move its piece, unwire it, or why not) is the tooltip.
             addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.pick_network"), b -> {
                 sendRenames();
-                PacketDistributor.sendToServer(new Payloads.RequestNetworkPicker(java.util.Optional.of(view.pos())));
+                net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.RequestNetworkPicker(java.util.Optional.of(view.pos())));
             }).bounds(width / 2 - 154, y + 8, 150, 20).tooltip(net.minecraft.client.gui.components.Tooltip.create(view.pickHint().get())).build());
             addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
                     .bounds(width / 2 + 4, y + 8, 150, 20).build());
@@ -141,7 +141,7 @@ public class BlockScreen extends QuickScreen {
         Button button = new IconButton(x, y, 22, 20, on ? "identify_on" : "identify_off", Component.literal("ID"),
                 Component.translatable(on ? "screen.reticulum.identify_off" : "screen.reticulum.identify_on"), b -> {
                     screen.commit();
-                    PacketDistributor.sendToServer(new Payloads.ToggleIdentify(pos, side, face));
+                    net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.ToggleIdentify(pos, side, face));
                 });
         // Lighting things up takes a user's access (a viewer can only look).
         button.active = canUse;
@@ -150,7 +150,7 @@ public class BlockScreen extends QuickScreen {
 
     private void toggle(Direction side) {
         sendRenames();
-        PacketDistributor.sendToServer(new Payloads.ToggleSide(view.pos(), side));
+        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.ToggleSide(view.pos(), side));
     }
 
     private void openFaces(Direction side) {
@@ -161,13 +161,13 @@ public class BlockScreen extends QuickScreen {
     /** Sends every editable name that differs from what the server last sent. */
     void sendRenames() {
         if (connectorName != null && connectorNameEditable && !connectorName.getValue().equals(view.customName())) {
-            PacketDistributor.sendToServer(new Payloads.RenameConnector(view.pos(), connectorName.getValue()));
+            net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.RenameConnector(view.pos(), connectorName.getValue()));
         }
         for (Map.Entry<Direction, EditBox> entry : deviceNames.entrySet()) {
             Views.SideView side = view.side(entry.getKey());
             EditBox box = entry.getValue();
             if (!box.getValue().equals(side.customName())) {
-                PacketDistributor.sendToServer(new Payloads.RenameDevice(view.pos(), side.side(), Optional.empty(), box.getValue()));
+                net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.RenameDevice(view.pos(), side.side(), Optional.empty(), box.getValue()));
             }
         }
     }
@@ -188,23 +188,23 @@ public class BlockScreen extends QuickScreen {
         super.render(graphics, mouseX, mouseY, partialTick);
         int top = rowsTop - (view.connector() ? 50 : 24);
         renderCompass(graphics, left, WIDTH, top);
-        graphics.drawString(font, title, left, top, 0xFFFFFF);
+        graphics.drawString(font, title, left, top, 0xFFFFFFFF);
         Component network = view.networkName().isEmpty()
                 ? Component.translatable("screen.reticulum.no_network")
                 : Component.translatable("screen.reticulum.network", view.networkName());
-        graphics.drawString(font, network, left + WIDTH - font.width(network), top, 0xA0A0A0);
+        graphics.drawString(font, network, left + WIDTH - font.width(network), top, 0xFFA0A0A0);
         if (view.connector()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.connector_name"), left, rowsTop - 21, 0xE0E0E0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.connector_name"), left, rowsTop - 21, 0xFFE0E0E0);
         }
         int y = rowsTop;
         for (Views.SideView side : view.sides()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.side." + side.side().getSerializedName()), left, y + 5, 0xE0E0E0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.side." + side.side().getSerializedName()), left, y + 5, 0xFFE0E0E0);
             if (!side.icon().isEmpty()) {
                 graphics.renderItem(side.icon(), left + 58, y + 1);
             }
             switch (side.kind()) {
-                case JOINT -> graphics.drawString(font, side.defaultName(), left + 80, y + 5, 0xC0C0C0);
-                case NONE -> graphics.drawString(font, Component.translatable("screen.reticulum.empty_side"), left + 80, y + 5, 0x707070);
+                case JOINT -> graphics.drawString(font, side.defaultName(), left + 80, y + 5, 0xFFC0C0C0);
+                case NONE -> graphics.drawString(font, Component.translatable("screen.reticulum.empty_side"), left + 80, y + 5, 0xFF707070);
                 case DEVICE -> {
                 }
             }

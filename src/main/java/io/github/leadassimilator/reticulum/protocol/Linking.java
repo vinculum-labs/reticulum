@@ -43,7 +43,7 @@ public final class Linking {
             return;
         }
         List<Payloads.NetworkChoice> choices = new ArrayList<>();
-        for (Network network : NetworkManager.data(player.server).networks()) {
+        for (Network network : NetworkManager.data(player.level().getServer()).networks()) {
             boolean member = Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.USER);
             boolean password = !member && network.accessMode() == AccessMode.PASSWORD && network.passwordHash() != null;
             if (member || password) {
@@ -65,7 +65,7 @@ public final class Linking {
     }
 
     public static void pick(ServerPlayer player, Payloads.PickNetwork payload) {
-        Network network = NetworkManager.network(player.server, payload.network());
+        Network network = NetworkManager.network(player.level().getServer(), payload.network());
         if (network == null) {
             player.displayClientMessage(Component.translatable("message.reticulum.network_gone_bound"), true);
             return;
@@ -77,13 +77,13 @@ public final class Linking {
                 player.displayClientMessage(e.message(), true);
                 return;
             }
-            NetworkManager.changed(player.server, network);
+            NetworkManager.changed(player.level().getServer(), network);
             player.displayClientMessage(Component.translatable("command.reticulum.joined", network.name()), false);
         }
         if (payload.connector().isPresent()) {
             BlockPos pos = payload.connector().get();
             if (canReachConnector(player, pos)) {
-                player.displayClientMessage(Topology.rebind(player.serverLevel(), pos, network, player), true);
+                player.displayClientMessage(Topology.rebind(player.level(), pos, network, player), true);
                 Screens.open(player, pos);
             }
             return;
@@ -122,6 +122,6 @@ public final class Linking {
 
     /** For the connector screen: whether the player may pick a network for it (no cable decides it). */
     public static boolean bindable(ServerPlayer player, BlockPos pos) {
-        return !Topology.isWired(player.serverLevel(), pos);
+        return !Topology.isWired(player.level(), pos);
     }
 }

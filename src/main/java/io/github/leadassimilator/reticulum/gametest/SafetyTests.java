@@ -376,7 +376,7 @@ public final class SafetyTests {
         BlockPos copyAt = new BlockPos(6, 1, 6);
         helper.setBlock(copyAt, ModBlocks.CONNECTOR.get());
         var copy = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(copyAt, net.minecraft.world.level.block.entity.BlockEntity.class);
-        copy.loadWithComponents(data, helper.getLevel().registryAccess());
+        copy.loadWithComponents(net.minecraft.world.level.storage.TagValueInput.create(net.minecraft.util.ProblemReporter.DISCARDING, helper.getLevel().registryAccess(), data));
         check(helper, !copy.isRegistered(), "the copy counts as already registered, so it never joins anything");
         check(helper, !copy.connectorId().equals(original.connectorId()), "the copy shares the original's connector id");
         check(helper, Topology.network(helper.getLevel(), helper.absolutePos(copyAt)) == null, "the copy claims the original's network");

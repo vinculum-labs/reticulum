@@ -53,7 +53,7 @@ public final class ClientPayloadHandler {
                 || !(mc.player.getMainHandItem().getItem() instanceof io.github.leadassimilator.reticulum.item.NetworkToolItem)) {
             return;
         }
-        net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(
                 new io.github.leadassimilator.reticulum.protocol.Payloads.CycleToolMode(event.getScrollDeltaY() > 0 ? -1 : 1));
         event.setCanceled(true);
     }

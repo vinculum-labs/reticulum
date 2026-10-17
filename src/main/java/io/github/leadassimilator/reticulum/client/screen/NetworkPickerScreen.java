@@ -75,7 +75,7 @@ public class NetworkPickerScreen extends QuickScreen {
         if (connector.isEmpty() && toolLinked()) {
             // Picking for the tool: it can also forget its network.
             addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.unlink_tool"), b -> {
-                PacketDistributor.sendToServer(new Payloads.UnlinkTool());
+                net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.UnlinkTool());
                 onClose();
             }).bounds(width / 2 - 152, bottom, 150, 20).build());
             addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), b -> onClose()).bounds(width / 2 + 2, bottom, 150, 20).build());
@@ -94,7 +94,7 @@ public class NetworkPickerScreen extends QuickScreen {
     }
 
     private void choose(Payloads.NetworkChoice choice, String secret) {
-        PacketDistributor.sendToServer(new Payloads.PickNetwork(connector, choice.id(), secret));
+        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new Payloads.PickNetwork(connector, choice.id(), secret));
         onClose();
     }
 
@@ -130,14 +130,14 @@ public class NetworkPickerScreen extends QuickScreen {
         super.render(graphics, mouseX, mouseY, partialTick);
         int left = (width - WIDTH) / 2;
         int top = Math.max(8, (height - (VISIBLE * ROW + 90)) / 2);
-        graphics.drawString(font, title, left, top, 0xFFFFFF);
+        graphics.drawString(font, title, left, top, 0xFFFFFFFF);
         if (needsPassword != null) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.password_for", needsPassword.name()), left, top + 22, 0xE0E0E0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.password_for", needsPassword.name()), left, top + 22, 0xFFE0E0E0);
         } else if (choices.isEmpty()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.no_networks"), left, top + 26, 0xA0A0A0);
+            graphics.drawString(font, Component.translatable("screen.reticulum.no_networks"), left, top + 26, 0xFFA0A0A0);
         } else if (choices.size() > VISIBLE) {
             Component more = Component.literal((scroll + 1) + "–" + Math.min(choices.size(), scroll + VISIBLE) + " / " + choices.size());
-            graphics.drawString(font, more, left + WIDTH - font.width(more), top, 0xA0A0A0);
+            graphics.drawString(font, more, left + WIDTH - font.width(more), top, 0xFFA0A0A0);
         }
     }
 

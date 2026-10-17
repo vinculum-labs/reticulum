@@ -122,7 +122,7 @@ public class ControllerBlock extends NetworkBlock {
             net.neoforged.neoforge.items.ItemHandlerHelper.giveItemToPlayer(player, old);
         }
         if (network != null) {
-            NetworkManager.changed(player.server, network);
+            NetworkManager.changed(player.level().getServer(), network);
         }
         player.displayClientMessage(Component.translatable("message.reticulum.antenna_installed", AntennaItem.range(antenna.tier())), true);
     }
@@ -146,7 +146,7 @@ public class ControllerBlock extends NetworkBlock {
             net.neoforged.neoforge.items.ItemHandlerHelper.giveItemToPlayer(player, old);
         }
         if (network != null) {
-            NetworkManager.changed(player.server, network);
+            NetworkManager.changed(player.level().getServer(), network);
         }
         player.displayClientMessage(Component.translatable("message.reticulum.antenna_removed"), true);
     }

@@ -96,9 +96,9 @@ public final class IdentifyRenderer {
 
     // ---------------------------------------------------------------- in the world
 
-    public static void onRenderLevel(RenderLevelStageEvent event) {
+    public static void onRenderLevel(RenderLevelStageEvent.AfterTranslucentBlocks event) {
         Minecraft mc = Minecraft.getInstance();
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || markers.isEmpty() || mc.level == null) {
+        if (markers.isEmpty() || mc.level == null) {
             return;
         }
         boolean throughWalls = ReticulumClientConfig.IDENTIFY_THROUGH_WALLS.getAsBoolean();
@@ -196,11 +196,11 @@ public final class IdentifyRenderer {
                 where = Math.round(entry.distance()) + " m " + arrow + vertical;
             }
             graphics.fill(2, y - 1, 8, y + 7, 0xFF000000 | entry.marker().color());
-            graphics.drawString(mc.font, entry.marker().label() + "  " + where, 11, y, 0xFFFFFF, true);
+            graphics.drawString(mc.font, entry.marker().label() + "  " + where, 11, y, 0xFFFFFFFF, true);
             y += 10;
         }
         if (entries.size() > HUD_LINES) {
-            graphics.drawString(mc.font, net.minecraft.network.chat.Component.translatable("screen.reticulum.more", entries.size() - HUD_LINES), 11, y, 0xA0A0A0, true);
+            graphics.drawString(mc.font, net.minecraft.network.chat.Component.translatable("screen.reticulum.more", entries.size() - HUD_LINES), 11, y, 0xFFA0A0A0, true);
         }
     }
 }

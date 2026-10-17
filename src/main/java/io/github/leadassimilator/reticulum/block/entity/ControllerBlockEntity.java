@@ -129,8 +129,8 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
+    protected void loadAdditional(net.minecraft.world.level.storage.ValueInput tag) {
+        super.loadAdditional(tag);
         antennaTier = tag.getByteOr("antenna", (byte) 0);
         energy = tag.getLongOr("energy", 0L);
         lastOwner = tag.read("owner", net.minecraft.core.UUIDUtil.CODEC).orElse(null);
@@ -138,8 +138,8 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
+    protected void saveAdditional(net.minecraft.world.level.storage.ValueOutput tag) {
+        super.saveAdditional(tag);
         tag.putByte("antenna", (byte) antennaTier);
         tag.putLong("energy", energy);
         if (level instanceof net.minecraft.server.level.ServerLevel server && networkId() != null) {

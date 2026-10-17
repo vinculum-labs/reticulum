@@ -26,9 +26,9 @@ public final class BeaconEffects {
     private BeaconEffects() {
     }
 
-    public static void onRenderLevel(RenderLevelStageEvent event) {
+    public static void onRenderLevel(RenderLevelStageEvent.AfterTranslucentBlocks event) {
         Minecraft mc = Minecraft.getInstance();
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || mc.level == null
+        if (mc.level == null
                 || StatusBeaconBlockEntity.CLIENT_LOADED.isEmpty()) {
             return;
         }
@@ -83,9 +83,9 @@ public final class BeaconEffects {
     private static final long CYCLE_MS = 3000;
 
     /** Beacons' text: their look's label, or (Network mode) the alarms going off, taking turns. Through walls if set. */
-    public static void drawTexts(RenderLevelStageEvent event) {
+    public static void drawTexts(RenderLevelStageEvent.AfterTranslucentBlocks event) {
         Minecraft mc = Minecraft.getInstance();
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || mc.level == null
+        if (mc.level == null
                 || StatusBeaconBlockEntity.CLIENT_LOADED.isEmpty()) {
             return;
         }

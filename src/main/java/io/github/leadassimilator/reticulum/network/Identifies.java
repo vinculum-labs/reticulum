@@ -116,12 +116,12 @@ public final class Identifies {
     /** What one player should see lit up: everything identified on the networks they can view. */
     public static List<Payloads.IdentifyMarker> markersFor(ServerPlayer player) {
         List<Payloads.IdentifyMarker> markers = new ArrayList<>();
-        for (Network network : NetworkManager.data(player.server).networks()) {
+        for (Network network : NetworkManager.data(player.level().getServer()).networks()) {
             if (network.identified().isEmpty() || !Security.could(network, player, io.github.leadassimilator.reticulum.security.Role.VIEWER)) {
                 continue;
             }
             for (Identify identify : network.identified()) {
-                Payloads.IdentifyMarker marker = marker(player.server, network, identify);
+                Payloads.IdentifyMarker marker = marker(player.level().getServer(), network, identify);
                 if (marker != null && markers.size() < MAX_MARKERS) {
                     markers.add(new Payloads.IdentifyMarker(marker.pos(), marker.face(), marker.color(), clip(marker.label())));
                 }
