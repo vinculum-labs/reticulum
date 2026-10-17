@@ -39,3 +39,6 @@ Ideas set aside for later, and known gaps chosen to leave for now. Move items ou
   moving, with no devices (it costs no upkeep; it keeps its network from counting as empty).
 - A network too large for the editor (well past 64 MiB of snapshot) can't be opened there: it says so.
 - Admins can demote or remove other admins (only the owner is protected). Kept on purpose.
+- From the 1.21.4 port on (main): shift-clicking a block in JEI onto the facade screen doesn't choose it, as JEI 20.0
+  has no quick-move hook for ghost ingredients; dragging works. Put ReticulumJeiPlugin's quickMove back once a JEI for
+  the version has it (the 1.21.1 branch still has it).
