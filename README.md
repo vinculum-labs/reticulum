@@ -1,6 +1,6 @@
 # Reticulum
 
-A logistics mod for Minecraft 1.21.1 (NeoForge). Cables and connectors join machines into a network, and you draw
+A logistics mod for Minecraft 26.1.2 and 1.21.1 (NeoForge). Cables and connectors join machines into a network, and you draw
 what moves between them — items, fluids, energy, Mekanism chemicals, redstone and AE2 channels — as flow charts in a
 web editor that opens in your browser.
 
@@ -206,7 +206,8 @@ broken by members (configurable), and operators can bypass security, with every 
 
 ## Mod support
 
-- **Mekanism:** chemicals (gases, infusion types, pigments and slurries) flow like fluids, with their own filters.
+- **Mekanism** (1.21.1; Mekanism has no 26.1 release yet): chemicals (gases, infusion types, pigments and slurries)
+  flow like fluids, with their own filters.
 - **Applied Energistics 2:** a connector next to AE2 cable or machines links them to other AE2 devices on the network,
   carrying channels between AE2 networks with no cable between them. The editor shows channel use.
 - **Jade** and **The One Probe:** look-at info.
@@ -222,11 +223,12 @@ opens. All three can also be edited from the Mods screen.
 
 ## Building from source
 
-Requires Java 21. The build downloads its own Node.js for the web editor.
+Requires Java 25 (Java 21 for the `1.21.1` branch, which builds the 1.21.1 version). The build downloads its own
+Node.js for the web editor.
 
 ```
 ./gradlew build            # builds the web editor and the mod jar
-./gradlew runClient        # a dev client with Mekanism and AE2
+./gradlew runClient        # a dev client with the supported mods that have a release for this version
 ./gradlew runGameTestServer
 ```
 
