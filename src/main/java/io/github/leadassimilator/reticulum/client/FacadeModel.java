@@ -13,6 +13,7 @@ import net.minecraft.client.renderer.block.BlockModelShaper;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.resources.model.DelegateBakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
@@ -20,18 +21,17 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.client.ChunkRenderTypeSet;
 import net.neoforged.neoforge.client.event.ModelEvent;
-import net.neoforged.neoforge.client.model.BakedModelWrapper;
 import net.neoforged.neoforge.client.model.data.ModelData;
 
 /** Cables and connectors with a facade draw the facade's block instead of themselves. */
-public final class FacadeModel extends BakedModelWrapper<BakedModel> {
+public final class FacadeModel extends DelegateBakedModel {
     private FacadeModel(BakedModel original) {
         super(original);
     }
 
     /** Wraps the model of every cable and connector state. */
     public static void wrap(ModelEvent.ModifyBakingResult event) {
-        Map<ModelResourceLocation, BakedModel> models = event.getModels();
+        Map<ModelResourceLocation, BakedModel> models = event.getBakingResult().blockStateModels();
         for (Block block : new Block[] {ModBlocks.CABLE.get(), ModBlocks.CONNECTOR.get()}) {
             for (BlockState state : block.getStateDefinition().getPossibleStates()) {
                 models.computeIfPresent(BlockModelShaper.stateToModelLocation(state), (location, model) -> new FacadeModel(model));
@@ -50,7 +50,7 @@ public final class FacadeModel extends BakedModelWrapper<BakedModel> {
             @Nullable RenderType renderType) {
         BlockState facade = data.get(NetworkBlockEntity.FACADE);
         if (facade == null) {
-            return super.getQuads(state, side, rand, data, renderType);
+            return parent.getQuads(state, side, rand, data, renderType);
         }
         BakedModel model = Minecraft.getInstance().getBlockRenderer().getBlockModel(facade);
         if (renderType != null && !model.getRenderTypes(facade, rand, ModelData.EMPTY).contains(renderType)) {
@@ -62,13 +62,13 @@ public final class FacadeModel extends BakedModelWrapper<BakedModel> {
     @Override
     public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource rand, ModelData data) {
         BlockState facade = data.get(NetworkBlockEntity.FACADE);
-        return facade == null ? super.getRenderTypes(state, rand, data)
+        return facade == null ? parent.getRenderTypes(state, rand, data)
                 : Minecraft.getInstance().getBlockRenderer().getBlockModel(facade).getRenderTypes(facade, rand, ModelData.EMPTY);
     }
 
     @Override
     public TextureAtlasSprite getParticleIcon(ModelData data) {
         BakedModel facade = facadeModel(data);
-        return facade == null ? super.getParticleIcon(data) : facade.getParticleIcon(ModelData.EMPTY);
+        return facade == null ? parent.getParticleIcon(data) : facade.getParticleIcon(ModelData.EMPTY);
     }
 }

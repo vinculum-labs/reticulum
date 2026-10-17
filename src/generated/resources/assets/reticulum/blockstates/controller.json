@@ -1,482 +1,66 @@
 {
   "variants": {
-    "antenna=0,facing=east,orientation=mirrored_0": {
+    "antenna=0,facing=east": {
       "model": "reticulum:block/controller",
       "y": 90
     },
-    "antenna=0,facing=east,orientation=mirrored_180": {
+    "antenna=0,facing=north": {
       "model": "reticulum:block/controller",
-      "y": 90
+      "y": 0
     },
-    "antenna=0,facing=east,orientation=mirrored_270": {
-      "model": "reticulum:block/controller",
-      "y": 90
-    },
-    "antenna=0,facing=east,orientation=mirrored_90": {
-      "model": "reticulum:block/controller",
-      "y": 90
-    },
-    "antenna=0,facing=east,orientation=turn_0": {
-      "model": "reticulum:block/controller",
-      "y": 90
-    },
-    "antenna=0,facing=east,orientation=turn_180": {
-      "model": "reticulum:block/controller",
-      "y": 90
-    },
-    "antenna=0,facing=east,orientation=turn_270": {
-      "model": "reticulum:block/controller",
-      "y": 90
-    },
-    "antenna=0,facing=east,orientation=turn_90": {
-      "model": "reticulum:block/controller",
-      "y": 90
-    },
-    "antenna=0,facing=north,orientation=mirrored_0": {
-      "model": "reticulum:block/controller"
-    },
-    "antenna=0,facing=north,orientation=mirrored_180": {
-      "model": "reticulum:block/controller"
-    },
-    "antenna=0,facing=north,orientation=mirrored_270": {
-      "model": "reticulum:block/controller"
-    },
-    "antenna=0,facing=north,orientation=mirrored_90": {
-      "model": "reticulum:block/controller"
-    },
-    "antenna=0,facing=north,orientation=turn_0": {
-      "model": "reticulum:block/controller"
-    },
-    "antenna=0,facing=north,orientation=turn_180": {
-      "model": "reticulum:block/controller"
-    },
-    "antenna=0,facing=north,orientation=turn_270": {
-      "model": "reticulum:block/controller"
-    },
-    "antenna=0,facing=north,orientation=turn_90": {
-      "model": "reticulum:block/controller"
-    },
-    "antenna=0,facing=south,orientation=mirrored_0": {
+    "antenna=0,facing=south": {
       "model": "reticulum:block/controller",
       "y": 180
     },
-    "antenna=0,facing=south,orientation=mirrored_180": {
-      "model": "reticulum:block/controller",
-      "y": 180
-    },
-    "antenna=0,facing=south,orientation=mirrored_270": {
-      "model": "reticulum:block/controller",
-      "y": 180
-    },
-    "antenna=0,facing=south,orientation=mirrored_90": {
-      "model": "reticulum:block/controller",
-      "y": 180
-    },
-    "antenna=0,facing=south,orientation=turn_0": {
-      "model": "reticulum:block/controller",
-      "y": 180
-    },
-    "antenna=0,facing=south,orientation=turn_180": {
-      "model": "reticulum:block/controller",
-      "y": 180
-    },
-    "antenna=0,facing=south,orientation=turn_270": {
-      "model": "reticulum:block/controller",
-      "y": 180
-    },
-    "antenna=0,facing=south,orientation=turn_90": {
-      "model": "reticulum:block/controller",
-      "y": 180
-    },
-    "antenna=0,facing=west,orientation=mirrored_0": {
+    "antenna=0,facing=west": {
       "model": "reticulum:block/controller",
       "y": 270
     },
-    "antenna=0,facing=west,orientation=mirrored_180": {
-      "model": "reticulum:block/controller",
-      "y": 270
-    },
-    "antenna=0,facing=west,orientation=mirrored_270": {
-      "model": "reticulum:block/controller",
-      "y": 270
-    },
-    "antenna=0,facing=west,orientation=mirrored_90": {
-      "model": "reticulum:block/controller",
-      "y": 270
-    },
-    "antenna=0,facing=west,orientation=turn_0": {
-      "model": "reticulum:block/controller",
-      "y": 270
-    },
-    "antenna=0,facing=west,orientation=turn_180": {
-      "model": "reticulum:block/controller",
-      "y": 270
-    },
-    "antenna=0,facing=west,orientation=turn_270": {
-      "model": "reticulum:block/controller",
-      "y": 270
-    },
-    "antenna=0,facing=west,orientation=turn_90": {
-      "model": "reticulum:block/controller",
-      "y": 270
-    },
-    "antenna=1,facing=east,orientation=mirrored_0": {
+    "antenna=1,facing=east": {
       "model": "reticulum:block/controller_antenna_1",
       "y": 90
     },
-    "antenna=1,facing=east,orientation=mirrored_180": {
+    "antenna=1,facing=north": {
       "model": "reticulum:block/controller_antenna_1",
-      "y": 90
+      "y": 0
     },
-    "antenna=1,facing=east,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 90
-    },
-    "antenna=1,facing=east,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 90
-    },
-    "antenna=1,facing=east,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 90
-    },
-    "antenna=1,facing=east,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 90
-    },
-    "antenna=1,facing=east,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 90
-    },
-    "antenna=1,facing=east,orientation=turn_90": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 90
-    },
-    "antenna=1,facing=north,orientation=mirrored_0": {
-      "model": "reticulum:block/controller_antenna_1"
-    },
-    "antenna=1,facing=north,orientation=mirrored_180": {
-      "model": "reticulum:block/controller_antenna_1"
-    },
-    "antenna=1,facing=north,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_1"
-    },
-    "antenna=1,facing=north,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_1"
-    },
-    "antenna=1,facing=north,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_1"
-    },
-    "antenna=1,facing=north,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_1"
-    },
-    "antenna=1,facing=north,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_1"
-    },
-    "antenna=1,facing=north,orientation=turn_90": {
-      "model": "reticulum:block/controller_antenna_1"
-    },
-    "antenna=1,facing=south,orientation=mirrored_0": {
+    "antenna=1,facing=south": {
       "model": "reticulum:block/controller_antenna_1",
       "y": 180
     },
-    "antenna=1,facing=south,orientation=mirrored_180": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 180
-    },
-    "antenna=1,facing=south,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 180
-    },
-    "antenna=1,facing=south,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 180
-    },
-    "antenna=1,facing=south,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 180
-    },
-    "antenna=1,facing=south,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 180
-    },
-    "antenna=1,facing=south,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 180
-    },
-    "antenna=1,facing=south,orientation=turn_90": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 180
-    },
-    "antenna=1,facing=west,orientation=mirrored_0": {
+    "antenna=1,facing=west": {
       "model": "reticulum:block/controller_antenna_1",
       "y": 270
     },
-    "antenna=1,facing=west,orientation=mirrored_180": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 270
-    },
-    "antenna=1,facing=west,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 270
-    },
-    "antenna=1,facing=west,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 270
-    },
-    "antenna=1,facing=west,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 270
-    },
-    "antenna=1,facing=west,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 270
-    },
-    "antenna=1,facing=west,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 270
-    },
-    "antenna=1,facing=west,orientation=turn_90": {
-      "model": "reticulum:block/controller_antenna_1",
-      "y": 270
-    },
-    "antenna=2,facing=east,orientation=mirrored_0": {
+    "antenna=2,facing=east": {
       "model": "reticulum:block/controller_antenna_2",
       "y": 90
     },
-    "antenna=2,facing=east,orientation=mirrored_180": {
+    "antenna=2,facing=north": {
       "model": "reticulum:block/controller_antenna_2",
-      "y": 90
+      "y": 0
     },
-    "antenna=2,facing=east,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 90
-    },
-    "antenna=2,facing=east,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 90
-    },
-    "antenna=2,facing=east,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 90
-    },
-    "antenna=2,facing=east,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 90
-    },
-    "antenna=2,facing=east,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 90
-    },
-    "antenna=2,facing=east,orientation=turn_90": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 90
-    },
-    "antenna=2,facing=north,orientation=mirrored_0": {
-      "model": "reticulum:block/controller_antenna_2"
-    },
-    "antenna=2,facing=north,orientation=mirrored_180": {
-      "model": "reticulum:block/controller_antenna_2"
-    },
-    "antenna=2,facing=north,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_2"
-    },
-    "antenna=2,facing=north,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_2"
-    },
-    "antenna=2,facing=north,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_2"
-    },
-    "antenna=2,facing=north,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_2"
-    },
-    "antenna=2,facing=north,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_2"
-    },
-    "antenna=2,facing=north,orientation=turn_90": {
-      "model": "reticulum:block/controller_antenna_2"
-    },
-    "antenna=2,facing=south,orientation=mirrored_0": {
+    "antenna=2,facing=south": {
       "model": "reticulum:block/controller_antenna_2",
       "y": 180
     },
-    "antenna=2,facing=south,orientation=mirrored_180": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 180
-    },
-    "antenna=2,facing=south,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 180
-    },
-    "antenna=2,facing=south,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 180
-    },
-    "antenna=2,facing=south,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 180
-    },
-    "antenna=2,facing=south,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 180
-    },
-    "antenna=2,facing=south,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 180
-    },
-    "antenna=2,facing=south,orientation=turn_90": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 180
-    },
-    "antenna=2,facing=west,orientation=mirrored_0": {
+    "antenna=2,facing=west": {
       "model": "reticulum:block/controller_antenna_2",
       "y": 270
     },
-    "antenna=2,facing=west,orientation=mirrored_180": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 270
-    },
-    "antenna=2,facing=west,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 270
-    },
-    "antenna=2,facing=west,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 270
-    },
-    "antenna=2,facing=west,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 270
-    },
-    "antenna=2,facing=west,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 270
-    },
-    "antenna=2,facing=west,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 270
-    },
-    "antenna=2,facing=west,orientation=turn_90": {
-      "model": "reticulum:block/controller_antenna_2",
-      "y": 270
-    },
-    "antenna=3,facing=east,orientation=mirrored_0": {
+    "antenna=3,facing=east": {
       "model": "reticulum:block/controller_antenna_3",
       "y": 90
     },
-    "antenna=3,facing=east,orientation=mirrored_180": {
+    "antenna=3,facing=north": {
       "model": "reticulum:block/controller_antenna_3",
-      "y": 90
+      "y": 0
     },
-    "antenna=3,facing=east,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 90
-    },
-    "antenna=3,facing=east,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 90
-    },
-    "antenna=3,facing=east,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 90
-    },
-    "antenna=3,facing=east,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 90
-    },
-    "antenna=3,facing=east,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 90
-    },
-    "antenna=3,facing=east,orientation=turn_90": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 90
-    },
-    "antenna=3,facing=north,orientation=mirrored_0": {
-      "model": "reticulum:block/controller_antenna_3"
-    },
-    "antenna=3,facing=north,orientation=mirrored_180": {
-      "model": "reticulum:block/controller_antenna_3"
-    },
-    "antenna=3,facing=north,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_3"
-    },
-    "antenna=3,facing=north,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_3"
-    },
-    "antenna=3,facing=north,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_3"
-    },
-    "antenna=3,facing=north,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_3"
-    },
-    "antenna=3,facing=north,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_3"
-    },
-    "antenna=3,facing=north,orientation=turn_90": {
-      "model": "reticulum:block/controller_antenna_3"
-    },
-    "antenna=3,facing=south,orientation=mirrored_0": {
+    "antenna=3,facing=south": {
       "model": "reticulum:block/controller_antenna_3",
       "y": 180
     },
-    "antenna=3,facing=south,orientation=mirrored_180": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 180
-    },
-    "antenna=3,facing=south,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 180
-    },
-    "antenna=3,facing=south,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 180
-    },
-    "antenna=3,facing=south,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 180
-    },
-    "antenna=3,facing=south,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 180
-    },
-    "antenna=3,facing=south,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 180
-    },
-    "antenna=3,facing=south,orientation=turn_90": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 180
-    },
-    "antenna=3,facing=west,orientation=mirrored_0": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 270
-    },
-    "antenna=3,facing=west,orientation=mirrored_180": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 270
-    },
-    "antenna=3,facing=west,orientation=mirrored_270": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 270
-    },
-    "antenna=3,facing=west,orientation=mirrored_90": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 270
-    },
-    "antenna=3,facing=west,orientation=turn_0": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 270
-    },
-    "antenna=3,facing=west,orientation=turn_180": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 270
-    },
-    "antenna=3,facing=west,orientation=turn_270": {
-      "model": "reticulum:block/controller_antenna_3",
-      "y": 270
-    },
-    "antenna=3,facing=west,orientation=turn_90": {
+    "antenna=3,facing=west": {
       "model": "reticulum:block/controller_antenna_3",
       "y": 270
     }

@@ -1,0 +1,12 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "reticulum:block/status_beacon",
+    "tints": [
+      {
+        "type": "minecraft:constant",
+        "value": -10986394
+      }
+    ]
+  }
+}

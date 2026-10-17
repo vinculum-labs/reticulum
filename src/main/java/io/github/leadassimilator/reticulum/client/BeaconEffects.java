@@ -214,8 +214,4 @@ public final class BeaconEffects {
     public static void registerColors(net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Block event) {
         event.register(BeaconEffects::lensColor, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
     }
-
-    public static void registerItemColors(net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Item event) {
-        event.register((stack, tint) -> 0xFF585C66, io.github.leadassimilator.reticulum.registry.ModItems.STATUS_BEACON.get());
-    }
 }

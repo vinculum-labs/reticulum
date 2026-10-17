@@ -1,0 +1,9 @@
+{
+  "model": {
+    "type": "reticulum:facade",
+    "blank": {
+      "type": "minecraft:model",
+      "model": "reticulum:item/facade"
+    }
+  }
+}

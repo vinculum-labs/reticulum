@@ -21,21 +21,13 @@ public class ReticulumClient {
         io.github.leadassimilator.telispex.client.TelispexClient.init(modEventBus, container);
         WebBridge.init();
         modEventBus.addListener(LookHud::registerLayer);
-        // The network tool's look follows its mode (see the item model's overrides).
-        modEventBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) -> event.enqueueWork(() ->
-                net.minecraft.client.renderer.item.ItemProperties.register(io.github.leadassimilator.reticulum.registry.ModItems.NETWORK_TOOL.get(),
-                        io.github.leadassimilator.reticulum.item.NetworkToolItem.MODE_PROPERTY,
-                        (stack, level, entity, seed) -> io.github.leadassimilator.reticulum.item.NetworkToolItem.mode(stack).ordinal() / 3f)));
-        // ...and a mark for an alarm going off on its network (or any of yours).
-        modEventBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) -> event.enqueueWork(() ->
-                net.minecraft.client.renderer.item.ItemProperties.register(io.github.leadassimilator.reticulum.registry.ModItems.NETWORK_TOOL.get(),
-                        io.github.leadassimilator.reticulum.item.NetworkToolItem.ALARM_PROPERTY,
-                        (stack, level, entity, seed) -> io.github.leadassimilator.reticulum.client.AlarmClient.toolProperty(stack))));
+        // The network tool's look follows its mode, with a mark for an alarm going off (see its item definition).
+        modEventBus.addListener(io.github.leadassimilator.reticulum.client.ToolItemProperties::register);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.AlarmClient::onClientTick);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.AlarmClient::onRenderLevel);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> io.github.leadassimilator.reticulum.client.AlarmClient.clear());
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.FacadeModel::wrap);
-        modEventBus.addListener(io.github.leadassimilator.reticulum.client.FacadeItemModel::wrap);
+        modEventBus.addListener(io.github.leadassimilator.reticulum.client.FacadeItemModel::register);
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.FacadeItemModel::registerDecorator);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.FacadeXray::onRenderLevel);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> io.github.leadassimilator.reticulum.client.FacadeXray.clear());
@@ -45,7 +37,6 @@ public class ReticulumClient {
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::onRenderLevel);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::drawTexts);
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::registerColors);
-        modEventBus.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::registerItemColors);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::onClientTick);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) ->
                 io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity.CLIENT_LOADED.clear());

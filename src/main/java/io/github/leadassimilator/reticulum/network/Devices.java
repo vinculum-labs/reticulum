@@ -142,8 +142,7 @@ public final class Devices {
     public static ItemStack icon(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         try {
-            BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, true);
-            ItemStack picked = state.getCloneItemStack(hit, level, pos, null);
+            ItemStack picked = state.getCloneItemStack(pos, level, false, null);
             if (!picked.isEmpty()) {
                 return picked;
             }

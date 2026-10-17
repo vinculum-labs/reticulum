@@ -84,7 +84,7 @@ neoForge {
         }
 
         data {
-            data()
+            clientData()
             programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
         }
 
@@ -127,15 +127,15 @@ sourceSets.main.java {
 
 dependencies {
     // The client-hosted web UI server. Minecraft ships Netty but not its HTTP module; bundled with jar-in-jar,
-    // pinned to Minecraft's Netty version.
+    // pinned to Minecraft's Netty version (netty_version, which changes with the Minecraft version).
     jarJar(implementation("io.netty:netty-codec-http")) {
         version {
-            strictly '[4.1.97.Final, 4.2)'
-            prefer '4.1.97.Final'
+            strictly "[${netty_version}, 4.2)"
+            prefer netty_version
         }
     }
     // Dev runs load non-mod libraries only from this configuration (the built jar gets it via jar-in-jar).
-    additionalRuntimeClasspath "io.netty:netty-codec-http:4.1.97.Final"
+    additionalRuntimeClasspath "io.netty:netty-codec-http:${netty_version}"
 
     // Optional integrations: compiled against, loaded only when the mod is present. Each is left out when its version
     // property is blank (see `integrations` above).

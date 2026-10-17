@@ -8,11 +8,10 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.data.PackOutput;
 import net.minecraft.tags.BlockTags;
 import net.neoforged.neoforge.common.data.BlockTagsProvider;
-import net.neoforged.neoforge.common.data.ExistingFileHelper;
 
 public class ModBlockTags extends BlockTagsProvider {
-    public ModBlockTags(PackOutput output, CompletableFuture<HolderLookup.Provider> lookup, ExistingFileHelper files) {
-        super(output, lookup, Reticulum.MODID, files);
+    public ModBlockTags(PackOutput output, CompletableFuture<HolderLookup.Provider> lookup) {
+        super(output, lookup, Reticulum.MODID);
     }
 
     @Override

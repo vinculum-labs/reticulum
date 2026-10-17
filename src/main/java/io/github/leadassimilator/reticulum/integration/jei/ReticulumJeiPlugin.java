@@ -84,15 +84,6 @@ public class ReticulumJeiPlugin implements IModPlugin {
             }
 
             @Override
-            public <I> boolean quickMove(FacadeScreen screen, ITypedIngredient<I> ingredient) {
-                Block block = block(ingredient);
-                if (block != null) {
-                    screen.choose(block);
-                }
-                return block != null;
-            }
-
-            @Override
             public void onComplete() {
             }
         });

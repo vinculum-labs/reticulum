@@ -8,7 +8,8 @@
     {
       "apply": {
         "model": "reticulum:block/connector_arm",
-        "x": 90
+        "x": 90,
+        "y": 0
       },
       "when": {
         "down": "cable"
@@ -17,7 +18,8 @@
     {
       "apply": {
         "model": "reticulum:block/connector_plug",
-        "x": 90
+        "x": 90,
+        "y": 0
       },
       "when": {
         "down": "device"
@@ -26,7 +28,8 @@
     {
       "apply": {
         "model": "reticulum:block/connector_arm",
-        "x": 270
+        "x": 270,
+        "y": 0
       },
       "when": {
         "up": "cable"
@@ -35,7 +38,8 @@
     {
       "apply": {
         "model": "reticulum:block/connector_plug",
-        "x": 270
+        "x": 270,
+        "y": 0
       },
       "when": {
         "up": "device"
@@ -43,7 +47,9 @@
     },
     {
       "apply": {
-        "model": "reticulum:block/connector_arm"
+        "model": "reticulum:block/connector_arm",
+        "x": 0,
+        "y": 0
       },
       "when": {
         "north": "cable"
@@ -51,7 +57,9 @@
     },
     {
       "apply": {
-        "model": "reticulum:block/connector_plug"
+        "model": "reticulum:block/connector_plug",
+        "x": 0,
+        "y": 0
       },
       "when": {
         "north": "device"
@@ -60,6 +68,7 @@
     {
       "apply": {
         "model": "reticulum:block/connector_arm",
+        "x": 0,
         "y": 180
       },
       "when": {
@@ -69,6 +78,7 @@
     {
       "apply": {
         "model": "reticulum:block/connector_plug",
+        "x": 0,
         "y": 180
       },
       "when": {
@@ -78,6 +88,7 @@
     {
       "apply": {
         "model": "reticulum:block/connector_arm",
+        "x": 0,
         "y": 270
       },
       "when": {
@@ -87,6 +98,7 @@
     {
       "apply": {
         "model": "reticulum:block/connector_plug",
+        "x": 0,
         "y": 270
       },
       "when": {
@@ -96,6 +108,7 @@
     {
       "apply": {
         "model": "reticulum:block/connector_arm",
+        "x": 0,
         "y": 90
       },
       "when": {
@@ -105,6 +118,7 @@
     {
       "apply": {
         "model": "reticulum:block/connector_plug",
+        "x": 0,
         "y": 90
       },
       "when": {

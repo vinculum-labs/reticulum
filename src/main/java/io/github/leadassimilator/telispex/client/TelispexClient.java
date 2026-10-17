@@ -6,7 +6,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
 /** The game client's side: the web server, the in-game view and their settings. */
@@ -17,7 +17,7 @@ public final class TelispexClient {
     /** From the mod's client constructor; {@code container} holds the settings (telispex-client.toml). */
     public static void init(IEventBus modEventBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.CLIENT, TelispexConfig.SPEC, "telispex-client.toml");
-        modEventBus.addListener((RegisterClientReloadListenersEvent event) -> event.registerReloadListener(
+        modEventBus.addListener((AddClientReloadListenersEvent event) -> event.addListener(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(io.github.leadassimilator.telispex.Telispex.ID, "icons"),
                 (net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager -> Icons.clear()));
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingIn event) -> WebServer.onLoggedIn());
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> WebServer.onLoggedOut());

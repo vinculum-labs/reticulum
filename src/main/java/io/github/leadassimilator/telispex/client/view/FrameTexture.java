@@ -24,10 +24,6 @@ final class FrameTexture extends AbstractTexture {
     }
 
     @Override
-    public void load(ResourceManager manager) {
-    }
-
-    @Override
     public void releaseId() {
         id = -1;
     }

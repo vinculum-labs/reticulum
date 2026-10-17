@@ -2,56 +2,73 @@ package io.github.leadassimilator.reticulum.client;
 
 import javax.annotation.Nullable;
 
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+
 import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.item.FacadeItem;
 import io.github.leadassimilator.reticulum.registry.ModItems;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.block.model.BakedOverrides;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.item.ItemModel;
+import net.minecraft.client.renderer.item.ItemModelResolver;
+import net.minecraft.client.renderer.item.ItemModels;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.resources.model.ResolvableModel;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterItemDecorationsEvent;
-import net.neoforged.neoforge.client.model.BakedModelWrapper;
+import net.neoforged.neoforge.client.event.RegisterItemModelsEvent;
 
 /**
  * A painted facade item looks like the block it imitates (in inventories, in hand and on the ground), with a small
- * badge in inventories so it isn't mistaken for the real block. A blank facade keeps its own texture.
+ * badge in inventories so it isn't mistaken for the real block. A blank facade shows {@code blank}, its own texture.
+ * The facade's item definition uses this model type, {@code reticulum:facade} (see ModModels).
  */
-public final class FacadeItemModel extends BakedModelWrapper<BakedModel> {
+public record FacadeItemModel(ItemModel blank) implements ItemModel {
+    public static final ResourceLocation TYPE = ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "facade");
     private static final ResourceLocation BADGE = ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "textures/gui/facade_badge.png");
 
-    private final BakedOverrides overrides = new BakedOverrides() {
-        @Override
-        @Nullable
-        public BakedModel findOverride(ItemStack stack, @Nullable ClientLevel level, @Nullable LivingEntity entity, int seed) {
-            BlockState state = FacadeItem.state(stack);
-            Item item = state == null ? Items.AIR : state.getBlock().asItem();
-            if (item == Items.AIR) {
-                return originalModel.overrides().findOverride(stack, level, entity, seed);
-            }
-            return Minecraft.getInstance().getItemRenderer().getModel(new ItemStack(item), level, entity, seed);
-        }
-    };
-
-    private FacadeItemModel(BakedModel original) {
-        super(original);
-    }
-
     @Override
-    public BakedOverrides overrides() {
-        return overrides;
+    public void update(ItemStackRenderState state, ItemStack stack, ItemModelResolver resolver, ItemDisplayContext context,
+            @Nullable ClientLevel level, @Nullable LivingEntity entity, int seed) {
+        BlockState facade = FacadeItem.state(stack);
+        Item item = facade == null ? Items.AIR : facade.getBlock().asItem();
+        if (item == Items.AIR) {
+            blank.update(state, stack, resolver, context, level, entity, seed);
+        } else {
+            resolver.appendItemLayers(state, new ItemStack(item), context, level, entity, seed);
+        }
     }
 
-    public static void wrap(ModelEvent.ModifyBakingResult event) {
-        ModelResourceLocation location = ModelResourceLocation.inventory(ModItems.FACADE.getId());
-        event.getModels().computeIfPresent(location, (key, model) -> new FacadeItemModel(model));
+    /** As written in the item definition: {@code blank} is the model of a blank facade. */
+    public record Unbaked(ItemModel.Unbaked blank) implements ItemModel.Unbaked {
+        public static final MapCodec<Unbaked> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
+                ItemModels.CODEC.fieldOf("blank").forGetter(Unbaked::blank)).apply(instance, Unbaked::new));
+
+        @Override
+        public MapCodec<Unbaked> type() {
+            return CODEC;
+        }
+
+        @Override
+        public ItemModel bake(BakingContext context) {
+            return new FacadeItemModel(blank.bake(context));
+        }
+
+        @Override
+        public void resolveDependencies(ResolvableModel.Resolver resolver) {
+            blank.resolveDependencies(resolver);
+        }
+    }
+
+    public static void register(RegisterItemModelsEvent event) {
+        event.register(TYPE, Unbaked.CODEC);
     }
 
     /** The badge: a small "F" in the top-left corner of painted facades, clear of the count and durability bar. */
@@ -64,7 +81,7 @@ public final class FacadeItemModel extends BakedModelWrapper<BakedModel> {
             graphics.pose().pushPose();
             graphics.pose().translate(x, y, 200);
             graphics.pose().scale(0.75f, 0.75f, 1f);
-            graphics.blit(net.minecraft.client.renderer.RenderType::guiTextured, BADGE, 0, 0, 0, 0, 8, 8, 8, 8, 0x80FFFFFF);
+            graphics.blit(RenderType::guiTextured, BADGE, 0, 0, 0, 0, 8, 8, 8, 8, 0x80FFFFFF);
             graphics.pose().popPose();
             return true;
         });

@@ -53,9 +53,4 @@ class SeeThroughTextBox extends EditBox {
     public boolean isMouseOver(double mouseX, double mouseY) {
         return isVisible() && isActive() && inFrame(mouseX, mouseY);
     }
-
-    @Override
-    protected boolean clicked(double mouseX, double mouseY) {
-        return isVisible() && isActive() && inFrame(mouseX, mouseY);
-    }
 }

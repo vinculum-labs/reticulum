@@ -1,0 +1,116 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "entries": [
+      {
+        "model": {
+          "type": "minecraft:range_dispatch",
+          "entries": [
+            {
+              "model": {
+                "type": "minecraft:model",
+                "model": "reticulum:item/network_tool_warning"
+              },
+              "threshold": 0.5
+            },
+            {
+              "model": {
+                "type": "minecraft:model",
+                "model": "reticulum:item/network_tool_critical"
+              },
+              "threshold": 1.0
+            }
+          ],
+          "fallback": {
+            "type": "minecraft:model",
+            "model": "reticulum:item/network_tool"
+          },
+          "property": "reticulum:alarm"
+        },
+        "threshold": 0.0
+      },
+      {
+        "model": {
+          "type": "minecraft:range_dispatch",
+          "entries": [
+            {
+              "model": {
+                "type": "minecraft:model",
+                "model": "reticulum:item/network_tool_link_warning"
+              },
+              "threshold": 0.5
+            },
+            {
+              "model": {
+                "type": "minecraft:model",
+                "model": "reticulum:item/network_tool_link_critical"
+              },
+              "threshold": 1.0
+            }
+          ],
+          "fallback": {
+            "type": "minecraft:model",
+            "model": "reticulum:item/network_tool_link"
+          },
+          "property": "reticulum:alarm"
+        },
+        "threshold": 0.33
+      },
+      {
+        "model": {
+          "type": "minecraft:range_dispatch",
+          "entries": [
+            {
+              "model": {
+                "type": "minecraft:model",
+                "model": "reticulum:item/network_tool_identify_warning"
+              },
+              "threshold": 0.5
+            },
+            {
+              "model": {
+                "type": "minecraft:model",
+                "model": "reticulum:item/network_tool_identify_critical"
+              },
+              "threshold": 1.0
+            }
+          ],
+          "fallback": {
+            "type": "minecraft:model",
+            "model": "reticulum:item/network_tool_identify"
+          },
+          "property": "reticulum:alarm"
+        },
+        "threshold": 0.66
+      },
+      {
+        "model": {
+          "type": "minecraft:range_dispatch",
+          "entries": [
+            {
+              "model": {
+                "type": "minecraft:model",
+                "model": "reticulum:item/network_tool_status_warning"
+              },
+              "threshold": 0.5
+            },
+            {
+              "model": {
+                "type": "minecraft:model",
+                "model": "reticulum:item/network_tool_status_critical"
+              },
+              "threshold": 1.0
+            }
+          ],
+          "fallback": {
+            "type": "minecraft:model",
+            "model": "reticulum:item/network_tool_status"
+          },
+          "property": "reticulum:alarm"
+        },
+        "threshold": 1.0
+      }
+    ],
+    "property": "reticulum:mode"
+  }
+}

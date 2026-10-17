@@ -95,7 +95,7 @@ public final class Icons {
         if (texture == null) {
             return transparent();
         }
-        var sprite = Minecraft.getInstance().getTextureAtlas(net.minecraft.world.inventory.InventoryMenu.BLOCK_ATLAS).apply(texture);
+        var sprite = Minecraft.getInstance().getTextureAtlas(net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS).apply(texture);
         int color = (tint >>> 24) == 0 ? 0xFF000000 | tint : tint;
         return draw(id, graphics -> graphics.blitSprite(net.minecraft.client.renderer.RenderType::guiTextured, sprite, 0, 0, 16, 16, color));
     }
