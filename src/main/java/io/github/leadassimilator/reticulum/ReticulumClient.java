@@ -32,6 +32,7 @@ public class ReticulumClient {
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.FacadeXray::onRenderLevel);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> io.github.leadassimilator.reticulum.client.FacadeXray.clear());
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::registerLayer);
+        modEventBus.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::registerPipelines);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::onRenderLevel);
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.StatusBeaconRenderer::register);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.BeaconEffects::onRenderLevel);

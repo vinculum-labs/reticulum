@@ -82,6 +82,10 @@ public abstract class NetworkBlock extends BaseEntityBlock {
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (level instanceof ServerLevel serverLevel) {
+            // Replaced without neighbor updates (/setblock): the block that was here goes first.
+            Topology.afterRemoval(serverLevel, pos, false);
+        }
         if (!level.isClientSide && !oldState.is(state.getBlock())) {
             level.scheduleTick(pos, this, 1);
         } else if (!level.isClientSide && oldState.hasProperty(LinkedBlock.ORIENTATION) && state.hasProperty(LinkedBlock.ORIENTATION)
@@ -106,23 +110,11 @@ public abstract class NetworkBlock extends BaseEntityBlock {
         Topology.onPlaced(level, pos, null, null);
     }
 
+    /** Gone (its block entity captured it as it went, see NetworkBlockEntity#preRemoveSideEffects). */
     @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (state.is(newState.getBlock()) || !(level instanceof ServerLevel serverLevel)) {
-            super.onRemove(state, level, pos, newState, movedByPiston);
-            return;
-        }
-        Topology.Removed removed = level.getBlockEntity(pos) instanceof NetworkBlockEntity be ? Topology.capture(be) : null;
-        // Moved by a piston or contraption (Create), not broken: it comes back elsewhere with its data, so a connector
-        // keeps its record (its name, its devices) meanwhile, and arriving it isn't taken for a copy.
-        if (movedByPiston && removed != null && !removed.controller() && level.getBlockEntity(pos) instanceof NetworkBlockEntity moving) {
-            Topology.noteMoving(serverLevel, moving);
-            removed = new Topology.Removed(removed.networkId(), false, null);
-        }
-        super.onRemove(state, level, pos, newState, movedByPiston);
-        if (removed != null) {
-            Topology.onRemoved(serverLevel, pos, removed, movedByPiston);
-        }
+    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos, boolean movedByPiston) {
+        super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
+        Topology.afterRemoval(level, pos, movedByPiston);
     }
 
     @Override

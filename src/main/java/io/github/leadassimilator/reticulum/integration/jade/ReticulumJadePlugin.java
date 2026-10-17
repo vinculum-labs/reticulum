@@ -58,9 +58,9 @@ public class ReticulumJadePlugin implements IWailaPlugin {
 
         @Override
         public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
-            ListTag lines = accessor.getServerData().getList(KEY, Tag.TAG_STRING);
+            ListTag lines = accessor.getServerData().getListOrEmpty(KEY);
             for (int i = 0; i < lines.size(); i++) {
-                Component line = Component.Serializer.fromJson(lines.getString(i), accessor.getLevel().registryAccess());
+                Component line = Component.Serializer.fromJson(lines.getStringOr(i, ""), accessor.getLevel().registryAccess());
                 if (line != null) {
                     tooltip.add(line);
                 }

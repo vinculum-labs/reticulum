@@ -26,6 +26,7 @@ public final class NetworkTicker {
 
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
+        io.github.leadassimilator.reticulum.topology.Topology.flushRemovals(server);
         for (Network network : NetworkManager.data(server).networks()) {
             try {
                 if (!isRunning(server, network)) {

@@ -22,7 +22,6 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -30,12 +29,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import io.github.leadassimilator.reticulum.gametest.EngineTests.Rig;
 import io.github.leadassimilator.reticulum.Reticulum;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Game tests with Mekanism's chemicals, tanks and machines. Left out of builds without Mekanism support. */
-@GameTestHolder(Reticulum.MODID)
-@PrefixGameTestTemplate(false)
 public final class MekanismTests {
     private MekanismTests() {
     }

@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.minecraft.client.Camera;
@@ -59,13 +58,8 @@ public final class WorldLabel {
         pose.popPose();
     }
 
-    /**
-     * Draws what is queued with depth testing really off. Vanilla's see-through text leaves the depth test on while the
-     * world is drawn, so blocks in front still covered the label.
-     */
+    /** Draws what is queued now, so blocks drawn later don't cover it (see-through text tests no depth). */
     public static void endThroughWalls(MultiBufferSource.BufferSource buffers) {
-        RenderSystem.disableDepthTest();
         buffers.endBatch();
-        RenderSystem.enableDepthTest();
     }
 }

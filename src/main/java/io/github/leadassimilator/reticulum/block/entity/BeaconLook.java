@@ -65,25 +65,25 @@ public record BeaconLook(int color, int flags, ResourceLocation sound, float pit
 
     /** Read back, kept within the server's limits; anything missing or unknown falls back to {@code fallback}'s. */
     public static BeaconLook load(CompoundTag tag, BeaconLook fallback) {
-        ResourceLocation sound = ResourceLocation.tryParse(tag.getString("sound"));
+        ResourceLocation sound = ResourceLocation.tryParse(tag.getStringOr("sound", ""));
         if (sound == null || !BuiltInRegistries.SOUND_EVENT.containsKey(sound) || banned(sound)) {
             sound = fallback.sound();
         }
         return new BeaconLook(
-                tag.contains("color") ? tag.getInt("color") & 0xFFFFFF : fallback.color(),
-                tag.contains("flags") ? tag.getInt("flags") & ALL : fallback.flags(),
+                tag.contains("color") ? tag.getIntOr("color", 0) & 0xFFFFFF : fallback.color(),
+                tag.contains("flags") ? tag.getIntOr("flags", 0) & ALL : fallback.flags(),
                 sound,
                 pitch(tag, "pitch", fallback.pitch()),
                 pitch(tag, "pitch2", fallback.pitch2()),
-                Math.max(minInterval(), tag.contains("interval") ? Math.min(12_000, tag.getInt("interval")) : fallback.interval()),
-                Math.max(1, Math.min(maxRange(), tag.contains("range") ? tag.getInt("range") : fallback.range())),
-                tag.contains("label") ? clip(tag.getString("label")) : fallback.label(),
-                tag.contains("text_color") ? (tag.getInt("text_color") < 0 ? AUTO : tag.getInt("text_color") & 0xFFFFFF) : fallback.textColor());
+                Math.max(minInterval(), tag.contains("interval") ? Math.min(12_000, tag.getIntOr("interval", 0)) : fallback.interval()),
+                Math.max(1, Math.min(maxRange(), tag.contains("range") ? tag.getIntOr("range", 0) : fallback.range())),
+                tag.contains("label") ? clip(tag.getStringOr("label", "")) : fallback.label(),
+                tag.contains("text_color") ? (tag.getIntOr("text_color", 0) < 0 ? AUTO : tag.getIntOr("text_color", 0) & 0xFFFFFF) : fallback.textColor());
     }
 
     /** A pitch from 0.5 to 2; anything else (NaN, infinite) or missing is the fallback's. */
     private static float pitch(CompoundTag tag, String key, float fallback) {
-        float value = tag.getFloat(key);
+        float value = tag.getFloatOr(key, 0f);
         return tag.contains(key) && Float.isFinite(value) ? Math.max(0.5f, Math.min(2f, value)) : fallback;
     }
 

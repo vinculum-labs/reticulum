@@ -2,6 +2,7 @@ package io.github.leadassimilator.reticulum.gametest;
 
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.fail;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,18 +38,13 @@ import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** What one player can't do to the server or to other players' networks: crash, stall, bloat, or take over. */
-@GameTestHolder(Reticulum.MODID)
-@PrefixGameTestTemplate(false)
 public final class SafetyTests {
     private SafetyTests() {
     }
@@ -100,7 +96,7 @@ public final class SafetyTests {
         var ops = net.minecraft.resources.RegistryOps.create(net.minecraft.nbt.NbtOps.INSTANCE, helper.getLevel().registryAccess());
         boolean saves = io.github.leadassimilator.reticulum.network.OverflowBuffer.CODEC.encodeStart(ops, buffer).result().isPresent();
         if (total != 410 || !whole || buffer.items().size() != 7 || !saves) {
-            helper.fail("Total " + total + ", whole stacks " + whole + ", entries " + buffer.items().size() + ", saves " + saves);
+            fail(helper, "Total " + total + ", whole stacks " + whole + ", entries " + buffer.items().size() + ", saves " + saves);
         }
         helper.succeed();
     }
@@ -142,7 +138,7 @@ public final class SafetyTests {
         for (String filter : List.of("(".repeat(20_000) + "*" + ")".repeat(20_000), "!".repeat(20_000) + "*")) {
             try {
                 Filters.items(filter, Map.of());
-                helper.fail("a filter nested 20000 deep was accepted");
+                fail(helper, "a filter nested 20000 deep was accepted");
             } catch (FilterException expected) {
                 // refused before the parser could overflow the stack
             }
@@ -160,7 +156,7 @@ public final class SafetyTests {
         }
         try {
             Filters.items("@t16", templates);
-            helper.fail("a filter expanding to 8^16 terms was accepted");
+            fail(helper, "a filter expanding to 8^16 terms was accepted");
         } catch (FilterException expected) {
             // refused
         }
@@ -374,12 +370,12 @@ public final class SafetyTests {
     public static void aCopiedConnectorGetsIdsOfItsOwn(GameTestHelper helper) {
         ServerPlayer owner = player(helper, "owner");
         Network network = rig(helper, owner);
-        var original = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(new BlockPos(3, 1, 1));
+        var original = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(new BlockPos(3, 1, 1), net.minecraft.world.level.block.entity.BlockEntity.class);
         var data = original.saveWithFullMetadata(helper.getLevel().registryAccess());
         // As ctrl+pick-block or /clone would: the same data, somewhere else.
         BlockPos copyAt = new BlockPos(6, 1, 6);
         helper.setBlock(copyAt, ModBlocks.CONNECTOR.get());
-        var copy = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(copyAt);
+        var copy = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(copyAt, net.minecraft.world.level.block.entity.BlockEntity.class);
         copy.loadWithComponents(data, helper.getLevel().registryAccess());
         check(helper, !copy.isRegistered(), "the copy counts as already registered, so it never joins anything");
         check(helper, !copy.connectorId().equals(original.connectorId()), "the copy shares the original's connector id");

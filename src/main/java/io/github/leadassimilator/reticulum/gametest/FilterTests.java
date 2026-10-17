@@ -1,5 +1,7 @@
 package io.github.leadassimilator.reticulum.gametest;
 
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.fail;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -17,7 +19,6 @@ import io.github.leadassimilator.reticulum.network.Network;
 import io.github.leadassimilator.reticulum.security.AccessMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.resources.RegistryOps;
@@ -26,11 +27,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(Reticulum.MODID)
-@PrefixGameTestTemplate(false)
 public final class FilterTests {
     private FilterTests() {
     }
@@ -39,7 +36,7 @@ public final class FilterTests {
         try {
             return Filters.items(filter, templates).test(stack, Filters.Context.of(helper.getLevel()));
         } catch (FilterException e) {
-            helper.fail("'" + filter + "' failed to compile: " + e.getMessage());
+            fail(helper, "'" + filter + "' failed to compile: " + e.getMessage());
             return false;
         }
     }
@@ -47,7 +44,7 @@ public final class FilterTests {
     private static void expect(GameTestHelper helper, String filter, ItemStack stack, boolean expected) {
         boolean actual = items(helper, filter, stack, Map.of("ingots", "tag:c:ingots"));
         if (actual != expected) {
-            helper.fail("'" + filter + "' on " + stack + " should be " + expected);
+            fail(helper, "'" + filter + "' on " + stack + " should be " + expected);
         }
     }
 
@@ -90,11 +87,11 @@ public final class FilterTests {
         try {
             Filters.checkAny("temp:>1000", Map.of());
         } catch (FilterException e) {
-            helper.fail("temp:>1000 should be a valid filter: " + e.getMessage());
+            fail(helper, "temp:>1000 should be a valid filter: " + e.getMessage());
         }
         try {
             Filters.checkAny("tmep:>1000 | (", Map.of());
-            helper.fail("a broken filter passed checkAny");
+            fail(helper, "a broken filter passed checkAny");
         } catch (FilterException expected) {
             // expected
         }
@@ -102,7 +99,7 @@ public final class FilterTests {
         for (String bad : List.of("(tag:c:ingots", "name:\"open", "@missing", "is:bogus", "dura:<abc", "tag:/ores/")) {
             try {
                 Filters.items(bad, Map.of());
-                helper.fail("'" + bad + "' should not compile");
+                fail(helper, "'" + bad + "' should not compile");
             } catch (FilterException expected) {
                 // expected
             }
@@ -116,10 +113,10 @@ public final class FilterTests {
         FluidStack lava = new FluidStack(Fluids.LAVA, 1000);
         Filters.Context context = Filters.Context.of(helper.getLevel());
         if (!Filters.fluids("minecraft:water", Map.of()).test(water, context) || Filters.fluids("minecraft:water", Map.of()).test(lava, context)) {
-            helper.fail("fluid id filter");
+            fail(helper, "fluid id filter");
         }
         if (!Filters.fluids("temp:>1000", Map.of()).test(lava, context) || Filters.fluids("temp:>1000", Map.of()).test(water, context)) {
-            helper.fail("fluid temperature filter");
+            fail(helper, "fluid temperature filter");
         }
         helper.succeed();
     }
@@ -143,17 +140,17 @@ public final class FilterTests {
         // Loading gives the network its root sheet, and places the sheet in it.
         Sheet back = decoded.sheet(sheet.id());
         if (back == null || decoded.placement(back.id()) == null || decoded.placement(back.id()).parent() != decoded.root()) {
-            helper.fail("the sheet wasn't placed in the root when loaded");
+            fail(helper, "the sheet wasn't placed in the root when loaded");
         }
         if (back.nodes().size() != 2 || back.wires().size() != 1 || !back.name().equals("ore line")) {
-            helper.fail("sheet did not round-trip");
+            fail(helper, "sheet did not round-trip");
         }
         if (!(back.node(source.id()).settings() instanceof NodeSettings.DeviceSettings s) || s.outputs().getFirst().perOperation() != 32
                 || s.outputs().getFirst().keep().size() != 1) {
-            helper.fail("source settings did not round-trip");
+            fail(helper, "source settings did not round-trip");
         }
         if (!"tag:c:ores".equals(decoded.filters().get("ores")) || decoded.overflowItems().getFirst().getCount() != 3) {
-            helper.fail("filters or overflow did not round-trip");
+            fail(helper, "filters or overflow did not round-trip");
         }
         helper.succeed();
     }

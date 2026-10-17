@@ -73,14 +73,15 @@ public class NetworkToolItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        super.appendHoverText(stack, context, tooltip, flag);
+    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display,
+            java.util.function.Consumer<Component> tooltip, TooltipFlag flag) {
+        super.appendHoverText(stack, context, display, tooltip, flag);
         if (stack.has(ModDataComponents.NETWORK_ID.get())) {
-            tooltip.add(Component.translatable("tooltip.reticulum.linked_to", stack.getOrDefault(ModDataComponents.NETWORK_NAME.get(), "?"))
+            tooltip.accept(Component.translatable("tooltip.reticulum.linked_to", stack.getOrDefault(ModDataComponents.NETWORK_NAME.get(), "?"))
                     .withStyle(ChatFormatting.GRAY));
         }
-        tooltip.add(Component.translatable("tooltip.reticulum.tool_" + mode(stack).getSerializedName()).withStyle(ChatFormatting.DARK_GRAY));
-        tooltip.add(Component.translatable("tooltip.reticulum.tool_switch").withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.accept(Component.translatable("tooltip.reticulum.tool_" + mode(stack).getSerializedName()).withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.accept(Component.translatable("tooltip.reticulum.tool_switch").withStyle(ChatFormatting.DARK_GRAY));
     }
 
     /** Identify mode acts before the block does, so clicking a chest or machine lights it up instead of opening it. */

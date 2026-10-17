@@ -130,13 +130,13 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        if (tag.hasUUID("connector") && (!copied || isOriginal(tag.getUUID("connector")))) {
-            connectorId = tag.getUUID("connector");
+        if (tag.read("connector", net.minecraft.core.UUIDUtil.CODEC).isPresent() && (!copied || isOriginal(tag.read("connector", net.minecraft.core.UUIDUtil.CODEC).orElseThrow()))) {
+            connectorId = tag.read("connector", net.minecraft.core.UUIDUtil.CODEC).orElseThrow();
         } else if (copied) {
             // A copy (pick-block, /clone, a pasted structure): a new connector, on no network until placed against one.
             setNetworkId(null);
         }
-        disabledDevices = tag.getByte("disabled_devices");
+        disabledDevices = tag.getByteOr("disabled_devices", (byte) 0);
     }
 
     /**
@@ -167,7 +167,7 @@ public class ConnectorBlockEntity extends NetworkBlockEntity {
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
-        tag.putUUID("connector", connectorId);
+        tag.store("connector", net.minecraft.core.UUIDUtil.CODEC, connectorId);
         tag.putByte("disabled_devices", (byte) disabledDevices);
     }
 }

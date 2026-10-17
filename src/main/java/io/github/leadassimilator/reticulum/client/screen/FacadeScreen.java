@@ -67,7 +67,7 @@ public class FacadeScreen extends QuickScreen {
         Set<Item> ordered = new LinkedHashSet<>();
         var player = Minecraft.getInstance().player;
         if (player != null) {
-            for (ItemStack stack : player.getInventory().items) {
+            for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
                 if (stack.getItem() instanceof BlockItem item && FacadeItem.canBeFacade(item.getBlock().defaultBlockState())) {
                     ordered.add(item);
                 }

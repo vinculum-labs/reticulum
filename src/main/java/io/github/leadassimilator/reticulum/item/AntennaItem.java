@@ -26,10 +26,11 @@ public class AntennaItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        super.appendHoverText(stack, context, tooltip, flag);
-        tooltip.add(range(tier).copy().withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("tooltip.reticulum.antenna_use").withStyle(ChatFormatting.DARK_GRAY));
+    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display,
+            java.util.function.Consumer<Component> tooltip, TooltipFlag flag) {
+        super.appendHoverText(stack, context, display, tooltip, flag);
+        tooltip.accept(range(tier).copy().withStyle(ChatFormatting.GRAY));
+        tooltip.accept(Component.translatable("tooltip.reticulum.antenna_use").withStyle(ChatFormatting.DARK_GRAY));
     }
 
     /** "Wireless range: 128 blocks, same dimension" and the like. */

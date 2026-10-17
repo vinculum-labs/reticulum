@@ -77,7 +77,7 @@ public class StatusBeaconScreen extends QuickScreen {
         }
         inFlight = 0;
         // Against what the server had before: the local copy already took the new mode when its button was pressed.
-        boolean modeChanged = !view.settings().getString("mode").equals(next.settings().getString("mode"));
+        boolean modeChanged = !view.settings().getStringOr("mode", "").equals(next.settings().getStringOr("mode", ""));
         view = next;
         settings = next.settings().copy();
         if (modeChanged) {
@@ -100,14 +100,14 @@ public class StatusBeaconScreen extends QuickScreen {
     /** The tag of a state's own look, or null when a level takes the one below. */
     private CompoundTag own(int state) {
         if (state == StatusBeaconBlock.WARNING) {
-            return settings.getCompound("warning");
+            return settings.getCompoundOrEmpty("warning");
         }
         if (state == StatusBeaconBlock.CRITICAL) {
-            return settings.getCompound("critical");
+            return settings.getCompoundOrEmpty("critical");
         }
-        CompoundTag levels = settings.getCompound("levels");
+        CompoundTag levels = settings.getCompoundOrEmpty("levels");
         String key = Integer.toString(state);
-        return levels.contains(key) ? levels.getCompound(key) : null;
+        return levels.contains(key) ? levels.getCompoundOrEmpty(key) : null;
     }
 
     /** The look a level shows: its own or the nearest below (null: nothing). */
@@ -122,7 +122,7 @@ public class StatusBeaconScreen extends QuickScreen {
     }
 
     private void setOwn(int level, boolean on) {
-        CompoundTag levels = settings.getCompound("levels");
+        CompoundTag levels = settings.getCompoundOrEmpty("levels");
         if (on) {
             CompoundTag below = level > 0 ? shownAt(level - 1) : null;
             levels.put(Integer.toString(level), below != null ? below.copy() : (level >= 8 ? BeaconLook.CRITICAL : BeaconLook.WARNING).save());
@@ -276,7 +276,7 @@ public class StatusBeaconScreen extends QuickScreen {
         Button button = Button.builder(Component.literal(on ? "● " : "○ ").append(Component.translatable("screen.reticulum.beacon_" + labelKey))
                         .withColor(on ? 0x80FF80 : 0xD8D8D8),
                 b -> {
-                    change(t -> t.putInt("flags", on ? t.getInt("flags") & ~flag : t.getInt("flags") | flag));
+                    change(t -> t.putInt("flags", on ? t.getIntOr("flags", 0) & ~flag : t.getIntOr("flags", 0) | flag));
                     rebuildKeepingInput();
                 }).bounds(x, y, width, 16)
                 .tooltip(Tooltip.create(Component.translatable("screen.reticulum.beacon_" + labelKey + "_hint")))
@@ -322,7 +322,7 @@ public class StatusBeaconScreen extends QuickScreen {
         boolean changed = false;
         try {
             int color = Integer.parseInt(hex.getValue().replace("#", "").trim(), 16) & 0xFFFFFF;
-            changed |= color != look.getInt("color");
+            changed |= color != look.getIntOr("color", 0);
             look.putInt("color", color);
         } catch (NumberFormatException ignored) {
         }
@@ -330,7 +330,7 @@ public class StatusBeaconScreen extends QuickScreen {
             String text = textColor.getValue().replace("#", "").trim();
             try {
                 int color = text.isEmpty() ? BeaconLook.AUTO : Integer.parseInt(text, 16) & 0xFFFFFF;
-                int before = look.contains("text_color") ? look.getInt("text_color") : BeaconLook.AUTO;
+                int before = look.contains("text_color") ? look.getIntOr("text_color", 0) : BeaconLook.AUTO;
                 changed |= color != before;
                 look.putInt("text_color", color);
             } catch (NumberFormatException ignored) {
@@ -339,7 +339,7 @@ public class StatusBeaconScreen extends QuickScreen {
         try {
             float value = Float.parseFloat(pitch.getValue().trim().replace(',', '.'));
             if (Float.isFinite(value)) {
-                changed |= value != look.getFloat("pitch");
+                changed |= value != look.getFloatOr("pitch", 0f);
                 look.putFloat("pitch", value);
             }
         } catch (NumberFormatException ignored) {
@@ -347,25 +347,25 @@ public class StatusBeaconScreen extends QuickScreen {
         try {
             float value = Float.parseFloat(pitch2.getValue().trim().replace(',', '.'));
             if (Float.isFinite(value)) {
-                changed |= value != look.getFloat("pitch2");
+                changed |= value != look.getFloatOr("pitch2", 0f);
                 look.putFloat("pitch2", value);
             }
         } catch (NumberFormatException ignored) {
         }
         try {
             int value = Integer.parseInt(interval.getValue().trim());
-            changed |= value != look.getInt("interval");
+            changed |= value != look.getIntOr("interval", 0);
             look.putInt("interval", value);
         } catch (NumberFormatException ignored) {
         }
         try {
             int value = Integer.parseInt(range.getValue().trim());
-            changed |= value != look.getInt("range");
+            changed |= value != look.getIntOr("range", 0);
             look.putInt("range", value);
         } catch (NumberFormatException ignored) {
         }
         String text = label.getValue().strip();
-        if (!text.equals(look.getString("label"))) {
+        if (!text.equals(look.getStringOr("label", ""))) {
             look.putString("label", text);
             changed = true;
         }
@@ -475,7 +475,7 @@ public class StatusBeaconScreen extends QuickScreen {
             for (int level = 0; level <= 15; level++) {
                 CompoundTag look = shownAt(level);
                 int x = stripX(level);
-                int color = look == null ? 0xFF202226 : 0xFF000000 | look.getInt("color");
+                int color = look == null ? 0xFF202226 : 0xFF000000 | look.getIntOr("color", 0);
                 if (level == selected) {
                     graphics.fill(x - 1, pickerTop - 1, x + CELL + 1, pickerTop + CELL + 1, 0xFFFFFFFF);
                 }
@@ -502,10 +502,10 @@ public class StatusBeaconScreen extends QuickScreen {
         }
         graphics.drawString(font, Component.translatable("screen.reticulum.beacon_color"), left, colorTop + 3, 0xE0E0E0);
         graphics.drawString(font, Component.translatable("screen.reticulum.beacon_text_color_row"), left, colorTop + 21, 0xE0E0E0);
-        int textColorNow = look.contains("text_color") ? look.getInt("text_color") : BeaconLook.AUTO;
+        int textColorNow = look.contains("text_color") ? look.getIntOr("text_color", 0) : BeaconLook.AUTO;
         DyeColor[] dyes = DyeColor.values();
         for (int row = 0; row < 2; row++) {
-            int chosen = row == 0 ? look.getInt("color") : textColorNow;
+            int chosen = row == 0 ? look.getIntOr("color", 0) : textColorNow;
             int y = swatchY(row);
             for (int i = 0; i < dyes.length; i++) {
                 int x = swatchX(i);
@@ -520,7 +520,7 @@ public class StatusBeaconScreen extends QuickScreen {
         for (int row = 0; row < 2; row++) {
             int ax = autoX();
             int ay = swatchY(row);
-            boolean on = row == 0 ? look.getInt("color") == defaultColor() : textColorNow == BeaconLook.AUTO;
+            boolean on = row == 0 ? look.getIntOr("color", 0) == defaultColor() : textColorNow == BeaconLook.AUTO;
             if (on) {
                 graphics.fill(ax - 1, ay - 1, ax + SWATCH + 1, ay + SWATCH + 1, ring(0xFFFFFF));
             }

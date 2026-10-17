@@ -10,7 +10,6 @@ import io.github.leadassimilator.reticulum.item.FacadeItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
@@ -119,15 +118,6 @@ public abstract class LinkedBlock extends NetworkBlock {
         var network = io.github.leadassimilator.reticulum.topology.Topology.network(server, pos);
         return network == null
                 || io.github.leadassimilator.reticulum.security.Access.require(serverPlayer, network, io.github.leadassimilator.reticulum.security.Role.EDITOR) != null;
-    }
-
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        // Moved (a contraption), not broken: the facade travels in its data and comes back with it.
-        if (!state.is(newState.getBlock()) && !movedByPiston && !level.isClientSide && facadeAt(level, pos) != null) {
-            Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), FacadeItem.of(facadeAt(level, pos), 1));
-        }
-        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     @Override

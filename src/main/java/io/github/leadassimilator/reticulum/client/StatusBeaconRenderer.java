@@ -23,7 +23,8 @@ public class StatusBeaconRenderer implements BlockEntityRenderer<StatusBeaconBlo
     }
 
     @Override
-    public void render(StatusBeaconBlockEntity beacon, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
+    public void render(StatusBeaconBlockEntity beacon, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay,
+            net.minecraft.world.phys.Vec3 camera) {
         io.github.leadassimilator.reticulum.block.entity.BeaconLook look = beacon.look();
         if (look == null || !look.has(io.github.leadassimilator.reticulum.block.entity.BeaconLook.BEAM) || beacon.getLevel() == null) {
             return;

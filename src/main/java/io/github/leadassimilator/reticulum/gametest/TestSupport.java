@@ -25,6 +25,11 @@ final class TestSupport {
 
     /** Fails the test with {@code message} unless {@code condition} holds. */
     static void check(GameTestHelper helper, boolean condition, String message) {
-        helper.assertTrue(condition, message);
+        helper.assertTrue(condition, net.minecraft.network.chat.Component.literal(message));
+    }
+
+    /** Fails the test with {@code message}. */
+    static void fail(GameTestHelper helper, String message) {
+        helper.fail(net.minecraft.network.chat.Component.literal(message));
     }
 }

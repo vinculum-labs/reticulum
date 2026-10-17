@@ -17,7 +17,13 @@ import org.lwjgl.stb.STBIWriteCallback;
 import org.lwjgl.stb.STBImageWrite;
 import org.lwjgl.system.MemoryUtil;
 
+import com.mojang.blaze3d.buffers.BufferType;
+import com.mojang.blaze3d.buffers.BufferUsage;
+import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
+import com.mojang.blaze3d.systems.CommandEncoder;
+import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -106,25 +112,27 @@ public final class Icons {
 
     private static TextureTarget target() {
         if (target == null) {
-            target = new TextureTarget(SIZE, SIZE, true);
+            target = new TextureTarget("Telispex icons", SIZE, SIZE, true);
         }
         return target;
     }
 
     /**
-     * Whatever {@code draw} puts in a 16x16 GUI square, as a PNG. On the render thread; {@code id} only names it in the
-     * log should it fail.
+     * Whatever {@code draw} puts in a 16x16 GUI square, as a PNG. On the render thread, between frames; {@code id} only
+     * names it in the log should it fail. GUI and item rendering always draw to the main render target, so the icon
+     * target stands in for it meanwhile.
      */
     public static byte[] draw(ResourceLocation id, java.util.function.Consumer<GuiGraphics> draw) {
         Minecraft mc = Minecraft.getInstance();
         TextureTarget target = target();
+        CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
         Matrix4fStack modelView = RenderSystem.getModelViewStack();
+        RenderTarget main = mc.mainRenderTarget;
         RenderSystem.backupProjectionMatrix();
         modelView.pushMatrix();
         try {
-            target.setClearColor(0, 0, 0, 0);
-            target.clear();
-            target.bindWrite(true);
+            encoder.clearColorAndDepthTextures(target.getColorTexture(), 0, target.getDepthTexture(), 1.0);
+            mc.mainRenderTarget = target;
             float far = ClientHooks.getGuiFarPlane();
             RenderSystem.setProjectionMatrix(new Matrix4f().setOrtho(0, 16, 16, 0, 1000, far), ProjectionType.ORTHOGRAPHIC);
             modelView.translation(0, 0, 10000F - far);
@@ -132,20 +140,35 @@ public final class Icons {
             GuiGraphics graphics = new GuiGraphics(mc, mc.renderBuffers().bufferSource());
             draw.accept(graphics);
             graphics.flush();
-
-            try (NativeImage image = new NativeImage(SIZE, SIZE, false)) {
-                RenderSystem.bindTexture(target.getColorTextureId());
-                image.downloadTexture(0, false);
-                image.flipY();
-                return png(image);
-            }
-        } catch (IOException | RuntimeException e) {
+        } catch (RuntimeException e) {
             Telispex.LOGGER.warn("Could not render icon for {}", id, e);
             return transparent();
         } finally {
+            mc.mainRenderTarget = main;
             modelView.popMatrix();
             RenderSystem.restoreProjectionMatrix();
-            mc.getMainRenderTarget().bindWrite(true);
+        }
+        return read(id, target.getColorTexture(), encoder);
+    }
+
+    /** The texture's pixels, as a PNG. Reading the buffer waits for the copy, so this returns them right away. */
+    private static byte[] read(ResourceLocation id, GpuTexture texture, CommandEncoder encoder) {
+        try (GpuBuffer buffer = RenderSystem.getDevice().createBuffer(() -> "Telispex icon", BufferType.PIXEL_PACK, BufferUsage.STATIC_READ,
+                SIZE * SIZE * texture.getFormat().pixelSize())) {
+            encoder.copyTextureToBuffer(texture, buffer, 0, () -> {
+            }, 0);
+            try (GpuBuffer.ReadView view = encoder.readBuffer(buffer); NativeImage image = new NativeImage(SIZE, SIZE, false)) {
+                for (int y = 0; y < SIZE; y++) {
+                    for (int x = 0; x < SIZE; x++) {
+                        // Rows come bottom up.
+                        image.setPixelABGR(x, SIZE - 1 - y, view.data().getInt((x + y * SIZE) * texture.getFormat().pixelSize()));
+                    }
+                }
+                return png(image);
+            }
+        } catch (IOException | RuntimeException e) {
+            Telispex.LOGGER.warn("Could not read the icon for {}", id, e);
+            return transparent();
         }
     }
 

@@ -1,5 +1,7 @@
 package io.github.leadassimilator.reticulum.gametest;
 
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.fail;
+
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 
 import java.util.UUID;
@@ -20,7 +22,6 @@ import io.github.leadassimilator.reticulum.security.Role;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -28,12 +29,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Drives the web protocol the way the browser does, with JSON requests. */
-@GameTestHolder(Reticulum.MODID)
-@PrefixGameTestTemplate(false)
 public final class WebApiTests {
     private WebApiTests() {
     }
@@ -42,7 +39,7 @@ public final class WebApiTests {
         try {
             return WebApi.handle(player, JsonParser.parseString(json).getAsJsonObject(), "t");
         } catch (WebApi.RequestException e) {
-            helper.fail("Request failed: " + e.getMessage() + " for " + json);
+            fail(helper, "Request failed: " + e.getMessage() + " for " + json);
             return null;
         }
     }
@@ -60,7 +57,7 @@ public final class WebApiTests {
         place(helper, new BlockPos(2, 1, 1), ModBlocks.CABLE.get(), Direction.WEST);
         place(helper, new BlockPos(3, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
         place(helper, new BlockPos(4, 1, 1), ModBlocks.CONNECTOR.get(), Direction.WEST);
-        ((Container) helper.getBlockEntity(new BlockPos(3, 1, 2))).setItem(0, new ItemStack(Items.IRON_INGOT, 20));
+        ((Container) helper.getBlockEntity(new BlockPos(3, 1, 2), net.minecraft.world.level.block.entity.BlockEntity.class)).setItem(0, new ItemStack(Items.IRON_INGOT, 20));
 
         // A fake player: logging a mock player in would fire other mods' login handlers against a fake connection.
         ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
@@ -74,7 +71,7 @@ public final class WebApiTests {
         // Not a member of a private network: can't even see it.
         try {
             WebApi.handle(player, JsonParser.parseString("{\"op\":\"subscribe\",\"network\":\"" + id + "\"}").getAsJsonObject(), "t");
-            helper.fail("Non-member could subscribe to a private network");
+            fail(helper, "Non-member could subscribe to a private network");
         } catch (WebApi.RequestException expected) {
             // expected
         }
@@ -82,7 +79,7 @@ public final class WebApiTests {
 
         JsonObject snapshot = call(helper, player, "{\"op\":\"subscribe\",\"network\":\"" + id + "\"}").getAsJsonObject("network");
         if (snapshot.getAsJsonArray("devices").size() != 2) {
-            helper.fail("Snapshot should list 2 devices");
+            fail(helper, "Snapshot should list 2 devices");
         }
 
         JsonObject created = call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"web\"}]}");
@@ -107,21 +104,21 @@ public final class WebApiTests {
             WebApi.handle(player, JsonParser.parseString("{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"addNode\",\"sheet\":\""
                     + sheet + "\",\"node\":{\"id\":\"" + UUID.randomUUID() + "\",\"settings\":{\"kind\":\"device\",\"device\":"
                     + pos(helper, new BlockPos(6, 1, 6)) + "}}}]}").getAsJsonObject(), "t");
-            helper.fail("A sink outside the network was accepted");
+            fail(helper, "A sink outside the network was accepted");
         } catch (WebApi.RequestException expected) {
             // expected
         }
 
         helper.succeedWhen(() -> {
-            Container out = (Container) helper.getBlockEntity(new BlockPos(4, 1, 2));
+            Container out = (Container) helper.getBlockEntity(new BlockPos(4, 1, 2), net.minecraft.world.level.block.entity.BlockEntity.class);
             if (out.countItem(Items.IRON_INGOT) != 20) {
-                helper.fail("Items not moved by the web-built flow yet");
+                fail(helper, "Items not moved by the web-built flow yet");
             }
             JsonObject again = call(helper, player, "{\"op\":\"subscribe\",\"network\":\"" + id + "\"}").getAsJsonObject("network");
             boolean named = again.getAsJsonArray("devices").asList().stream()
                     .anyMatch(d -> d.getAsJsonObject().has("name") && d.getAsJsonObject().get("name").getAsString().equals("Output barrel"));
             if (!named) {
-                helper.fail("Rename not in snapshot");
+                fail(helper, "Rename not in snapshot");
             }
         });
     }
@@ -148,7 +145,7 @@ public final class WebApiTests {
                 {"{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"n\",\"x\":\"NaN\"}]}", "a NaN position"}}) {
             try {
                 WebApi.handle(player, JsonParser.parseString(refused[0]).getAsJsonObject(), "t");
-                helper.fail("Accepted " + refused[1]);
+                fail(helper, "Accepted " + refused[1]);
             } catch (WebApi.RequestException expected) {
                 // expected
             }
@@ -181,13 +178,13 @@ public final class WebApiTests {
         String b = placeOne.apply(null);
         String named = placeOne.apply("North smelter");
         if (!nameOf.apply(a).equals("bp #1") || !nameOf.apply(b).equals("bp #2") || !nameOf.apply(named).equals("North smelter")) {
-            helper.fail("Names: " + nameOf.apply(a) + ", " + nameOf.apply(b) + ", " + nameOf.apply(named));
+            fail(helper, "Names: " + nameOf.apply(a) + ", " + nameOf.apply(b) + ", " + nameOf.apply(named));
         }
         call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"removeNode\",\"sheet\":\"" + root
                 + "\",\"node\":\"" + a + "\"}]}");
         String c = placeOne.apply(null);
         if (!nameOf.apply(c).equals("bp #1") || !nameOf.apply(b).equals("bp #2")) {
-            helper.fail("After removing #1: " + nameOf.apply(c) + ", " + nameOf.apply(b));
+            fail(helper, "After removing #1: " + nameOf.apply(c) + ", " + nameOf.apply(b));
         }
         // One on a sheet inside keeps its number when one with the same name comes back on the root (an undo): the
         // newcomer is numbered again, whatever order the sheets are in.
@@ -200,14 +197,14 @@ public final class WebApiTests {
         String was = innerName.apply(e);
         String back = placeOne.apply(was);
         if (!innerName.apply(e).equals(was) || nameOf.apply(back).equals(was)) {
-            helper.fail("A returning name took the number: inner " + innerName.apply(e) + ", returning " + nameOf.apply(back));
+            fail(helper, "A returning name took the number: inner " + innerName.apply(e) + ", returning " + nameOf.apply(back));
         }
         // A placement renamed onto another's numbered name is numbered again; the other keeps it, whatever the sheet order.
         String cName = nameOf.apply(c);
         call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"updateNode\",\"sheet\":\"" + inner
                 + "\",\"node\":{\"id\":\"" + e + "\",\"label\":\"" + cName + "\",\"settings\":{\"kind\":\"instance\",\"sheet\":\"" + blueprint + "\"}}}]}");
         if (!nameOf.apply(c).equals(cName) || innerName.apply(e).equals(cName)) {
-            helper.fail("A rename onto a taken number: kept " + nameOf.apply(c) + ", renamed " + innerName.apply(e));
+            fail(helper, "A rename onto a taken number: kept " + nameOf.apply(c) + ", renamed " + innerName.apply(e));
         }
         // Imported twice onto a taken name: "(imported)", then "(imported 2)".
         String pasted = "{\"id\":\"" + UUID.randomUUID() + "\",\"name\":\"inner\",\"nodes\":[]}";
@@ -218,7 +215,7 @@ public final class WebApiTests {
         String firstName = network.sheet(UUID.fromString(first)).name();
         String secondName = network.sheet(UUID.fromString(second)).name();
         if (!firstName.equals("inner (imported)") || !secondName.equals("inner (imported 2)")) {
-            helper.fail("Imported names: " + firstName + ", " + secondName);
+            fail(helper, "Imported names: " + firstName + ", " + secondName);
         }
         helper.succeed();
     }
@@ -238,7 +235,7 @@ public final class WebApiTests {
         ModBlocks.CABLE.get().setPlacedBy(helper.getLevel(), helper.absolutePos(at), helper.getBlockState(at), fake, new ItemStack(ModBlocks.CABLE.get()));
         UUID joined = Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(at)));
         if (network.id().equals(joined)) {
-            helper.fail("A Deployer's cable joined a private network");
+            fail(helper, "A Deployer's cable joined a private network");
         }
         helper.succeed();
     }
@@ -255,7 +252,7 @@ public final class WebApiTests {
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(at))));
         if (network == null || network.owner() != null || network.accessMode() != AccessMode.PUBLIC) {
-            helper.fail("A fake player's controller made " + (network == null ? "no network" : "a network owned by " + network.ownerName()
+            fail(helper, "A fake player's controller made " + (network == null ? "no network" : "a network owned by " + network.ownerName()
                     + ", " + network.accessMode()));
         }
         helper.succeed();
@@ -295,26 +292,26 @@ public final class WebApiTests {
                 + blueprint + "\",\"node\":\"" + toggle + "\",\"run\":\"" + run + "\",\"value\":" + value + "}";
         call(helper, player, set.apply(runA, 9L));
         if (network.signalMemory().getOrDefault(runA, 0L) != 9 || network.signalMemory().containsKey(runB)) {
-            helper.fail("Setting one copy's switch set " + network.signalMemory());
+            fail(helper, "Setting one copy's switch set " + network.signalMemory());
         }
         for (String[] refused : new String[][] {{set.apply(runB, 5L), "a value other than 0 or its own"},
                 {set.apply(UUID.randomUUID().toString(), 9L), "a copy that isn't placed"}}) {
             try {
                 WebApi.handle(player, JsonParser.parseString(refused[0]).getAsJsonObject(), "t");
-                helper.fail("Set a switch to " + refused[1]);
+                fail(helper, "Set a switch to " + refused[1]);
             } catch (WebApi.RequestException expected) {
                 // expected
             }
         }
         try {
             WebApi.handle(viewer, JsonParser.parseString(set.apply(runA, 0L)).getAsJsonObject(), "t");
-            helper.fail("A viewer flipped a switch");
+            fail(helper, "A viewer flipped a switch");
         } catch (WebApi.RequestException expected) {
             // expected
         }
         call(helper, player, set.apply(runA, 0L));
         if (network.signalMemory().containsKey(runA)) {
-            helper.fail("Turning the switch off left " + network.signalMemory());
+            fail(helper, "Turning the switch off left " + network.signalMemory());
         }
         helper.succeed();
     }
@@ -340,12 +337,12 @@ public final class WebApiTests {
                     + "{\"type\":\"addNode\",\"sheet\":\"" + sheet + "\",\"node\":{\"id\":\"" + UUID.randomUUID() + "\",\"settings\":{\"kind\":\"filter\",\"expression\":\"@ores\"}}},"
                     + "{\"type\":\"noSuchEdit\"}"
                     + "]}").getAsJsonObject(), "t");
-            helper.fail("A batch with a refused edit was accepted");
+            fail(helper, "A batch with a refused edit was accepted");
         } catch (WebApi.RequestException expected) {
             // expected
         }
         if (network.sheets().size() != sheets || network.filters().containsKey("ores") || network.sheet(UUID.fromString(sheet)).nodes().size() != nodes) {
-            helper.fail("The edits before the refused one were kept: " + network.sheets().size() + " sheets, templates " + network.filters().keySet());
+            fail(helper, "The edits before the refused one were kept: " + network.sheets().size() + " sheets, templates " + network.filters().keySet());
         }
         helper.succeed();
     }
@@ -364,7 +361,7 @@ public final class WebApiTests {
                 .getAsJsonArray("results").get(0).getAsString();
         Network.Placement placed = network.placement(UUID.fromString(inner));
         if (placed == null) {
-            helper.fail("The new sheet has no node");
+            fail(helper, "The new sheet has no node");
             return;
         }
         String outer = placed.parent().id().toString();
@@ -378,7 +375,7 @@ public final class WebApiTests {
                 + "]}");
         call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"removeNode\",\"sheet\":\"" + inner + "\",\"node\":\"" + pin + "\"}]}");
         if (placed.parent().wires().stream().anyMatch(w -> w.to().toString().equals(holder))) {
-            helper.fail("A wire is left on the removed pin's handle");
+            fail(helper, "A wire is left on the removed pin's handle");
         }
         helper.succeed();
     }
@@ -401,12 +398,12 @@ public final class WebApiTests {
         try {
             WebApi.handle(player, JsonParser.parseString("{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"createSheet\",\"name\":\"deep\",\"parent\":\""
                     + parent + "\"}]}").getAsJsonObject(), "t");
-            helper.fail("A sheet past the depth limit was accepted");
+            fail(helper, "A sheet past the depth limit was accepted");
         } catch (WebApi.RequestException expected) {
             // expected
         }
         if (network.depth(network.sheet(UUID.fromString(parent))) != io.github.leadassimilator.reticulum.network.Limits.SHEET_DEPTH) {
-            helper.fail("The deepest sheet isn't where it was put: depth " + network.depth(network.sheet(UUID.fromString(parent))));
+            fail(helper, "The deepest sheet isn't where it was put: depth " + network.depth(network.sheet(UUID.fromString(parent))));
         }
         helper.succeed();
     }
@@ -432,7 +429,7 @@ public final class WebApiTests {
         try {
             WebApi.handle(player, JsonParser.parseString("{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[" + String.format(wire, UUID.randomUUID())
                     + "]}").getAsJsonObject(), "t");
-            helper.fail("The same wire was drawn twice");
+            fail(helper, "The same wire was drawn twice");
         } catch (WebApi.RequestException expected) {
             // expected
         }
@@ -468,14 +465,14 @@ public final class WebApiTests {
         var slot = blueprint.nodes().stream().filter(n -> n.settings() instanceof NodeSettings.DeviceSettings).findFirst().orElseThrow();
         var sensor = blueprint.nodes().stream().filter(n -> n.settings() instanceof NodeSettings.LevelSettings).findFirst().orElseThrow();
         if (!(sensor.settings() instanceof NodeSettings.LevelSettings level) || !level.slot().equals(java.util.Optional.of(slot.id()))) {
-            helper.fail("The sensor doesn't read the slot made from its device: " + sensor.settings());
+            fail(helper, "The sensor doesn't read the slot made from its device: " + sensor.settings());
             return;
         }
         // In an instance filled with another block, it reads that block.
         net.minecraft.core.GlobalPos other = net.minecraft.core.GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(5, 1, 5)));
         var bound = io.github.leadassimilator.reticulum.graph.Blueprints.bound(sensor, java.util.Map.of(slot.id(), new NodeSettings.Binding(other, 0)));
         if (!(bound instanceof NodeSettings.LevelSettings reading) || !reading.device().equals(other) || reading.slot().isPresent()) {
-            helper.fail("In an instance the sensor doesn't read the block filling its slot: " + bound);
+            fail(helper, "In an instance the sensor doesn't read the block filling its slot: " + bound);
         }
         helper.succeed();
     }
@@ -514,12 +511,12 @@ public final class WebApiTests {
         var t = network.sheet(UUID.fromString(sheet));
         var instance = (NodeSettings.InstanceSettings) t.node(UUID.fromString(placed)).settings();
         if (instance.bindings().containsKey(UUID.fromString(slot)) || t.node(UUID.fromString(own)) == null) {
-            helper.fail("The barrel has two homes: " + instance.bindings());
+            fail(helper, "The barrel has two homes: " + instance.bindings());
         }
         // The answer says how to restore what was dropped: undone (the slot taken out again, that put back), then the
         // barrel's own node undone and the slot restored, the placement has its barrel again.
         if (!back.has("restore") || back.getAsJsonArray("restore").isEmpty()) {
-            helper.fail("The answer doesn't say what was dropped");
+            fail(helper, "The answer doesn't say what was dropped");
             return;
         }
         JsonArray undo = new JsonArray();
@@ -534,7 +531,7 @@ public final class WebApiTests {
         call(helper, player, edit + "{\"type\":\"addNode\",\"sheet\":\"" + bp + "\",\"node\":" + slotNode + "}]}");
         var restored = (NodeSettings.InstanceSettings) t.node(UUID.fromString(placed)).settings();
         if (!restored.bindings().containsKey(UUID.fromString(slot))) {
-            helper.fail("Undone back to the start, the slot came back empty: " + restored.bindings());
+            fail(helper, "Undone back to the start, the slot came back empty: " + restored.bindings());
         }
         helper.succeed();
     }
@@ -554,7 +551,7 @@ public final class WebApiTests {
         String back = io.github.leadassimilator.telispex.relay.RelayPayloads.join(parts.stream().map(p -> p.data()).toList(),
                 io.github.leadassimilator.telispex.relay.RelayPayloads.MAX_REQUEST_BYTES);
         if (parts.size() < 2 || !small || !back.equals(json.toString())) {
-            helper.fail("Pieces " + parts.size() + ", within a packet " + small + ", whole again " + back.equals(json.toString()));
+            fail(helper, "Pieces " + parts.size() + ", within a packet " + small + ", whole again " + back.equals(json.toString()));
         }
         helper.succeed();
     }
@@ -575,7 +572,7 @@ public final class WebApiTests {
         var moved = into.sheets().stream().flatMap(sh -> sh.nodes().stream()).filter(n -> n.id().equals(filter.id())).findFirst().orElseThrow();
         boolean used = moved.settings() instanceof NodeSettings.FilterSettings f && f.expression().equals("@\"ores 2\"");
         if (!kept || !used) {
-            helper.fail("Templates " + into.filters() + ", filter " + moved.settings());
+            fail(helper, "Templates " + into.filters() + ", filter " + moved.settings());
         }
         NetworkManager.delete(server, into);
         helper.succeed();
@@ -601,12 +598,12 @@ public final class WebApiTests {
         call(helper, player, edit + "{\"type\":\"removeNode\",\"sheet\":\"" + root + "\",\"node\":\"" + latch + "\"},"
                 + "{\"type\":\"addNode\",\"sheet\":\"" + other + "\",\"node\":" + node + "}]}");
         if (!Long.valueOf(15L).equals(network.signalMemory().get(latch))) {
-            helper.fail("The moved latch forgot: " + network.signalMemory().get(latch));
+            fail(helper, "The moved latch forgot: " + network.signalMemory().get(latch));
             return;
         }
         call(helper, player, edit + "{\"type\":\"removeNode\",\"sheet\":\"" + other + "\",\"node\":\"" + latch + "\"}]}");
         if (network.signalMemory().containsKey(latch)) {
-            helper.fail("The deleted latch still remembers");
+            fail(helper, "The deleted latch still remembers");
         }
         helper.succeed();
     }
@@ -641,7 +638,7 @@ public final class WebApiTests {
         java.util.Set<UUID> leaving = new java.util.HashSet<>();
         sheet.wires().stream().filter(w -> w.from().equals(copy.id())).forEach(w -> leaving.add(w.id()));
         if (!weights.keySet().equals(leaving) || !new java.util.HashSet<>(weights.values()).equals(java.util.Set.of(3, 1))) {
-            helper.fail("Weights " + weights + " for wires " + leaving);
+            fail(helper, "Weights " + weights + " for wires " + leaving);
         }
         helper.succeed();
     }
@@ -670,7 +667,7 @@ public final class WebApiTests {
                 + "]}");
         call(helper, player, "{\"op\":\"edit\",\"network\":\"" + id + "\",\"edits\":[{\"type\":\"removeNode\",\"sheet\":\"" + blueprint + "\",\"node\":\"" + pin + "\"}]}");
         if (network.root().wires().stream().anyMatch(w -> w.from().toString().equals(instance))) {
-            helper.fail("A wire is left on the instance for the removed pin");
+            fail(helper, "A wire is left on the instance for the removed pin");
         }
         helper.succeed();
     }
@@ -694,14 +691,14 @@ public final class WebApiTests {
         network.ensureTree();
         var placedC = network.placement(c.id());
         if (placedC == null || placedC.parent() != a) {
-            helper.fail("C, beside the loop, was moved: in " + (placedC == null ? "nothing" : placedC.parent().name()));
+            fail(helper, "C, beside the loop, was moved: in " + (placedC == null ? "nothing" : placedC.parent().name()));
         }
         var placedA = network.placement(a.id());
         var placedB = network.placement(b.id());
         boolean oneInOther = placedA != null && placedB != null
                 && (placedA.parent() == b && placedB.parent().root() || placedB.parent() == a && placedA.parent().root());
         if (!oneInOther) {
-            helper.fail("Expected one sheet left inside the other and that one in the root: A in "
+            fail(helper, "Expected one sheet left inside the other and that one in the root: A in "
                     + (placedA == null ? "nothing" : placedA.parent().name()) + ", B in " + (placedB == null ? "nothing" : placedB.parent().name()));
         }
         helper.succeed();
@@ -741,19 +738,19 @@ public final class WebApiTests {
 
     private static void expectTemplates(GameTestHelper helper, Network network, String sheetId, String filterNode, String deviceNode, String name) {
         if (!network.filters().containsKey(name) || network.filters().size() != 2) {
-            helper.fail("Templates after the rename: " + network.filters().keySet());
+            fail(helper, "Templates after the rename: " + network.filters().keySet());
         }
         if (!("@" + name + " | minecraft:gold_ingot").equals(network.filters().get("metals"))) {
-            helper.fail("The template using it wasn't renamed: " + network.filters().get("metals"));
+            fail(helper, "The template using it wasn't renamed: " + network.filters().get("metals"));
         }
         var sheet = network.sheet(UUID.fromString(sheetId));
         if (!(sheet.node(UUID.fromString(filterNode)).settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.FilterSettings f)
                 || !f.expression().equals("@" + name)) {
-            helper.fail("The filter node wasn't renamed: " + sheet.node(UUID.fromString(filterNode)).settings());
+            fail(helper, "The filter node wasn't renamed: " + sheet.node(UUID.fromString(filterNode)).settings());
         }
         if (!(sheet.node(UUID.fromString(deviceNode)).settings() instanceof io.github.leadassimilator.reticulum.graph.NodeSettings.DeviceSettings d)
                 || !d.outputs().get(0).keep().get(0).filter().equals("@" + name)) {
-            helper.fail("The keep rule wasn't renamed: " + sheet.node(UUID.fromString(deviceNode)).settings());
+            fail(helper, "The keep rule wasn't renamed: " + sheet.node(UUID.fromString(deviceNode)).settings());
         }
     }
 
@@ -764,7 +761,7 @@ public final class WebApiTests {
             Class.forName("io.netty.handler.codec.http.HttpServerCodec", false, WebApiTests.class.getClassLoader());
             Class.forName("io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory", false, WebApiTests.class.getClassLoader());
         } catch (ClassNotFoundException e) {
-            helper.fail("netty-codec-http is not visible to the mod: " + e.getMessage());
+            fail(helper, "netty-codec-http is not visible to the mod: " + e.getMessage());
         }
         helper.succeed();
     }

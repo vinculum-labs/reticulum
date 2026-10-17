@@ -10,17 +10,12 @@ import io.github.leadassimilator.reticulum.network.Devices;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
 import io.github.leadassimilator.reticulum.gametest.EngineTests.Rig;
 import io.github.leadassimilator.reticulum.Reticulum;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Game tests with AE2: ME links between AE2 networks. Left out of builds without AE2 support. */
-@GameTestHolder(Reticulum.MODID)
-@PrefixGameTestTemplate(false)
 public final class Ae2Tests {
     private Ae2Tests() {
     }

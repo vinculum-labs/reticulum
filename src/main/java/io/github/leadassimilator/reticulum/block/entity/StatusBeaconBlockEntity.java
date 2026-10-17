@@ -119,14 +119,14 @@ public class StatusBeaconBlockEntity extends BlockEntity {
 
     /** Takes settings (from the screen or the save), kept within the server's limits. */
     public void readSettings(CompoundTag tag) {
-        mode = "redstone".equals(tag.getString("mode")) ? Mode.REDSTONE : Mode.NETWORK;
-        warning = tag.contains("warning") ? BeaconLook.load(tag.getCompound("warning"), BeaconLook.WARNING) : BeaconLook.WARNING;
-        critical = tag.contains("critical") ? BeaconLook.load(tag.getCompound("critical"), BeaconLook.CRITICAL) : BeaconLook.CRITICAL;
+        mode = "redstone".equals(tag.getStringOr("mode", "")) ? Mode.REDSTONE : Mode.NETWORK;
+        warning = tag.contains("warning") ? BeaconLook.load(tag.getCompoundOrEmpty("warning"), BeaconLook.WARNING) : BeaconLook.WARNING;
+        critical = tag.contains("critical") ? BeaconLook.load(tag.getCompoundOrEmpty("critical"), BeaconLook.CRITICAL) : BeaconLook.CRITICAL;
         if (tag.contains("levels")) {
-            CompoundTag own = tag.getCompound("levels");
+            CompoundTag own = tag.getCompoundOrEmpty("levels");
             for (int i = 0; i <= 15; i++) {
                 String key = Integer.toString(i);
-                levels[i] = own.contains(key) ? BeaconLook.load(own.getCompound(key), i >= 8 ? BeaconLook.CRITICAL : BeaconLook.WARNING) : null;
+                levels[i] = own.contains(key) ? BeaconLook.load(own.getCompoundOrEmpty(key), i >= 8 ? BeaconLook.CRITICAL : BeaconLook.WARNING) : null;
             }
         }
     }
@@ -326,7 +326,7 @@ public class StatusBeaconBlockEntity extends BlockEntity {
         super.saveAdditional(tag, registries);
         tag.put("settings", settings());
         if (placer != null) {
-            tag.putUUID("placer", placer);
+            tag.store("placer", net.minecraft.core.UUIDUtil.CODEC, placer);
         }
     }
 
@@ -334,15 +334,15 @@ public class StatusBeaconBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         if (tag.contains("settings")) {
-            readSettings(tag.getCompound("settings"));
+            readSettings(tag.getCompoundOrEmpty("settings"));
         }
         // Only from the saved block (the update sent to clients leaves it out).
-        if (tag.hasUUID("placer")) {
-            placer = tag.getUUID("placer");
+        if (tag.read("placer", net.minecraft.core.UUIDUtil.CODEC).isPresent()) {
+            placer = tag.read("placer", net.minecraft.core.UUIDUtil.CODEC).orElseThrow();
         }
         if (tag.contains("alarm_texts")) {
             List<String> texts = new java.util.ArrayList<>();
-            tag.getList("alarm_texts", net.minecraft.nbt.Tag.TAG_STRING).forEach(t -> texts.add(t.getAsString()));
+            tag.getListOrEmpty("alarm_texts").forEach(t -> t.asString().ifPresent(texts::add));
             alarmTexts = List.copyOf(texts);
         }
         // New looks on the client: the lens is tinted by the look, so its chunk is drawn again.

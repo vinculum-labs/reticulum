@@ -193,6 +193,57 @@ public final class Topology {
         }
     }
 
+    /** A network block on its way out: captured with its block entity, applied once its block is gone. */
+    private record PendingRemoval(Removed removed, NetworkBlockEntity be) {
+    }
+
+    private static final Map<GlobalPos, PendingRemoval> PENDING_REMOVALS = new java.util.HashMap<>();
+
+    /**
+     * A network block is being replaced by another block: captured now, while its block entity is still in the level
+     * (NetworkBlockEntity#preRemoveSideEffects). {@link #afterRemoval} then applies it.
+     */
+    public static void beforeRemoval(ServerLevel level, NetworkBlockEntity be) {
+        PENDING_REMOVALS.put(GlobalPos.of(level.dimension(), be.getBlockPos()), new PendingRemoval(capture(be), be));
+    }
+
+    /**
+     * The block is gone. Called with {@code movedByPiston} once its neighbors are told (NetworkBlock
+     * #affectNeighborsAfterRemoval); a replacement without neighbor updates (/setblock) is applied as not moved, before
+     * a network block placed there or at the end of the tick.
+     */
+    public static void afterRemoval(ServerLevel level, BlockPos pos, boolean movedByPiston) {
+        PendingRemoval pending = PENDING_REMOVALS.remove(GlobalPos.of(level.dimension(), pos));
+        if (pending == null) {
+            return;
+        }
+        Removed removed = pending.removed();
+        // Broken, it drops its facade; moved (a contraption), the facade travels in its data and comes back with it.
+        if (!movedByPiston && pending.be().facade() != null) {
+            net.minecraft.world.Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(),
+                    io.github.leadassimilator.reticulum.item.FacadeItem.of(pending.be().facade(), 1));
+        }
+        // Moved by a piston or contraption (Create), not broken: it comes back elsewhere with its data, so a connector
+        // keeps its record (its name, its devices) meanwhile, and arriving it isn't taken for a copy.
+        if (movedByPiston && !removed.controller()) {
+            noteMoving(level, pending.be());
+            removed = new Removed(removed.networkId(), false, null);
+        }
+        onRemoved(level, pos, removed, movedByPiston);
+    }
+
+    /** End of the server tick: removals no neighbor update reached. */
+    public static void flushRemovals(net.minecraft.server.MinecraftServer server) {
+        for (GlobalPos at : List.copyOf(PENDING_REMOVALS.keySet())) {
+            ServerLevel level = server.getLevel(at.dimension());
+            if (level == null) {
+                PENDING_REMOVALS.remove(at);
+            } else {
+                afterRemoval(level, at.pos(), false);
+            }
+        }
+    }
+
     public static Removed capture(NetworkBlockEntity be) {
         return new Removed(be.networkId(), be instanceof ControllerBlockEntity,
                 be instanceof ConnectorBlockEntity connector ? connector.connectorId() : null);

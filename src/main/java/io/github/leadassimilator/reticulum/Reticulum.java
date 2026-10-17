@@ -44,6 +44,7 @@ public class Reticulum {
         io.github.leadassimilator.telispex.Telispex.init(modEventBus);
         io.github.leadassimilator.telispex.relay.Relay.register(MODID, WebApi::onRequest);
         modEventBus.addListener(DataGenerators::gatherData);
+        io.github.leadassimilator.reticulum.gametest.GameTests.init(modEventBus);
         if (Mods.CHEMICALS != null) {
             Mods.CHEMICALS.register(modEventBus);
         }

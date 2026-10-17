@@ -24,6 +24,11 @@ import net.minecraft.world.level.saveddata.SavedData;
 public final class ReticulumSavedData extends SavedData {
     public static final int SCHEMA_VERSION = 1;
     private static final String FILE_NAME = Reticulum.MODID + "_networks";
+    /** Read and written by {@link #load} and {@link #save}, which handle a file they can't read (whole or in part). */
+    private static final net.minecraft.world.level.saveddata.SavedDataType<ReticulumSavedData> TYPE = new net.minecraft.world.level.saveddata.SavedDataType<>(
+            FILE_NAME, context -> new ReticulumSavedData(), context -> CompoundTag.CODEC.xmap(
+                    tag -> load(tag, context.levelOrThrow().registryAccess()),
+                    data -> data.save(new CompoundTag(), context.levelOrThrow().registryAccess())));
 
     private record Contents(int schemaVersion, List<Network> networks, Map<UUID, UUID> aliases) {
         static final Codec<Contents> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -51,8 +56,7 @@ public final class ReticulumSavedData extends SavedData {
     private final Map<UUID, UUID> aliases = new LinkedHashMap<>();
 
     public static ReticulumSavedData get(MinecraftServer server) {
-        ReticulumSavedData data = server.overworld().getDataStorage().computeIfAbsent(
-                new SavedData.Factory<>(ReticulumSavedData::new, ReticulumSavedData::load), FILE_NAME);
+        ReticulumSavedData data = server.overworld().getDataStorage().computeIfAbsent(TYPE);
         // Made fresh although the file is there: Minecraft couldn't read it at all (a broken file), so load never ran.
         if (!data.checkedFile) {
             data.checkedFile = true;
@@ -132,8 +136,7 @@ public final class ReticulumSavedData extends SavedData {
         return data;
     }
 
-    @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    private CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         Contents contents = new Contents(SCHEMA_VERSION, List.copyOf(networks.values()), Map.copyOf(aliases));
         var encoded = Contents.CODEC.encodeStart(RegistryOps.create(NbtOps.INSTANCE, registries), contents);
         if (encoded.result().isPresent()) {

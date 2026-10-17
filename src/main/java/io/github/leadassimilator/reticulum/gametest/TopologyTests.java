@@ -2,6 +2,7 @@ package io.github.leadassimilator.reticulum.gametest;
 
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.fail;
 
 import java.util.UUID;
 
@@ -18,15 +19,10 @@ import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder(Reticulum.MODID)
-@PrefixGameTestTemplate(false)
 public final class TopologyTests {
     private TopologyTests() {
     }
@@ -34,7 +30,7 @@ public final class TopologyTests {
     private static NetworkBlockEntity be(GameTestHelper helper, BlockPos rel) {
         NetworkBlockEntity be = Topology.blockEntity(helper.getLevel(), helper.absolutePos(rel));
         if (be == null) {
-            helper.fail("No network block at " + rel);
+            fail(helper, "No network block at " + rel);
         }
         return be;
     }
@@ -47,7 +43,7 @@ public final class TopologyTests {
     private static Network network(GameTestHelper helper, BlockPos rel) {
         Network network = NetworkManager.network(helper.getLevel().getServer(), net(helper, rel));
         if (network == null) {
-            helper.fail("No network at " + rel);
+            fail(helper, "No network at " + rel);
         }
         return network;
     }
@@ -81,7 +77,7 @@ public final class TopologyTests {
         check(helper, a != b, "the two controllers share a network");
         a.switches().setRedstone(io.github.leadassimilator.reticulum.network.Switches.Redstone.LOW);
         // B reaches its wireless connector with an antenna (without one, a connector no cable joins does nothing).
-        ((io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getBlockEntity(new BlockPos(5, 1, 5))).setAntennaTier(1);
+        ((io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getBlockEntity(new BlockPos(5, 1, 5), net.minecraft.world.level.block.entity.BlockEntity.class)).setAntennaTier(1);
 
         // Placed from a stack bound to B, against A's controller.
         BlockPos at = new BlockPos(2, 1, 1);

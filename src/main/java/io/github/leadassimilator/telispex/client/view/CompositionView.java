@@ -8,7 +8,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.WGLNVDXInterop;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.sun.jna.Function;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
@@ -306,7 +306,7 @@ final class CompositionView {
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
         WGLNVDXInterop.wglDXLockObjectsNV(interopDevice, PointerBuffer.allocateDirect(1).put(0, interopObject));
-        FrameTexture.register(FRAME, glTexture);
+        FrameTexture.register(FRAME, glTexture, w, h);
         return true;
     }
 

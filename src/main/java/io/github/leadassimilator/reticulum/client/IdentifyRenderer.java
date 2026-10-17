@@ -5,13 +5,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.OptionalDouble;
 
-import org.lwjgl.opengl.GL11;
 
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.systems.RenderSystem;
 
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.ReticulumClientConfig;
@@ -21,6 +20,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
@@ -41,80 +41,48 @@ public final class IdentifyRenderer {
     /** How far outside the block a face is drawn. */
     private static final double MARGIN = 0.01;
     /** Lines that ignore depth, so they show through walls. */
-    static final RenderType LINES_THROUGH_WALLS = RenderType.create("reticulum_identify_lines", DefaultVertexFormat.POSITION_COLOR_NORMAL,
-            VertexFormat.Mode.LINES, 1536, false, false, RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.RENDERTYPE_LINES_SHADER)
+    private static final RenderPipeline LINES_THROUGH_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
+            .withLocation(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "pipeline/lines_through_walls"))
+            .withDepthWrite(false).withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST).build();
+    static final RenderType LINES_THROUGH_WALLS = RenderType.create("reticulum_identify_lines", 1536, LINES_THROUGH_WALLS_PIPELINE,
+            RenderType.CompositeState.builder()
                     .setLineState(new RenderStateShard.LineStateShard(OptionalDouble.of(2.5)))
                     .setLayeringState(RenderStateShard.VIEW_OFFSET_Z_LAYERING)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
                     .setOutputState(RenderStateShard.ITEM_ENTITY_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .setDepthTestState(States.NO_DEPTH)
                     .createCompositeState(false));
     /** Translucent quads that ignore depth, for a highlighted face. */
-    static final RenderType QUADS_THROUGH_WALLS = RenderType.create("reticulum_identify_quads", DefaultVertexFormat.POSITION_COLOR,
-            VertexFormat.Mode.QUADS, 1536, false, true, RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .setDepthTestState(States.NO_DEPTH)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .createCompositeState(false));
+    private static final RenderPipeline QUADS_THROUGH_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
+            .withLocation(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "pipeline/quads_through_walls"))
+            .withCull(false).withDepthWrite(false).withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST).build();
+    static final RenderType QUADS_THROUGH_WALLS = RenderType.create("reticulum_identify_quads", 1536, false, true, QUADS_THROUGH_WALLS_PIPELINE,
+            RenderType.CompositeState.builder().createCompositeState(false));
 
     /**
      * Translucent quads that walls hide but that hide nothing themselves (no depth written): a glow around a block, so
      * text inside it (a beacon's label) still shows.
      */
-    static final RenderType QUADS_BEHIND_WALLS = RenderType.create("reticulum_glow_quads", DefaultVertexFormat.POSITION_COLOR,
-            VertexFormat.Mode.QUADS, 1536, false, true, RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .setDepthTestState(RenderStateShard.LEQUAL_DEPTH_TEST)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .createCompositeState(false));
+    private static final RenderPipeline QUADS_BEHIND_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
+            .withLocation(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "pipeline/quads_behind_walls"))
+            .withCull(false).withDepthWrite(false).build();
+    static final RenderType QUADS_BEHIND_WALLS = RenderType.create("reticulum_glow_quads", 1536, false, true, QUADS_BEHIND_WALLS_PIPELINE,
+            RenderType.CompositeState.builder().createCompositeState(false));
     /** Lines walls hide that hide nothing themselves, likewise. */
-    static final RenderType LINES_BEHIND_WALLS = RenderType.create("reticulum_glow_lines", DefaultVertexFormat.POSITION_COLOR_NORMAL,
-            VertexFormat.Mode.LINES, 1536, false, false, RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.RENDERTYPE_LINES_SHADER)
+    private static final RenderPipeline LINES_BEHIND_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
+            .withLocation(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "pipeline/lines_behind_walls"))
+            .withDepthWrite(false).build();
+    static final RenderType LINES_BEHIND_WALLS = RenderType.create("reticulum_glow_lines", 1536, LINES_BEHIND_WALLS_PIPELINE,
+            RenderType.CompositeState.builder()
                     .setLineState(new RenderStateShard.LineStateShard(OptionalDouble.empty()))
                     .setLayeringState(RenderStateShard.VIEW_OFFSET_Z_LAYERING)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
                     .setOutputState(RenderStateShard.ITEM_ENTITY_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .setDepthTestState(RenderStateShard.LEQUAL_DEPTH_TEST)
                     .createCompositeState(false));
 
-    /** Only subclasses may name some render state classes. Never instantiated. */
-    private abstract static class States extends RenderType {
-        /**
-         * Depth testing really off. Vanilla's NO_DEPTH_TEST leaves whatever state came before it, which during level
-         * rendering is usually on, so lines under a surface (a box's bottom edges on the ground) were hidden.
-         */
-        static final DepthTestStateShard NO_DEPTH = new DepthTestStateShard("reticulum_no_depth", GL11.GL_ALWAYS) {
-            private boolean wasEnabled;
-
-            @Override
-            public void setupRenderState() {
-                wasEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-                RenderSystem.disableDepthTest();
-            }
-
-            @Override
-            public void clearRenderState() {
-                if (wasEnabled) {
-                    RenderSystem.enableDepthTest();
-                }
-            }
-        };
-
-        private States() {
-            super("", DefaultVertexFormat.POSITION, VertexFormat.Mode.QUADS, 0, false, false, () -> {
-            }, () -> {
-            });
-        }
+    /** Compiles the pipelines above as the game starts, rather than the first time one is drawn. */
+    public static void registerPipelines(net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent event) {
+        event.registerPipeline(LINES_THROUGH_WALLS_PIPELINE);
+        event.registerPipeline(QUADS_THROUGH_WALLS_PIPELINE);
+        event.registerPipeline(QUADS_BEHIND_WALLS_PIPELINE);
+        event.registerPipeline(LINES_BEHIND_WALLS_PIPELINE);
     }
 
     private static List<Payloads.IdentifyMarker> markers = List.of();

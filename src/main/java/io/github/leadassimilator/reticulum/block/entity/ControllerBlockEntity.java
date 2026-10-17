@@ -131,10 +131,10 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        antennaTier = tag.getByte("antenna");
-        energy = tag.getLong("energy");
-        lastOwner = tag.hasUUID("owner") ? tag.getUUID("owner") : null;
-        lastOwnerName = tag.getString("owner_name");
+        antennaTier = tag.getByteOr("antenna", (byte) 0);
+        energy = tag.getLongOr("energy", 0L);
+        lastOwner = tag.read("owner", net.minecraft.core.UUIDUtil.CODEC).orElse(null);
+        lastOwnerName = tag.getStringOr("owner_name", "");
     }
 
     @Override
@@ -150,13 +150,13 @@ public class ControllerBlockEntity extends NetworkBlockEntity {
             }
         }
         if (lastOwner != null) {
-            tag.putUUID("owner", lastOwner);
+            tag.store("owner", net.minecraft.core.UUIDUtil.CODEC, lastOwner);
             tag.putString("owner_name", lastOwnerName);
         }
     }
 
     @Override
-    protected void applyImplicitComponents(DataComponentInput input) {
+    protected void applyImplicitComponents(net.minecraft.core.component.DataComponentGetter input) {
         super.applyImplicitComponents(input);
         // Only the field: the block state already has the tier (set as it was placed).
         antennaTier = input.getOrDefault(ModDataComponents.ANTENNA_TIER.get(), 0);

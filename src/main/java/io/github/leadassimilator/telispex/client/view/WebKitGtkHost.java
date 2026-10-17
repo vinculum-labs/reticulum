@@ -10,7 +10,7 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.sun.jna.Callback;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Platform;
@@ -175,6 +175,9 @@ final class WebKitGtkHost {
             FrameTexture.unregister(FRAME);
             GlStateManager._deleteTexture(glTexture);
             glTexture = 0;
+            // A new texture gets its storage (and is registered) on the next upload.
+            textureWidth = 0;
+            textureHeight = 0;
         }
         synchronized (FRAME_LOCK) {
             pixels = null;
@@ -679,7 +682,6 @@ final class WebKitGtkHost {
     private static void upload(ByteBuffer frame, int w, int h) {
         if (glTexture == 0) {
             glTexture = GlStateManager._genTexture();
-            FrameTexture.register(FRAME, glTexture);
         }
         GlStateManager._bindTexture(glTexture);
         GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
@@ -694,6 +696,7 @@ final class WebKitGtkHost {
             GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, w, h, 0, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, frame);
             textureWidth = w;
             textureHeight = h;
+            FrameTexture.register(FRAME, glTexture, w, h);
         } else {
             GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, w, h, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, frame);
         }

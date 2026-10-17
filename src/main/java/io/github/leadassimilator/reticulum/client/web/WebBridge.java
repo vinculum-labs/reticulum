@@ -120,8 +120,8 @@ public final class WebBridge {
         app.browse(url);
         chat(Component.translatable("message.reticulum.editor_opened", Component.literal("[" + url.substring(0, url.indexOf("?")) + "]")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withUnderlined(true)
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.translatable("message.reticulum.editor_link_hover"))))));
+                        .withClickEvent(new ClickEvent.OpenUrl(java.net.URI.create(url)))
+                        .withHoverEvent(new HoverEvent.ShowText(Component.translatable("message.reticulum.editor_link_hover"))))));
     }
 
     private static void chat(Component message) {

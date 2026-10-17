@@ -15,8 +15,8 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.data.ModelData;
-import net.neoforged.neoforge.client.model.data.ModelProperty;
+import net.neoforged.neoforge.model.data.ModelData;
+import net.neoforged.neoforge.model.data.ModelProperty;
 
 /**
  * Shared state of cables, connectors and controllers: the network this block belongs to and which of its
@@ -91,8 +91,17 @@ public abstract class NetworkBlockEntity extends BlockEntity {
         return id;
     }
 
+    /** About to be removed (its block replaced by another): captured while still here, see Topology#afterRemoval. */
     @Override
-    protected void applyImplicitComponents(DataComponentInput input) {
+    public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+        super.preRemoveSideEffects(pos, state);
+        if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            io.github.leadassimilator.reticulum.topology.Topology.beforeRemoval(serverLevel, this);
+        }
+    }
+
+    @Override
+    protected void applyImplicitComponents(net.minecraft.core.component.DataComponentGetter input) {
         super.applyImplicitComponents(input);
         itemNetworkId = input.get(io.github.leadassimilator.reticulum.registry.ModDataComponents.NETWORK_ID.get());
     }
@@ -177,7 +186,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     }
 
     private void readFacade(CompoundTag tag, HolderLookup.Provider registries) {
-        facade = tag.contains("facade") ? NbtUtils.readBlockState(registries.lookupOrThrow(Registries.BLOCK), tag.getCompound("facade")) : null;
+        facade = tag.contains("facade") ? NbtUtils.readBlockState(registries.lookupOrThrow(Registries.BLOCK), tag.getCompoundOrEmpty("facade")) : null;
         // A block from a mod since removed reads as air: no facade (an invisible block with a full outline otherwise).
         if (facade != null && facade.isAir()) {
             facade = null;
@@ -262,19 +271,19 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        networkId = tag.hasUUID("network") ? tag.getUUID("network") : null;
-        manualDisconnects = tag.getByte("disconnected");
-        autoDisconnects = tag.getByte("auto_disconnected");
+        networkId = tag.read("network", net.minecraft.core.UUIDUtil.CODEC).orElse(null);
+        manualDisconnects = tag.getByteOr("disconnected", (byte) 0);
+        autoDisconnects = tag.getByteOr("auto_disconnected", (byte) 0);
         // Registered where it was saved; data copied somewhere else (ctrl+pick-block, /clone, a structure) is a new
         // block there: it joins whatever it is placed against, rather than claiming the original's network and ids.
-        boolean wasRegistered = tag.getBoolean("registered");
-        boolean atOrigin = !tag.contains("registered_at") || tag.getLong("registered_at") == worldPosition.asLong();
+        boolean wasRegistered = tag.getBooleanOr("registered", false);
+        boolean atOrigin = !tag.contains("registered_at") || tag.getLongOr("registered_at", 0L) == worldPosition.asLong();
         // Saved somewhere else (moved, or copied): it connects up again where it is now, joining what it touches, or
         // staying on the network it carries where it touches nothing. Whether it is a copy only matters for a
         // connector's id (see ConnectorBlockEntity).
         registered = wasRegistered && atOrigin;
         copied = wasRegistered && !atOrigin;
-        arrived = copied || (!wasRegistered && tag.getBoolean("arrived"));
+        arrived = copied || (!wasRegistered && tag.getBooleanOr("arrived", false));
         readFacade(tag, registries);
     }
 
@@ -282,7 +291,7 @@ public abstract class NetworkBlockEntity extends BlockEntity {
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         if (networkId != null) {
-            tag.putUUID("network", networkId);
+            tag.store("network", net.minecraft.core.UUIDUtil.CODEC, networkId);
         }
         tag.putByte("disconnected", (byte) manualDisconnects);
         tag.putByte("auto_disconnected", (byte) autoDisconnects);

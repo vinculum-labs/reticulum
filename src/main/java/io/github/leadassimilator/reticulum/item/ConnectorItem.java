@@ -20,11 +20,12 @@ public class ConnectorItem extends BlockItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        super.appendHoverText(stack, context, tooltip, flag);
+    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display,
+            java.util.function.Consumer<Component> tooltip, TooltipFlag flag) {
+        super.appendHoverText(stack, context, display, tooltip, flag);
         if (stack.has(ModDataComponents.NETWORK_ID.get())) {
             String name = stack.getOrDefault(ModDataComponents.NETWORK_NAME.get(), "?");
-            tooltip.add(Component.translatable("tooltip.reticulum.bound_to", name).withStyle(ChatFormatting.GRAY));
+            tooltip.accept(Component.translatable("tooltip.reticulum.bound_to", name).withStyle(ChatFormatting.GRAY));
         }
     }
 }

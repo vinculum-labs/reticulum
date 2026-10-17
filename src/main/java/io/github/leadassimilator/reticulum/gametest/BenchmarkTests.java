@@ -1,5 +1,7 @@
 package io.github.leadassimilator.reticulum.gametest;
 
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.fail;
+
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 
 import java.util.ArrayList;
@@ -21,21 +23,16 @@ import io.github.leadassimilator.reticulum.network.NetworkManager;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The spec's performance target: about 1,000 connectors and 2,000 flows in under 1 ms per tick on average. Runs in
  * its own batch, since it builds well outside its template, and clears up after itself.
  */
-@GameTestHolder(Reticulum.MODID)
-@PrefixGameTestTemplate(false)
 public final class BenchmarkTests {
     private static final int SIDE = 32;
     private static final int WARM_UP = 100;
@@ -67,7 +64,7 @@ public final class BenchmarkTests {
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(0, 1, 1)))));
         if (network == null || network.devices().size() != barrels.size()) {
-            helper.fail("benchmark network did not build: " + (network == null ? "no network" : network.devices().size() + " devices"));
+            fail(helper, "benchmark network did not build: " + (network == null ? "no network" : network.devices().size() + " devices"));
             return;
         }
 
@@ -87,7 +84,7 @@ public final class BenchmarkTests {
         network.sheets().add(sheet);
         // Something to move in a quarter of the barrels.
         for (int i = 0; i < barrels.size(); i += 4) {
-            ((Container) helper.getBlockEntity(barrels.get(i))).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
+            ((Container) helper.getBlockEntity(barrels.get(i), net.minecraft.world.level.block.entity.BlockEntity.class)).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
         }
 
         NetworkRuntime runtime = NetworkTicker.runtime(network.id());
@@ -108,7 +105,7 @@ public final class BenchmarkTests {
             }
             NetworkManager.delete(helper.getLevel().getServer(), network);
             if (averageMs > TARGET_MS) {
-                helper.fail(String.format("average tick %.3f ms is over the %.1f ms target (longest %.3f ms)", averageMs, TARGET_MS, longestMs));
+                fail(helper, String.format("average tick %.3f ms is over the %.1f ms target (longest %.3f ms)", averageMs, TARGET_MS, longestMs));
             } else {
                 helper.succeed();
             }

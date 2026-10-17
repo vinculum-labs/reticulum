@@ -13,17 +13,18 @@ import io.github.leadassimilator.reticulum.registry.ModItems;
 import net.minecraft.client.data.models.BlockModelGenerators;
 import net.minecraft.client.data.models.ItemModelGenerators;
 import net.minecraft.client.data.models.ModelProvider;
-import net.minecraft.client.data.models.blockstates.Condition;
+import net.minecraft.client.data.models.MultiVariant;
 import net.minecraft.client.data.models.blockstates.MultiPartGenerator;
 import net.minecraft.client.data.models.blockstates.MultiVariantGenerator;
 import net.minecraft.client.data.models.blockstates.PropertyDispatch;
-import net.minecraft.client.data.models.blockstates.Variant;
-import net.minecraft.client.data.models.blockstates.VariantProperties;
 import net.minecraft.client.data.models.model.ItemModelUtils;
 import net.minecraft.client.data.models.model.ModelTemplates;
 import net.minecraft.client.data.models.model.TextureMapping;
 import net.minecraft.client.data.models.model.TextureSlot;
+import net.minecraft.client.renderer.block.model.VariantMutator;
 import net.minecraft.client.renderer.item.ItemModel;
+import com.mojang.math.Quadrant;
+
 import net.minecraft.core.Direction;
 import net.minecraft.data.PackOutput;
 import net.minecraft.resources.ResourceLocation;
@@ -40,7 +41,7 @@ public class ModModels extends ModelProvider {
     protected void registerModels(BlockModelGenerators blocks, ItemModelGenerators items) {
         // The Status Beacon: one model, its lens tinted by the look it shows (see BeaconEffects' block colors); the item
         // shows the lens gray.
-        blocks.blockStateOutput.accept(MultiVariantGenerator.multiVariant(ModBlocks.STATUS_BEACON.get(), model("block/status_beacon")));
+        blocks.blockStateOutput.accept(MultiVariantGenerator.dispatch(ModBlocks.STATUS_BEACON.get(), model("block/status_beacon")));
         items.itemModelOutput.accept(ModItems.STATUS_BEACON.get(),
                 ItemModelUtils.tintedModel(id("block/status_beacon"), ItemModelUtils.constantTint(0xFF585C66)));
 
@@ -52,11 +53,10 @@ public class ModModels extends ModelProvider {
             antenna[tier] = ModelTemplates.CUBE_TOP.create(id("block/controller_antenna_" + tier), new TextureMapping()
                     .put(TextureSlot.SIDE, id("block/controller")).put(TextureSlot.TOP, id("block/controller_top_antenna_" + tier)), blocks.modelOutput);
         }
-        blocks.blockStateOutput.accept(MultiVariantGenerator.multiVariant(ModBlocks.CONTROLLER.get()).with(
-                PropertyDispatch.properties(ControllerBlock.ANTENNA, ControllerBlock.FACING).generate((tier, facing) -> Variant.variant()
-                        .with(VariantProperties.MODEL, tier == 0 ? plain : antenna[tier])
+        blocks.blockStateOutput.accept(MultiVariantGenerator.dispatch(ModBlocks.CONTROLLER.get()).with(
+                PropertyDispatch.initial(ControllerBlock.ANTENNA, ControllerBlock.FACING).generate((tier, facing) ->
                         // toYRot counts from south; the texture is drawn for north (0°), so east 90°, south 180°, west 270°.
-                        .with(VariantProperties.Y_ROT, rotation(((int) facing.toYRot() + 180) % 360)))));
+                        turned(BlockModelGenerators.plainVariant(tier == 0 ? plain : antenna[tier]), 0, ((int) facing.toYRot() + 180) % 360))));
         items.itemModelOutput.accept(ModItems.CONTROLLER.get(), ItemModelUtils.plainModel(plain));
 
         linked(blocks, ModBlocks.CABLE.get(), "cable_core", Map.of(Link.CABLE, "cable_arm"));
@@ -102,34 +102,43 @@ public class ModModels extends ModelProvider {
             for (Link link : Link.values()) {
                 String model = parts.get(link);
                 if (model != null) {
-                    generator.with(Condition.condition().term(property, link), model("block/" + model)
-                            .with(VariantProperties.X_ROT, rotation(switch (side) {
-                                case UP -> 270;
-                                case DOWN -> 90;
-                                default -> 0;
-                            }))
-                            .with(VariantProperties.Y_ROT, rotation(switch (side) {
-                                case EAST -> 90;
-                                case SOUTH -> 180;
-                                case WEST -> 270;
-                                default -> 0;
-                            })));
+                    generator.with(BlockModelGenerators.condition().term(property, link), turned(model("block/" + model), switch (side) {
+                        case UP -> 270;
+                        case DOWN -> 90;
+                        default -> 0;
+                    }, switch (side) {
+                        case EAST -> 90;
+                        case SOUTH -> 180;
+                        case WEST -> 270;
+                        default -> 0;
+                    }));
                 }
             }
         }
         blocks.blockStateOutput.accept(generator);
     }
 
-    private static Variant model(String path) {
-        return Variant.variant().with(VariantProperties.MODEL, id(path));
+    private static MultiVariant model(String path) {
+        return BlockModelGenerators.plainVariant(id(path));
     }
 
-    private static VariantProperties.Rotation rotation(int degrees) {
+    /** Turned by {@code x} and {@code y} degrees (multiples of 90); a turn of 0 is left out of the file. */
+    private static MultiVariant turned(MultiVariant variant, int x, int y) {
+        if (x != 0) {
+            variant = variant.with(VariantMutator.X_ROT.withValue(quadrant(x)));
+        }
+        if (y != 0) {
+            variant = variant.with(VariantMutator.Y_ROT.withValue(quadrant(y)));
+        }
+        return variant;
+    }
+
+    private static Quadrant quadrant(int degrees) {
         return switch (degrees) {
-            case 90 -> VariantProperties.Rotation.R90;
-            case 180 -> VariantProperties.Rotation.R180;
-            case 270 -> VariantProperties.Rotation.R270;
-            default -> VariantProperties.Rotation.R0;
+            case 90 -> Quadrant.R90;
+            case 180 -> Quadrant.R180;
+            case 270 -> Quadrant.R270;
+            default -> Quadrant.R0;
         };
     }
 

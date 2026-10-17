@@ -2,6 +2,7 @@ package io.github.leadassimilator.reticulum.gametest;
 
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.place;
 import static io.github.leadassimilator.reticulum.gametest.TestSupport.check;
+import static io.github.leadassimilator.reticulum.gametest.TestSupport.fail;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +30,6 @@ import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
@@ -41,15 +41,11 @@ import net.minecraft.world.level.block.LeverBlock;
 import net.minecraft.world.level.block.RedstoneLampBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.AttachFace;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Engine tests. Each builds a controller with a row of connectors along x (starting at x = 3), each with a device
  * directly south of it, then wires a sheet between those devices and checks what moved.
  */
-@GameTestHolder(Reticulum.MODID)
-@PrefixGameTestTemplate(false)
 public final class EngineTests {
     private EngineTests() {
     }
@@ -57,7 +53,7 @@ public final class EngineTests {
     /** A test network with one device per connector; {@code devices} are relative positions. */
     record Rig(GameTestHelper helper, Network network, List<BlockPos> devices, Sheet sheet) {
         Container container(int i) {
-            return (Container) helper.getBlockEntity(devices.get(i));
+            return (Container) helper.getBlockEntity(devices.get(i), net.minecraft.world.level.block.entity.BlockEntity.class);
         }
 
         NodeSettings.Port port(int i, ResourceKind resource) {
@@ -167,7 +163,7 @@ public final class EngineTests {
         Network network = NetworkManager.network(helper.getLevel().getServer(),
                 Topology.networkOf(helper.getLevel(), Topology.blockEntity(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)))));
         if (network == null || network.devices().size() != devices.length) {
-            helper.fail("Rig did not build: " + (network == null ? "no network" : network.devices().size() + " devices"));
+            fail(helper, "Rig did not build: " + (network == null ? "no network" : network.devices().size() + " devices"));
         }
         Sheet sheet = new Sheet(UUID.randomUUID(), "test");
         sheet.setInterval(1);
@@ -502,7 +498,7 @@ public final class EngineTests {
         Node alarm = rig.node(new NodeSettings.AlarmSettings(NodeSettings.AlarmSeverity.CRITICAL, "Meltdown", java.util.Optional.empty(), 0, 0));
         rig.signal(level, alarm, 0);
         BlockPos at = rig.devices().get(0);
-        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at);
+        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at, net.minecraft.world.level.block.entity.BlockEntity.class);
         beacon.setPlacer(UUID.randomUUID());
         var shown = io.github.leadassimilator.reticulum.block.StatusBeaconBlock.SHOWN;
         helper.startSequence()
@@ -518,7 +514,7 @@ public final class EngineTests {
     public static void statusBeaconInRedstoneModeFollowsTheSignal(GameTestHelper helper) {
         Rig rig = rig(helper, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
         BlockPos at = rig.devices().get(0);
-        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at);
+        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at, net.minecraft.world.level.block.entity.BlockEntity.class);
         var settings = beacon.settings();
         settings.putString("mode", "redstone");
         beacon.applySettings(settings);
@@ -547,10 +543,10 @@ public final class EngineTests {
     public static void statusBeaconShowsSignalZero(GameTestHelper helper) {
         BlockPos at = new BlockPos(2, 1, 2);
         helper.setBlock(at, io.github.leadassimilator.reticulum.registry.ModBlocks.STATUS_BEACON.get());
-        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at);
+        var beacon = (io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity) helper.getBlockEntity(at, net.minecraft.world.level.block.entity.BlockEntity.class);
         var settings = beacon.settings();
         settings.putString("mode", "redstone");
-        var levels = settings.getCompound("levels");
+        var levels = settings.getCompoundOrEmpty("levels");
         levels.put("0", new io.github.leadassimilator.reticulum.block.entity.BeaconLook(0x00FF00, io.github.leadassimilator.reticulum.block.entity.BeaconLook.BEAM,
                 net.minecraft.resources.ResourceLocation.withDefaultNamespace("block.note_block.chime"), 1f, 40, 16).save());
         settings.put("levels", levels);
@@ -599,7 +595,7 @@ public final class EngineTests {
     @GameTest(template = "empty")
     public static void lostEnergyGoesToTheController(GameTestHelper helper) {
         Rig rig = rig(helper, Blocks.REDSTONE_LAMP);
-        var controller = (io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 1));
+        var controller = (io.github.leadassimilator.reticulum.block.entity.ControllerBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.BlockEntity.class);
         var preset = io.github.leadassimilator.reticulum.ReticulumConfig.POWER_PRESET;
         var was = preset.get();
         try {
@@ -872,12 +868,12 @@ public final class EngineTests {
         GlobalPos far = Devices.global(helper.getLevel(), helper.absolutePos(barrel));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sheet().add(Node.of(new NodeSettings.DeviceSettings(far,
                 List.of(new NodeSettings.Input(ResourceKind.ITEM, List.of(), Optional.empty(), List.of())), List.of()))));
-        Container target = (Container) helper.getBlockEntity(barrel);
+        Container target = (Container) helper.getBlockEntity(barrel, net.minecraft.world.level.block.entity.BlockEntity.class);
         helper.startSequence()
                 .thenExecuteAfter(20, () -> {
                     check(helper, target.countItem(Items.COBBLESTONE) == 0, "items reached a wireless connector without an antenna");
                     check(helper, rig.runtime().outOfRange(far), "device not reported out of range");
-                    ((ControllerBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 1))).setAntennaTier(1);
+                    ((ControllerBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.BlockEntity.class)).setAntennaTier(1);
                 })
                 .thenWaitUntil(() -> check(helper, target.countItem(Items.COBBLESTONE) == 64, "items didn't move once the antenna was in"))
                 .thenSucceed();
@@ -1122,7 +1118,7 @@ public final class EngineTests {
         Rig rig = rig(helper, Blocks.BARREL, Blocks.BARREL);
         rig.container(0).setItem(0, new ItemStack(Items.COBBLESTONE, 64));
         rig.wire(rig.source(0, ResourceKind.ITEM, List.of(), 64), rig.sink(1, ResourceKind.ITEM, List.of()));
-        ControllerBlockEntity controller = (ControllerBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 1));
+        ControllerBlockEntity controller = (ControllerBlockEntity) helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.BlockEntity.class);
         long[] charged = new long[1];
         helper.startSequence()
                 .thenExecuteAfter(20, () -> {
@@ -1329,7 +1325,7 @@ public final class EngineTests {
         helper.setBlock(rig.devices().get(0), lever(true));
         rig.signal(rig.redstoneFrom(rig.device(0)), rig.redstoneTo(rig.device(2)), 0);
         BlockPos connector = new BlockPos(5, 1, 1);
-        var be = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(connector);
+        var be = (io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity) helper.getBlockEntity(connector, net.minecraft.world.level.block.entity.BlockEntity.class);
         helper.startSequence()
                 .thenWaitUntil(() -> check(helper, be.power(Direction.SOUTH) > 0, "connector not powering the lamp"))
                 .thenExecute(() -> helper.setBlock(rig.devices().get(2), Blocks.AIR))
@@ -1386,12 +1382,12 @@ public final class EngineTests {
     /** Slot-range tests with the server's fallback through faces on: their own batch, which turns it on and off. */
     static final String SLOT_FACES = "slot_faces";
 
-    @net.minecraft.gametest.framework.BeforeBatch(batch = SLOT_FACES)
+    @BeforeBatch(batch = SLOT_FACES)
     public static void slotRangesThroughFacesOn(net.minecraft.server.level.ServerLevel level) {
         io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(true);
     }
 
-    @net.minecraft.gametest.framework.AfterBatch(batch = SLOT_FACES)
+    @AfterBatch(batch = SLOT_FACES)
     public static void slotRangesThroughFacesOff(net.minecraft.server.level.ServerLevel level) {
         io.github.leadassimilator.reticulum.ReticulumConfig.SLOT_RANGES_THROUGH_FACES.set(false);
     }
