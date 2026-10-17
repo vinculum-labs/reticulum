@@ -1,4 +1,4 @@
-package io.github.leadassimilator.reticulum.client.webview;
+package io.github.leadassimilator.telispex.client.view;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -19,18 +19,18 @@ import com.sun.jna.StringArray;
 import com.sun.jna.Structure;
 import com.sun.jna.ptr.IntByReference;
 
-import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.telispex.Telispex;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 
 /**
  * The editor inside the game on Linux: WebKitGTK (the GTK 3 build, webkit2gtk-4.1, which most desktops already have)
  * in a GTK offscreen window that never shows. Each time WebKit repaints it, the view's paint is copied into an image
- * whose pixels the editor screen draws as a texture, so it works in fullscreen and under any window system. GTK runs on its own thread
+ * whose pixels the view screen draws as a texture, so it works in fullscreen and under any window system. GTK runs on its own thread
  * with its own main loop; everything GTK is done there, and the game thread hands it work through GLib.
  */
 final class WebKitGtkHost {
-    private static final ResourceLocation FRAME = ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "editor_view");
+    private static final ResourceLocation FRAME = ResourceLocation.fromNamespaceAndPath(Telispex.ID, "view");
 
     /** WebKitHardwareAccelerationPolicy NEVER: an offscreen window can only be read back when WebKit paints in software. */
     private static final int ACCELERATION_NEVER = 2;
@@ -76,7 +76,7 @@ final class WebKitGtkHost {
             try {
                 job.run();
             } catch (RuntimeException e) {
-                Reticulum.LOGGER.warn("In-game editor: GTK work failed", e);
+                Telispex.LOGGER.warn("In-game view: GTK work failed", e);
             }
         }
         return 0; // G_SOURCE_REMOVE
@@ -573,7 +573,7 @@ final class WebKitGtkHost {
             } catch (UnsatisfiedLinkError | RuntimeException e) {
                 fail("WebKitGTK isn't available (install libwebkit2gtk-4.1)", e);
             }
-        }, "Reticulum GTK");
+        }, "Telispex GTK");
         thread.setDaemon(true);
         thread.start();
         gtkThread = thread;
@@ -721,10 +721,10 @@ final class WebKitGtkHost {
     }
 
     private static void fail(String why, @Nullable Throwable e) {
-        Reticulum.LOGGER.warn("In-game editor: {}; using the browser instead", why, e);
+        Telispex.LOGGER.warn("In-game view: {}; using the browser instead", why, e);
         state = State.FAILED;
         if (visible) {
-            Minecraft.getInstance().execute(EditorScreen::fallBackToBrowser);
+            Minecraft.getInstance().execute(ViewScreen::fallBackToBrowser);
         }
     }
 
@@ -789,7 +789,7 @@ final class WebKitGtkHost {
     private static final LoadFailedHandler ON_LOAD_FAILED = (webView, event, uri, error, data) -> {
         // GError: domain (quark), code, message.
         String message = error == null ? "?" : error.getPointer(8).getString(0);
-        Reticulum.LOGGER.warn("In-game editor (WebKitGTK): loading {} failed: {}", uri, message);
+        Telispex.LOGGER.warn("In-game view (WebKitGTK): loading {} failed: {}", uri, message);
         return 0;
     };
 

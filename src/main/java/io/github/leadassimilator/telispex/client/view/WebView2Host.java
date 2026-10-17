@@ -1,4 +1,4 @@
-package io.github.leadassimilator.reticulum.client.webview;
+package io.github.leadassimilator.telispex.client.view;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,14 +27,14 @@ import com.sun.jna.platform.win32.WinUser;
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
 
-import io.github.leadassimilator.reticulum.Reticulum;
-import io.github.leadassimilator.reticulum.ReticulumClientConfig;
+import io.github.leadassimilator.telispex.Telispex;
+import io.github.leadassimilator.telispex.TelispexConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 
 /**
  * The editor inside the game window on Windows: Edge's WebView2, driven through its COM interfaces with JNA (both
- * already part of Windows and Minecraft). It shows one of two ways ({@link ReticulumClientConfig#EDITOR_DISPLAY}): as a
+ * already part of Windows and Minecraft). It shows one of two ways ({@link TelispexConfig#VIEW_DISPLAY}): as a
  * child window over the game, or drawn into the game's own frame ({@link CompositionView}), which also works in
  * exclusive fullscreen. Everything runs on the render thread, which owns the game window; WebView2's callbacks arrive
  * through the window's message loop, which GLFW pumps every frame.
@@ -141,7 +141,7 @@ final class WebView2Host {
     }
 
     private static boolean wantsFrame() {
-        return !frameFailed && ReticulumClientConfig.EDITOR_DISPLAY.get() != ReticulumClientConfig.EditorDisplay.WINDOW;
+        return !frameFailed && TelispexConfig.VIEW_DISPLAY.get() != TelispexConfig.ViewDisplay.WINDOW;
     }
 
     /** The view's latest frame to draw, when it is drawn into the game's frame and one has arrived. */
@@ -332,7 +332,7 @@ final class WebView2Host {
         if (composition3 == null) {
             composition3 = Com.query(composition, IID_COMPOSITION3);
             if (composition3 == null) {
-                Reticulum.LOGGER.warn("This WebView2 can't take drag and drop in the game's frame; dragging onto the canvas won't work");
+                Telispex.LOGGER.warn("This WebView2 can't take drag and drop in the game's frame; dragging onto the canvas won't work");
                 return;
             }
         }
@@ -340,7 +340,7 @@ final class WebView2Host {
             // Once per session, on the thread that owns the game window (S_FALSE: already set up there, also fine).
             int ole = Ole32.INSTANCE.OleInitialize(null).intValue();
             if (ole < 0) {
-                Reticulum.LOGGER.warn("Couldn't set up drag and drop for the editor: 0x{}", Integer.toHexString(ole));
+                Telispex.LOGGER.warn("Couldn't set up drag and drop for the view: 0x{}", Integer.toHexString(ole));
                 return;
             }
             oleReady = true;
@@ -350,7 +350,7 @@ final class WebView2Host {
         Function.getFunction("ole32", "RevokeDragDrop").invokeInt(new Object[] {window});
         int r = Function.getFunction("ole32", "RegisterDragDrop").invokeInt(new Object[] {window, DROP_TARGET.pointer()});
         if (r < 0) {
-            Reticulum.LOGGER.warn("Couldn't take drag and drop for the editor: 0x{}", Integer.toHexString(r));
+            Telispex.LOGGER.warn("Couldn't take drag and drop for the view: 0x{}", Integer.toHexString(r));
             return;
         }
         dropsTaken = true;
@@ -443,7 +443,7 @@ final class WebView2Host {
             }
             // Absolute: the game folder can be relative ("." in development), and WebView2 would then look for its
             // folders beside javaw.exe, where it can't write.
-            Path gameDir = Minecraft.getInstance().gameDirectory.toPath().toAbsolutePath().normalize().resolve("reticulum");
+            Path gameDir = Minecraft.getInstance().gameDirectory.toPath().toAbsolutePath().normalize().resolve(Telispex.ID);
             Path profile = Files.createDirectories(gameDir.resolve("webview2-profile"));
             // Held for the session: JNA caches libraries weakly and unloads one nothing refers to.
             loader = NativeLibrary.getInstance(extractLoader(gameDir.resolve("webview2")).toString());
@@ -469,7 +469,7 @@ final class WebView2Host {
                 fail("starting WebView2 (is the WebView2 runtime installed?)", r);
             }
         } catch (RuntimeException | Error | IOException e) {
-            Reticulum.LOGGER.warn("The in-game editor isn't available; using the browser instead", e);
+            Telispex.LOGGER.warn("The in-game view isn't available; using the browser instead", e);
             fail();
         }
     }
@@ -633,7 +633,7 @@ final class WebView2Host {
     }
 
     private static void fail(String what, int hresult) {
-        Reticulum.LOGGER.warn("In-game editor: {} failed (0x{}); using the browser instead", what, Integer.toHexString(hresult));
+        Telispex.LOGGER.warn("In-game view: {} failed (0x{}); using the browser instead", what, Integer.toHexString(hresult));
         fail();
     }
 
@@ -644,7 +644,7 @@ final class WebView2Host {
         }
         state = State.FAILED;
         if (visible) {
-            Minecraft.getInstance().execute(EditorScreen::fallBackToBrowser);
+            Minecraft.getInstance().execute(ViewScreen::fallBackToBrowser);
         }
     }
 

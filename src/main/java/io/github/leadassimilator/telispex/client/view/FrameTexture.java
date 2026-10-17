@@ -1,4 +1,4 @@
-package io.github.leadassimilator.reticulum.client.webview;
+package io.github.leadassimilator.telispex.client.view;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;

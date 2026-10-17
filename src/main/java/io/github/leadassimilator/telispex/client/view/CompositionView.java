@@ -1,4 +1,4 @@
-package io.github.leadassimilator.reticulum.client.webview;
+package io.github.leadassimilator.telispex.client.view;
 
 import javax.annotation.Nullable;
 
@@ -17,19 +17,19 @@ import com.sun.jna.WString;
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
 
-import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.telispex.Telispex;
 import net.minecraft.resources.ResourceLocation;
 
 /**
  * WebView2 drawn into the game's own frame, so the editor shows in exclusive fullscreen too: the page renders into a
  * Windows composition visual that isn't on any window, Windows Graphics Capture hands each frame over as a Direct3D 11
- * texture, and WGL_NV_DX_interop lets OpenGL draw that texture in the editor screen. Everything runs on the render
+ * texture, and WGL_NV_DX_interop lets OpenGL draw that texture in the view screen. Everything runs on the render
  * thread, whose message loop (pumped by GLFW) also drives the composition.
  *
  * <p>Method numbers are vtable slots from the Windows SDK headers (IUnknown takes 0-2, IInspectable 0-5).
  */
 final class CompositionView {
-    private static final ResourceLocation FRAME = ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "editor_view");
+    private static final ResourceLocation FRAME = ResourceLocation.fromNamespaceAndPath(Telispex.ID, "view");
 
     // ICompositor
     private static final String IID_COMPOSITOR = "{b403ca50-7f8c-4e83-985f-cc45060036d8}";
@@ -115,7 +115,7 @@ final class CompositionView {
     static Pointer start(int w, int h) {
         try {
             if (!GL.getCapabilitiesWGL().WGL_NV_DX_interop2) {
-                Reticulum.LOGGER.warn("In-game editor: the graphics driver can't share Direct3D textures with OpenGL (WGL_NV_DX_interop2)");
+                Telispex.LOGGER.warn("In-game view: the graphics driver can't share Direct3D textures with OpenGL (WGL_NV_DX_interop2)");
                 return null;
             }
             // Windows.UI.Composition needs a dispatcher queue on this thread; GLFW's message loop then runs it.
@@ -135,7 +135,7 @@ final class CompositionView {
             createDevice();
             return container;
         } catch (RuntimeException e) {
-            Reticulum.LOGGER.warn("In-game editor: drawing it into the game frame isn't available", e);
+            Telispex.LOGGER.warn("In-game view: drawing it into the game frame isn't available", e);
             close();
             return null;
         }
@@ -169,7 +169,7 @@ final class CompositionView {
             check(Com.call(session, SESSION_START_CAPTURE), "starting the capture");
             return true;
         } catch (RuntimeException e) {
-            Reticulum.LOGGER.warn("In-game editor: capturing the web view failed", e);
+            Telispex.LOGGER.warn("In-game view: capturing the web view failed", e);
             close();
             return false;
         }
@@ -246,7 +246,7 @@ final class CompositionView {
         if (desc.width != capturedWidth || desc.height != capturedHeight) {
             capturedWidth = desc.width;
             capturedHeight = desc.height;
-            Reticulum.LOGGER.debug("In-game editor: view {}x{}, captured frames {}x{}", width, height, capturedWidth, capturedHeight);
+            Telispex.LOGGER.debug("In-game view: view {}x{}, captured frames {}x{}", width, height, capturedWidth, capturedHeight);
         }
         if (ensureShared(desc.width, desc.height)) {
             PointerBuffer objects = PointerBuffer.allocateDirect(1).put(0, interopObject);
@@ -286,7 +286,7 @@ final class CompositionView {
         if (interopDevice == 0) {
             interopDevice = WGLNVDXInterop.wglDXOpenDeviceNV(Pointer.nativeValue(device));
             if (interopDevice == 0) {
-                Reticulum.LOGGER.warn("In-game editor: OpenGL can't open the Direct3D device (a different graphics card?)");
+                Telispex.LOGGER.warn("In-game view: OpenGL can't open the Direct3D device (a different graphics card?)");
                 return false;
             }
         }
@@ -296,7 +296,7 @@ final class CompositionView {
         interopObject = WGLNVDXInterop.wglDXRegisterObjectNV(interopDevice, Pointer.nativeValue(shared), glTexture,
                 GL11.GL_TEXTURE_2D, WGLNVDXInterop.WGL_ACCESS_READ_ONLY_NV);
         if (interopObject == 0) {
-            Reticulum.LOGGER.warn("In-game editor: OpenGL can't share the Direct3D texture");
+            Telispex.LOGGER.warn("In-game view: OpenGL can't share the Direct3D texture");
             return false;
         }
         // Through the game's state tracking, which remembers the bound texture.

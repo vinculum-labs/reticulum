@@ -6,7 +6,7 @@ import { request } from "./lib/state.svelte";
 
 // Esc at the root closes the in-game editor (the game client hides it); F11 there toggles the game's fullscreen.
 installEscape(
-  () => request("closeEditor").catch(() => {}),
+  () => request("closeView").catch(() => {}),
   () => request("toggleFullscreen").catch(() => {}),
 );
 

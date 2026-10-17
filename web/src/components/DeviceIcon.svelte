@@ -3,7 +3,7 @@
   /** The item whose icon wouldn't load (another item tries again). */
   let failedFor = $state<string | undefined>(undefined);
   const failed = $derived(!!item && failedFor === item);
-  const src = $derived(item ? `/icon/item/${item.replace(":", "/")}.png` : "");
+  const src = $derived(item ? `_/icon/item/${item.replace(":", "/")}.png` : "");
 </script>
 
 {#if item && !failed}

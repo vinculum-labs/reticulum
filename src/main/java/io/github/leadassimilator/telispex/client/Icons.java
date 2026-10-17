@@ -1,9 +1,12 @@
-package io.github.leadassimilator.reticulum.client.web;
+package io.github.leadassimilator.telispex.client;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+
+import javax.annotation.Nullable;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
@@ -14,7 +17,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexSorting;
 
-import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.telispex.Telispex;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -24,56 +27,65 @@ import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.client.ClientHooks;
 
 /**
- * Renders item icons to PNG for the web UI, exactly as the game draws them in inventories. Rendering happens on the
- * render thread into an offscreen target; results are cached for the session.
+ * Icons for pages, as PNGs at {@code _/icon/<kind>/<namespace>/<path>.png} beside each page: items exactly as the game
+ * draws them in inventories, fluids as their still texture, and any kind a mod adds ({@link #register}). Drawn on the
+ * render thread into an offscreen target, and kept until resources reload.
  */
-final class IconRenderer {
+public final class Icons {
     static final int SIZE = 64;
-    private static final Map<ResourceLocation, CompletableFuture<byte[]>> CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, Function<ResourceLocation, byte[]>> KINDS = new ConcurrentHashMap<>();
+    private static final Map<String, CompletableFuture<byte[]>> CACHE = new ConcurrentHashMap<>();
 
-    private IconRenderer() {
+    static {
+        KINDS.put("item", Icons::item);
+        KINDS.put("fluid", Icons::fluid);
     }
 
-    private static final Map<String, CompletableFuture<byte[]>> OTHER = new ConcurrentHashMap<>();
+    private Icons() {
+    }
+
+    /**
+     * Adds a kind of icon. {@code draw} runs on the render thread and gives a PNG: {@link #sprite} and {@link #draw}
+     * help, and {@link #transparent} stands for an id it doesn't know.
+     */
+    public static void register(String kind, Function<ResourceLocation, byte[]> draw) {
+        if (!kind.matches("[a-z0-9_]+")) {
+            throw new IllegalArgumentException("Not a valid icon kind: " + kind);
+        }
+        if (KINDS.putIfAbsent(kind, draw) != null) {
+            throw new IllegalStateException("Icons of kind " + kind + " are already drawn");
+        }
+    }
+
+    /** An icon, drawn once and kept; null for a kind nobody draws. */
+    @Nullable
+    static CompletableFuture<byte[]> get(String kind, ResourceLocation id) {
+        Function<ResourceLocation, byte[]> draw = KINDS.get(kind);
+        return draw == null ? null : CACHE.computeIfAbsent(kind + "/" + id, key -> Minecraft.getInstance().submit(() -> draw.apply(id)));
+    }
 
     /** Resources reloaded (F3+T, a resource pack): icons are drawn again as they are asked for. */
     static void clear() {
         CACHE.clear();
-        OTHER.clear();
     }
 
-    static CompletableFuture<byte[]> item(ResourceLocation id) {
-        return CACHE.computeIfAbsent(id, key -> Minecraft.getInstance().submit(() -> {
-            ItemStack stack = BuiltInRegistries.ITEM.getOptional(key).map(ItemStack::new).orElse(ItemStack.EMPTY);
-            return stack.isEmpty() || stack.is(Items.AIR) ? transparent() : render(key, graphics -> graphics.renderItem(stack, 0, 0));
-        }));
+    private static byte[] item(ResourceLocation id) {
+        ItemStack stack = BuiltInRegistries.ITEM.getOptional(id).map(ItemStack::new).orElse(ItemStack.EMPTY);
+        return stack.isEmpty() || stack.is(Items.AIR) ? transparent() : draw(id, graphics -> graphics.renderItem(stack, 0, 0));
     }
 
     /** A fluid as its still texture, tinted, filling the square. */
-    static CompletableFuture<byte[]> fluid(ResourceLocation id) {
-        return OTHER.computeIfAbsent("fluid/" + id, key -> Minecraft.getInstance().submit(() -> {
-            net.minecraft.world.level.material.Fluid fluid = BuiltInRegistries.FLUID.getOptional(id).orElse(null);
-            if (fluid == null || fluid == net.minecraft.world.level.material.Fluids.EMPTY) {
-                return transparent();
-            }
-            var extensions = net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions.of(fluid);
-            return sprite(id, extensions.getStillTexture(), extensions.getTintColor());
-        }));
+    private static byte[] fluid(ResourceLocation id) {
+        net.minecraft.world.level.material.Fluid fluid = BuiltInRegistries.FLUID.getOptional(id).orElse(null);
+        if (fluid == null || fluid == net.minecraft.world.level.material.Fluids.EMPTY) {
+            return transparent();
+        }
+        var extensions = net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions.of(fluid);
+        return sprite(id, extensions.getStillTexture(), extensions.getTintColor());
     }
 
-    /** A Mekanism chemical as its icon texture, tinted. */
-    static CompletableFuture<byte[]> chemical(ResourceLocation id) {
-        return OTHER.computeIfAbsent("chemical/" + id, key -> Minecraft.getInstance().submit(() -> {
-            if (!io.github.leadassimilator.reticulum.integration.Mods.MEKANISM) {
-                return transparent();
-            }
-            var icon = io.github.leadassimilator.reticulum.integration.mekanism.MekanismCatalog.icon(id);
-            return icon == null ? transparent() : sprite(id, icon.texture(), icon.tint());
-        }));
-    }
-
-    /** A block-atlas texture, tinted (ARGB; alpha 0 counts as opaque), as a 16x16 square. */
-    private static byte[] sprite(ResourceLocation id, @javax.annotation.Nullable ResourceLocation texture, int tint) {
+    /** A block-atlas texture, tinted (ARGB; alpha 0 counts as opaque), as a 16x16 square. On the render thread. */
+    public static byte[] sprite(ResourceLocation id, @Nullable ResourceLocation texture, int tint) {
         if (texture == null) {
             return transparent();
         }
@@ -82,7 +94,7 @@ final class IconRenderer {
         float r = ((tint >> 16) & 0xFF) / 255f;
         float g = ((tint >> 8) & 0xFF) / 255f;
         float b = (tint & 0xFF) / 255f;
-        return render(id, graphics -> {
+        return draw(id, graphics -> {
             RenderSystem.enableBlend();
             graphics.blit(0, 0, 0, 16, 16, sprite, r, g, b, a);
             RenderSystem.disableBlend();
@@ -90,7 +102,7 @@ final class IconRenderer {
     }
 
     /** One offscreen target, reused for every icon (making one per icon is slow when a picker loads dozens). */
-    @javax.annotation.Nullable
+    @Nullable
     private static TextureTarget target;
 
     private static TextureTarget target() {
@@ -100,7 +112,11 @@ final class IconRenderer {
         return target;
     }
 
-    private static byte[] render(ResourceLocation id, java.util.function.Consumer<GuiGraphics> draw) {
+    /**
+     * Whatever {@code draw} puts in a 16x16 GUI square, as a PNG. On the render thread; {@code id} only names it in the
+     * log should it fail.
+     */
+    public static byte[] draw(ResourceLocation id, java.util.function.Consumer<GuiGraphics> draw) {
         Minecraft mc = Minecraft.getInstance();
         TextureTarget target = target();
         Matrix4fStack modelView = RenderSystem.getModelViewStack();
@@ -126,7 +142,7 @@ final class IconRenderer {
                 return image.asByteArray();
             }
         } catch (IOException | RuntimeException e) {
-            Reticulum.LOGGER.warn("Could not render icon for {}", id, e);
+            Telispex.LOGGER.warn("Could not render icon for {}", id, e);
             return transparent();
         } finally {
             modelView.popMatrix();
@@ -136,7 +152,8 @@ final class IconRenderer {
         }
     }
 
-    private static byte[] transparent() {
+    /** A blank PNG, for an id with nothing to show. */
+    public static byte[] transparent() {
         try (NativeImage image = new NativeImage(1, 1, true)) {
             image.setPixelRGBA(0, 0, 0);
             return image.asByteArray();

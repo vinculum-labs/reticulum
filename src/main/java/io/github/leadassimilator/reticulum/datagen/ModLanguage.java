@@ -210,18 +210,17 @@ public class ModLanguage extends LanguageProvider {
         add("reticulum.configuration.maxInteractDistance", "Max screen interaction distance");
         add("reticulum.configuration.section.reticulum.client.toml", "Reticulum (client)");
         add("reticulum.configuration.section.reticulum.client.toml.title", "Reticulum (client)");
-        add("reticulum.configuration.webAddress", "Web editor address");
-        add("reticulum.configuration.webPort", "Web editor port");
-        add("reticulum.configuration.keepRunningWhileEditing", "Keep running while the editor is open");
-        add("reticulum.configuration.rememberLogin", "Stay logged in to the web editor");
-        add("reticulum.configuration.editorInGame", "Open the editor inside the game");
-        add("reticulum.configuration.editorDisplay", "In-game editor display (Windows)");
+        // Telispex's settings (telispex-client.toml): registered through this mod's container while they ship in it.
+        add("reticulum.configuration.section.telispex.client.toml", "Web pages (client)");
+        add("reticulum.configuration.section.telispex.client.toml.title", "Web pages (client)");
+        add("reticulum.configuration.address", "Address pages are served on");
+        add("reticulum.configuration.port", "Port pages are served on");
+        add("reticulum.configuration.hosts", "Keep each mod's pages apart by");
+        add("reticulum.configuration.keepRunning", "Keep running while a page is open");
+        add("reticulum.configuration.rememberLogin", "Stay logged in to pages");
+        add("reticulum.configuration.inGame", "Open pages inside the game");
+        add("reticulum.configuration.viewDisplay", "In-game view display (Windows)");
         add("screen.reticulum.editor", "Reticulum editor");
-        add("screen.reticulum.editor_close", "Close");
-        add("screen.reticulum.editor_browser", "Open in browser");
-        add("screen.reticulum.editor_loading", "Starting the editor…");
-        add("screen.reticulum.editor_fullscreen", "The editor can't show over fullscreen");
-        add("screen.reticulum.editor_fullscreen_hint", "Press F11 for windowed mode, or use Open in browser");
         add("reticulum.configuration.energyPerTick", "Energy per route per tick");
         add("reticulum.configuration.fluidPerTick", "Fluid per route per tick");
         add("reticulum.configuration.overflowItemStacks", "Overflow buffer item stacks");
@@ -236,7 +235,7 @@ public class ModLanguage extends LanguageProvider {
         section("throughput", "Throughput and overflow");
         section("identify", "Identify");
         section("ae2", "Applied Energistics 2");
-        section("webEditor", "Web editor");
+        section("web", "Web pages");
         section("beacons", "Status Beacons");
         add("reticulum.configuration.beaconMaxRange", "Furthest a beacon's sound may carry");
         add("reticulum.configuration.beaconMinInterval", "Least ticks between a beacon's sounds");

@@ -22,7 +22,7 @@ let loading: Promise<Catalog> | null = null;
 
 /** Loaded once per page; the game's names and tags don't change while it runs (bar a /reload). */
 export function loadCatalog(): Promise<Catalog> {
-  loading ??= fetch("/catalog.json")
+  loading ??= fetch("catalog.json")
     .then((r) => {
       if (!r.ok) throw new Error(`catalog: ${r.status}`);
       return r.json() as Promise<Catalog>;
@@ -35,7 +35,7 @@ export function loadCatalog(): Promise<Catalog> {
 }
 
 export function iconUrl(kind: CatalogKind, id: string): string {
-  return `/icon/${kind}/${id.replace(":", "/")}.png`;
+  return `_/icon/${kind}/${id.replace(":", "/")}.png`;
 }
 
 /**

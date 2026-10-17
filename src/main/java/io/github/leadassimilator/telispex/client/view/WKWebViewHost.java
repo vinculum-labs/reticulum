@@ -1,4 +1,4 @@
-package io.github.leadassimilator.reticulum.client.webview;
+package io.github.leadassimilator.telispex.client.view;
 
 import java.nio.charset.StandardCharsets;
 
@@ -12,7 +12,7 @@ import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
 
-import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.telispex.Telispex;
 import net.minecraft.client.Minecraft;
 
 /**
@@ -89,9 +89,9 @@ final class WKWebViewHost {
             }
             apply();
         } catch (RuntimeException | Error e) {
-            Reticulum.LOGGER.warn("The in-game editor isn't available; using the browser instead", e);
+            Telispex.LOGGER.warn("The in-game view isn't available; using the browser instead", e);
             failed = true;
-            Minecraft.getInstance().execute(EditorScreen::fallBackToBrowser);
+            Minecraft.getInstance().execute(ViewScreen::fallBackToBrowser);
         }
     }
 

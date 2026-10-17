@@ -549,10 +549,10 @@ public final class WebApiTests {
                     .append("\",\"x\":").append(random.nextInt(5000)).append("}}");
         }
         json.append("]}");
-        var parts = io.github.leadassimilator.reticulum.protocol.web.WebPayloads.splitRequest(1, "r1", json.toString());
-        boolean small = parts.stream().allMatch(p -> p.data().length <= io.github.leadassimilator.reticulum.protocol.web.WebPayloads.PART_BYTES);
-        String back = io.github.leadassimilator.reticulum.protocol.web.WebPayloads.join(parts.stream().map(p -> p.data()).toList(),
-                io.github.leadassimilator.reticulum.protocol.web.WebPayloads.MAX_REQUEST_BYTES);
+        var parts = io.github.leadassimilator.telispex.relay.RelayPayloads.splitRequest("reticulum", 1, "r1", json.toString());
+        boolean small = parts.stream().allMatch(p -> p.data().length <= io.github.leadassimilator.telispex.relay.RelayPayloads.PART_BYTES);
+        String back = io.github.leadassimilator.telispex.relay.RelayPayloads.join(parts.stream().map(p -> p.data()).toList(),
+                io.github.leadassimilator.telispex.relay.RelayPayloads.MAX_REQUEST_BYTES);
         if (parts.size() < 2 || !small || !back.equals(json.toString())) {
             helper.fail("Pieces " + parts.size() + ", within a packet " + small + ", whole again " + back.equals(json.toString()));
         }

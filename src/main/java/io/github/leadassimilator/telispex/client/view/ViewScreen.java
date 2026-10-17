@@ -1,10 +1,10 @@
-package io.github.leadassimilator.reticulum.client.webview;
+package io.github.leadassimilator.telispex.client.view;
 
 import javax.annotation.Nullable;
 
 import org.lwjgl.glfw.GLFW;
 
-import io.github.leadassimilator.reticulum.client.web.WebBridge;
+import io.github.leadassimilator.telispex.client.WebApp;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -13,40 +13,65 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * The editor inside the game: a thin bar across the top (title, Open in browser, Close) with the web view filling
- * the rest of the window. The game keeps running underneath, as it does while the editor is open in a browser.
+ * An app's page inside the game: a thin bar across the top (title, Open in browser, Close) with the web view filling
+ * the rest of the window. The game keeps running underneath, as it does while a page is open in a browser.
  */
-public class EditorScreen extends Screen {
+public class ViewScreen extends Screen {
     private static final int BAR = 20;
 
+    /** The app whose page the view holds (shown or hidden); null when it holds none. */
+    @Nullable
+    private static WebApp owner;
+
+    private final WebApp app;
     /** The page to load the first time this screen lays itself out; null keeps the page already loaded. */
     @Nullable
     private String url;
 
-    public static void open(@Nullable String url) {
-        Minecraft.getInstance().setScreen(new EditorScreen(url));
+    /** Shows an app's page: loading {@code url}, or (null) the one the view already holds for that app. */
+    public static void open(WebApp app, @Nullable String url) {
+        if (url == null && owner != app) {
+            throw new IllegalStateException("The view doesn't hold a page of " + app.id());
+        }
+        owner = app;
+        Minecraft.getInstance().setScreen(new ViewScreen(app, url));
+    }
+
+    @Nullable
+    public static WebApp owner() {
+        return owner;
+    }
+
+    /** The page was closed (leaving the world): the view holds none until the next opens. */
+    static void forget() {
+        owner = null;
     }
 
     /** The web view couldn't start: close this and use the browser, as before. */
     static void fallBackToBrowser() {
-        if (Minecraft.getInstance().screen instanceof EditorScreen) {
+        if (Minecraft.getInstance().screen instanceof ViewScreen) {
             Minecraft.getInstance().setScreen(null);
         }
-        WebBridge.openInBrowser();
+        WebApp app = owner;
+        owner = null;
+        if (app != null) {
+            app.openInBrowser();
+        }
     }
 
-    private EditorScreen(@Nullable String url) {
-        super(Component.translatable("screen.reticulum.editor"));
+    private ViewScreen(WebApp app, @Nullable String url) {
+        super(app.title());
+        this.app = app;
         this.url = url;
     }
 
     @Override
     protected void init() {
-        addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.editor_close"), b -> onClose())
+        addRenderableWidget(Button.builder(Component.translatable("screen.telispex.close"), b -> onClose())
                 .bounds(width - 62, 2, 60, BAR - 4).build());
-        addRenderableWidget(Button.builder(Component.translatable("screen.reticulum.editor_browser"), b -> {
+        addRenderableWidget(Button.builder(Component.translatable("screen.telispex.browser"), b -> {
             onClose();
-            WebBridge.openInBrowser();
+            app.openInBrowser();
         }).bounds(width - 62 - 104, 2, 100, BAR - 4).build());
         var window = Minecraft.getInstance().getWindow();
         if (window.isFullscreen() && EmbeddedView.hiddenByFullscreen()) {
@@ -83,10 +108,10 @@ public class EditorScreen extends Screen {
             return;
         }
         if (Minecraft.getInstance().getWindow().isFullscreen() && EmbeddedView.hiddenByFullscreen()) {
-            graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen"), width / 2, height / 2 - 6, 0xE3E7EF);
-            graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_fullscreen_hint"), width / 2, height / 2 + 6, 0xA0A0A0);
+            graphics.drawCenteredString(font, Component.translatable("screen.telispex.fullscreen"), width / 2, height / 2 - 6, 0xE3E7EF);
+            graphics.drawCenteredString(font, Component.translatable("screen.telispex.fullscreen_hint"), width / 2, height / 2 + 6, 0xA0A0A0);
         } else if (!EmbeddedView.shown()) {
-            graphics.drawCenteredString(font, Component.translatable("screen.reticulum.editor_loading"), width / 2, height / 2, 0xA0A0A0);
+            graphics.drawCenteredString(font, Component.translatable("screen.telispex.loading"), width / 2, height / 2, 0xA0A0A0);
         }
     }
 
@@ -101,7 +126,7 @@ public class EditorScreen extends Screen {
     }
 
     /**
-     * A click on the bar takes the keyboard back from the view, so Esc there closes the editor. A click in a view the
+     * A click on the bar takes the keyboard back from the view, so Esc there closes the view. A click in a view the
      * game draws goes to the page, which takes the keyboard.
      */
     @Override
@@ -218,7 +243,7 @@ public class EditorScreen extends Screen {
 
     /**
      * Keys go to the page while it has the keyboard (a click in it gave it; a click on the bar takes it back), Esc and
-     * F11 included: the page closes its own dialogs with Esc and asks the game to close the editor when none is open.
+     * F11 included: the page closes its own dialogs with Esc and asks the game to close the view when none is open.
      */
     @Override
     public boolean keyPressed(int key, int scancode, int modifiers) {

@@ -1,23 +1,7 @@
 package io.github.leadassimilator.reticulum.client.web;
 
-import java.io.IOException;
-import java.net.Inet4Address;
-import java.net.Inet6Address;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.net.UnknownHostException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.HexFormat;
-import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -25,287 +9,76 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 import io.github.leadassimilator.reticulum.Reticulum;
-import io.github.leadassimilator.reticulum.ReticulumClientConfig;
-import io.github.leadassimilator.reticulum.protocol.web.WebPayloads;
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.group.ChannelGroup;
-import io.netty.channel.group.DefaultChannelGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.HttpServerCodec;
-import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
-import io.netty.util.concurrent.DefaultThreadFactory;
-import io.netty.util.concurrent.GlobalEventExecutor;
+import io.github.leadassimilator.telispex.client.Icons;
+import io.github.leadassimilator.telispex.client.Page;
+import io.github.leadassimilator.telispex.client.PageListener;
+import io.github.leadassimilator.telispex.client.WebApp;
 import net.minecraft.ChatFormatting;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
-import net.neoforged.fml.loading.FMLPaths;
 
 /**
- * The web UI's local server, hosted by the game client. By default it binds to 127.0.0.1 on port 38291 (or the port
- * it last used, or a free one)
- * (both configurable), and admits a browser only after it has presented the one-time token from the URL the game opened. Requests are
- * relayed to the server as they are; the server checks every one of them against the player's permissions.
+ * The editor as a Telispex app: its page (built from web/), the catalog the filter picker reads, chemical icons, and
+ * what the game client answers itself (which network to show, and which networks its pages show). Every other request
+ * goes to the server, which checks each one against the player's permissions.
  */
 public final class WebBridge {
-    private static final SecureRandom RANDOM = new SecureRandom();
-
     @Nullable
-    private static EventLoopGroup group;
-    @Nullable
-    private static Channel server;
-    private static int port;
-    private static String boundAddress = "";
-    private static int boundPort = -1;
-    private static Set<String> authorities = Set.of();
-    private static String baseUrl = "";
-    private static String token = "";
-    private static final ChannelGroup SOCKETS = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
-    private static final Map<Integer, List<byte[]>> PARTS = new HashMap<>();
+    private static WebApp app;
+    /** The network the editor was last opened on, which a page that connects shows. */
     @Nullable
     private static UUID focus;
 
     private WebBridge() {
     }
 
-    // ---------------------------------------------------------------- lifecycle
-
-    /** The port tried first when none is configured. */
-    static final int DEFAULT_PORT = 38291;
-
-    /** Remembered between runs: the session secret, so bookmarks and open pages keep working, and the port last used. */
-    private static Path stateFile() {
-        return FMLPaths.CONFIGDIR.get().resolve("reticulum-web.json");
-    }
-
-    private static JsonObject loadState() {
-        try {
-            if (Files.exists(stateFile())) {
-                return JsonParser.parseString(Files.readString(stateFile())).getAsJsonObject();
+    public static void init() {
+        app = WebApp.builder(Reticulum.MODID, Component.translatable("screen.reticulum.editor"), WebBridge.class, "/assets/reticulum/web/")
+                .devRoot("reticulum.webRoot")
+                .loginHint("Open the Reticulum editor from the game: the controller's Open editor button.")
+                .route("/catalog.json", "application/json; charset=utf-8", query -> Catalog.build())
+                .pages(new Pages())
+                .openInBrowser(a -> openInBrowser())
+                .register();
+        Icons.register("chemical", id -> {
+            if (!io.github.leadassimilator.reticulum.integration.Mods.MEKANISM) {
+                return Icons.transparent();
             }
-        } catch (IOException | RuntimeException e) {
-            Reticulum.LOGGER.warn("Could not read {}; starting afresh", stateFile(), e);
-        }
-        return new JsonObject();
+            var icon = io.github.leadassimilator.reticulum.integration.mekanism.MekanismCatalog.icon(id);
+            return icon == null ? Icons.transparent() : Icons.sprite(id, icon.texture(), icon.tint());
+        });
     }
 
-    private static void saveState(JsonObject state) {
-        try {
-            Files.writeString(stateFile(), state.toString());
-        } catch (IOException e) {
-            Reticulum.LOGGER.warn("Could not save {}", stateFile(), e);
+    private static WebApp app() {
+        if (app == null) {
+            throw new IllegalStateException("The editor isn't registered yet");
         }
-    }
-
-    static synchronized void start() {
-        String address = ReticulumClientConfig.WEB_ADDRESS.get().strip();
-        int wantedPort = ReticulumClientConfig.WEB_PORT.getAsInt();
-        if (server != null) {
-            if (address.equals(boundAddress) && wantedPort == boundPort) {
-                return;
-            }
-            // The config changed since the server started: restart it with the new address or port.
-            stop();
-        }
-        JsonObject state = loadState();
-        boolean remember = ReticulumClientConfig.REMEMBER_LOGIN.getAsBoolean();
-        if (remember && state.has("secret") && state.get("secret").getAsString().matches("[0-9a-f]{64}")) {
-            token = state.get("secret").getAsString();
-        } else {
-            byte[] bytes = new byte[32];
-            RANDOM.nextBytes(bytes);
-            token = HexFormat.of().formatHex(bytes);
-            if (remember) {
-                state.addProperty("secret", token);
-                saveState(state);
-            } else if (state.remove("secret") != null) {
-                // Not remembering any more: don't leave the old secret lying around.
-                saveState(state);
-            }
-        }
-        // Ports to try in order: the configured one, or the remembered one and the default; then any free port.
-        List<Integer> ports = new ArrayList<>();
-        if (wantedPort > 0) {
-            ports.add(wantedPort);
-        } else {
-            if (state.has("port")) {
-                ports.add(state.get("port").getAsInt());
-            }
-            ports.add(DEFAULT_PORT);
-        }
-        ports.add(0);
-        // Daemon threads, so the game can always exit even if the server is still up.
-        group = new NioEventLoopGroup(1, new DefaultThreadFactory("reticulum-web", true));
-        try {
-            InetAddress bindTo = InetAddress.getByName(address);
-            ServerBootstrap bootstrap = new ServerBootstrap()
-                    .group(group)
-                    .channel(NioServerSocketChannel.class)
-                    .childHandler(new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        protected void initChannel(SocketChannel ch) {
-                            ch.pipeline().addLast(new HttpServerCodec(), new HttpObjectAggregator(64 * 1024), new HttpHandler());
-                        }
-                    });
-            Exception lastFailure = null;
-            for (int candidate : ports.stream().distinct().toList()) {
-                try {
-                    server = bootstrap.bind(new InetSocketAddress(bindTo, candidate)).syncUninterruptibly().channel();
-                    break;
-                } catch (Exception e) {
-                    // Netty rethrows the BindException as is, although it is checked, so catch everything.
-                    // Most likely taken by something else (another game instance, say); try the next one.
-                    Reticulum.LOGGER.info("Reticulum web editor could not use port {} ({}); trying another", candidate, e.getMessage());
-                    lastFailure = e;
-                }
-            }
-            if (server == null) {
-                throw new IllegalStateException("no port could be used", lastFailure);
-            }
-            InetSocketAddress bound = (InetSocketAddress) server.localAddress();
-            if (wantedPort == 0 && (!state.has("port") || state.get("port").getAsInt() != bound.getPort())) {
-                state.addProperty("port", bound.getPort());
-                saveState(state);
-            }
-            port = bound.getPort();
-            boundAddress = address;
-            boundPort = wantedPort;
-            authorities = authorities(address, bound.getAddress(), port);
-            baseUrl = baseUrl(address, bound.getAddress(), port);
-            if (bound.getAddress().isLoopbackAddress()) {
-                Reticulum.LOGGER.info("Reticulum web editor listening on {}", bound);
-            } else {
-                Reticulum.LOGGER.warn("Reticulum web editor listening on {}, which other machines can reach (webAddress in the client config)", bound);
-            }
-        } catch (UnknownHostException | RuntimeException e) {
-            Reticulum.LOGGER.error("Could not start the Reticulum web editor on {}:{}", address, wantedPort, e);
-            stop();
-        }
-    }
-
-    /** Every host:port a browser may use to reach the server. Requests naming anything else are refused. */
-    private static Set<String> authorities(String configured, InetAddress bound, int port) {
-        Set<String> out = new HashSet<>();
-        if (bound.isLoopbackAddress() || bound.isAnyLocalAddress()) {
-            out.add("127.0.0.1:" + port);
-            out.add("localhost:" + port);
-            out.add("[::1]:" + port);
-        }
-        if (bound.isAnyLocalAddress()) {
-            try {
-                for (NetworkInterface nic : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                    for (InetAddress a : Collections.list(nic.getInetAddresses())) {
-                        out.add(hostPart(a) + ":" + port);
-                    }
-                }
-            } catch (SocketException e) {
-                Reticulum.LOGGER.warn("Could not list network interfaces for the web editor", e);
-            }
-        } else {
-            out.add(hostPart(bound) + ":" + port);
-        }
-        if (isHostname(configured)) {
-            out.add(configured.toLowerCase(Locale.ROOT) + ":" + port);
-        }
-        return Set.copyOf(out);
-    }
-
-    private static String baseUrl(String configured, InetAddress bound, int port) {
-        if (bound.isAnyLocalAddress() || bound instanceof Inet4Address && bound.isLoopbackAddress()) {
-            return "http://127.0.0.1:" + port;
-        }
-        return "http://" + (isHostname(configured) ? configured : hostPart(bound)) + ":" + port;
-    }
-
-    private static boolean isHostname(String configured) {
-        return !configured.isEmpty() && !Character.isDigit(configured.charAt(0)) && !configured.contains(":");
-    }
-
-    /** An address as it appears in a URL: IPv6 in brackets, without a zone id. */
-    private static String hostPart(InetAddress address) {
-        String text = address.getHostAddress();
-        int zone = text.indexOf('%');
-        if (zone >= 0) {
-            text = text.substring(0, zone);
-        }
-        return (address instanceof Inet6Address ? "[" + text + "]" : text).toLowerCase(Locale.ROOT);
-    }
-
-    static synchronized void stop() {
-        SOCKETS.close();
-        if (server != null) {
-            server.close();
-            server = null;
-        }
-        if (group != null) {
-            group.shutdownGracefully();
-            group = null;
-        }
-    }
-
-    static int port() {
-        return port;
-    }
-
-    /** host:port values (lowercase) a request's Host header may name. */
-    static Set<String> authorities() {
-        return authorities;
-    }
-
-    /** e.g. http://127.0.0.1:12345, with no trailing slash. */
-    static String baseUrl() {
-        return baseUrl;
-    }
-
-    static String token() {
-        return token;
-    }
-
-    static ChannelGroup sockets() {
-        return SOCKETS;
-    }
-
-    @Nullable
-    static UUID focus() {
-        return focus;
+        return app;
     }
 
     // ---------------------------------------------------------------- opening the editor
 
     /**
-     * Shows the editor on a network: inside the game on Windows and macOS (when enabled and the system's web view
-     * works), else in the browser. If a page is already connected it just switches to the network there.
+     * Shows the editor on a network: inside the game (when enabled and the system's web view works), else in the
+     * browser. If a page is already connected it just switches to the network there.
      */
-    /** Resources reloaded: the web editor's icons are drawn again. */
-    public static void onResourcesReloaded() {
-        IconRenderer.clear();
-    }
-
     public static void openEditor(@Nullable UUID network) {
-        start();
-        if (server == null) {
+        WebApp app = app();
+        if (!app.start()) {
             return;
         }
         focus = network;
-        if (io.github.leadassimilator.reticulum.ReticulumClientConfig.EDITOR_IN_GAME.getAsBoolean()
-                && io.github.leadassimilator.reticulum.client.webview.EmbeddedView.supported()) {
-            if (io.github.leadassimilator.reticulum.client.webview.EmbeddedView.ready()) {
+        if (app.inGameAvailable()) {
+            if (app.viewLoaded()) {
                 // The page is loaded (hidden); show it again, on this network.
                 broadcastFocus(network);
-                io.github.leadassimilator.reticulum.client.webview.EditorScreen.open(null);
+                app.showInGame(null);
             } else {
-                io.github.leadassimilator.reticulum.client.webview.EditorScreen.open(editorUrl(network, true));
+                app.showInGame(app.link(fragment(network, true), true));
             }
             return;
         }
@@ -313,12 +86,11 @@ public final class WebBridge {
     }
 
     /**
-     * The one-time login link for the editor, opening on a network. {@code embedded} marks the page as shown inside
-     * the game, so Esc at its root closes it (the page remembers that across reloads).
+     * The link's fragment: the network to open on, and {@code embedded} marking the page as shown inside the game, so
+     * Esc at its root closes it (the page remembers that across reloads).
      */
-    private static String editorUrl(@Nullable UUID network, boolean embedded) {
-        String hash = (network == null ? "" : "network=" + network) + (embedded ? (network == null ? "" : "&") + "embedded=1" : "");
-        return baseUrl + "/?token=" + token + (hash.isEmpty() ? "" : "#" + hash);
+    private static String fragment(@Nullable UUID network, boolean embedded) {
+        return (network == null ? "" : "network=" + network) + (embedded ? (network == null ? "" : "&") + "embedded=1" : "");
     }
 
     private static void broadcastFocus(@Nullable UUID network) {
@@ -327,7 +99,7 @@ public final class WebBridge {
         if (network != null) {
             message.addProperty("network", network.toString());
         }
-        broadcast(message.toString());
+        app().broadcast(message.toString());
     }
 
     /**
@@ -336,19 +108,18 @@ public final class WebBridge {
      * open it themselves.
      */
     public static void openInBrowser() {
-        start();
-        if (server == null) {
+        WebApp app = app();
+        if (!app.start()) {
             return;
         }
         UUID network = focus;
-        // A connected page (unless it's the in-game one, which we can't tell apart from a browser tab) just switches.
-        if (!SOCKETS.isEmpty() && !io.github.leadassimilator.reticulum.client.webview.EmbeddedView.ready()) {
+        if (app.browserPages() > 0) {
             broadcastFocus(network);
             chat(Component.translatable("message.reticulum.editor_focused"));
             return;
         }
-        String url = editorUrl(network, false);
-        Util.getPlatform().openUri(url);
+        String url = app.link(fragment(network, false), false);
+        app.browse(url);
         chat(Component.translatable("message.reticulum.editor_opened", Component.literal("[" + url.substring(0, url.indexOf("?")) + "]")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withUnderlined(true)
                         .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
@@ -362,61 +133,75 @@ public final class WebBridge {
         }
     }
 
-    // ---------------------------------------------------------------- relaying
-
-    static void broadcast(String json) {
-        if (!SOCKETS.isEmpty()) {
-            SOCKETS.writeAndFlush(new TextWebSocketFrame(json));
-        }
-    }
-
-    /** A piece of a server message; once all pieces are in, the message goes to every open page. */
-    public static void onChunk(WebPayloads.Chunk chunk) {
-        if (chunk.total() <= 0 || chunk.total() > WebPayloads.MAX_CHUNKS) {
-            return;
-        }
-        if (!PARTS.containsKey(chunk.message()) && PARTS.size() >= 64) {
-            // Messages that never finished (a server that stopped mid-message) don't pile up.
-            PARTS.clear();
-        }
-        List<byte[]> parts = PARTS.computeIfAbsent(chunk.message(), k -> new ArrayList<>());
-        parts.add(chunk.data());
-        if (parts.size() < chunk.total()) {
-            return;
-        }
-        PARTS.remove(chunk.message());
-        try {
-            broadcast(WebPayloads.join(parts));
-        } catch (java.util.zip.DataFormatException e) {
-            Reticulum.LOGGER.warn("Dropped a corrupt web UI message from the server", e);
-        }
-    }
+    // ---------------------------------------------------------------- pages
 
     /**
-     * Minecraft pauses by opening the pause screen when its window loses focus; in singleplayer that stops the
-     * server. While an editor page is open in a browser, that automatic pause is skipped (Esc still pauses). The
-     * in-game editor's page stays connected while hidden, so it doesn't count.
+     * {@code hello} is answered here (whether there is a world, and the network to show). The networks each page shows
+     * are tracked: the server keeps one subscription per player, not per page, so a page letting go of a network another
+     * page still shows mustn't unsubscribe it for both; that is only sent for the last.
      */
-    public static void onScreenOpening(net.neoforged.neoforge.client.event.ScreenEvent.Opening event) {
-        Minecraft mc = Minecraft.getInstance();
-        int inGame = io.github.leadassimilator.reticulum.client.webview.EmbeddedView.ready() ? 1 : 0;
-        if (event.getNewScreen() instanceof net.minecraft.client.gui.screens.PauseScreen && !mc.isWindowActive()
-                && SOCKETS.size() > inGame && mc.screen == null && ReticulumClientConfig.KEEP_RUNNING_WHILE_EDITING.getAsBoolean()) {
-            event.setCanceled(true);
+    private static final class Pages implements PageListener {
+        private final Map<Page, Set<String>> shown = new HashMap<>();
+
+        @Override
+        public boolean onRequest(Page page, String op, JsonObject request) {
+            String id = request.has("id") && request.get("id").isJsonPrimitive() ? request.get("id").getAsString() : null;
+            if (op.equals("hello")) {
+                JsonObject hello = new JsonObject();
+                hello.addProperty("type", "hello");
+                hello.addProperty("connected", Minecraft.getInstance().getConnection() != null);
+                if (focus != null) {
+                    hello.addProperty("focus", focus.toString());
+                }
+                page.send(hello);
+                return true;
+            }
+            String network = request.has("network") && request.get("network").isJsonPrimitive() ? request.get("network").getAsString() : null;
+            if (op.equals("subscribe") && network != null) {
+                synchronized (shown) {
+                    shown.computeIfAbsent(page, k -> new HashSet<>()).add(network);
+                }
+            } else if (op.equals("unsubscribe") && network != null && !letGo(page, network)) {
+                // Still shown on another page: only this page lets go.
+                page.reply(id);
+                return true;
+            }
+            return false;
         }
-    }
 
-    /**
-     * Joining a world starts the editor's server right away (not on the first Open editor), so bookmarked or open
-     * pages connect as soon as there is something to edit. It keeps running after leaving, for the next world.
-     */
-    public static void onLoggedIn() {
-        start();
-        broadcast("{\"type\":\"connected\"}");
-    }
+        /** A page closed: the networks no other page shows are unsubscribed. */
+        @Override
+        public void onClose(Page page) {
+            Set<String> networks;
+            synchronized (shown) {
+                networks = shown.containsKey(page) ? Set.copyOf(shown.get(page)) : Set.of();
+            }
+            for (String network : networks) {
+                if (letGo(page, network)) {
+                    JsonObject request = new JsonObject();
+                    request.addProperty("op", "unsubscribe");
+                    request.addProperty("network", network);
+                    Minecraft.getInstance().execute(() -> {
+                        if (Minecraft.getInstance().getConnection() != null) {
+                            page.app().toServer(request.toString());
+                        }
+                    });
+                }
+            }
+            synchronized (shown) {
+                shown.remove(page);
+            }
+        }
 
-    public static void onLoggedOut() {
-        PARTS.clear();
-        broadcast("{\"type\":\"disconnected\"}");
+        /** This page stops showing a network; true when no other page shows it (so the server can stop sending it). */
+        private boolean letGo(Page page, String network) {
+            synchronized (shown) {
+                Set<String> mine = shown.get(page);
+                if (mine != null) {
+                    mine.remove(network);
+                }
+                return shown.entrySet().stream().noneMatch(e -> e.getKey() != page && e.getValue().contains(network));
+            }
+        }
     }
 }

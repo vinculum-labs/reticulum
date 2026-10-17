@@ -22,7 +22,10 @@ export class Connection {
   ) {}
 
   connect(): void {
-    const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+    // Beside the page, wherever it is served (its own host's root, or /reticulum/).
+    const url = new URL("ws", location.href);
+    url.protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    const socket = new WebSocket(url);
     this.socket = socket;
     socket.onopen = () => {
       this.retry = 500;

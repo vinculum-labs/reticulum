@@ -46,11 +46,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * Server side of the web UI protocol. The browser talks JSON to the player's own game client, which passes each
- * request here unchanged; every request is checked against the player's permissions exactly like an in-game action.
+ * request here unchanged (Telispex's relay carries it); every request is checked against the player's permissions
+ * exactly like an in-game action.
  *
  * <p>Requests: {@code {"id": "...", "op": "networks" | "subscribe" | "unsubscribe" | "edit" | "history" | "checkFilter", ...}}.
  * Replies: {@code {"type": "response", "id": "...", "ok": true|false, ...}}. Pushes to subscribers:
@@ -61,7 +61,6 @@ public final class WebApi {
     private static final Map<UUID, Map<UUID, Integer>> SUBSCRIPTIONS = new HashMap<>();
     /** Players whose editor shows the network list, and the list they were last sent. */
     private static final Map<UUID, String> LIST_LISTENERS = new HashMap<>();
-    private static int nextMessage;
     /** Edits only taken alone in a batch: what they change can't be put back if a later edit is refused. */
     private static final java.util.Set<String> ALONE = java.util.Set.of("relinkDevice", "deleteOrphan", "setAccess", "setPassword", "setMember",
             "removeMember", "addChart", "removeChart");
@@ -72,11 +71,6 @@ public final class WebApi {
     // ---------------------------------------------------------------- transport
 
     public static void onRequest(ServerPlayer player, String json) {
-        onRequest(player, json, false);
-    }
-
-    /** {@code charged}: the request was taken from the player's allowance already (a large one, at its first piece). */
-    private static void onRequest(ServerPlayer player, String json, boolean charged) {
         JsonObject request;
         try {
             request = JsonParser.parseString(json).getAsJsonObject();
@@ -86,7 +80,7 @@ public final class WebApi {
         }
         JsonElement rawId = request.get("id");
         String id = rawId != null && rawId.isJsonPrimitive() ? rawId.getAsString() : null;
-        if (!charged && !allowance(player)) {
+        if (!allowance(player)) {
             send(player, error(id, "Too many requests — slow down"));
             return;
         }
@@ -109,12 +103,6 @@ public final class WebApi {
     private static final double BURST = 60;
     private static final double PER_SECOND = 20;
 
-    /**
-     * Large requests (sent in pieces, up to 8 MB to unpack and read) a player may still make: an import or a big undo is
-     * now and then, so far fewer.
-     */
-    private static final Map<UUID, double[]> LARGE_ALLOWANCE = new HashMap<>();
-
     /** Takes one request from the player's allowance (each subscribe or edit makes the server build and send snapshots). */
     private static boolean allowance(ServerPlayer player) {
         return take(ALLOWANCE, player, BURST, PER_SECOND);
@@ -132,21 +120,12 @@ public final class WebApi {
         return true;
     }
 
+    /**
+     * To the player's editor pages. Past what the editor takes (a huge network's snapshot), an answer says so instead,
+     * and a push is left out (the editor keeps what it has).
+     */
     static void send(ServerPlayer player, JsonObject message) {
-        String text = message.toString();
-        // Past what the editor takes (a huge network's snapshot), it would be dropped there without a word: an answer
-        // says so instead, and a push is left out (the editor keeps what it has).
-        if (text.length() > WebPayloads.MAX_MESSAGE_BYTES / 3 && text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > WebPayloads.MAX_MESSAGE_BYTES) {
-            if (!message.has("id")) {
-                io.github.leadassimilator.reticulum.Reticulum.LOGGER.warn("A {} for the editor was too large to send ({} characters)",
-                        message.has("type") ? message.get("type").getAsString() : "message", text.length());
-                return;
-            }
-            text = error(message.get("id").getAsString(), "That is too large for the editor to show").toString();
-        }
-        for (WebPayloads.Chunk chunk : WebPayloads.split(nextMessage++, text)) {
-            PacketDistributor.sendToPlayer(player, chunk);
-        }
+        io.github.leadassimilator.telispex.relay.Relay.send(player, io.github.leadassimilator.reticulum.Reticulum.MODID, message);
     }
 
     public static final class RequestException extends Exception {
@@ -1913,66 +1892,9 @@ public final class WebApi {
         return power;
     }
 
-    /** Pieces of large requests being received, by player, then by message id. */
-    private static final Map<UUID, Map<Integer, byte[][]>> PARTS = new java.util.concurrent.ConcurrentHashMap<>();
-
-    /**
-     * A piece of a large request (see WebPayloads.RequestPart). Once all of it is in, it is handled as any request. At most
-     * a few are put together at once per player (older ones dropped), each within the piece and size limits.
-     */
-    public static void onRequestPart(ServerPlayer player, WebPayloads.RequestPart part) {
-        String id = part.id().isEmpty() ? null : part.id();
-        if (part.total() < 1 || part.total() > WebPayloads.MAX_PARTS || part.index() < 0 || part.index() >= part.total()) {
-            send(player, error(id, "Request too large"));
-            return;
-        }
-        Map<Integer, byte[][]> mine = PARTS.computeIfAbsent(player.getUUID(), k -> new java.util.LinkedHashMap<>());
-        byte[][] pieces;
-        boolean refused = false;
-        synchronized (mine) {
-            pieces = mine.get(part.message());
-            if (pieces == null) {
-                // Charged once, at its first piece, before any work: a refused one keeps an empty entry so its other
-                // pieces are dropped.
-                refused = !take(LARGE_ALLOWANCE, player, 4, 0.5) || !allowance(player);
-                pieces = refused ? new byte[0][] : new byte[part.total()][];
-                mine.put(part.message(), pieces);
-            }
-            while (mine.size() > 4) {
-                mine.remove(mine.keySet().iterator().next());
-            }
-        }
-        if (refused) {
-            send(player, error(id, "Too many requests — slow down"));
-            return;
-        }
-        if (pieces.length != part.total()) {
-            return;
-        }
-        pieces[part.index()] = part.data();
-        for (byte[] piece : pieces) {
-            if (piece == null) {
-                return;
-            }
-        }
-        synchronized (mine) {
-            mine.remove(part.message());
-        }
-        String json;
-        try {
-            json = WebPayloads.join(java.util.Arrays.asList(pieces), WebPayloads.MAX_REQUEST_BYTES);
-        } catch (java.util.zip.DataFormatException e) {
-            send(player, error(id, "Request too large"));
-            return;
-        }
-        onRequest(player, json, true);
-    }
-
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         SUBSCRIPTIONS.remove(event.getEntity().getUUID());
-        PARTS.remove(event.getEntity().getUUID());
         ALLOWANCE.remove(event.getEntity().getUUID());
-        LARGE_ALLOWANCE.remove(event.getEntity().getUUID());
         LIST_LISTENERS.remove(event.getEntity().getUUID());
     }
 
@@ -1980,7 +1902,6 @@ public final class WebApi {
         SUBSCRIPTIONS.clear();
         SHOWN.clear();
         ALLOWANCE.clear();
-        LARGE_ALLOWANCE.clear();
         LIST_LISTENERS.clear();
     }
 

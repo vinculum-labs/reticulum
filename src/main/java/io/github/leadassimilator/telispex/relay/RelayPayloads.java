@@ -1,4 +1,4 @@
-package io.github.leadassimilator.reticulum.protocol.web;
+package io.github.leadassimilator.telispex.relay;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -8,7 +8,7 @@ import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
-import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.telispex.Telispex;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -16,22 +16,27 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Carries web UI protocol messages (JSON) between the game client and the server. Server messages (snapshots) can be
- * large, so they are compressed and split into chunks; so are the few large requests (an undo bringing many cards back,
- * an import), which would not fit one client-to-server packet.
+ * Carries an app's page messages (JSON) between the game client and the server, each marked with the app it belongs to.
+ * Server messages can be large, so they are compressed and split into chunks; so are large requests, which would not
+ * fit one client-to-server packet.
  */
-public final class WebPayloads {
+public final class RelayPayloads {
+    /** App ids are short: a host name label and a resource namespace. */
+    private static final int APP_CHARS = 63;
+
     /** Client-to-server packets are limited to 32 KiB; stay below it. */
     public static final int MAX_REQUEST_CHARS = 30_000;
     private static final int CHUNK_BYTES = 512 * 1024;
 
-    private WebPayloads() {
+    private RelayPayloads() {
     }
 
-    public record Request(String json) implements CustomPacketPayload {
-        public static final Type<Request> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "web_request"));
-        public static final StreamCodec<ByteBuf, Request> STREAM_CODEC =
-                ByteBufCodecs.stringUtf8(MAX_REQUEST_CHARS).map(Request::new, Request::json);
+    public record Request(String app, String json) implements CustomPacketPayload {
+        public static final Type<Request> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Telispex.ID, "request"));
+        public static final StreamCodec<ByteBuf, Request> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.stringUtf8(APP_CHARS), Request::app,
+                ByteBufCodecs.stringUtf8(MAX_REQUEST_CHARS), Request::json,
+                Request::new);
 
         @Override
         public Type<? extends CustomPacketPayload> type() {
@@ -49,9 +54,10 @@ public final class WebPayloads {
      * One piece of a large compressed request. The server joins pieces with the same {@code message} id; {@code id} is the
      * request's own id ("" for none), for answering one refused before it is joined.
      */
-    public record RequestPart(int message, String id, int index, int total, byte[] data) implements CustomPacketPayload {
-        public static final Type<RequestPart> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "web_request_part"));
+    public record RequestPart(String app, int message, String id, int index, int total, byte[] data) implements CustomPacketPayload {
+        public static final Type<RequestPart> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Telispex.ID, "request_part"));
         public static final StreamCodec<ByteBuf, RequestPart> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.stringUtf8(APP_CHARS), RequestPart::app,
                 ByteBufCodecs.VAR_INT, RequestPart::message,
                 ByteBufCodecs.stringUtf8(256), RequestPart::id,
                 ByteBufCodecs.VAR_INT, RequestPart::index,
@@ -66,7 +72,7 @@ public final class WebPayloads {
     }
 
     /** A large request, compressed and split into pieces for the server. */
-    public static List<RequestPart> splitRequest(int message, String id, String json) {
+    public static List<RequestPart> splitRequest(String app, int message, String id, String json) {
         String requestId = id == null ? "" : id.length() > 256 ? id.substring(0, 256) : id;
         byte[] compressed = deflate(json.getBytes(StandardCharsets.UTF_8));
         int total = Math.max(1, (compressed.length + PART_BYTES - 1) / PART_BYTES);
@@ -76,15 +82,16 @@ public final class WebPayloads {
             int to = Math.min(compressed.length, from + PART_BYTES);
             byte[] part = new byte[to - from];
             System.arraycopy(compressed, from, part, 0, part.length);
-            parts.add(new RequestPart(message, requestId, i, total, part));
+            parts.add(new RequestPart(app, message, requestId, i, total, part));
         }
         return parts;
     }
 
     /** One piece of a compressed server message. The client joins pieces with the same {@code message} id. */
-    public record Chunk(int message, int index, int total, byte[] data) implements CustomPacketPayload {
-        public static final Type<Chunk> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "web_chunk"));
+    public record Chunk(String app, int message, int index, int total, byte[] data) implements CustomPacketPayload {
+        public static final Type<Chunk> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Telispex.ID, "chunk"));
         public static final StreamCodec<ByteBuf, Chunk> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.stringUtf8(APP_CHARS), Chunk::app,
                 ByteBufCodecs.VAR_INT, Chunk::message,
                 ByteBufCodecs.VAR_INT, Chunk::index,
                 ByteBufCodecs.VAR_INT, Chunk::total,
@@ -97,7 +104,7 @@ public final class WebPayloads {
         }
     }
 
-    public static List<Chunk> split(int message, String json) {
+    public static List<Chunk> split(String app, int message, String json) {
         byte[] compressed = deflate(json.getBytes(StandardCharsets.UTF_8));
         int total = Math.max(1, (compressed.length + CHUNK_BYTES - 1) / CHUNK_BYTES);
         List<Chunk> chunks = new ArrayList<>(total);
@@ -106,7 +113,7 @@ public final class WebPayloads {
             int to = Math.min(compressed.length, from + CHUNK_BYTES);
             byte[] part = new byte[to - from];
             System.arraycopy(compressed, from, part, 0, part.length);
-            chunks.add(new Chunk(message, i, total, part));
+            chunks.add(new Chunk(app, message, i, total, part));
         }
         return chunks;
     }

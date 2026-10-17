@@ -6,7 +6,8 @@ import tailwindcss from "@tailwindcss/vite";
 // origin to pass its security checks). `npm run dev` rebuilds on change instead; refresh the browser to see it.
 export default defineConfig(({ mode }) => ({
   plugins: [svelte(), tailwindcss()],
-  base: "/",
+  // Relative, as the page may be served under /reticulum/ rather than at its own host's root.
+  base: "./",
   build: {
     outDir: "dist",
     emptyOutDir: true,

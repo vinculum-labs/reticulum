@@ -1,16 +1,15 @@
-package io.github.leadassimilator.reticulum.client.web;
+package io.github.leadassimilator.telispex.client;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
-import javax.annotation.Nullable;
-
-import io.github.leadassimilator.reticulum.Reticulum;
+import io.github.leadassimilator.telispex.Telispex;
+import io.github.leadassimilator.telispex.TelispexConfig;
+import io.github.leadassimilator.telispex.relay.RelayPayloads;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -32,20 +31,20 @@ import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
 import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
-import io.github.leadassimilator.reticulum.protocol.web.WebPayloads;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * HTTP side of the local web server: the token handshake, static files, item icons and the WebSocket upgrade.
- * Every request must name this server by its loopback address (defeats DNS rebinding) and, except for the token
- * handshake itself, carry the session cookie. The WebSocket upgrade must also come from this origin.
+ * HTTP side of the web server: the token handshake, each app's files and routes, icons and the WebSocket upgrade. Every
+ * request must name this server by one of its own addresses or an app's own host (defeats DNS rebinding) and, except
+ * for the token handshake itself, carry the session cookie of the app it is for. The WebSocket upgrade must also come
+ * from the page's own origin.
  */
 final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
-    /** The login cookie's name, per port (cookies aren't kept apart by port, so two games would share one). */
-    private static String cookieName() {
-        return "reticulum_session_" + WebBridge.port();
+    /** An app's login cookie's name, per port (cookies aren't kept apart by port, so two games would share one). */
+    private static String cookieName(WebApp app) {
+        return "telispex_" + app.id() + "_" + WebServer.port();
     }
-    private static final String WEB_ROOT = "/assets/reticulum/web/";
+
     private static final Map<String, String> TYPES = Map.of(
             "html", "text/html; charset=utf-8",
             "js", "text/javascript; charset=utf-8",
@@ -61,61 +60,58 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             respond(ctx, request, HttpResponseStatus.BAD_REQUEST, "text/plain", bytes("Bad request"));
             return;
         }
-        if (!hostAllowed(request.headers().get(HttpHeaderNames.HOST))) {
+        String host = request.headers().get(HttpHeaderNames.HOST);
+        if (!WebServer.hostAllowed(host)) {
             respond(ctx, request, HttpResponseStatus.FORBIDDEN, "text/plain", bytes("Forbidden"));
             return;
         }
         QueryStringDecoder uri = new QueryStringDecoder(request.uri());
+        if (WebServer.needsSlash(host, uri.path())) {
+            redirect(ctx, request, uri.path() + "/" + (uri.rawQuery().isEmpty() ? "" : "?" + uri.rawQuery()));
+            return;
+        }
+        WebServer.Target target = WebServer.target(host, uri.path());
+        if (target == null) {
+            respond(ctx, request, HttpResponseStatus.NOT_FOUND, "text/plain", bytes("Not found"));
+            return;
+        }
+        WebApp app = target.app();
         List<String> tokens = uri.parameters().get("token");
         if (tokens != null && !tokens.isEmpty()) {
-            handshake(ctx, request, uri, tokens.getFirst());
+            handshake(ctx, request, uri, target, tokens.getFirst());
             return;
         }
-        if (!hasSession(request)) {
-            respond(ctx, request, HttpResponseStatus.FORBIDDEN, "text/html; charset=utf-8",
-                    bytes("<p>Open the Reticulum editor from the game: the controller's <b>Open editor</b> button.</p>"));
+        if (!hasSession(request, app)) {
+            respond(ctx, request, HttpResponseStatus.FORBIDDEN, "text/html; charset=utf-8", bytes("<p>" + escape(app.loginHint()) + "</p>"));
             return;
         }
-        String path = uri.path();
+        String path = target.path();
+        WebApp.Answer answer = app.route(path);
         if (path.equals("/ws")) {
-            upgrade(ctx, request);
-        } else if (path.startsWith("/icon/item/")) {
-            icon(ctx, request, path.substring("/icon/item/".length()), IconRenderer::item);
-        } else if (path.startsWith("/icon/fluid/")) {
-            icon(ctx, request, path.substring("/icon/fluid/".length()), IconRenderer::fluid);
-        } else if (path.startsWith("/icon/chemical/")) {
-            icon(ctx, request, path.substring("/icon/chemical/".length()), IconRenderer::chemical);
-        } else if (path.equals("/catalog.json")) {
-            catalog(ctx, request);
+            upgrade(ctx, request, target);
+        } else if (path.startsWith("/_/icon/")) {
+            icon(ctx, request, path.substring("/_/icon/".length()));
+        } else if (answer != null) {
+            respondLater(ctx, request, answer.route().get(uri.parameters()), "Failed",
+                    (retained, body) -> respond(ctx, retained, HttpResponseStatus.OK, answer.contentType(), body));
         } else {
-            file(ctx, request, path);
+            file(ctx, request, app, path);
         }
     }
 
     // ---------------------------------------------------------------- security
 
-    private static boolean hostAllowed(@Nullable String host) {
-        return host != null && WebBridge.authorities().contains(host.toLowerCase(Locale.ROOT));
+    private static boolean tokenMatches(String candidate, WebApp app) {
+        return MessageDigest.isEqual(candidate.getBytes(StandardCharsets.UTF_8), WebServer.token(app).getBytes(StandardCharsets.UTF_8));
     }
 
-    private static boolean originAllowed(@Nullable String origin) {
-        if (origin == null || !origin.toLowerCase(Locale.ROOT).startsWith("http://")) {
-            return false;
-        }
-        return WebBridge.authorities().contains(origin.substring("http://".length()).toLowerCase(Locale.ROOT));
-    }
-
-    private static boolean tokenMatches(String candidate) {
-        return MessageDigest.isEqual(candidate.getBytes(StandardCharsets.UTF_8), WebBridge.token().getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static boolean hasSession(FullHttpRequest request) {
+    private static boolean hasSession(FullHttpRequest request, WebApp app) {
         String header = request.headers().get(HttpHeaderNames.COOKIE);
         if (header == null) {
             return false;
         }
         for (Cookie cookie : ServerCookieDecoder.STRICT.decode(header)) {
-            if (cookie.name().equals(cookieName()) && tokenMatches(cookie.value())) {
+            if (cookie.name().equals(cookieName(app)) && tokenMatches(cookie.value(), app)) {
                 return true;
             }
         }
@@ -123,17 +119,19 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     }
 
     /** Trades the token in the URL for a session cookie and redirects to the same page without it. */
-    private static void handshake(ChannelHandlerContext ctx, FullHttpRequest request, QueryStringDecoder uri, String candidate) {
-        if (!tokenMatches(candidate)) {
-            respond(ctx, request, HttpResponseStatus.FORBIDDEN, "text/plain", bytes("This editor link has expired — open it again from the game."));
+    private static void handshake(ChannelHandlerContext ctx, FullHttpRequest request, QueryStringDecoder uri, WebServer.Target target,
+            String candidate) {
+        if (!tokenMatches(candidate, target.app())) {
+            respond(ctx, request, HttpResponseStatus.FORBIDDEN, "text/plain", bytes("This link has expired — open it again from the game."));
             return;
         }
-        DefaultCookie cookie = new DefaultCookie(cookieName(), WebBridge.token());
+        DefaultCookie cookie = new DefaultCookie(cookieName(target.app()), WebServer.token(target.app()));
         cookie.setHttpOnly(true);
-        cookie.setPath("/");
+        // Only the app's own paths where apps share a host; on its own host, all of it.
+        cookie.setPath(target.prefix() + "/");
         // Kept across browser and game restarts (the secret is kept too), so bookmarks and open pages keep working;
         // unless the player chose a login per session, which ends when the browser closes.
-        if (io.github.leadassimilator.reticulum.ReticulumClientConfig.REMEMBER_LOGIN.getAsBoolean()) {
+        if (TelispexConfig.REMEMBER_LOGIN.getAsBoolean()) {
             cookie.setMaxAge(90L * 24 * 60 * 60);
         }
         cookie.setSameSite(CookieHeaderNames.SameSite.Strict);
@@ -145,47 +143,52 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
     }
 
+    /** An app named by path without the slash after it: on to the page's root, so its relative links resolve. */
+    private static void redirect(ChannelHandlerContext ctx, FullHttpRequest request, String location) {
+        FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.MOVED_PERMANENTLY);
+        response.headers().set(HttpHeaderNames.LOCATION, location);
+        HttpUtil.setContentLength(response, 0);
+        send(ctx, request, response);
+    }
+
     // ---------------------------------------------------------------- routes
 
-    private static void upgrade(ChannelHandlerContext ctx, FullHttpRequest request) {
-        if (!originAllowed(request.headers().get(HttpHeaderNames.ORIGIN))) {
+    private static void upgrade(ChannelHandlerContext ctx, FullHttpRequest request, WebServer.Target target) {
+        String host = request.headers().get(HttpHeaderNames.HOST);
+        if (!WebServer.sameOrigin(request.headers().get(HttpHeaderNames.ORIGIN), host)) {
             respond(ctx, request, HttpResponseStatus.FORBIDDEN, "text/plain", bytes("Forbidden origin"));
             return;
         }
         WebSocketServerHandshakerFactory factory = new WebSocketServerHandshakerFactory(
                 // Room past the largest request, so one a little over it gets an answer rather than a dropped page.
-                WebBridge.baseUrl().replaceFirst("^http", "ws") + "/ws", null, false, 2 * WebPayloads.MAX_REQUEST_BYTES);
+                "ws://" + host + target.prefix() + "/ws", null, false, 2 * RelayPayloads.MAX_REQUEST_BYTES);
         WebSocketServerHandshaker handshaker = factory.newHandshaker(request);
         if (handshaker == null) {
             WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel());
             return;
         }
-        ctx.pipeline().replace(ctx.handler(), "ws", new SocketHandler(handshaker));
+        ctx.pipeline().replace(ctx.handler(), "ws", new SocketHandler(handshaker, target.app()));
         // Browsers send a large message as several frames: joined into one before it is read.
-        ctx.pipeline().addBefore("ws", "wsjoin", new io.netty.handler.codec.http.websocketx.WebSocketFrameAggregator(2 * WebPayloads.MAX_REQUEST_BYTES));
+        ctx.pipeline().addBefore("ws", "wsjoin", new io.netty.handler.codec.http.websocketx.WebSocketFrameAggregator(2 * RelayPayloads.MAX_REQUEST_BYTES));
         handshaker.handshake(ctx.channel(), request).addListener(future -> {
             if (future.isSuccess()) {
-                WebBridge.sockets().add(ctx.channel());
+                target.app().sockets().add(ctx.channel());
             }
         });
     }
 
-    /** Every item, fluid and chemical with its name and tags, for the filter picker. */
-    private static void catalog(ChannelHandlerContext ctx, FullHttpRequest request) {
-        respondLater(ctx, request, Catalog.build(), "Catalog failed",
-                (retained, json) -> respond(ctx, retained, HttpResponseStatus.OK, "application/json; charset=utf-8", json));
-    }
-
-    private static void icon(ChannelHandlerContext ctx, FullHttpRequest request, String rest,
-            java.util.function.Function<ResourceLocation, java.util.concurrent.CompletableFuture<byte[]>> renderer) {
+    /** {@code <kind>/<namespace>/<path>.png}: an icon of a kind {@link Icons} draws. */
+    private static void icon(ChannelHandlerContext ctx, FullHttpRequest request, String rest) {
         String name = rest.endsWith(".png") ? rest.substring(0, rest.length() - 4) : rest;
-        int slash = name.indexOf('/');
-        ResourceLocation id = slash < 0 ? null : ResourceLocation.tryBuild(name.substring(0, slash), name.substring(slash + 1));
-        if (id == null) {
+        int kindEnd = name.indexOf('/');
+        int slash = kindEnd < 0 ? -1 : name.indexOf('/', kindEnd + 1);
+        ResourceLocation id = slash < 0 ? null : ResourceLocation.tryBuild(name.substring(kindEnd + 1, slash), name.substring(slash + 1));
+        java.util.concurrent.CompletableFuture<byte[]> png = id == null ? null : Icons.get(name.substring(0, kindEnd), id);
+        if (png == null) {
             respond(ctx, request, HttpResponseStatus.NOT_FOUND, "text/plain", bytes("Not found"));
             return;
         }
-        respondLater(ctx, request, renderer.apply(id), "Icon failed", (retained, png) -> respondCached(ctx, retained, png));
+        respondLater(ctx, request, png, "Icon failed", (retained, body) -> respondCached(ctx, retained, body));
     }
 
     /**
@@ -208,13 +211,13 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         }));
     }
 
-    private static void file(ChannelHandlerContext ctx, FullHttpRequest request, String path) {
+    private static void file(ChannelHandlerContext ctx, FullHttpRequest request, WebApp app, String path) {
         String name = path.equals("/") ? "index.html" : path.substring(1);
         if (name.contains("..") || name.contains("\\") || name.startsWith("/")) {
             respond(ctx, request, HttpResponseStatus.NOT_FOUND, "text/plain", bytes("Not found"));
             return;
         }
-        try (InputStream in = open(name)) {
+        try (InputStream in = app.open(name)) {
             if (in == null) {
                 respond(ctx, request, HttpResponseStatus.NOT_FOUND, "text/plain", bytes("Not found"));
                 return;
@@ -222,26 +225,13 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             String extension = name.substring(name.lastIndexOf('.') + 1);
             respond(ctx, request, HttpResponseStatus.OK, TYPES.getOrDefault(extension, "application/octet-stream"), in.readAllBytes());
         } catch (IOException e) {
-            Reticulum.LOGGER.warn("Could not serve {}", name, e);
+            Telispex.LOGGER.warn("Could not serve {} for {}", name, app.id(), e);
             respond(ctx, request, HttpResponseStatus.INTERNAL_SERVER_ERROR, "text/plain", bytes("Error"));
         }
     }
 
-    /**
-     * Web files come from the mod jar, or, in dev runs, from the directory named by the {@code reticulum.webRoot}
-     * system property (web/dist), so a rebuilt editor shows up on a browser refresh.
-     */
-    @Nullable
-    private static InputStream open(String name) throws IOException {
-        String devRoot = System.getProperty("reticulum.webRoot");
-        if (devRoot != null) {
-            java.nio.file.Path root = java.nio.file.Path.of(devRoot).toAbsolutePath().normalize();
-            java.nio.file.Path file = root.resolve(name).normalize();
-            if (file.startsWith(root) && java.nio.file.Files.isRegularFile(file)) {
-                return java.nio.file.Files.newInputStream(file);
-            }
-        }
-        return HttpHandler.class.getResourceAsStream(WEB_ROOT + name);
+    private static String escape(String text) {
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     // ---------------------------------------------------------------- responses

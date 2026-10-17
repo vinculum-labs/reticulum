@@ -1,4 +1,4 @@
-package io.github.leadassimilator.reticulum.client.webview;
+package io.github.leadassimilator.telispex.client.view;
 
 import javax.annotation.Nullable;
 
@@ -10,14 +10,15 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * The editor's web view inside the game window, whichever the system provides: WebView2 on Windows, WKWebView on
- * macOS, WebKitGTK on Linux. Elsewhere there is none, and the editor opens in the browser.
+ * The web view inside the game window, whichever the system provides: WebView2 on Windows, WKWebView on macOS,
+ * WebKitGTK on Linux. Elsewhere there is none, and pages open in the browser. There is one view, holding one app's page
+ * at a time.
  */
 public final class EmbeddedView {
-    /** The color behind the page until it paints (and the editor screen's placeholder), as 0xRRGGBB. */
+    /** The color behind the page until it paints (and the view screen's placeholder), as 0xRRGGBB. */
     public static final int BACKGROUND = 0x12151B;
 
-    /** What the editor screen needs from a system's web view. */
+    /** What the view screen needs from a system's web view. */
     private interface Host {
         boolean supported();
 
@@ -98,7 +99,7 @@ public final class EmbeddedView {
             return 0;
         }
 
-        /** Each tick while the editor screen is open. */
+        /** Each tick while the view screen is open. */
         default void tick() {
         }
 
@@ -401,6 +402,14 @@ public final class EmbeddedView {
         return HOST.supported();
     }
 
+    /**
+     * Whether the view reaches {@code <name>.localhost} on this computer by itself. WebView2 does (Chromium sends every
+     * such name to the loopback address); WKWebView and WebKitGTK ask the system, which may not know them.
+     */
+    public static boolean takesLocalhostNames() {
+        return Platform.isWindows();
+    }
+
     /** The view exists (its page may still be loading). */
     public static boolean ready() {
         return HOST.ready();
@@ -429,11 +438,13 @@ public final class EmbeddedView {
         HOST.focusGame();
     }
 
+    /** Closes the page (leaving the world): the view holds none until the next opens. */
     public static void close() {
         HOST.close();
+        ViewScreen.forget();
     }
 
-    /** Each tick while the editor screen is open. */
+    /** Each tick while the view screen is open. */
     public static void tick() {
         HOST.tick();
     }

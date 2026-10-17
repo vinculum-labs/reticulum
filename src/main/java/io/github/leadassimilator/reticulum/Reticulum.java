@@ -42,6 +42,9 @@ public class Reticulum {
         ModCreativeTabs.TABS.register(modEventBus);
 
         modEventBus.addListener(Payloads::register);
+        // The editor's web pages (shipped inside this mod for now): their requests reach the server through Telispex.
+        io.github.leadassimilator.telispex.Telispex.init(modEventBus);
+        io.github.leadassimilator.telispex.relay.Relay.register(MODID, WebApi::onRequest);
         modEventBus.addListener(DataGenerators::gatherData);
         if (Mods.MEKANISM) {
             MekanismChemicals.init();

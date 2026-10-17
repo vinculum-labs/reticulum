@@ -1,0 +1,7 @@
+{
+  "screen.telispex.close": "Close",
+  "screen.telispex.browser": "Open in browser",
+  "screen.telispex.loading": "Loading…",
+  "screen.telispex.fullscreen": "This page can't show over fullscreen",
+  "screen.telispex.fullscreen_hint": "Press F11 for windowed mode, or use Open in browser"
+}

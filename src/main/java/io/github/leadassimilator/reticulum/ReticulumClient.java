@@ -17,10 +17,10 @@ public class ReticulumClient {
     public ReticulumClient(IEventBus modEventBus, ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT, ReticulumClientConfig.SPEC);
+        // The editor's web pages (shipped inside this mod for now), and the editor itself as their first app.
+        io.github.leadassimilator.telispex.client.TelispexClient.init(modEventBus, container);
+        WebBridge.init();
         modEventBus.addListener(LookHud::registerLayer);
-        modEventBus.addListener((net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent event) -> event.registerReloadListener(
-                (net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager ->
-                        io.github.leadassimilator.reticulum.client.web.WebBridge.onResourcesReloaded()));
         // The network tool's look follows its mode (see the item model's overrides).
         modEventBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) -> event.enqueueWork(() ->
                 net.minecraft.client.renderer.item.ItemProperties.register(io.github.leadassimilator.reticulum.registry.ModItems.NETWORK_TOOL.get(),
@@ -39,10 +39,6 @@ public class ReticulumClient {
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.FacadeItemModel::registerDecorator);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.FacadeXray::onRenderLevel);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> io.github.leadassimilator.reticulum.client.FacadeXray.clear());
-        // The in-game editor's page belongs to the world being left.
-        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> io.github.leadassimilator.reticulum.client.webview.EmbeddedView.close());
-        // And the web view itself ends with the game, before the process exits around it.
-        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.GameShuttingDownEvent event) -> io.github.leadassimilator.reticulum.client.webview.EmbeddedView.shutdown());
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::registerLayer);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.IdentifyRenderer::onRenderLevel);
         modEventBus.addListener(io.github.leadassimilator.reticulum.client.StatusBeaconRenderer::register);
@@ -60,9 +56,6 @@ public class ReticulumClient {
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.LongMessages::onSystemMessage);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.ScreenHighlight::onRenderLevel);
         NeoForge.EVENT_BUS.addListener(LookHud::onClientTick);
-        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingIn event) -> WebBridge.onLoggedIn());
-        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> WebBridge.onLoggedOut());
-        NeoForge.EVENT_BUS.addListener(WebBridge::onScreenOpening);
         NeoForge.EVENT_BUS.addListener(io.github.leadassimilator.reticulum.client.ClientPayloadHandler::onScroll);
     }
 }
