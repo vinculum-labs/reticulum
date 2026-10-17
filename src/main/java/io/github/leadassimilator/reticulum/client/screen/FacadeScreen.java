@@ -13,7 +13,7 @@ import io.github.leadassimilator.reticulum.integration.Mods;
 import io.github.leadassimilator.reticulum.item.FacadeItem;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -161,7 +161,7 @@ public class FacadeScreen extends QuickScreen {
     private void filter(String query) {
         String q = query.trim().toLowerCase(Locale.ROOT);
         shown = q.isEmpty() ? candidates : candidates.stream()
-                .filter(item -> item.getName().getString().toLowerCase(Locale.ROOT).contains(q)
+                .filter(item -> item.getName(item.getDefaultInstance()).getString().toLowerCase(Locale.ROOT).contains(q)
                         || BuiltInRegistries.ITEM.getKey(item).toString().contains(q))
                 .toList();
         scroll = 0;
@@ -189,32 +189,32 @@ public class FacadeScreen extends QuickScreen {
     // ---------------------------------------------------------------- drawing
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(graphics, mouseX, mouseY, partialTick);
         graphics.fill(guiLeft(), guiTop(), guiLeft() + WIDTH, guiTop() + guiHeight(), 0xE0101010);
-        graphics.renderOutline(guiLeft(), guiTop(), WIDTH, guiHeight(), 0xFF505050);
+        graphics.outline(guiLeft(), guiTop(), WIDTH, guiHeight(), 0xFF505050);
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int left = guiLeft();
         int top = guiTop();
-        graphics.drawString(font, title, left + 8, top + 6, 0xFFFFFFFF);
+        graphics.text(font, title, left + 8, top + 6, 0xFFFFFFFF);
         // What it looks like now, framed; blocks dragged from JEI are dropped here.
         ItemStack held = held();
         BlockState state = FacadeItem.state(held);
         int px = left + PREVIEW_X;
         int py = top + PREVIEW_Y;
         graphics.fill(px, py, px + PREVIEW_WIDTH, py + PREVIEW_HEIGHT, 0xFF202020);
-        graphics.renderOutline(px, py, PREVIEW_WIDTH, PREVIEW_HEIGHT, 0xFF707070);
+        graphics.outline(px, py, PREVIEW_WIDTH, PREVIEW_HEIGHT, 0xFF707070);
         if (state != null) {
-            graphics.renderItem(new ItemStack(state.getBlock()), px + 2, py + 2);
+            graphics.item(new ItemStack(state.getBlock()), px + 2, py + 2);
         }
         Component name = state == null ? Component.translatable("screen.reticulum.facade_none") : state.getBlock().getName();
         int textWidth = PREVIEW_WIDTH - 24;
-        graphics.drawString(font, font.substrByWidth(name, textWidth).getString(), px + 21, py + 2, 0xFFFFFFFF);
-        graphics.drawString(font, Component.translatable("screen.reticulum.facade_count", held.getCount()), px + 21, py + 11, 0xFFA0A0A0);
+        graphics.text(font, font.substrByWidth(name, textWidth).getString(), px + 21, py + 2, 0xFFFFFFFF);
+        graphics.text(font, Component.translatable("screen.reticulum.facade_count", held.getCount()), px + 21, py + 11, 0xFFA0A0A0);
         // The blocks to pick from.
         int y0 = gridTop();
         Item hovered = null;
@@ -227,7 +227,7 @@ public class FacadeScreen extends QuickScreen {
                 continue;
             }
             Item item = shown.get(index);
-            graphics.renderItem(new ItemStack(item), x, y);
+            graphics.item(new ItemStack(item), x, y);
             if (!draggingBar && mouseX >= x && mouseX < x + CELL - 1 && mouseY >= y && mouseY < y + CELL - 1) {
                 graphics.fill(x, y, x + CELL - 1, y + CELL - 1, 0x80FFFFFF);
                 hovered = item;
@@ -241,9 +241,9 @@ public class FacadeScreen extends QuickScreen {
             graphics.fill(x, barY, x + SCROLLBAR_WIDTH, barY + barHeight(), hot ? 0xFFE0E0E0 : 0xFFA0A0A0);
         }
         if (shown.isEmpty()) {
-            graphics.drawCenteredString(font, Component.translatable("screen.reticulum.facade_no_match"), left + WIDTH / 2, y0 + 40, 0xFFA0A0A0);
+            graphics.centeredText(font, Component.translatable("screen.reticulum.facade_no_match"), left + WIDTH / 2, y0 + 40, 0xFFA0A0A0);
         }
-        graphics.drawWordWrap(font, hint(), left + 8, y0 + TRACK_HEIGHT + 7, WIDTH - 16, 0xFFA0A0A0);
+        graphics.textWithWordWrap(font, hint(), left + 8, y0 + TRACK_HEIGHT + 7, WIDTH - 16, 0xFFA0A0A0);
         if (hovered != null) {
             graphics.setTooltipForNextFrame(font, new ItemStack(hovered), mouseX, mouseY);
         }

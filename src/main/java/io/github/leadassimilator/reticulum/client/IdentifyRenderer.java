@@ -4,8 +4,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 
@@ -15,7 +16,7 @@ import io.github.leadassimilator.reticulum.protocol.Payloads;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.LayeringTransform;
@@ -42,16 +43,20 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 public final class IdentifyRenderer {
     /** How far outside the block a face is drawn. */
     private static final double MARGIN = 0.01;
+    /** Drawn whatever is in front, writing no depth. */
+    private static final DepthStencilState THROUGH_WALLS = new DepthStencilState(CompareOp.ALWAYS_PASS, false);
+    /** Hidden by what is in front, writing no depth. */
+    private static final DepthStencilState BEHIND_WALLS = new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false);
     /** Lines that ignore depth, so they show through walls. */
     private static final RenderPipeline LINES_THROUGH_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath(Reticulum.MODID, "pipeline/lines_through_walls"))
-            .withDepthWrite(false).withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST).build();
+            .withDepthStencilState(THROUGH_WALLS).build();
     static final RenderType LINES_THROUGH_WALLS = RenderType.create("reticulum_identify_lines", RenderSetup.builder(LINES_THROUGH_WALLS_PIPELINE)
             .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING).setOutputTarget(OutputTarget.ITEM_ENTITY_TARGET).createRenderSetup());
     /** Translucent quads that ignore depth, for a highlighted face. */
     private static final RenderPipeline QUADS_THROUGH_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath(Reticulum.MODID, "pipeline/quads_through_walls"))
-            .withCull(false).withDepthWrite(false).withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST).build();
+            .withCull(false).withDepthStencilState(THROUGH_WALLS).build();
     static final RenderType QUADS_THROUGH_WALLS = RenderType.create("reticulum_identify_quads",
             RenderSetup.builder(QUADS_THROUGH_WALLS_PIPELINE).sortOnUpload().createRenderSetup());
 
@@ -61,13 +66,13 @@ public final class IdentifyRenderer {
      */
     private static final RenderPipeline QUADS_BEHIND_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath(Reticulum.MODID, "pipeline/quads_behind_walls"))
-            .withCull(false).withDepthWrite(false).build();
+            .withCull(false).withDepthStencilState(BEHIND_WALLS).build();
     static final RenderType QUADS_BEHIND_WALLS = RenderType.create("reticulum_glow_quads",
             RenderSetup.builder(QUADS_BEHIND_WALLS_PIPELINE).sortOnUpload().createRenderSetup());
     /** Lines walls hide that hide nothing themselves, likewise. */
     private static final RenderPipeline LINES_BEHIND_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath(Reticulum.MODID, "pipeline/lines_behind_walls"))
-            .withDepthWrite(false).build();
+            .withDepthStencilState(BEHIND_WALLS).build();
     static final RenderType LINES_BEHIND_WALLS = RenderType.create("reticulum_glow_lines", RenderSetup.builder(LINES_BEHIND_WALLS_PIPELINE)
             .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING).setOutputTarget(OutputTarget.ITEM_ENTITY_TARGET).createRenderSetup());
 
@@ -160,7 +165,7 @@ public final class IdentifyRenderer {
     private static final int HUD_LINES = 6;
 
     /** Up to six lit things, nearest first, with how far and which way; those in other dimensions say so. */
-    private static void renderHud(GuiGraphics graphics, DeltaTracker delta) {
+    private static void renderHud(GuiGraphicsExtractor graphics, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
         if (markers.isEmpty() || mc.player == null || mc.options.hideGui || mc.getDebugOverlay().showDebugScreen()) {
             return;
@@ -190,11 +195,11 @@ public final class IdentifyRenderer {
                 where = Math.round(entry.distance()) + " m " + arrow + vertical;
             }
             graphics.fill(2, y - 1, 8, y + 7, 0xFF000000 | entry.marker().color());
-            graphics.drawString(mc.font, entry.marker().label() + "  " + where, 11, y, 0xFFFFFFFF, true);
+            graphics.text(mc.font, entry.marker().label() + "  " + where, 11, y, 0xFFFFFFFF, true);
             y += 10;
         }
         if (entries.size() > HUD_LINES) {
-            graphics.drawString(mc.font, Component.translatable("screen.reticulum.more", entries.size() - HUD_LINES), 11, y, 0xFFA0A0A0, true);
+            graphics.text(mc.font, Component.translatable("screen.reticulum.more", entries.size() - HUD_LINES), 11, y, 0xFFA0A0A0, true);
         }
     }
 }

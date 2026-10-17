@@ -18,6 +18,7 @@ import org.lwjgl.system.MemoryUtil;
 
 import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.CommandEncoder;
@@ -31,24 +32,25 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import io.github.leadassimilator.telispex.Telispex;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.CachedOrthoProjectionMatrixBuffer;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.Projection;
+import net.minecraft.client.renderer.ProjectionMatrixBuffer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.block.FluidModel;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.AtlasIds;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 
 /**
  * Icons for pages, as PNGs at {@code _/icon/<kind>/<namespace>/<path>.png} beside each page: items exactly as the game
@@ -62,7 +64,7 @@ public final class Icons {
 
     /** The offscreen textures and their projection, made once and reused for every icon (a picker loads dozens). */
     @Nullable
-    private static CachedOrthoProjectionMatrixBuffer projection;
+    private static GpuBufferSlice projection;
     @Nullable
     private static GpuTexture color;
     @Nullable
@@ -93,12 +95,24 @@ public final class Icons {
         }
     }
 
-    /** An icon, drawn once and kept; null for a kind nobody draws. */
+    /** An icon, drawn once and kept (unless drawing it failed: asked again, it is tried again); null for a kind nobody draws. */
     @Nullable
     static CompletableFuture<byte[]> get(String kind, Identifier id) {
         Function<Identifier, CompletableFuture<byte[]>> draw = KINDS.get(kind);
-        return draw == null ? null
-                : CACHE.computeIfAbsent(kind + "/" + id, key -> Minecraft.getInstance().submit(() -> draw.apply(id)).thenCompose(png -> png));
+        if (draw == null) {
+            return null;
+        }
+        String key = kind + "/" + id;
+        return CACHE.computeIfAbsent(key, k -> {
+            CompletableFuture<byte[]> png = Minecraft.getInstance().submit(() -> draw.apply(id)).thenCompose(future -> future);
+            png.whenComplete((body, error) -> {
+                if (error != null) {
+                    Telispex.LOGGER.warn("Could not draw the {} icon for {}", kind, id, error);
+                    CACHE.remove(key, png);
+                }
+            });
+            return png;
+        });
     }
 
     /** Resources reloaded (F3+T, a resource pack): icons are drawn again as they are asked for. */
@@ -120,7 +134,7 @@ public final class Icons {
             pose.translate(SIZE / 2f, SIZE / 2f, 0);
             pose.scale(SIZE, -SIZE, SIZE);
             mc.gameRenderer.getLighting().setupFor(state.usesBlockLight() ? Lighting.Entry.ITEMS_3D : Lighting.Entry.ITEMS_FLAT);
-            state.submit(pose, collector, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0);
+            state.submit(pose, collector, LightCoordsUtil.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0);
         });
     }
 
@@ -130,8 +144,9 @@ public final class Icons {
         if (fluid == null || fluid == Fluids.EMPTY) {
             return CompletableFuture.completedFuture(transparent());
         }
-        IClientFluidTypeExtensions extensions = IClientFluidTypeExtensions.of(fluid);
-        return sprite(id, extensions.getStillTexture(), extensions.getTintColor());
+        FluidState state = fluid.defaultFluidState();
+        FluidModel model = Minecraft.getInstance().getModelManager().getFluidStateModelSet().get(state);
+        return sprite(id, model.stillMaterial().sprite(), model.fluidTintSource() == null ? -1 : model.fluidTintSource().color(state));
     }
 
     /** A block-atlas texture, tinted (ARGB; alpha 0 counts as opaque), filling the square. On the render thread. */
@@ -139,10 +154,14 @@ public final class Icons {
         if (texture == null) {
             return CompletableFuture.completedFuture(transparent());
         }
-        TextureAtlasSprite sprite = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS).getSprite(texture);
+        return sprite(id, Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS).getSprite(texture), tint);
+    }
+
+    /** A sprite, tinted (ARGB; alpha 0 counts as opaque), filling the square. On the render thread. */
+    public static CompletableFuture<byte[]> sprite(Identifier id, TextureAtlasSprite sprite, int tint) {
         int color = (tint >>> 24) == 0 ? 0xFF000000 | tint : tint;
         return draw(id, (pose, buffers, collector) -> {
-            VertexConsumer quad = buffers.getBuffer(RenderTypes.text(TextureAtlas.LOCATION_BLOCKS));
+            VertexConsumer quad = buffers.getBuffer(RenderTypes.text(sprite.atlasLocation()));
             Matrix4f matrix = pose.last().pose();
             vertex(quad, matrix, 0, 0, sprite.getU0(), sprite.getV0(), color);
             vertex(quad, matrix, 0, SIZE, sprite.getU0(), sprite.getV1(), color);
@@ -152,7 +171,7 @@ public final class Icons {
     }
 
     private static void vertex(VertexConsumer quad, Matrix4f matrix, float x, float y, float u, float v, int color) {
-        quad.addVertex(matrix, x, y, 0).setColor(color).setUv(u, v).setLight(LightTexture.FULL_BRIGHT);
+        quad.addVertex(matrix, x, y, 0).setColor(color).setUv(u, v).setLight(LightCoordsUtil.FULL_BRIGHT);
     }
 
     /** Draws an icon: into {@code buffers}, or submitted to {@code collector} (as items are). */
@@ -169,11 +188,14 @@ public final class Icons {
         Minecraft mc = Minecraft.getInstance();
         GpuDevice device = RenderSystem.getDevice();
         if (color == null) {
-            projection = new CachedOrthoProjectionMatrixBuffer("Telispex icons", -1000f, 1000f, true);
-            color = device.createTexture(() -> "Telispex icon", GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_COPY_SRC,
+            Projection ortho = new Projection();
+            ortho.setupOrtho(-1000f, 1000f, SIZE, SIZE, true);
+            projection = new ProjectionMatrixBuffer("Telispex icons").getBuffer(ortho);
+            color = device.createTexture(() -> "Telispex icon",
+                    GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_COPY_SRC | GpuTexture.USAGE_COPY_DST,
                     TextureFormat.RGBA8, SIZE, SIZE, 1, 1);
             colorView = device.createTextureView(color);
-            depth = device.createTexture(() -> "Telispex icon depth", GpuTexture.USAGE_RENDER_ATTACHMENT,
+            depth = device.createTexture(() -> "Telispex icon depth", GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_COPY_DST,
                     mc.getMainRenderTarget().getDepthTexture().getFormat(), SIZE, SIZE, 1, 1);
             depthView = device.createTextureView(depth);
         }
@@ -181,7 +203,7 @@ public final class Icons {
         encoder.clearColorAndDepthTextures(color, 0, depth, 1.0);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         RenderSystem.backupProjectionMatrix();
-        RenderSystem.setProjectionMatrix(projection.getBuffer(SIZE, SIZE), ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.setProjectionMatrix(projection, ProjectionType.ORTHOGRAPHIC);
         RenderSystem.outputColorTextureOverride = colorView;
         RenderSystem.outputDepthTextureOverride = depthView;
         try {

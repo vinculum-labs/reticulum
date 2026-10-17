@@ -144,7 +144,7 @@ public class NetworkToolItem extends Item {
             } else {
                 Direction side = targetSide(player, level.getBlockState(context.getClickedPos()), context.getClickedPos(),
                         context.getClickedFace(), 1.0f);
-                player.displayClientMessage(Topology.toggle(level, context.getClickedPos(), side, player), true);
+                player.sendOverlayMessage(Topology.toggle(level, context.getClickedPos(), side, player));
             }
         }
         return InteractionResult.SUCCESS;
@@ -216,20 +216,20 @@ public class NetworkToolItem extends Item {
         }
         List<Identify> changed = Identifies.setAll(level.getServer(), network, targets, on);
         if (on && !changed.contains(self)) {
-            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", Limits.IDENTIFIES), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.identify_full", Limits.IDENTIFIES));
             return;
         }
         int devices = changed.size() - (changed.contains(self) ? 1 : 0);
         long refused = on ? targets.stream().filter(t -> !Identifies.isOn(network, t)).count() : 0;
         if (refused > 0) {
-            player.displayClientMessage(Component.translatable("message.reticulum.identify_some", devices, refused,
-                    Limits.IDENTIFIES), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.identify_some", devices, refused,
+                    Limits.IDENTIFIES));
             return;
         }
         Component what = devices == 0 ? Component.translatable("screen.reticulum.connector")
                 : devices == 1 ? Component.translatable("message.reticulum.connector_and_device")
                 : Component.translatable("message.reticulum.connector_and_devices", devices);
-        player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", what), true);
+        player.sendOverlayMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", what));
     }
 
     /** A device lit up whole (or stopped). */
@@ -244,11 +244,11 @@ public class NetworkToolItem extends Item {
         boolean was = Identifies.isOn(found, target);
         boolean on = Identifies.toggle(level.getServer(), found, target);
         if (!was && !on) {
-            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", Limits.IDENTIFIES), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.identify_full", Limits.IDENTIFIES));
             return;
         }
         String name = Identifies.deviceName(level.getServer(), found, device);
-        player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", name), true);
+        player.sendOverlayMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", name));
     }
 
     /**
@@ -286,17 +286,17 @@ public class NetworkToolItem extends Item {
         boolean was = Identifies.isOn(network, target);
         boolean on = offOnly ? Identifies.set(level.getServer(), network, target, false) : Identifies.toggle(level.getServer(), network, target);
         if (!offOnly && !was && !on) {
-            player.displayClientMessage(Component.translatable("message.reticulum.identify_full", Limits.IDENTIFIES), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.identify_full", Limits.IDENTIFIES));
             return;
         }
         String name = Identifies.label(level.getServer(), network, target);
-        player.displayClientMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", name), true);
+        player.sendOverlayMessage(Component.translatable(on ? "message.reticulum.identified" : "message.reticulum.unidentified", name));
     }
 
     /** Says the block isn't a device of a network the player may use; a block of the mod itself needs no saying. */
     private static void notADevice(ServerLevel level, ServerPlayer player, BlockPos pos) {
         if (Topology.blockEntity(level, pos) == null) {
-            player.displayClientMessage(Component.translatable("message.reticulum.not_a_device_of_yours"), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.not_a_device_of_yours"));
         }
     }
 
@@ -318,7 +318,7 @@ public class NetworkToolItem extends Item {
                 return;
             }
             Linking.link(tool, network);
-            player.displayClientMessage(Component.translatable("message.reticulum.tool_linked", network.name()), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.tool_linked", network.name()));
             return;
         }
         if (be instanceof ControllerBlockEntity) {
@@ -327,16 +327,16 @@ public class NetworkToolItem extends Item {
             return;
         }
         if (!(be instanceof ConnectorBlockEntity)) {
-            player.displayClientMessage(Component.translatable("message.reticulum.not_a_connector"), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.not_a_connector"));
             return;
         }
         UUID id = tool.get(ModDataComponents.NETWORK_ID.get());
         Network network = NetworkManager.network(level.getServer(), id);
         if (network == null) {
-            player.displayClientMessage(Component.translatable(id == null ? "message.reticulum.tool_empty" : "message.reticulum.network_gone_bound"), true);
+            player.sendOverlayMessage(Component.translatable(id == null ? "message.reticulum.tool_empty" : "message.reticulum.network_gone_bound"));
             return;
         }
-        player.displayClientMessage(Topology.bindWireless(level, pos, network, player), true);
+        player.sendOverlayMessage(Topology.bindWireless(level, pos, network, player));
     }
 
     @Override

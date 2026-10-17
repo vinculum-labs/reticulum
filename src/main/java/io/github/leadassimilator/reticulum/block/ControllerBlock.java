@@ -125,7 +125,7 @@ public class ControllerBlock extends NetworkBlock {
             return;
         }
         if (controller.antennaTier() == antenna.tier()) {
-            player.displayClientMessage(Component.translatable("message.reticulum.antenna_same"), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.antenna_same"));
             return;
         }
         ItemStack old = ModItems.antenna(controller.antennaTier());
@@ -138,7 +138,7 @@ public class ControllerBlock extends NetworkBlock {
         if (network != null) {
             NetworkManager.changed(player.level().getServer(), network);
         }
-        player.displayClientMessage(Component.translatable("message.reticulum.antenna_installed", AntennaItem.range(antenna.tier())), true);
+        player.sendOverlayMessage(Component.translatable("message.reticulum.antenna_installed", AntennaItem.range(antenna.tier())));
     }
 
     /** Takes the antenna out (the network tool in Configure mode, sneaking), handing it back. */
@@ -147,7 +147,7 @@ public class ControllerBlock extends NetworkBlock {
             return;
         }
         if (controller.antennaTier() == 0) {
-            player.displayClientMessage(Component.translatable("message.reticulum.antenna_none_installed"), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.antenna_none_installed"));
             return;
         }
         Network network = Topology.network((ServerLevel) level, pos);
@@ -162,7 +162,7 @@ public class ControllerBlock extends NetworkBlock {
         if (network != null) {
             NetworkManager.changed(player.level().getServer(), network);
         }
-        player.displayClientMessage(Component.translatable("message.reticulum.antenna_removed"), true);
+        player.sendOverlayMessage(Component.translatable("message.reticulum.antenna_removed"));
     }
 
     /** Binds a whole stack of connectors to this network: placed where no cable decides, they join it wirelessly. */
@@ -175,7 +175,7 @@ public class ControllerBlock extends NetworkBlock {
             return;
         }
         NetworkStamp.set(stack, network);
-        player.displayClientMessage(Component.translatable("message.reticulum.stack_bound", stack.getCount(), network.name()), true);
+        player.sendOverlayMessage(Component.translatable("message.reticulum.stack_bound", stack.getCount(), network.name()));
     }
 
     @Override

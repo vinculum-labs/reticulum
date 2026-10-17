@@ -8,12 +8,12 @@ import javax.annotation.Nullable;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.block.model.BlockModelPart;
-import net.minecraft.client.renderer.block.model.BlockStateModel;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
+import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.client.event.ModelEvent;
@@ -45,11 +45,11 @@ public final class FacadeModel extends DelegateBlockStateModel {
     }
 
     private static BlockStateModel model(BlockState state) {
-        return Minecraft.getInstance().getBlockRenderer().getBlockModel(state);
+        return Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(state);
     }
 
     @Override
-    public void collectParts(BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random, List<BlockModelPart> parts) {
+    public void collectParts(BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random, List<BlockStateModelPart> parts) {
         BlockState facade = facade(level, pos);
         if (facade == null) {
             super.collectParts(level, pos, state, random, parts);
@@ -59,8 +59,15 @@ public final class FacadeModel extends DelegateBlockStateModel {
     }
 
     @Override
-    public TextureAtlasSprite particleIcon(BlockAndTintGetter level, BlockPos pos, BlockState state) {
+    public Material.Baked particleMaterial(BlockAndTintGetter level, BlockPos pos, BlockState state) {
         BlockState facade = facade(level, pos);
-        return facade == null ? super.particleIcon(level, pos, state) : model(facade).particleIcon(level, pos, facade);
+        return facade == null ? super.particleMaterial(level, pos, state) : model(facade).particleMaterial(level, pos, facade);
+    }
+
+    /** The facade's, so a see-through facade is drawn with the translucent blocks. */
+    @Override
+    public int materialFlags(BlockAndTintGetter level, BlockPos pos, BlockState state) {
+        BlockState facade = facade(level, pos);
+        return facade == null ? super.materialFlags(level, pos, state) : model(facade).materialFlags(level, pos, facade);
     }
 }

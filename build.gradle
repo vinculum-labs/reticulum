@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.147'
+    id 'net.neoforged.moddev' version '2.0.148'
     id 'idea'
     id 'com.github.node-gradle.node' version '7.1.0'
 }
@@ -52,14 +52,17 @@ base {
     archivesName = mod_id
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 neoForge {
     version = project.neo_version
 
-    parchment {
-        mappingsVersion = project.parchment_mappings_version
-        minecraftVersion = project.parchment_minecraft_version
+    // Parameter names, where Parchment has them for this version (blank properties: none yet).
+    if (project.findProperty('parchment_mappings_version')) {
+        parchment {
+            mappingsVersion = project.parchment_mappings_version
+            minecraftVersion = project.parchment_minecraft_version
+        }
     }
 
     runs {
@@ -128,9 +131,11 @@ sourceSets.main.java {
 dependencies {
     // The client-hosted web UI server. Minecraft ships Netty but not its HTTP module; bundled with jar-in-jar,
     // pinned to Minecraft's Netty version (netty_version, which changes with the Minecraft version).
+    // Up to the next minor version, which Minecraft would have to move to first.
+    var nettyMinor = netty_version.tokenize('.')
     jarJar(implementation("io.netty:netty-codec-http")) {
         version {
-            strictly "[${netty_version}, 4.2)"
+            strictly "[${netty_version}, ${nettyMinor[0]}.${(nettyMinor[1] as int) + 1})"
             prefer netty_version
         }
     }

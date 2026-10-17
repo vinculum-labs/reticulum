@@ -81,7 +81,7 @@ public class FacadeItem extends Item {
         }
         BlockState state = payload.block().map(Block::defaultBlockState).orElse(null);
         if (!paint(stack, state)) {
-            player.displayClientMessage(Component.translatable("message.reticulum.not_facade_block", state.getBlock().getName()), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.not_facade_block", state.getBlock().getName()));
         }
     }
 
@@ -106,9 +106,9 @@ public class FacadeItem extends Item {
                 ? be.facade()
                 : level.getBlockState(context.getClickedPos());
         if (!level.isClientSide()) {
-            player.displayClientMessage(paint(context.getItemInHand(), state)
+            player.sendOverlayMessage(paint(context.getItemInHand(), state)
                     ? Component.translatable("message.reticulum.facade_copied", state.getBlock().getName())
-                    : Component.translatable("message.reticulum.not_facade_block", state.getBlock().getName()), true);
+                    : Component.translatable("message.reticulum.not_facade_block", state.getBlock().getName()));
         }
         return InteractionResult.SUCCESS;
     }

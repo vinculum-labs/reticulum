@@ -9,7 +9,7 @@ import io.github.leadassimilator.reticulum.item.AntennaItem;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.protocol.Views;
 import io.github.leadassimilator.reticulum.security.AccessMode;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
@@ -188,28 +188,28 @@ public class ControllerScreen extends QuickScreen {
 
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawString(font, title, left, top, 0xFFFFFFFF);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        graphics.text(font, title, left, top, 0xFFFFFFFF);
         if (networkTab) {
             renderNetworkTab(graphics);
             return;
         }
-        graphics.drawString(font, Component.translatable("screen.reticulum.network_name"), left, top + 25, 0xFFE0E0E0);
-        graphics.drawString(font, Component.translatable("screen.reticulum.access"), left, top + 50, 0xFFE0E0E0);
+        graphics.text(font, Component.translatable("screen.reticulum.network_name"), left, top + 25, 0xFFE0E0E0);
+        graphics.text(font, Component.translatable("screen.reticulum.access"), left, top + 50, 0xFFE0E0E0);
         if (password.visible) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.password"), left, top + 75, 0xFFE0E0E0);
+            graphics.text(font, Component.translatable("screen.reticulum.password"), left, top + 75, 0xFFE0E0E0);
         }
         int y = top + 100;
         String owner = view.ownerName().isEmpty() ? "-" : view.ownerName();
-        graphics.drawString(font, Component.translatable("screen.reticulum.owner", owner), left, y, 0xFFC0C0C0);
-        graphics.drawString(font, Component.translatable("screen.reticulum.counts", view.connectors(), view.devices()), left, y + 12, 0xFFC0C0C0);
-        graphics.drawString(font, AntennaItem.range(view.antenna()), left, y + 24, 0xFFC0C0C0);
+        graphics.text(font, Component.translatable("screen.reticulum.owner", owner), left, y, 0xFFC0C0C0);
+        graphics.text(font, Component.translatable("screen.reticulum.counts", view.connectors(), view.devices()), left, y + 12, 0xFFC0C0C0);
+        graphics.text(font, AntennaItem.range(view.antenna()), left, y + 24, 0xFFC0C0C0);
         if (!view.power().isEmpty()) {
-            graphics.drawString(font, view.power(), left, y + 48, 0xFFC0C0C0);
+            graphics.text(font, view.power(), left, y + 48, 0xFFC0C0C0);
         }
         if (view.orphans() > 0) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.orphans", view.orphans()), left, y + 36, 0xFFE0B040);
+            graphics.text(font, Component.translatable("screen.reticulum.orphans", view.orphans()), left, y + 36, 0xFFE0B040);
         }
     }
 
@@ -229,16 +229,16 @@ public class ControllerScreen extends QuickScreen {
         return redstoneLabelX() + font.width(Component.translatable("screen.reticulum.redstone")) + GAP;
     }
 
-    private void renderNetworkTab(GuiGraphics graphics) {
-        graphics.drawString(font, Component.translatable("screen.reticulum.network_switch"), left, top + 26, 0xFFE0E0E0);
-        graphics.drawString(font, Component.translatable("screen.reticulum.redstone"), redstoneLabelX(), top + 26, 0xFFE0E0E0);
+    private void renderNetworkTab(GuiGraphicsExtractor graphics) {
+        graphics.text(font, Component.translatable("screen.reticulum.network_switch"), left, top + 26, 0xFFE0E0E0);
+        graphics.text(font, Component.translatable("screen.reticulum.redstone"), redstoneLabelX(), top + 26, 0xFFE0E0E0);
         Component status = Component.translatable(view.running() ? "screen.reticulum.running" : view.enabled() ? "screen.reticulum.stopped_redstone"
                 : "screen.reticulum.stopped_off");
-        graphics.drawString(font, status, left, top + 46, view.running() ? 0xFF70E070 : 0xFFE0B040);
+        graphics.text(font, status, left, top + 46, view.running() ? 0xFF70E070 : 0xFFE0B040);
         int y = top + 62;
         List<Views.SheetEntry> sheets = view.sheets();
         if (sheets.isEmpty()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.no_sheets"), left, y + 4, 0xFFA0A0A0);
+            graphics.text(font, Component.translatable("screen.reticulum.no_sheets"), left, y + 4, 0xFFA0A0A0);
         }
         for (int i = sheetScroll; i < Math.min(sheets.size(), sheetScroll + SHEET_ROWS); i++) {
             Views.SheetEntry sheet = sheets.get(i);
@@ -246,18 +246,18 @@ public class ControllerScreen extends QuickScreen {
                     + (sheet.gateOff() ? "  ⚡" : "") + (sheet.errors() > 0 ? "  ⚠ " + sheet.errors() : "");
             int color = sheet.enabled() && !sheet.parentOff() && !sheet.gateOff() ? 0xFFE0E0E0 : 0xFF909090;
             int x = left + 42 + indent(sheet);
-            graphics.drawString(font, font.plainSubstrByWidth(sheet.name(), left + WIDTH - x - font.width(marks)) + marks, x, y + 4, color);
+            graphics.text(font, font.plainSubstrByWidth(sheet.name(), left + WIDTH - x - font.width(marks)) + marks, x, y + 4, color);
             y += 18;
         }
         if (sheets.size() > SHEET_ROWS) {
-            graphics.drawString(font, (sheetScroll + 1) + "–" + Math.min(sheets.size(), sheetScroll + SHEET_ROWS) + " / " + sheets.size(),
+            graphics.text(font, (sheetScroll + 1) + "–" + Math.min(sheets.size(), sheetScroll + SHEET_ROWS) + " / " + sheets.size(),
                     left + WIDTH - 40, top + 50, 0xFFA0A0A0);
         }
         int oy = top + 62 + SHEET_ROWS * 18 + 4;
         if (!view.overflow().isEmpty()) {
             String first = String.join(", ", view.overflow().subList(0, Math.min(2, view.overflow().size())))
                     + (view.overflow().size() > 2 ? " …" : "");
-            graphics.drawString(font, Component.translatable("screen.reticulum.overflow", font.plainSubstrByWidth(first, WIDTH - 60)), left, oy, 0xFFE0B040);
+            graphics.text(font, Component.translatable("screen.reticulum.overflow", font.plainSubstrByWidth(first, WIDTH - 60)), left, oy, 0xFFE0B040);
         }
     }
 

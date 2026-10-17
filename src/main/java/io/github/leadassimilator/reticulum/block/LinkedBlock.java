@@ -25,7 +25,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.BlockAndLightGetter;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
@@ -117,7 +117,7 @@ public abstract class LinkedBlock extends NetworkBlock {
         if (!player.getAbilities().instabuild) {
             ItemHandlerHelper.giveItemToPlayer(player, FacadeItem.of(old, 1));
         }
-        player.displayClientMessage(Component.translatable("message.reticulum.facade_removed"), true);
+        player.sendOverlayMessage(Component.translatable("message.reticulum.facade_removed"));
         return true;
     }
 
@@ -227,7 +227,7 @@ public abstract class LinkedBlock extends NetworkBlock {
 
     /** Connected textures and the like see the facade. */
     @Override
-    public BlockState getAppearance(BlockState state, BlockAndTintGetter level, BlockPos pos, Direction side, @Nullable BlockState queryState,
+    public BlockState getAppearance(BlockState state, BlockAndLightGetter level, BlockPos pos, Direction side, @Nullable BlockState queryState,
             @Nullable BlockPos queryPos) {
         BlockState facade = facadeAt(level, pos);
         return facade != null ? facade : state;

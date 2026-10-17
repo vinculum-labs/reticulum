@@ -8,10 +8,10 @@ import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.phys.Vec3;
 
 /** Text over a block in the world: wrapped to a width, facing the camera, growing with distance so it stays readable. */
@@ -46,13 +46,13 @@ public final class WorldLabel {
             float y = (i - (lines.size() - 1)) * lineHeight;
             float x = -font.width(line) / 2f;
             if (throughWalls) {
-                font.drawInBatch(line, x, y, 0xFF000000 | color, false, matrix, buffers, Font.DisplayMode.SEE_THROUGH, BACKGROUND, LightTexture.FULL_BRIGHT);
+                font.drawInBatch(line, x, y, 0xFF000000 | color, false, matrix, buffers, Font.DisplayMode.SEE_THROUGH, BACKGROUND, LightCoordsUtil.FULL_BRIGHT);
             } else {
                 // Minecraft puts the background a hair in front of the letters (as underlines go over text), too close
                 // for the depth buffer to tell apart: the background hid letters, in bands that moved as you did. So the
                 // background goes on its own (its letters all but invisible), set clearly behind, then the letters.
-                font.drawInBatch(line, x, y, 0x04000000, false, behind, buffers, Font.DisplayMode.NORMAL, BACKGROUND, LightTexture.FULL_BRIGHT);
-                font.drawInBatch(line, x, y, 0xFF000000 | color, false, matrix, buffers, Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
+                font.drawInBatch(line, x, y, 0x04000000, false, behind, buffers, Font.DisplayMode.NORMAL, BACKGROUND, LightCoordsUtil.FULL_BRIGHT);
+                font.drawInBatch(line, x, y, 0xFF000000 | color, false, matrix, buffers, Font.DisplayMode.NORMAL, 0, LightCoordsUtil.FULL_BRIGHT);
             }
         }
         pose.popPose();

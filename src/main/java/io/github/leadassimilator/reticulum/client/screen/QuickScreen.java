@@ -12,7 +12,7 @@ import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.block.entity.NetworkBlockEntity;
 import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import io.github.leadassimilator.reticulum.network.Limits;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -142,7 +142,7 @@ public abstract class QuickScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         if (!builtRead) {
             boxes.forEach((key, box) -> built.put(key, box.getValue()));
             builtRead = true;
@@ -152,7 +152,7 @@ public abstract class QuickScreen extends Screen {
             pendingOverlay = null;
             addRenderableWidget(overlay);
         }
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -242,12 +242,12 @@ public abstract class QuickScreen extends Screen {
 
     /** Dims the world instead of blurring it, so what the screen highlights in the world stays visible. */
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderTransparentBackground(graphics);
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        extractTransparentBackground(graphics);
     }
 
     /** The compass, beside the panel where there is room (never over its buttons), or not at all. */
-    protected void renderCompass(GuiGraphics graphics, int panelLeft, int panelWidth, int panelTop) {
+    protected void renderCompass(GuiGraphicsExtractor graphics, int panelLeft, int panelWidth, int panelTop) {
         int radius = 24;
         int right = panelLeft + panelWidth;
         if (width - right >= 2 * radius + 16) {

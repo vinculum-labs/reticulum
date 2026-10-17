@@ -39,13 +39,13 @@ public final class Access {
     @Nullable
     public static Network require(ServerPlayer player, @Nullable Network network, Role role) {
         if (network == null) {
-            player.displayClientMessage(Component.translatable("message.reticulum.no_network"), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.no_network"));
             return null;
         }
         if (Security.has(network, player, role)) {
             return network;
         }
-        player.displayClientMessage(refusal(network, player, role), true);
+        player.sendOverlayMessage(refusal(network, player, role));
         return null;
     }
 

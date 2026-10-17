@@ -1,7 +1,7 @@
 package io.github.leadassimilator.reticulum.client.screen;
 
 import io.github.leadassimilator.reticulum.Reticulum;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -26,8 +26,8 @@ public class IconButton extends Button {
 
     /** The button, with the icon instead of the label, dimmed when the button can't be used. */
     @Override
-    protected void renderContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderDefaultSprite(graphics);
+    protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        extractDefaultSprite(graphics);
         float shade = active ? 1f : 0.5f;
         graphics.blitSprite(RenderPipelines.GUI_TEXTURED, icon, getX() + (getWidth() - SIZE) / 2,
                 getY() + (getHeight() - SIZE) / 2, SIZE, SIZE, ARGB.colorFromFloat(alpha, shade, shade, shade));

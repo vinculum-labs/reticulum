@@ -1,7 +1,7 @@
 package io.github.leadassimilator.reticulum.client.screen;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 
@@ -35,14 +35,14 @@ class SeeThroughTextBox extends EditBox {
     }
 
     @Override
-    public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         if (!isVisible()) {
             return;
         }
         graphics.fill(frameX, frameY, frameX + frameWidth, frameY + frameHeight, 0x50000000);
         int border = isFocused() ? 0xFFFFFFFF : isHovered() ? 0xC0C0C0C0 : 0x80A0A0A0;
-        graphics.renderOutline(frameX, frameY, frameWidth, frameHeight, border);
-        super.renderWidget(graphics, mouseX, mouseY, partialTick);
+        graphics.outline(frameX, frameY, frameWidth, frameHeight, border);
+        super.extractWidgetRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
     private boolean inFrame(double mouseX, double mouseY) {

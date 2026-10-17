@@ -2,6 +2,8 @@ package io.github.leadassimilator.reticulum.client;
 
 import javax.annotation.Nullable;
 
+import org.joml.Matrix4fc;
+
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
@@ -57,8 +59,8 @@ public record FacadeItemModel(ItemModel blank) implements ItemModel {
         }
 
         @Override
-        public ItemModel bake(BakingContext context) {
-            return new FacadeItemModel(blank.bake(context));
+        public ItemModel bake(BakingContext context, Matrix4fc transformation) {
+            return new FacadeItemModel(blank.bake(context, transformation));
         }
 
         @Override

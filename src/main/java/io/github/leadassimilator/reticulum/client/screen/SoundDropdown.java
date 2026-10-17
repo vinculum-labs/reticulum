@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -41,7 +41,7 @@ final class SoundDropdown extends AbstractWidget {
     }
 
     @Override
-    protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         // Over the widgets drawn before it.
         graphics.nextStratum();
         int x = getX();
@@ -54,7 +54,7 @@ final class SoundDropdown extends AbstractWidget {
             if (hover) {
                 graphics.fill(x + 1, rowY, x + width - 1, rowY + ROW, 0xFF30343C);
             }
-            graphics.drawString(font, font.plainSubstrByWidth(items.get(scroll + i), width - 10), x + 4, rowY + 2, hover ? 0xFFFFFFFF : 0xFFD0D0D0);
+            graphics.text(font, font.plainSubstrByWidth(items.get(scroll + i), width - 10), x + 4, rowY + 2, hover ? 0xFFFFFFFF : 0xFFD0D0D0);
         }
         if (items.size() > rows) {
             // Where the list is, and how many there are.
@@ -64,7 +64,7 @@ final class SoundDropdown extends AbstractWidget {
             int thumbTop = trackTop + (trackHeight - thumb) * scroll / Math.max(1, items.size() - rows);
             graphics.fill(x + width - 4, thumbTop, x + width - 1, thumbTop + thumb, 0xFF808080);
             String more = Component.translatable("screen.reticulum.sound_more", scroll + 1, Math.min(items.size(), scroll + rows), items.size()).getString();
-            graphics.drawString(font, font.plainSubstrByWidth(more, width - 8), x + 4, y + 2 + rows * ROW + 2, 0xFF808080);
+            graphics.text(font, font.plainSubstrByWidth(more, width - 8), x + 4, y + 2 + rows * ROW + 2, 0xFF808080);
         }
     }
 

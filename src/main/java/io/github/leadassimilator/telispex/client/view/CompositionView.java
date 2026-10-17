@@ -307,7 +307,7 @@ final class CompositionView {
         }
         WGLNVDXInterop.wglDXLockObjectsNV(interopDevice, PointerBuffer.allocateDirect(1).put(0, interopObject));
         // Only copied from, into a texture the game draws: it sets up what it draws in ways a shared texture refuses.
-        frameTexture = FrameTexture.registerCopied(FRAME, glTexture, w, h);
+        frameTexture = FrameTexture.register(FRAME, glTexture, w, h);
         return true;
     }
 

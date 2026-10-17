@@ -25,7 +25,7 @@ public final class LongMessages {
             return;
         }
         event.setCanceled(true);
-        mc.gui.getChat().addMessage(event.getMessage());
+        mc.gui.getChat().addClientSystemMessage(event.getMessage());
     }
 
     private static boolean ours(Component message) {

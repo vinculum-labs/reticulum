@@ -62,30 +62,30 @@ public final class Linking {
         ItemStack stack = NetworkToolItem.held(player);
         if (NetworkStamp.has(stack)) {
             NetworkStamp.clear(stack);
-            player.displayClientMessage(Component.translatable("message.reticulum.tool_cleared"), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.tool_cleared"));
         }
     }
 
     public static void pick(ServerPlayer player, Payloads.PickNetwork payload) {
         Network network = NetworkManager.network(player.level().getServer(), payload.network());
         if (network == null) {
-            player.displayClientMessage(Component.translatable("message.reticulum.network_gone_bound"), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.network_gone_bound"));
             return;
         }
         if (!Security.canUse(network, player)) {
             try {
                 NetworkAdmin.join(network, player.getUUID(), player.getGameProfile().name(), payload.password());
             } catch (NetworkAdmin.Refused e) {
-                player.displayClientMessage(e.message(), true);
+                player.sendOverlayMessage(e.message());
                 return;
             }
             NetworkManager.changed(player.level().getServer(), network);
-            player.displayClientMessage(Component.translatable("command.reticulum.joined", network.name()), false);
+            player.sendSystemMessage(Component.translatable("command.reticulum.joined", network.name()));
         }
         if (payload.connector().isPresent()) {
             BlockPos pos = payload.connector().get();
             if (canReachConnector(player, pos)) {
-                player.displayClientMessage(Topology.rebind(player.level(), pos, network, player), true);
+                player.sendOverlayMessage(Topology.rebind(player.level(), pos, network, player));
                 Screens.open(player, pos);
             }
             return;
@@ -93,7 +93,7 @@ public final class Linking {
         ItemStack tool = heldTool(player);
         if (!tool.isEmpty()) {
             link(tool, network);
-            player.displayClientMessage(Component.translatable("message.reticulum.tool_linked", network.name()), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.tool_linked", network.name()));
         }
     }
 
@@ -109,7 +109,7 @@ public final class Linking {
         }
         ToolMode mode = NetworkToolItem.mode(tool).next(step);
         tool.set(ModDataComponents.TOOL_MODE.get(), mode);
-        player.displayClientMessage(Component.translatable("message.reticulum.tool_mode", Component.translatable(mode.translationKey())), true);
+        player.sendOverlayMessage(Component.translatable("message.reticulum.tool_mode", Component.translatable(mode.translationKey())));
     }
 
     private static ItemStack heldTool(ServerPlayer player) {

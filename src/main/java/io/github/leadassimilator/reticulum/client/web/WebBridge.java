@@ -130,7 +130,7 @@ public final class WebBridge {
     private static void chat(Component message) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
-            mc.player.displayClientMessage(message, false);
+            mc.player.sendSystemMessage(message);
         }
     }
 

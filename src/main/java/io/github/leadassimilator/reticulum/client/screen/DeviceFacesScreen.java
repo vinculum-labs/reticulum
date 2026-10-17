@@ -8,7 +8,7 @@ import io.github.leadassimilator.reticulum.client.ScreenHighlight;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.protocol.Views;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -102,7 +102,7 @@ public class DeviceFacesScreen extends QuickScreen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         // The device stays outlined; the face whose name box has focus is filled in (unsided: the whole device).
         BlockPos devicePos = view.pos().relative(side);
         Direction focusedFace = null;
@@ -112,17 +112,17 @@ public class DeviceFacesScreen extends QuickScreen {
             }
         }
         ScreenHighlight.set(devicePos, focusedFace);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         renderCompass(graphics, left, WIDTH, top);
         Views.SideView device = view.side(side);
-        graphics.drawString(font, title, left, top, 0xFFFFFFFF);
+        graphics.text(font, title, left, top, 0xFFFFFFFF);
         if (!device.icon().isEmpty()) {
-            graphics.renderItem(device.icon(), left, top + 10);
+            graphics.item(device.icon(), left, top + 10);
         }
-        graphics.drawString(font, device.displayName(), left + 20, top + 14, 0xFFC0C0C0);
+        graphics.text(font, device.displayName(), left + 20, top + 14, 0xFFC0C0C0);
         int y = top + 30;
         for (FaceKey face : FaceKey.values()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.face." + face.getSerializedName()), left, y + 5, 0xFFE0E0E0);
+            graphics.text(font, Component.translatable("screen.reticulum.face." + face.getSerializedName()), left, y + 5, 0xFFE0E0E0);
             y += ROW;
         }
     }

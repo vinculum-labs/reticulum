@@ -24,9 +24,10 @@ import net.minecraft.client.data.models.model.ItemModelUtils;
 import net.minecraft.client.data.models.model.ModelTemplates;
 import net.minecraft.client.data.models.model.TextureMapping;
 import net.minecraft.client.data.models.model.TextureSlot;
-import net.minecraft.client.renderer.block.model.VariantMutator;
+import net.minecraft.client.renderer.block.dispatch.VariantMutator;
 import net.minecraft.client.renderer.item.ItemModel;
 import net.minecraft.client.renderer.item.RangeSelectItemModel;
+import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.Direction;
 import net.minecraft.data.PackOutput;
 import net.minecraft.resources.Identifier;
@@ -49,11 +50,11 @@ public class ModModels extends ModelProvider {
 
         // The controller; with an antenna installed, its top shows that tier's antenna (like the item's icon), lying
         // with its base along the front edge. The top texture is drawn facing north, turned for the others.
-        Identifier plain = ModelTemplates.CUBE_ALL.create(id("block/controller"), TextureMapping.cube(id("block/controller")), blocks.modelOutput);
+        Identifier plain = ModelTemplates.CUBE_ALL.create(id("block/controller"), TextureMapping.cube(texture("block/controller")), blocks.modelOutput);
         Identifier[] antenna = new Identifier[4];
         for (int tier = 1; tier <= 3; tier++) {
             antenna[tier] = ModelTemplates.CUBE_TOP.create(id("block/controller_antenna_" + tier), new TextureMapping()
-                    .put(TextureSlot.SIDE, id("block/controller")).put(TextureSlot.TOP, id("block/controller_top_antenna_" + tier)), blocks.modelOutput);
+                    .put(TextureSlot.SIDE, texture("block/controller")).put(TextureSlot.TOP, texture("block/controller_top_antenna_" + tier)), blocks.modelOutput);
         }
         blocks.blockStateOutput.accept(MultiVariantGenerator.dispatch(ModBlocks.CONTROLLER.get()).with(
                 PropertyDispatch.initial(ControllerBlock.ANTENNA, ControllerBlock.FACING).generate((tier, facing) ->
@@ -89,7 +90,7 @@ public class ModModels extends ModelProvider {
 
     /** A flat item model with its own texture, item/{@code name}. */
     private static ItemModel.Unbaked flat(ItemModelGenerators items, String name) {
-        return ItemModelUtils.plainModel(ModelTemplates.FLAT_ITEM.create(id("item/" + name), TextureMapping.layer0(id("item/" + name)), items.modelOutput));
+        return ItemModelUtils.plainModel(ModelTemplates.FLAT_ITEM.create(id("item/" + name), TextureMapping.layer0(texture("item/" + name)), items.modelOutput));
     }
 
     /** A cable or connector: its core, plus a part turned to each side for what that side links to. */
@@ -146,5 +147,10 @@ public class ModModels extends ModelProvider {
 
     private static Identifier id(String path) {
         return Identifier.fromNamespaceAndPath(Reticulum.MODID, path);
+    }
+
+    /** One of our textures, as a model refers to it. */
+    private static Material texture(String path) {
+        return new Material(id(path));
     }
 }

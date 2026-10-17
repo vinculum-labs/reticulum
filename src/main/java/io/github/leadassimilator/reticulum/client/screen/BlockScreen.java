@@ -9,7 +9,7 @@ import io.github.leadassimilator.reticulum.client.ScreenHighlight;
 import io.github.leadassimilator.reticulum.network.FaceKey;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import io.github.leadassimilator.reticulum.protocol.Views;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
@@ -178,7 +178,7 @@ public class BlockScreen extends QuickScreen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         // Show in the world what the focused name box names: the connector itself, or the device on that side.
         BlockPos highlight = null;
         if (getFocused() != null && getFocused() == connectorName) {
@@ -190,26 +190,26 @@ public class BlockScreen extends QuickScreen {
             }
         }
         ScreenHighlight.set(highlight, null);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int top = rowsTop - (view.connector() ? 50 : 24);
         renderCompass(graphics, left, WIDTH, top);
-        graphics.drawString(font, title, left, top, 0xFFFFFFFF);
+        graphics.text(font, title, left, top, 0xFFFFFFFF);
         Component network = view.networkName().isEmpty()
                 ? Component.translatable("screen.reticulum.no_network")
                 : Component.translatable("screen.reticulum.network", view.networkName());
-        graphics.drawString(font, network, left + WIDTH - font.width(network), top, 0xFFA0A0A0);
+        graphics.text(font, network, left + WIDTH - font.width(network), top, 0xFFA0A0A0);
         if (view.connector()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.connector_name"), left, rowsTop - 21, 0xFFE0E0E0);
+            graphics.text(font, Component.translatable("screen.reticulum.connector_name"), left, rowsTop - 21, 0xFFE0E0E0);
         }
         int y = rowsTop;
         for (Views.SideView side : view.sides()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.side." + side.side().getSerializedName()), left, y + 5, 0xFFE0E0E0);
+            graphics.text(font, Component.translatable("screen.reticulum.side." + side.side().getSerializedName()), left, y + 5, 0xFFE0E0E0);
             if (!side.icon().isEmpty()) {
-                graphics.renderItem(side.icon(), left + 58, y + 1);
+                graphics.item(side.icon(), left + 58, y + 1);
             }
             switch (side.kind()) {
-                case JOINT -> graphics.drawString(font, side.defaultName(), left + 80, y + 5, 0xFFC0C0C0);
-                case NONE -> graphics.drawString(font, Component.translatable("screen.reticulum.empty_side"), left + 80, y + 5, 0xFF707070);
+                case JOINT -> graphics.text(font, side.defaultName(), left + 80, y + 5, 0xFFC0C0C0);
+                case NONE -> graphics.text(font, Component.translatable("screen.reticulum.empty_side"), left + 80, y + 5, 0xFF707070);
                 case DEVICE -> {
                 }
             }

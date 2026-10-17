@@ -6,7 +6,7 @@ import org.lwjgl.glfw.GLFW;
 
 import io.github.leadassimilator.telispex.client.WebApp;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
@@ -91,7 +91,7 @@ public class ViewScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         // Only the bar shows; the web view covers everything below it. The placeholder stays under the view even once
         // it's shown: on macOS the game's next frame can reach the screen before the view is composited, and the world
         // would flash through.
@@ -112,21 +112,21 @@ public class ViewScreen extends Screen {
             return;
         }
         if (Minecraft.getInstance().getWindow().isFullscreen() && EmbeddedView.hiddenByFullscreen()) {
-            graphics.drawCenteredString(font, Component.translatable("screen.telispex.fullscreen"), width / 2, height / 2 - 6, 0xFFE3E7EF);
-            graphics.drawCenteredString(font, Component.translatable("screen.telispex.fullscreen_hint"), width / 2, height / 2 + 6, 0xFFA0A0A0);
+            graphics.centeredText(font, Component.translatable("screen.telispex.fullscreen"), width / 2, height / 2 - 6, 0xFFE3E7EF);
+            graphics.centeredText(font, Component.translatable("screen.telispex.fullscreen_hint"), width / 2, height / 2 + 6, 0xFFA0A0A0);
         } else if (!EmbeddedView.shown()) {
-            graphics.drawCenteredString(font, Component.translatable("screen.telispex.loading"), width / 2, height / 2, 0xFFA0A0A0);
+            graphics.centeredText(font, Component.translatable("screen.telispex.loading"), width / 2, height / 2, 0xFFA0A0A0);
         }
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         followMouse();
         if (inView) {
             setCursor(EmbeddedView.cursor());
         }
-        super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawString(font, title, 6, (BAR - font.lineHeight) / 2 + 1, 0xFFE3E7EF);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        graphics.text(font, title, 6, (BAR - font.lineHeight) / 2 + 1, 0xFFE3E7EF);
     }
 
     /**

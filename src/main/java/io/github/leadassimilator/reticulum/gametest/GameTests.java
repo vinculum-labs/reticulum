@@ -23,6 +23,7 @@ import net.minecraft.gametest.framework.TestEnvironmentDefinition;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Unit;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.gametest.GameTestHooks;
@@ -40,7 +41,7 @@ public final class GameTests {
             "BenchmarkTests", "Ae2Tests", "MekanismTests");
 
     private static final DeferredRegister<Consumer<GameTestHelper>> FUNCTIONS = DeferredRegister.create(Registries.TEST_FUNCTION, Reticulum.MODID);
-    private static final DeferredRegister<MapCodec<? extends TestEnvironmentDefinition>> ENVIRONMENT_TYPES =
+    private static final DeferredRegister<MapCodec<? extends TestEnvironmentDefinition<?>>> ENVIRONMENT_TYPES =
             DeferredRegister.create(Registries.TEST_ENVIRONMENT_DEFINITION_TYPE, Reticulum.MODID);
 
     private record Test(Identifier id, GameTest settings) {
@@ -91,11 +92,11 @@ public final class GameTests {
     }
 
     private static void register(RegisterGameTestsEvent event) {
-        Holder<TestEnvironmentDefinition> plain = event.registerEnvironment(id("plain"));
-        Map<String, Holder<TestEnvironmentDefinition>> batches = new LinkedHashMap<>();
+        Holder<TestEnvironmentDefinition<?>> plain = event.registerEnvironment(id("plain"));
+        Map<String, Holder<TestEnvironmentDefinition<?>>> batches = new LinkedHashMap<>();
         for (Test test : TESTS) {
             String batch = test.settings().batch();
-            Holder<TestEnvironmentDefinition> environment = batch.isEmpty() ? plain
+            Holder<TestEnvironmentDefinition<?>> environment = batch.isEmpty() ? plain
                     : batches.computeIfAbsent(batch, b -> event.registerEnvironment(id("batch/" + b), new Batch(b)));
             event.registerTest(test.id(), new FunctionGameTestInstance(ResourceKey.create(Registries.TEST_FUNCTION, test.id()),
                     new TestData<>(environment, id(test.settings().template()), test.settings().timeoutTicks(), 0, true)));
@@ -122,17 +123,21 @@ public final class GameTests {
         return Identifier.fromNamespaceAndPath(Reticulum.MODID, path);
     }
 
-    /** A batch's environment: its {@link BeforeBatch} methods set it up, its {@link AfterBatch} methods tear it down. */
-    private record Batch(String name) implements TestEnvironmentDefinition {
+    /**
+     * A batch's environment: its {@link BeforeBatch} methods set it up, its {@link AfterBatch} methods tear it down
+     * (keeping nothing of what was there before).
+     */
+    private record Batch(String name) implements TestEnvironmentDefinition<Unit> {
         static final MapCodec<Batch> CODEC = Codec.STRING.fieldOf("batch").xmap(Batch::new, Batch::name);
 
         @Override
-        public void setup(ServerLevel level) {
+        public Unit setup(ServerLevel level) {
             BEFORE.getOrDefault(name, List.of()).forEach(method -> invoke(method, level));
+            return Unit.INSTANCE;
         }
 
         @Override
-        public void teardown(ServerLevel level) {
+        public void teardown(ServerLevel level, Unit unused) {
             AFTER.getOrDefault(name, List.of()).forEach(method -> invoke(method, level));
         }
 

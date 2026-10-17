@@ -90,7 +90,7 @@ public final class Screens {
     private static void openBeacon(ServerPlayer player, BlockPos pos, boolean refresh) {
         if (!Access.inReach(player, pos)) {
             if (!refresh) {
-                player.displayClientMessage(Component.translatable("message.reticulum.too_far"), true);
+                player.sendOverlayMessage(Component.translatable("message.reticulum.too_far"));
             }
             return;
         }
@@ -140,7 +140,7 @@ public final class Screens {
         for (Network network : beacon.sitsOn(player.level())) {
             if (!Security.canUse(network, player)) {
                 // Not named to someone who can't see it.
-                player.displayClientMessage(Access.refusal(network, player, Role.USER), true);
+                player.sendOverlayMessage(Access.refusal(network, player, Role.USER));
                 return false;
             }
         }
@@ -168,7 +168,7 @@ public final class Screens {
     public static void open(ServerPlayer player, BlockPos pos) {
         // Farther than the server lets a screen stay open: said, rather than opened and closed again at once.
         if (!Access.inReach(player, pos)) {
-            player.displayClientMessage(Component.translatable("message.reticulum.too_far"), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.too_far"));
             return;
         }
         // Claimed: not opened this time, so the message saying so (in chat) isn't hidden behind the screen.
@@ -196,8 +196,8 @@ public final class Screens {
         NetworkManager.changed(level.getServer(), network);
         // It stays as open as it was (others may already use it), but they are told when that is to anyone.
         boolean open = network.accessMode() == AccessMode.PUBLIC;
-        player.displayClientMessage(Component.translatable(open ? "message.reticulum.network_claimed_public"
-                : "message.reticulum.network_claimed", network.name()), false);
+        player.sendSystemMessage(Component.translatable(open ? "message.reticulum.network_claimed_public"
+                : "message.reticulum.network_claimed", network.name()));
         return true;
     }
 
@@ -400,7 +400,7 @@ public final class Screens {
             return;
         }
         Component message = Topology.toggle(player.level(), payload.pos(), payload.side(), player);
-        player.displayClientMessage(message, true);
+        player.sendOverlayMessage(message);
         refresh(player, payload.pos());
     }
 
@@ -431,7 +431,7 @@ public final class Screens {
         GlobalPos device = Devices.global(player.level(), payload.pos().relative(payload.side()));
         DeviceRecord record = network.device(device);
         if (record == null) {
-            player.displayClientMessage(Component.translatable("message.reticulum.not_a_device"), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.not_a_device"));
             return;
         }
         if (payload.face().isPresent()) {
@@ -459,7 +459,7 @@ public final class Screens {
                 }
                 NetworkAdmin.setAccess(network, payload.mode());
             } catch (NetworkAdmin.Refused e) {
-                player.displayClientMessage(e.message(), true);
+                player.sendOverlayMessage(e.message());
             }
         }
         NetworkManager.changed(player.level().getServer(), network);

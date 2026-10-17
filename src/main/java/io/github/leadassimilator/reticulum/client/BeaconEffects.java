@@ -2,8 +2,6 @@ package io.github.leadassimilator.reticulum.client;
 
 import java.util.List;
 
-import javax.annotation.Nullable;
-
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -14,14 +12,15 @@ import io.github.leadassimilator.reticulum.block.entity.BeaconLook;
 import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
-import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -209,17 +208,23 @@ public final class BeaconEffects {
         }
     }
 
-    /** The lens takes the look's color; gray when nothing is shown. */
-    public static int lensColor(BlockState state, @Nullable BlockAndTintGetter level,
-            @Nullable BlockPos pos, int tint) {
-        if (level != null && pos != null && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon) {
-            BeaconLook look = beacon.look();
-            return look == null ? 0x585C66 : look.color();
+    /** The lens (the model's tint 0) takes the look's color; gray when nothing is shown, or out of the world. */
+    private static final BlockTintSource LENS = new BlockTintSource() {
+        @Override
+        public int color(BlockState state) {
+            return 0xFF585C66;
         }
-        return 0x585C66;
-    }
 
-    public static void registerColors(RegisterColorHandlersEvent.Block event) {
-        event.register(BeaconEffects::lensColor, ModBlocks.STATUS_BEACON.get());
+        @Override
+        public int colorInWorld(BlockState state, BlockAndTintGetter level, BlockPos pos) {
+            if (level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon && beacon.look() != null) {
+                return 0xFF000000 | beacon.look().color();
+            }
+            return color(state);
+        }
+    };
+
+    public static void registerColors(RegisterColorHandlersEvent.BlockTintSources event) {
+        event.register(List.of(LENS), ModBlocks.STATUS_BEACON.get());
     }
 }

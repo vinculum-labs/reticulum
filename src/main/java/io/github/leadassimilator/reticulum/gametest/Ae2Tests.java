@@ -166,7 +166,7 @@ public final class Ae2Tests {
         }
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
         var player = FakePlayerFactory.getMinecraft(helper.getLevel());
-        ItemStack cable = new ItemStack(BuiltInRegistries.ITEM.get(
+        ItemStack cable = new ItemStack(BuiltInRegistries.ITEM.getValue(
                 Identifier.fromNamespaceAndPath("ae2", "fluix_covered_dense_cable")));
         player.setItemInHand(InteractionHand.MAIN_HAND, cable);
         var hit = new BlockHitResult(Vec3.atCenterOf(pos.below()), Direction.UP, pos.below(), false);

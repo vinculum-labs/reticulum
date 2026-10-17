@@ -6,7 +6,7 @@ import java.util.Locale;
 
 import io.github.leadassimilator.reticulum.ReticulumClientConfig;
 import io.github.leadassimilator.reticulum.client.AlarmClient;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.EditBox;
@@ -196,28 +196,28 @@ public class AlarmSettingsScreen extends QuickScreen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawString(font, title, left, top, 0xFFFFFFFF);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        graphics.text(font, title, left, top, 0xFFFFFFFF);
         int[] counts = AlarmClient.counts();
         Component now = counts[0] + counts[1] == 0 ? Component.translatable("screen.reticulum.alarm_none")
                 : Component.translatable("screen.reticulum.alarm_now", counts[1] > 0 && counts[0] > 0
                         ? Component.translatable("screen.reticulum.alarm_both", counts[1], counts[0])
                         : counts[1] > 0 ? Component.translatable("screen.reticulum.alarm_critical", counts[1])
                         : Component.translatable("screen.reticulum.alarm_warning", counts[0]));
-        graphics.drawString(font, now, left, top + 14, counts[1] > 0 ? 0xFFFF5050 : counts[0] > 0 ? 0xFFFFC040 : 0xFF80C080);
-        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_warning"), left + COLUMN, top + 34, 0xFFFFC040);
-        graphics.drawString(font, Component.translatable("screen.reticulum.beacon_critical"), left + COLUMN + 56, top + 34, 0xFFFF5050);
+        graphics.text(font, now, left, top + 14, counts[1] > 0 ? 0xFFFF5050 : counts[0] > 0 ? 0xFFFFC040 : 0xFF80C080);
+        graphics.text(font, Component.translatable("screen.reticulum.beacon_warning"), left + COLUMN, top + 34, 0xFFFFC040);
+        graphics.text(font, Component.translatable("screen.reticulum.beacon_critical"), left + COLUMN + 56, top + 34, 0xFFFF5050);
         for (int row = 0; row < LABELS.length; row++) {
-            graphics.drawString(font, Component.translatable("screen.reticulum." + LABELS[row]), left, top + 48 + row * ROW + 6, 0xFFE0E0E0);
+            graphics.text(font, Component.translatable("screen.reticulum." + LABELS[row]), left, top + 48 + row * ROW + 6, 0xFFE0E0E0);
         }
-        graphics.drawString(font, Component.translatable("screen.reticulum.alarm_sound_every"), left, top + 48 + LABELS.length * ROW + 8, 0xFFE0E0E0);
+        graphics.text(font, Component.translatable("screen.reticulum.alarm_sound_every"), left, top + 48 + LABELS.length * ROW + 8, 0xFFE0E0E0);
         for (int i = 0; i < 2; i++) {
-            graphics.drawString(font, Component.translatable(i == 1 ? "screen.reticulum.alarm_sound_critical" : "screen.reticulum.alarm_sound_warning"),
+            graphics.text(font, Component.translatable(i == 1 ? "screen.reticulum.alarm_sound_critical" : "screen.reticulum.alarm_sound_warning"),
                     left, sectionTop[i], i == 1 ? 0xFFFF5050 : 0xFFFFC040);
         }
         for (Label label : labels) {
-            graphics.drawString(font, label.text(), label.x(), label.y(), 0xFFE0E0E0);
+            graphics.text(font, label.text(), label.x(), label.y(), 0xFFE0E0E0);
         }
     }
 }

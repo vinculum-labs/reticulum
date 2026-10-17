@@ -1,9 +1,10 @@
 package io.github.leadassimilator.telispex.client.view;
 
-import javax.annotation.Nullable;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL30;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.systems.GpuDevice;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTexture;
@@ -12,77 +13,71 @@ import com.mojang.blaze3d.textures.TextureFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.resources.Identifier;
-import net.neoforged.neoforge.client.blaze3d.validation.ValidationGpuDevice;
 
 /**
- * An OpenGL texture made outside the game (a web view's frames) under a name the game can draw. The maker owns the
- * OpenGL name and deletes it; the game's texture manager only refers to it, or to a copy of it the game owns.
+ * A web view's frames, made in an OpenGL texture outside the game, under a name the game can draw. The game can't
+ * take in a texture made elsewhere, so it draws one of its own that {@link #copy} brings up to date. The maker owns
+ * its OpenGL name and deletes it.
  */
 final class FrameTexture extends AbstractTexture {
-    /** The maker's texture, when the game draws a copy of it; null when it draws the maker's texture itself. */
-    @Nullable
-    private final GpuTexture source;
+    /** Framebuffers for the copy, made once. */
+    private static int readFramebuffer;
+    private static int drawFramebuffer;
 
-    private FrameTexture(int id, int width, int height, boolean copied) {
-        // External: closing it leaves the OpenGL name to its maker. Format and size are given, not asked of OpenGL: the
-        // maker may not have given it storage yet (or OpenGL can't say, for a texture shared with Direct3D). Made on the
-        // OpenGL device itself, past NeoForge's validating wrapper (in dev), which only knows its own textures.
-        GlDevice device = device();
-        GpuTexture external = device.createExternalTexture(copied ? GpuTexture.USAGE_COPY_SRC : GpuTexture.USAGE_TEXTURE_BINDING,
-                "Telispex view " + id, TextureFormat.RGBA8, width, height, 1, 1, id);
-        if (copied) {
-            source = external;
-            texture = device.createTexture(() -> "Telispex view copy", GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST,
-                    TextureFormat.RGBA8, width, height, 1, 1);
-        } else {
-            source = null;
-            texture = external;
-        }
-        textureView = device.createTextureView(texture);
+    /** The maker's texture. */
+    private final int source;
+    private final int width;
+    private final int height;
+
+    private FrameTexture(int source, int width, int height) {
+        this.source = source;
+        this.width = width;
+        this.height = height;
+        texture = RenderSystem.getDevice().createTexture(() -> "Telispex view", GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_RENDER_ATTACHMENT,
+                TextureFormat.RGBA8, width, height, 1, 1);
+        textureView = RenderSystem.getDevice().createTextureView(texture);
         // Smooth when the page is scaled to the screen, and no wrapping at its edges.
         sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
     }
 
-    private static GlDevice device() {
-        GpuDevice device = RenderSystem.getDevice();
-        if (device instanceof ValidationGpuDevice validation) {
-            device = validation.getRealDevice();
-        }
-        return (GlDevice) device;
-    }
-
-    /** Makes {@code glTexture}, {@code width} by {@code height}, drawable as {@code location} (replacing what was there). */
-    static void register(Identifier location, int glTexture, int width, int height) {
-        Minecraft.getInstance().getTextureManager().register(location, new FrameTexture(glTexture, width, height, false));
-    }
-
     /**
-     * As {@link #register}, but drawn from a copy the game owns, which {@link #copy} brings up to date. For a texture
-     * shared with Direct3D: the game sets up each texture it draws (its mip levels) in ways OpenGL refuses for those.
+     * Makes {@code glTexture}, {@code width} by {@code height}, drawable as {@code location} (replacing what was there),
+     * from a copy: {@link #copy} it after each new frame.
      */
-    static FrameTexture registerCopied(Identifier location, int glTexture, int width, int height) {
-        FrameTexture frame = new FrameTexture(glTexture, width, height, true);
+    static FrameTexture register(Identifier location, int glTexture, int width, int height) {
+        FrameTexture frame = new FrameTexture(glTexture, width, height);
         Minecraft.getInstance().getTextureManager().register(location, frame);
         return frame;
-    }
-
-    /** Copies the maker's texture's current frame into the copy the game draws (for {@link #registerCopied}). */
-    void copy() {
-        // Not once the texture manager has closed it (the copy is gone then).
-        if (source != null && texture != null) {
-            device().createCommandEncoder().copyTextureToTexture(source, texture, 0, 0, 0, 0, 0, source.getWidth(0), source.getHeight(0));
-        }
     }
 
     static void unregister(Identifier location) {
         Minecraft.getInstance().getTextureManager().release(location);
     }
 
-    @Override
-    public void close() {
-        super.close();
-        if (source != null) {
-            source.close();
+    /** Copies the maker's texture's current frame into the one the game draws. On the render thread. */
+    void copy() {
+        // Not once the texture manager has closed it.
+        if (texture == null) {
+            return;
         }
+        if (readFramebuffer == 0) {
+            readFramebuffer = GlStateManager.glGenFramebuffers();
+            drawFramebuffer = GlStateManager.glGenFramebuffers();
+        }
+        // Through the game's state tracking, which remembers the bound framebuffers; put back as they were.
+        int read = GlStateManager.getFrameBuffer(GL30.GL_READ_FRAMEBUFFER);
+        int draw = GlStateManager.getFrameBuffer(GL30.GL_DRAW_FRAMEBUFFER);
+        GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
+        GlStateManager._glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, source, 0);
+        GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFramebuffer);
+        GlStateManager._glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D,
+                ((GlTexture) texture).glId(), 0);
+        GlStateManager._disableScissorTest();
+        GlStateManager._glBlitFrameBuffer(0, 0, width, height, 0, 0, width, height, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
+        // Let go of both textures, so neither stays attached (the maker deletes its own).
+        GlStateManager._glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, 0, 0);
+        GlStateManager._glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, 0, 0);
+        GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, read);
+        GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, draw);
     }
 }

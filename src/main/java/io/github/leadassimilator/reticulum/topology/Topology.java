@@ -406,7 +406,7 @@ public final class Topology {
                 Network network = NetworkManager.network(level.getServer(), net);
                 if (network != null && !Security.canUse(network, player)) {
                     disconnectAutomatically(be, neighbor, dir);
-                    player.displayClientMessage(Component.translatable("message.reticulum.no_access", network.name()), true);
+                    player.sendOverlayMessage(Component.translatable("message.reticulum.no_access", network.name()));
                     continue;
                 }
             } else if (net != null && machine && !openToMachines(NetworkManager.network(level.getServer(), net))) {
@@ -498,7 +498,7 @@ public final class Topology {
             }
         }
         if (ambiguous && player != null) {
-            player.displayClientMessage(Component.translatable("message.reticulum.ambiguous_placement"), true);
+            player.sendOverlayMessage(Component.translatable("message.reticulum.ambiguous_placement"));
         }
 
         Section comp = component(level, pos, null);
@@ -1287,7 +1287,7 @@ public final class Topology {
 
     private static void message(@Nullable ServerPlayer player, Component message) {
         if (player != null) {
-            player.displayClientMessage(message, false);
+            player.sendSystemMessage(message);
         }
     }
 }

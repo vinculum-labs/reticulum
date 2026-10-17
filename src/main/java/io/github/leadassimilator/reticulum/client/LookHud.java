@@ -10,7 +10,7 @@ import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -90,7 +90,7 @@ public final class LookHud {
         return null;
     }
 
-    private static void render(GuiGraphics graphics, DeltaTracker delta) {
+    private static void render(GuiGraphicsExtractor graphics, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
         BlockHitResult target = target(mc);
         if (target == null || !target.getBlockPos().equals(shownPos) || lines.isEmpty() || mc.options.hideGui) {
@@ -99,7 +99,7 @@ public final class LookHud {
         int y = graphics.guiHeight() / 2 + 12;
         int centerX = graphics.guiWidth() / 2;
         for (Component line : lines) {
-            graphics.drawString(mc.font, line, centerX - mc.font.width(line) / 2, y, 0xFFFFFFFF);
+            graphics.text(mc.font, line, centerX - mc.font.width(line) / 2, y, 0xFFFFFFFF);
             y += mc.font.lineHeight + 1;
         }
     }

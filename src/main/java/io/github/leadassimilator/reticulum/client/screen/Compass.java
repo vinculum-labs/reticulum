@@ -8,7 +8,7 @@ import java.util.Map;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.Mth;
 
 /**
@@ -31,7 +31,7 @@ final class Compass {
     private Compass() {
     }
 
-    static void render(GuiGraphics graphics, Font font, int centerX, int centerY, int radius) {
+    static void render(GuiGraphicsExtractor graphics, Font font, int centerX, int centerY, int radius) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) {
             return;
@@ -92,7 +92,7 @@ final class Compass {
             String label = p.axis().label();
             int w = font.width(label);
             graphics.fill(at[0] - w / 2 - 2, at[1] - 5, at[0] - w / 2 + w + 1, at[1] + 5, 0xB0000000);
-            graphics.drawString(font, label, at[0] - w / 2, at[1] - 4, color, false);
+            graphics.text(font, label, at[0] - w / 2, at[1] - 4, color, false);
         }
         graphics.fill(centerX - 1, centerY - 1, centerX + 1, centerY + 1, 0xFFFFFFFF);
     }
@@ -111,7 +111,7 @@ final class Compass {
      * A straight line, 1 or 2 pixels thick, touching each pixel once so see-through colors stay even (the second
      * pixel sits beside the first, across the line's main direction).
      */
-    private static void line(GuiGraphics graphics, int x0, int y0, int x1, int y1, int thickness, int color) {
+    private static void line(GuiGraphicsExtractor graphics, int x0, int y0, int x1, int y1, int thickness, int color) {
         int steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
         boolean steep = Math.abs(y1 - y0) > Math.abs(x1 - x0);
         for (int i = 0; i <= steps; i++) {

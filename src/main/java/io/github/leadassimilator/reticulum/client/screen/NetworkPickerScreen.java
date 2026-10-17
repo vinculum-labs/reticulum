@@ -11,7 +11,7 @@ import io.github.leadassimilator.reticulum.item.NetworkStamp;
 import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.protocol.Payloads;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -136,18 +136,18 @@ public class NetworkPickerScreen extends QuickScreen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int left = (width - WIDTH) / 2;
         int top = Math.max(8, (height - (VISIBLE * ROW + 90)) / 2);
-        graphics.drawString(font, title, left, top, 0xFFFFFFFF);
+        graphics.text(font, title, left, top, 0xFFFFFFFF);
         if (needsPassword != null) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.password_for", needsPassword.name()), left, top + 22, 0xFFE0E0E0);
+            graphics.text(font, Component.translatable("screen.reticulum.password_for", needsPassword.name()), left, top + 22, 0xFFE0E0E0);
         } else if (choices.isEmpty()) {
-            graphics.drawString(font, Component.translatable("screen.reticulum.no_networks"), left, top + 26, 0xFFA0A0A0);
+            graphics.text(font, Component.translatable("screen.reticulum.no_networks"), left, top + 26, 0xFFA0A0A0);
         } else if (choices.size() > VISIBLE) {
             Component more = Component.literal((scroll + 1) + "–" + Math.min(choices.size(), scroll + VISIBLE) + " / " + choices.size());
-            graphics.drawString(font, more, left + WIDTH - font.width(more), top, 0xFFA0A0A0);
+            graphics.text(font, more, left + WIDTH - font.width(more), top, 0xFFA0A0A0);
         }
     }
 

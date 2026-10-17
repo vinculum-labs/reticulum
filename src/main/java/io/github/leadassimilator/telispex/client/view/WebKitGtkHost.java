@@ -69,6 +69,9 @@ final class WebKitGtkHost {
     private static boolean fresh;
     // The texture: touched only on the render thread.
     private static int glTexture;
+    /** What the game draws: a copy of glTexture's newest frame. */
+    @Nullable
+    private static FrameTexture frameTexture;
     private static int textureWidth;
     private static int textureHeight;
 
@@ -176,6 +179,7 @@ final class WebKitGtkHost {
         }
         if (glTexture != 0) {
             FrameTexture.unregister(FRAME);
+            frameTexture = null;
             GlStateManager._deleteTexture(glTexture);
             glTexture = 0;
             // A new texture gets its storage (and is registered) on the next upload.
@@ -699,10 +703,11 @@ final class WebKitGtkHost {
             GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, w, h, 0, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, frame);
             textureWidth = w;
             textureHeight = h;
-            FrameTexture.register(FRAME, glTexture, w, h);
+            frameTexture = FrameTexture.register(FRAME, glTexture, w, h);
         } else {
             GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, w, h, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, frame);
         }
+        frameTexture.copy();
     }
 
     // ---------------------------------------------------------------- plumbing

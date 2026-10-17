@@ -24,10 +24,13 @@ import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permissions;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 import net.minecraft.world.level.storage.LevelResource;
@@ -36,10 +39,11 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 /** All networks on the server, stored once in the overworld's data folder. */
 public final class ReticulumSavedData extends SavedData {
     public static final int SCHEMA_VERSION = 1;
-    private static final String FILE_NAME = Reticulum.MODID + "_networks";
+    /** Saved as data/reticulum/networks.dat in the overworld's folder. */
+    private static final Identifier ID = Identifier.fromNamespaceAndPath(Reticulum.MODID, "networks");
     /** Read and written by {@link #load} and {@link #save}, which handle a file they can't read (whole or in part). */
     private static final SavedDataType<ReticulumSavedData> TYPE = new SavedDataType<>(
-            FILE_NAME, level -> new ReticulumSavedData(), level -> CompoundTag.CODEC.xmap(
+            ID, level -> new ReticulumSavedData(), level -> CompoundTag.CODEC.xmap(
                     tag -> load(tag, Objects.requireNonNull(level).registryAccess()),
                     data -> data.save(new CompoundTag(), Objects.requireNonNull(level).registryAccess())));
 
@@ -93,7 +97,7 @@ public final class ReticulumSavedData extends SavedData {
         loadError = null;
         Path file = file(server);
         String stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
-        Path copy = file.resolveSibling(FILE_NAME + ".dat.unreadable-" + stamp);
+        Path copy = file.resolveSibling(ID.getPath() + ".dat.unreadable-" + stamp);
         try {
             Files.copy(file, copy);
             keptAs = copy.getFileName().toString();
@@ -108,7 +112,9 @@ public final class ReticulumSavedData extends SavedData {
     }
 
     private static Path file(MinecraftServer server) {
-        return server.getWorldPath(LevelResource.ROOT).resolve("data").resolve(FILE_NAME + ".dat");
+        // Where the overworld's data storage keeps it.
+        return ID.withSuffix(".dat").resolveAgainst(DimensionType.getStorageFolder(Level.OVERWORLD, server.getWorldPath(LevelResource.ROOT))
+                .resolve("data"));
     }
 
     /** Whether this came from the file (load ran), and whether that was checked after it was first asked for. */

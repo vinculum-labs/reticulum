@@ -1783,7 +1783,7 @@ public final class WebApi {
         for (UUID id : open) {
             Network network = NetworkManager.network(level.getServer(), id);
             if (network != null && network.devices().stream().anyMatch(d -> d.pos().dimension() == level.dimension()
-                    && chunk.equals(new ChunkPos(d.pos().pos())))) {
+                    && chunk.equals(ChunkPos.containing(d.pos().pos())))) {
                 network.touchShown();
             }
         }

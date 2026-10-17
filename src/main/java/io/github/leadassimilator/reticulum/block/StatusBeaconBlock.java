@@ -9,6 +9,7 @@ import io.github.leadassimilator.reticulum.protocol.Screens;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -16,7 +17,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.DyeItem;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
@@ -104,15 +105,16 @@ public class StatusBeaconBlock extends BaseEntityBlock {
     @Override
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
             Player player, InteractionHand hand, BlockHitResult hit) {
-        if (!(stack.getItem() instanceof DyeItem dye)) {
+        DyeColor dye = stack.get(DataComponents.DYE);
+        if (dye == null) {
             return super.useItemOn(stack, state, level, pos, player, hand, hit);
         }
         if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof StatusBeaconBlockEntity beacon) {
             if (!Screens.mayChangeBeacon(serverPlayer, beacon)) {
                 return InteractionResult.CONSUME;
             }
-            if (!beacon.recolorShown(dye.getDyeColor().getTextureDiffuseColor() & 0xFFFFFF)) {
-                serverPlayer.displayClientMessage(Component.translatable("message.reticulum.beacon_dye_nothing"), true);
+            if (!beacon.recolorShown(dye.getTextureDiffuseColor() & 0xFFFFFF)) {
+                serverPlayer.sendOverlayMessage(Component.translatable("message.reticulum.beacon_dye_nothing"));
                 return InteractionResult.CONSUME;
             }
             if (!player.getAbilities().instabuild) {
