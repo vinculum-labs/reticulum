@@ -17,7 +17,7 @@ import io.github.leadassimilator.reticulum.network.Ids;
 import io.github.leadassimilator.reticulum.util.LowercaseName;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.StringRepresentable;
 
 /** The settings of one node, one record per node kind. */
@@ -277,7 +277,7 @@ public sealed interface NodeSettings {
      * A block that is both fed and emptied, such as a machine: any number of inputs (left) and outputs (right),
      * each with its own resource, faces and rules. The engine treats each output as a source and each input as a sink.
      */
-    record DeviceSettings(GlobalPos device, List<Input> inputs, List<Output> outputs, Optional<ResourceLocation> block) implements NodeSettings {
+    record DeviceSettings(GlobalPos device, List<Input> inputs, List<Output> outputs, Optional<Identifier> block) implements NodeSettings {
         public DeviceSettings(GlobalPos device, List<Input> inputs, List<Output> outputs) {
             this(device, inputs, outputs, Optional.empty());
         }
@@ -286,11 +286,11 @@ public sealed interface NodeSettings {
                 GlobalPos.CODEC.fieldOf("device").forGetter(DeviceSettings::device),
                 Input.CODEC.listOf().optionalFieldOf("inputs", List.of()).forGetter(DeviceSettings::inputs),
                 Output.CODEC.listOf().optionalFieldOf("outputs", List.of()).forGetter(DeviceSettings::outputs),
-                ResourceLocation.CODEC.optionalFieldOf("block").forGetter(DeviceSettings::block)
+                Identifier.CODEC.optionalFieldOf("block").forGetter(DeviceSettings::block)
         ).apply(i, DeviceSettings::new));
 
         /** As a slot of a blueprint: {@code block} is the kind of block it takes. */
-        public DeviceSettings withBlock(Optional<ResourceLocation> block) {
+        public DeviceSettings withBlock(Optional<Identifier> block) {
             return new DeviceSettings(device, inputs, outputs, block);
         }
 
@@ -710,11 +710,11 @@ public sealed interface NodeSettings {
      * 0 while off. With {@code level}, it is set to any value from 0 to {@code value} instead. Where it stands is kept
      * across restarts, per blueprint instance. {@code icon} is an item the dashboard shows it with.
      */
-    record SwitchSettings(long value, boolean level, Optional<ResourceLocation> icon) implements NodeSettings {
+    record SwitchSettings(long value, boolean level, Optional<Identifier> icon) implements NodeSettings {
         public static final MapCodec<SwitchSettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 Codec.LONG.optionalFieldOf("value", 15L).forGetter(SwitchSettings::value),
                 Codec.BOOL.optionalFieldOf("level", false).forGetter(SwitchSettings::level),
-                ResourceLocation.CODEC.optionalFieldOf("icon").forGetter(SwitchSettings::icon)
+                Identifier.CODEC.optionalFieldOf("icon").forGetter(SwitchSettings::icon)
         ).apply(i, SwitchSettings::new));
 
         public SwitchSettings {
@@ -769,14 +769,14 @@ public sealed interface NodeSettings {
      * with; {@code color} ("#rrggbb") colors its number, gauge or light. As a message, it shows the text of the last of
      * {@code messages} whose {@code from} the value has reached.
      */
-    record DisplaySettings(DisplayStyle style, String unit, long max, Optional<ResourceLocation> icon, Optional<String> color,
+    record DisplaySettings(DisplayStyle style, String unit, long max, Optional<Identifier> icon, Optional<String> color,
             List<DisplayMessage> messages) implements NodeSettings {
         public static final int UNIT_LIMIT = 16;
         public static final MapCodec<DisplaySettings> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 DisplayStyle.CODEC.optionalFieldOf("style", DisplayStyle.NUMBER).forGetter(DisplaySettings::style),
                 Codec.string(0, UNIT_LIMIT).optionalFieldOf("unit", "").forGetter(DisplaySettings::unit),
                 Codec.LONG.optionalFieldOf("max", 15L).forGetter(DisplaySettings::max),
-                ResourceLocation.CODEC.optionalFieldOf("icon").forGetter(DisplaySettings::icon),
+                Identifier.CODEC.optionalFieldOf("icon").forGetter(DisplaySettings::icon),
                 Codec.STRING.optionalFieldOf("color").forGetter(DisplaySettings::color),
                 DisplayMessage.CODEC.sizeLimitedListOf(DisplayMessage.LIMIT).optionalFieldOf("messages", List.of()).forGetter(DisplaySettings::messages)
         ).apply(i, DisplaySettings::new));

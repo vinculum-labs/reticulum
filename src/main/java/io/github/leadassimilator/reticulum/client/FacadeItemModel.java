@@ -15,7 +15,7 @@ import net.minecraft.client.renderer.item.ItemModelResolver;
 import net.minecraft.client.renderer.item.ItemModels;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.resources.model.ResolvableModel;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.ItemOwner;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -31,8 +31,8 @@ import net.neoforged.neoforge.client.event.RegisterItemModelsEvent;
  * The facade's item definition uses this model type, {@code reticulum:facade} (see ModModels).
  */
 public record FacadeItemModel(ItemModel blank) implements ItemModel {
-    public static final ResourceLocation TYPE = ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "facade");
-    private static final ResourceLocation BADGE = ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "textures/gui/facade_badge.png");
+    public static final Identifier TYPE = Identifier.fromNamespaceAndPath(Reticulum.MODID, "facade");
+    private static final Identifier BADGE = Identifier.fromNamespaceAndPath(Reticulum.MODID, "textures/gui/facade_badge.png");
 
     @Override
     public void update(ItemStackRenderState state, ItemStack stack, ItemModelResolver resolver, ItemDisplayContext context,

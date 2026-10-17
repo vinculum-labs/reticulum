@@ -3,7 +3,7 @@ package io.github.leadassimilator.reticulum.block.entity;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * How a Status Beacon looks and sounds in one state: its color (lens, beam and glow), which effects it shows, its
@@ -11,7 +11,7 @@ import net.minecraft.resources.ResourceLocation;
  * ticks) and how far it carries ({@code range} blocks) — and the text it shows above itself ({@code label}; blank in
  * Network mode: the alarms' messages) in {@code textColor} ({@link #AUTO}: a label in its color, alarms in theirs).
  */
-public record BeaconLook(int color, int flags, ResourceLocation sound, float pitch, float pitch2, int interval, int range, String label,
+public record BeaconLook(int color, int flags, Identifier sound, float pitch, float pitch2, int interval, int range, String label,
         int textColor) {
     /** No text color of its own. */
     public static final int AUTO = -1;
@@ -32,12 +32,12 @@ public record BeaconLook(int color, int flags, ResourceLocation sound, float pit
     public static final int LABEL_LIMIT = 64;
 
     public static final BeaconLook WARNING = new BeaconLook(0xFFB020, BEAM | GLOW | TEXT,
-            ResourceLocation.withDefaultNamespace("block.note_block.chime"), 1.2f, 40, 32);
+            Identifier.withDefaultNamespace("block.note_block.chime"), 1.2f, 40, 32);
     public static final BeaconLook CRITICAL = new BeaconLook(0xFF3020, BEAM | BEAM_THROUGH | GLOW | GLOW_THROUGH | SOUND | TWO_TONE | TEXT,
-            ResourceLocation.withDefaultNamespace("block.note_block.pling"), 1.6f, 10, 64);
+            Identifier.withDefaultNamespace("block.note_block.pling"), 1.6f, 10, 64);
 
     /** With the second tone a quarter lower, and no text of its own. */
-    public BeaconLook(int color, int flags, ResourceLocation sound, float pitch, int interval, int range) {
+    public BeaconLook(int color, int flags, Identifier sound, float pitch, int interval, int range) {
         this(color, flags, sound, pitch, Math.max(0.5f, pitch * 0.75f), interval, range, "", AUTO);
     }
 
@@ -65,7 +65,7 @@ public record BeaconLook(int color, int flags, ResourceLocation sound, float pit
 
     /** Read back, kept within the server's limits; anything missing or unknown falls back to {@code fallback}'s. */
     public static BeaconLook load(CompoundTag tag, BeaconLook fallback) {
-        ResourceLocation sound = ResourceLocation.tryParse(tag.getStringOr("sound", ""));
+        Identifier sound = Identifier.tryParse(tag.getStringOr("sound", ""));
         if (sound == null || !BuiltInRegistries.SOUND_EVENT.containsKey(sound) || banned(sound)) {
             sound = fallback.sound();
         }
@@ -108,7 +108,7 @@ public record BeaconLook(int color, int flags, ResourceLocation sound, float pit
         }
     }
 
-    private static boolean banned(ResourceLocation sound) {
+    private static boolean banned(Identifier sound) {
         try {
             return ReticulumConfig.BEACON_BANNED_SOUNDS.get().contains(sound.toString());
         } catch (IllegalStateException notLoaded) {

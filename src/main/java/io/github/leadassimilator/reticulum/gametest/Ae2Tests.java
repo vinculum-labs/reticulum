@@ -19,7 +19,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
@@ -167,7 +167,7 @@ public final class Ae2Tests {
         BlockPos pos = helper.absolutePos(new BlockPos(2, 1, 2));
         var player = FakePlayerFactory.getMinecraft(helper.getLevel());
         ItemStack cable = new ItemStack(BuiltInRegistries.ITEM.get(
-                ResourceLocation.fromNamespaceAndPath("ae2", "fluix_covered_dense_cable")));
+                Identifier.fromNamespaceAndPath("ae2", "fluix_covered_dense_cable")));
         player.setItemInHand(InteractionHand.MAIN_HAND, cable);
         var hit = new BlockHitResult(Vec3.atCenterOf(pos.below()), Direction.UP, pos.below(), false);
         cable.useOn(new UseOnContext(player, InteractionHand.MAIN_HAND, hit));

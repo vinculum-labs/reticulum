@@ -29,7 +29,7 @@ import net.minecraft.client.renderer.item.ItemModel;
 import net.minecraft.client.renderer.item.RangeSelectItemModel;
 import net.minecraft.core.Direction;
 import net.minecraft.data.PackOutput;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 
@@ -49,8 +49,8 @@ public class ModModels extends ModelProvider {
 
         // The controller; with an antenna installed, its top shows that tier's antenna (like the item's icon), lying
         // with its base along the front edge. The top texture is drawn facing north, turned for the others.
-        ResourceLocation plain = ModelTemplates.CUBE_ALL.create(id("block/controller"), TextureMapping.cube(id("block/controller")), blocks.modelOutput);
-        ResourceLocation[] antenna = new ResourceLocation[4];
+        Identifier plain = ModelTemplates.CUBE_ALL.create(id("block/controller"), TextureMapping.cube(id("block/controller")), blocks.modelOutput);
+        Identifier[] antenna = new Identifier[4];
         for (int tier = 1; tier <= 3; tier++) {
             antenna[tier] = ModelTemplates.CUBE_TOP.create(id("block/controller_antenna_" + tier), new TextureMapping()
                     .put(TextureSlot.SIDE, id("block/controller")).put(TextureSlot.TOP, id("block/controller_top_antenna_" + tier)), blocks.modelOutput);
@@ -144,7 +144,7 @@ public class ModModels extends ModelProvider {
         };
     }
 
-    private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, path);
+    private static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath(Reticulum.MODID, path);
     }
 }

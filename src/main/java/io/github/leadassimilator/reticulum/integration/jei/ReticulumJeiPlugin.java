@@ -13,7 +13,7 @@ import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -22,8 +22,8 @@ import net.minecraft.world.level.block.Block;
 @JeiPlugin
 public class ReticulumJeiPlugin implements IModPlugin {
     @Override
-    public ResourceLocation getPluginUid() {
-        return ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "jei");
+    public Identifier getPluginUid() {
+        return Identifier.fromNamespaceAndPath(Reticulum.MODID, "jei");
     }
 
     @Override

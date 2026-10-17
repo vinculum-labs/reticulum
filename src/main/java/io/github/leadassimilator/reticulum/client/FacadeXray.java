@@ -13,7 +13,6 @@ import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.ShapeRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
@@ -53,7 +52,7 @@ public final class FacadeXray {
                 || NetworkToolItem.held(mc.player).isEmpty()) {
             return;
         }
-        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         PoseStack pose = event.getPoseStack();
         pose.pushPose();
         pose.translate(-camera.x, -camera.y, -camera.z);
@@ -73,12 +72,12 @@ public final class FacadeXray {
             }
             boolean connector = block instanceof ConnectorBlock;
             // The cable's core, and an arm towards each side it joins, as drawn without the facade.
-            ShapeRenderer.renderLineBox(pose.last(), lines, Topology.coreBox(connector).move(pos), 0.55f, 0.85f, 1f, 0.9f);
+            WorldOverlay.lineBox(pose, lines, Topology.coreBox(connector).move(pos), 0.55f, 0.85f, 1f, 0.9f);
             for (Direction side : Direction.values()) {
                 EnumProperty<Link> property = block.linkProperties().get(side);
                 if (property != null && state.getValue(property) != Link.NONE) {
                     AABB arm = Topology.jointBox(side, connector).move(pos);
-                    ShapeRenderer.renderLineBox(pose.last(), lines, arm, 0.55f, 0.85f, 1f, 0.9f);
+                    WorldOverlay.lineBox(pose, lines, arm, 0.55f, 0.85f, 1f, 0.9f);
                 }
             }
         }

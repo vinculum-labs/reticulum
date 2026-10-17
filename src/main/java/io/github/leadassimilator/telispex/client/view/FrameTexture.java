@@ -5,14 +5,13 @@ import javax.annotation.Nullable;
 import com.mojang.blaze3d.opengl.GlDevice;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.TextureFormat;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.blaze3d.validation.ValidationGpuDevice;
 
 /**
@@ -35,13 +34,13 @@ final class FrameTexture extends AbstractTexture {
             source = external;
             texture = device.createTexture(() -> "Telispex view copy", GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST,
                     TextureFormat.RGBA8, width, height, 1, 1);
-            texture.setTextureFilter(FilterMode.LINEAR, false);
-            texture.setAddressMode(AddressMode.CLAMP_TO_EDGE);
         } else {
             source = null;
             texture = external;
         }
         textureView = device.createTextureView(texture);
+        // Smooth when the page is scaled to the screen, and no wrapping at its edges.
+        sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
     }
 
     private static GlDevice device() {
@@ -53,7 +52,7 @@ final class FrameTexture extends AbstractTexture {
     }
 
     /** Makes {@code glTexture}, {@code width} by {@code height}, drawable as {@code location} (replacing what was there). */
-    static void register(ResourceLocation location, int glTexture, int width, int height) {
+    static void register(Identifier location, int glTexture, int width, int height) {
         Minecraft.getInstance().getTextureManager().register(location, new FrameTexture(glTexture, width, height, false));
     }
 
@@ -61,7 +60,7 @@ final class FrameTexture extends AbstractTexture {
      * As {@link #register}, but drawn from a copy the game owns, which {@link #copy} brings up to date. For a texture
      * shared with Direct3D: the game sets up each texture it draws (its mip levels) in ways OpenGL refuses for those.
      */
-    static FrameTexture registerCopied(ResourceLocation location, int glTexture, int width, int height) {
+    static FrameTexture registerCopied(Identifier location, int glTexture, int width, int height) {
         FrameTexture frame = new FrameTexture(glTexture, width, height, true);
         Minecraft.getInstance().getTextureManager().register(location, frame);
         return frame;
@@ -75,7 +74,7 @@ final class FrameTexture extends AbstractTexture {
         }
     }
 
-    static void unregister(ResourceLocation location) {
+    static void unregister(Identifier location) {
         Minecraft.getInstance().getTextureManager().release(location);
     }
 

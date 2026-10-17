@@ -20,7 +20,7 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
@@ -250,8 +250,8 @@ public final class Filters {
      * for any other key, which is the resource's own to compile.
      */
     @Nullable
-    public static <T> Test<T> commonAtom(FilterExpr.Atom atom, Function<T, ResourceLocation> id,
-            Function<ResourceLocation, Predicate<T>> tag, Function<T, String> name) throws FilterException {
+    public static <T> Test<T> commonAtom(FilterExpr.Atom atom, Function<T, Identifier> id,
+            Function<Identifier, Predicate<T>> tag, Function<T, String> name) throws FilterException {
         String value = atom.value();
         return switch (atom.key()) {
             case "id" -> {
@@ -340,7 +340,7 @@ public final class Filters {
     private static boolean matchesEnchantment(ItemEnchantments enchantments, Predicate<String> id, Comparison level) {
         for (var entry : enchantments.entrySet()) {
             Holder<Enchantment> holder = entry.getKey();
-            String key = holder.unwrapKey().map(k -> k.location().toString()).orElse("");
+            String key = holder.unwrapKey().map(k -> k.identifier().toString()).orElse("");
             if (id.test(key) && level.test(entry.getIntValue())) {
                 return true;
             }
@@ -403,8 +403,8 @@ public final class Filters {
         }
     }
 
-    public static ResourceLocation location(String value) throws FilterException {
-        ResourceLocation rl = ResourceLocation.tryParse(value);
+    public static Identifier location(String value) throws FilterException {
+        Identifier rl = Identifier.tryParse(value);
         if (rl == null) {
             throw new FilterException("Not a valid id: " + value, -1);
         }

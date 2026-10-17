@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import io.github.leadassimilator.reticulum.Reticulum;
 import io.github.leadassimilator.reticulum.ReticulumConfig;
 import io.github.leadassimilator.reticulum.network.Network;
+import net.minecraft.server.permissions.Permissions;
 import net.minecraft.world.entity.player.Player;
 
 /** Every server-side permission decision goes through here. */
@@ -38,14 +39,14 @@ public final class Security {
      */
     public static boolean could(Network network, Player player, Role needed) {
         return role(network, player).map(r -> r.atLeast(needed)).orElse(false)
-                || ReticulumConfig.OPERATOR_BYPASS.getAsBoolean() && player.hasPermissions(2);
+                || ReticulumConfig.OPERATOR_BYPASS.getAsBoolean() && player.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER);
     }
 
     public static boolean has(Network network, Player player, Role needed) {
         if (role(network, player).map(r -> r.atLeast(needed)).orElse(false)) {
             return true;
         }
-        if (ReticulumConfig.OPERATOR_BYPASS.getAsBoolean() && player.hasPermissions(2)) {
+        if (ReticulumConfig.OPERATOR_BYPASS.getAsBoolean() && player.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER)) {
             long now = System.currentTimeMillis();
             String key = player.getUUID() + "/" + network.id() + "/" + needed.getSerializedName();
             Long last = BYPASS_LOGGED.get(key);

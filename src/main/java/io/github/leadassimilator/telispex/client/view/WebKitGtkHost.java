@@ -24,7 +24,7 @@ import com.sun.jna.ptr.IntByReference;
 
 import io.github.leadassimilator.telispex.Telispex;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * The editor inside the game on Linux: WebKitGTK (the GTK 3 build, webkit2gtk-4.1, which most desktops already have)
@@ -33,7 +33,7 @@ import net.minecraft.resources.ResourceLocation;
  * with its own main loop; everything GTK is done there, and the game thread hands it work through GLib.
  */
 final class WebKitGtkHost {
-    private static final ResourceLocation FRAME = ResourceLocation.fromNamespaceAndPath(Telispex.ID, "view");
+    private static final Identifier FRAME = Identifier.fromNamespaceAndPath(Telispex.ID, "view");
 
     /** WebKitHardwareAccelerationPolicy NEVER: an offscreen window can only be read back when WebKit paints in software. */
     private static final int ACCELERATION_NEVER = 2;
@@ -190,7 +190,7 @@ final class WebKitGtkHost {
 
     /** The latest frame, uploaded to the texture when a newer one arrived; null before the first. */
     @Nullable
-    static ResourceLocation frame() {
+    static Identifier frame() {
         if (state != State.READY || !loaded) {
             return null;
         }

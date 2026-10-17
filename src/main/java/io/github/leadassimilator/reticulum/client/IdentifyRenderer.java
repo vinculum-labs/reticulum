@@ -3,7 +3,6 @@ package io.github.leadassimilator.reticulum.client;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.OptionalDouble;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
@@ -19,13 +18,15 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.RenderStateShard;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.client.renderer.rendertype.LayeringTransform;
+import net.minecraft.client.renderer.rendertype.OutputTarget;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -43,40 +44,32 @@ public final class IdentifyRenderer {
     private static final double MARGIN = 0.01;
     /** Lines that ignore depth, so they show through walls. */
     private static final RenderPipeline LINES_THROUGH_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
-            .withLocation(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "pipeline/lines_through_walls"))
+            .withLocation(Identifier.fromNamespaceAndPath(Reticulum.MODID, "pipeline/lines_through_walls"))
             .withDepthWrite(false).withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST).build();
-    static final RenderType LINES_THROUGH_WALLS = RenderType.create("reticulum_identify_lines", 1536, LINES_THROUGH_WALLS_PIPELINE,
-            RenderType.CompositeState.builder()
-                    .setLineState(new RenderStateShard.LineStateShard(OptionalDouble.of(2.5)))
-                    .setLayeringState(RenderStateShard.VIEW_OFFSET_Z_LAYERING)
-                    .setOutputState(RenderStateShard.ITEM_ENTITY_TARGET)
-                    .createCompositeState(false));
+    static final RenderType LINES_THROUGH_WALLS = RenderType.create("reticulum_identify_lines", RenderSetup.builder(LINES_THROUGH_WALLS_PIPELINE)
+            .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING).setOutputTarget(OutputTarget.ITEM_ENTITY_TARGET).createRenderSetup());
     /** Translucent quads that ignore depth, for a highlighted face. */
     private static final RenderPipeline QUADS_THROUGH_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
-            .withLocation(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "pipeline/quads_through_walls"))
+            .withLocation(Identifier.fromNamespaceAndPath(Reticulum.MODID, "pipeline/quads_through_walls"))
             .withCull(false).withDepthWrite(false).withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST).build();
-    static final RenderType QUADS_THROUGH_WALLS = RenderType.create("reticulum_identify_quads", 1536, false, true, QUADS_THROUGH_WALLS_PIPELINE,
-            RenderType.CompositeState.builder().createCompositeState(false));
+    static final RenderType QUADS_THROUGH_WALLS = RenderType.create("reticulum_identify_quads",
+            RenderSetup.builder(QUADS_THROUGH_WALLS_PIPELINE).sortOnUpload().createRenderSetup());
 
     /**
      * Translucent quads that walls hide but that hide nothing themselves (no depth written): a glow around a block, so
      * text inside it (a beacon's label) still shows.
      */
     private static final RenderPipeline QUADS_BEHIND_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
-            .withLocation(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "pipeline/quads_behind_walls"))
+            .withLocation(Identifier.fromNamespaceAndPath(Reticulum.MODID, "pipeline/quads_behind_walls"))
             .withCull(false).withDepthWrite(false).build();
-    static final RenderType QUADS_BEHIND_WALLS = RenderType.create("reticulum_glow_quads", 1536, false, true, QUADS_BEHIND_WALLS_PIPELINE,
-            RenderType.CompositeState.builder().createCompositeState(false));
+    static final RenderType QUADS_BEHIND_WALLS = RenderType.create("reticulum_glow_quads",
+            RenderSetup.builder(QUADS_BEHIND_WALLS_PIPELINE).sortOnUpload().createRenderSetup());
     /** Lines walls hide that hide nothing themselves, likewise. */
     private static final RenderPipeline LINES_BEHIND_WALLS_PIPELINE = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
-            .withLocation(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "pipeline/lines_behind_walls"))
+            .withLocation(Identifier.fromNamespaceAndPath(Reticulum.MODID, "pipeline/lines_behind_walls"))
             .withDepthWrite(false).build();
-    static final RenderType LINES_BEHIND_WALLS = RenderType.create("reticulum_glow_lines", 1536, LINES_BEHIND_WALLS_PIPELINE,
-            RenderType.CompositeState.builder()
-                    .setLineState(new RenderStateShard.LineStateShard(OptionalDouble.empty()))
-                    .setLayeringState(RenderStateShard.VIEW_OFFSET_Z_LAYERING)
-                    .setOutputState(RenderStateShard.ITEM_ENTITY_TARGET)
-                    .createCompositeState(false));
+    static final RenderType LINES_BEHIND_WALLS = RenderType.create("reticulum_glow_lines", RenderSetup.builder(LINES_BEHIND_WALLS_PIPELINE)
+            .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING).setOutputTarget(OutputTarget.ITEM_ENTITY_TARGET).createRenderSetup());
 
     /** Compiles the pipelines above as the game starts, rather than the first time one is drawn. */
     public static void registerPipelines(RegisterRenderPipelinesEvent event) {
@@ -108,7 +101,7 @@ public final class IdentifyRenderer {
         // label) and the boxes never hide a label's letters.
         RenderType lines = throughWalls ? LINES_THROUGH_WALLS : LINES_BEHIND_WALLS;
         RenderType quads = throughWalls ? QUADS_THROUGH_WALLS : QUADS_BEHIND_WALLS;
-        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         PoseStack pose = event.getPoseStack();
         pose.pushPose();
         pose.translate(-camera.x, -camera.y, -camera.z);
@@ -126,15 +119,15 @@ public final class IdentifyRenderer {
             if (marker.face().isPresent()) {
                 Direction face = marker.face().get();
                 WorldOverlay.fillFace(pose.last().pose(), buffers.getBuffer(quads), pos, face, MARGIN, r, g, b, 0.35f * pulse);
-                ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(lines), WorldOverlay.faceBox(pos, face, MARGIN), r, g, b, pulse);
-                ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(lines), new AABB(pos).inflate(0.01), r, g, b, 0.35f * pulse);
+                WorldOverlay.lineBox(pose, buffers.getBuffer(lines), WorldOverlay.faceBox(pos, face, MARGIN), r, g, b, pulse);
+                WorldOverlay.lineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.01), r, g, b, 0.35f * pulse);
             } else {
-                ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(lines), new AABB(pos).inflate(0.02), r, g, b, pulse);
+                WorldOverlay.lineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(0.02), r, g, b, pulse);
             }
             double distance = Math.sqrt(camera.distanceToSqr(Vec3.atCenterOf(pos)));
             if (distance > beamDistance && top > pos.getY() + 1) {
                 // A thin column of light from the block up to the sky.
-                ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(lines),
+                WorldOverlay.lineBox(pose, buffers.getBuffer(lines),
                         new AABB(pos.getX() + 0.45, pos.getY() + 1, pos.getZ() + 0.45, pos.getX() + 0.55, top, pos.getZ() + 0.55), r, g, b, 0.8f);
             }
         }
@@ -160,7 +153,7 @@ public final class IdentifyRenderer {
     // ---------------------------------------------------------------- on screen
 
     public static void registerLayer(RegisterGuiLayersEvent event) {
-        event.registerAbove(VanillaGuiLayers.CROSSHAIR, ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "identify"), IdentifyRenderer::renderHud);
+        event.registerAbove(VanillaGuiLayers.CROSSHAIR, Identifier.fromNamespaceAndPath(Reticulum.MODID, "identify"), IdentifyRenderer::renderHud);
     }
 
     private static final String[] ARROWS = {"↑", "↗", "→", "↘", "↓", "↙", "←", "↖"};
@@ -186,7 +179,7 @@ public final class IdentifyRenderer {
             Entry entry = entries.get(i);
             String where;
             if (entry.distance() == Double.MAX_VALUE) {
-                where = entry.marker().pos().dimension().location().getPath().replace('_', ' ');
+                where = entry.marker().pos().dimension().identifier().getPath().replace('_', ' ');
             } else {
                 Vec3 to = Vec3.atCenterOf(entry.marker().pos().pos()).subtract(eye);
                 // Minecraft yaw: 0 is south, 90 west; turning right increases it.

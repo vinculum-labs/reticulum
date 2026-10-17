@@ -17,7 +17,7 @@ import io.github.leadassimilator.reticulum.network.NetworkManager;
 import mekanism.api.Action;
 import mekanism.api.chemical.ChemicalStack;
 import mekanism.api.chemical.IChemicalHandler;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 
 /**
@@ -146,9 +146,9 @@ final class ChemicalMover implements ChemicalFlows {
         List<IChemicalHandler> view = CHEMICALS.view(ctx, route.sinkSettings().port());
         boolean changed = false;
         Filters.Context context = CHEMICALS.context(level, view);
-        Iterator<Map.Entry<ResourceLocation, Long>> it = ctx.network().overflow().chemicals().entrySet().iterator();
+        Iterator<Map.Entry<Identifier, Long>> it = ctx.network().overflow().chemicals().entrySet().iterator();
         while (it.hasNext()) {
-            Map.Entry<ResourceLocation, Long> held = it.next();
+            Map.Entry<Identifier, Long> held = it.next();
             ChemicalStack stack = MekanismChemicals.stack(held.getKey(), held.getValue());
             if (stack == null) {
                 // A chemical whose mod is gone can never be delivered; keeping it would block chemical flows for good.

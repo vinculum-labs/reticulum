@@ -13,7 +13,7 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * Carries an app's page messages (JSON) between the game client and the server, each marked with the app it belongs to.
@@ -32,7 +32,7 @@ public final class RelayPayloads {
     }
 
     public record Request(String app, String json) implements CustomPacketPayload {
-        public static final Type<Request> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Telispex.ID, "request"));
+        public static final Type<Request> TYPE = new Type<>(Identifier.fromNamespaceAndPath(Telispex.ID, "request"));
         public static final StreamCodec<ByteBuf, Request> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.stringUtf8(APP_CHARS), Request::app,
                 ByteBufCodecs.stringUtf8(MAX_REQUEST_CHARS), Request::json,
@@ -55,7 +55,7 @@ public final class RelayPayloads {
      * request's own id ("" for none), for answering one refused before it is joined.
      */
     public record RequestPart(String app, int message, String id, int index, int total, byte[] data) implements CustomPacketPayload {
-        public static final Type<RequestPart> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Telispex.ID, "request_part"));
+        public static final Type<RequestPart> TYPE = new Type<>(Identifier.fromNamespaceAndPath(Telispex.ID, "request_part"));
         public static final StreamCodec<ByteBuf, RequestPart> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.stringUtf8(APP_CHARS), RequestPart::app,
                 ByteBufCodecs.VAR_INT, RequestPart::message,
@@ -89,7 +89,7 @@ public final class RelayPayloads {
 
     /** One piece of a compressed server message. The client joins pieces with the same {@code message} id. */
     public record Chunk(String app, int message, int index, int total, byte[] data) implements CustomPacketPayload {
-        public static final Type<Chunk> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Telispex.ID, "chunk"));
+        public static final Type<Chunk> TYPE = new Type<>(Identifier.fromNamespaceAndPath(Telispex.ID, "chunk"));
         public static final StreamCodec<ByteBuf, Chunk> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.stringUtf8(APP_CHARS), Chunk::app,
                 ByteBufCodecs.VAR_INT, Chunk::message,

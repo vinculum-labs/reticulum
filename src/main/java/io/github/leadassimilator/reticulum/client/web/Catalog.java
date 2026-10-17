@@ -12,8 +12,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.TagKey;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.material.Fluid;
@@ -67,7 +67,7 @@ final class Catalog {
     }
 
     private static <T> JsonObject entry(Holder.Reference<T> holder, String name) {
-        return entry(holder.key().location().toString(), name, holder.tags().map(TagKey::location).map(Object::toString));
+        return entry(holder.key().identifier().toString(), name, holder.tags().map(TagKey::location).map(Object::toString));
     }
 
     static JsonObject entry(String id, String name, Stream<String> tags) {

@@ -11,7 +11,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -31,7 +31,7 @@ import snownee.jade.api.config.IPluginConfig;
  */
 @WailaPlugin
 public class ReticulumJadePlugin implements IWailaPlugin {
-    private static final ResourceLocation UID = ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "network_info");
+    private static final Identifier UID = Identifier.fromNamespaceAndPath(Reticulum.MODID, "network_info");
     private static final String KEY = "reticulum_lines";
     private static final Codec<List<Component>> LINES = ComponentSerialization.CODEC.listOf();
 
@@ -62,7 +62,7 @@ public class ReticulumJadePlugin implements IWailaPlugin {
         }
 
         @Override
-        public ResourceLocation getUid() {
+        public Identifier getUid() {
             return UID;
         }
     }
@@ -81,7 +81,7 @@ public class ReticulumJadePlugin implements IWailaPlugin {
         }
 
         @Override
-        public ResourceLocation getUid() {
+        public Identifier getUid() {
             return UID;
         }
     }

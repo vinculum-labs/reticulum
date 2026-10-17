@@ -8,7 +8,7 @@ import javax.annotation.Nullable;
 import io.github.leadassimilator.reticulum.integration.ChemicalSupport;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.capabilities.BlockCapability;
@@ -27,7 +27,7 @@ final class MekanismSupport implements ChemicalSupport {
     }
 
     @Override
-    public void collect(ServerLevel level, BlockPos pos, Map<ResourceLocation, Long> totals) {
+    public void collect(ServerLevel level, BlockPos pos, Map<Identifier, Long> totals) {
         MekanismChemicals.collect(level, pos, totals);
     }
 
@@ -38,7 +38,7 @@ final class MekanismSupport implements ChemicalSupport {
 
     @Override
     @Nullable
-    public Icon icon(ResourceLocation id) {
+    public Icon icon(Identifier id) {
         return MekanismCatalog.icon(id);
     }
 }

@@ -1,11 +1,15 @@
 package io.github.leadassimilator.reticulum.client;
 
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.util.ARGB;
 import net.minecraft.world.phys.AABB;
 
 /** Shapes drawn over the world to point at a block's face: the screens' highlight and identify markers. */
@@ -24,6 +28,42 @@ public final class WorldOverlay {
             case WEST -> new AABB(box.minX - margin, box.minY, box.minZ, box.minX - margin, box.maxY, box.maxZ);
             case EAST -> new AABB(box.maxX + margin, box.minY, box.minZ, box.maxX + margin, box.maxY, box.maxZ);
         };
+    }
+
+    /**
+     * A box's twelve edges as lines (into a lines buffer), as wide as the game draws block outlines. Flat boxes too,
+     * which a voxel shape can't hold.
+     */
+    public static void lineBox(PoseStack pose, VertexConsumer lines, AABB box, float r, float g, float b, float a) {
+        PoseStack.Pose last = pose.last();
+        int color = ARGB.colorFromFloat(a, r, g, b);
+        float width = Minecraft.getInstance().getWindow().getAppropriateLineWidth();
+        float x0 = (float) box.minX, y0 = (float) box.minY, z0 = (float) box.minZ;
+        float x1 = (float) box.maxX, y1 = (float) box.maxY, z1 = (float) box.maxZ;
+        for (float y : new float[] {y0, y1}) {
+            for (float z : new float[] {z0, z1}) {
+                line(last, lines, x0, y, z, x1, y, z, color, width);
+            }
+        }
+        for (float x : new float[] {x0, x1}) {
+            for (float z : new float[] {z0, z1}) {
+                line(last, lines, x, y0, z, x, y1, z, color, width);
+            }
+            for (float y : new float[] {y0, y1}) {
+                line(last, lines, x, y, z0, x, y, z1, color, width);
+            }
+        }
+    }
+
+    private static void line(PoseStack.Pose pose, VertexConsumer lines, float x0, float y0, float z0, float x1, float y1, float z1, int color,
+            float width) {
+        Vector3f normal = new Vector3f(x1 - x0, y1 - y0, z1 - z0);
+        if (normal.lengthSquared() == 0) {
+            return;
+        }
+        normal.normalize();
+        lines.addVertex(pose, x0, y0, z0).setColor(color).setNormal(pose, normal).setLineWidth(width);
+        lines.addVertex(pose, x1, y1, z1).setColor(color).setNormal(pose, normal).setLineWidth(width);
     }
 
     /** A translucent quad over the face, drawn both ways round so it shows from either side. */

@@ -35,7 +35,7 @@ import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.netty.handler.codec.http.websocketx.WebSocketFrameAggregator;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * HTTP side of the web server: the token handshake, each app's files and routes, icons and the WebSocket upgrade. Every
@@ -186,7 +186,7 @@ final class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         String name = rest.endsWith(".png") ? rest.substring(0, rest.length() - 4) : rest;
         int kindEnd = name.indexOf('/');
         int slash = kindEnd < 0 ? -1 : name.indexOf('/', kindEnd + 1);
-        ResourceLocation id = slash < 0 ? null : ResourceLocation.tryBuild(name.substring(kindEnd + 1, slash), name.substring(slash + 1));
+        Identifier id = slash < 0 ? null : Identifier.tryBuild(name.substring(kindEnd + 1, slash), name.substring(slash + 1));
         CompletableFuture<byte[]> png = id == null ? null : Icons.get(name.substring(0, kindEnd), id);
         if (png == null) {
             respond(ctx, request, HttpResponseStatus.NOT_FOUND, "text/plain", bytes("Not found"));

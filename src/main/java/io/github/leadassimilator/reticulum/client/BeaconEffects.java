@@ -15,8 +15,7 @@ import io.github.leadassimilator.reticulum.block.entity.StatusBeaconBlockEntity;
 import io.github.leadassimilator.reticulum.registry.ModBlocks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.sounds.SoundEvent;
@@ -41,7 +40,7 @@ public final class BeaconEffects {
                 || StatusBeaconBlockEntity.CLIENT_LOADED.isEmpty()) {
             return;
         }
-        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         PoseStack pose = event.getPoseStack();
         pose.pushPose();
         pose.translate(-camera.x, -camera.y, -camera.z);
@@ -74,7 +73,7 @@ public final class BeaconEffects {
             double inner = 0.15 + 0.2 * (1 - pulse);
             fillBox(pose.last().pose(), buffers.getBuffer(quads), new AABB(pos).inflate(outer), r, g, b, 0.10f + 0.10f * (1 - pulse));
             fillBox(pose.last().pose(), buffers.getBuffer(quads), new AABB(pos).inflate(inner), r, g, b, 0.18f);
-            ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(lines), new AABB(pos).inflate(outer), r, g, b, 0.6f * (1 - pulse) + 0.2f);
+            WorldOverlay.lineBox(pose, buffers.getBuffer(lines), new AABB(pos).inflate(outer), r, g, b, 0.6f * (1 - pulse) + 0.2f);
             any = true;
         }
         if (any) {
@@ -98,7 +97,7 @@ public final class BeaconEffects {
                 || StatusBeaconBlockEntity.CLIENT_LOADED.isEmpty()) {
             return;
         }
-        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         double distance = mc.options.getEffectiveRenderDistance() * 16.0;
         PoseStack pose = event.getPoseStack();
         pose.pushPose();

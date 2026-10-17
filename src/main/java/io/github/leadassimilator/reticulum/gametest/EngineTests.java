@@ -70,7 +70,7 @@ import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
@@ -603,7 +603,7 @@ public final class EngineTests {
         settings.putString("mode", "redstone");
         var levels = settings.getCompoundOrEmpty("levels");
         levels.put("0", new BeaconLook(0x00FF00, BeaconLook.BEAM,
-                ResourceLocation.withDefaultNamespace("block.note_block.chime"), 1f, 40, 16).save());
+                Identifier.withDefaultNamespace("block.note_block.chime"), 1f, 40, 16).save());
         settings.put("levels", levels);
         beacon.applySettings(settings);
         var shown = StatusBeaconBlock.SHOWN;
@@ -694,7 +694,7 @@ public final class EngineTests {
         rig.container(0).setItem(0, new ItemStack(Items.IRON_INGOT, 64));
         rig.container(0).setItem(1, new ItemStack(Items.DIRT, 64));
         var iron = new ChartSeries(ChartSeries.Kind.ITEM,
-                Optional.of(ResourceLocation.withDefaultNamespace("iron_ingot")), Optional.empty(), Optional.empty());
+                Optional.of(Identifier.withDefaultNamespace("iron_ingot")), Optional.empty(), Optional.empty());
         var level = new ChartSeries(ChartSeries.Kind.LEVEL,
                 Optional.empty(), Optional.of(rig.device(1)), Optional.of(ResourceKind.ITEM));
         var through = new ChartSeries(ChartSeries.Kind.THROUGH,

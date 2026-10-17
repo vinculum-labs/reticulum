@@ -2,8 +2,8 @@ package io.github.leadassimilator.reticulum.item;
 
 import com.mojang.serialization.Codec;
 
-import io.netty.buffer.ByteBuf;
 import io.github.leadassimilator.reticulum.util.LowercaseName;
+import io.netty.buffer.ByteBuf;
 
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;

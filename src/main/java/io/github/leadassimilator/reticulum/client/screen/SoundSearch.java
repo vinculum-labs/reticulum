@@ -5,14 +5,14 @@ import java.util.List;
 import java.util.Locale;
 
 import io.github.leadassimilator.reticulum.ReticulumConfig;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 
 /** Picking a sound from every sound in the game by typing part of its id: the matches, a preview, and the box itself. */
@@ -27,7 +27,7 @@ final class SoundSearch {
     /** Sound ids containing the text (not ones the server bans), in order, at most {@link #RESULTS}. */
     static List<String> matches(String text) {
         if (allSounds == null) {
-            allSounds = BuiltInRegistries.SOUND_EVENT.keySet().stream().map(ResourceLocation::toString).sorted().toList();
+            allSounds = BuiltInRegistries.SOUND_EVENT.keySet().stream().map(Identifier::toString).sorted().toList();
         }
         String needle = text.toLowerCase(Locale.ROOT).trim();
         List<String> banned = banned();
@@ -53,7 +53,7 @@ final class SoundSearch {
 
     /** Plays a sound once, as heard in a menu. */
     static void preview(String id, float pitch) {
-        ResourceLocation location = ResourceLocation.tryParse(id);
+        Identifier location = Identifier.tryParse(id);
         SoundEvent sound = location == null ? null : BuiltInRegistries.SOUND_EVENT.getValue(location);
         if (sound != null) {
             Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(sound, pitch, 1f));

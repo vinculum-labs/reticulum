@@ -10,14 +10,14 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.leadassimilator.reticulum.graph.ResourceKind;
 import io.github.leadassimilator.reticulum.util.LowercaseName;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.StringRepresentable;
 
 /**
  * Something a network charts beyond its totals, chosen by a player (nothing is recorded per item otherwise): how much
  * of one item, fluid or chemical its flows move, or how much a device holds.
  */
-public record ChartSeries(Kind kind, Optional<ResourceLocation> id, Optional<GlobalPos> device, Optional<ResourceKind> resource) {
+public record ChartSeries(Kind kind, Optional<Identifier> id, Optional<GlobalPos> device, Optional<ResourceKind> resource) {
     public enum Kind implements LowercaseName {
         /** One item's throughput. */
         ITEM,
@@ -33,7 +33,7 @@ public record ChartSeries(Kind kind, Optional<ResourceLocation> id, Optional<Glo
 
     public static final Codec<ChartSeries> CODEC = RecordCodecBuilder.create(i -> i.group(
             Kind.CODEC.fieldOf("kind").forGetter(ChartSeries::kind),
-            ResourceLocation.CODEC.optionalFieldOf("id").forGetter(ChartSeries::id),
+            Identifier.CODEC.optionalFieldOf("id").forGetter(ChartSeries::id),
             GlobalPos.CODEC.optionalFieldOf("device").forGetter(ChartSeries::device),
             ResourceKind.CODEC.optionalFieldOf("resource").forGetter(ChartSeries::resource)
     ).apply(i, ChartSeries::new));
@@ -57,7 +57,7 @@ public record ChartSeries(Kind kind, Optional<ResourceLocation> id, Optional<Glo
     }
 
     private static String at(ResourceKind resource, GlobalPos device) {
-        return resource.getSerializedName() + "@" + device.dimension().location() + ":" + device.pos().getX() + "," + device.pos().getY() + ","
+        return resource.getSerializedName() + "@" + device.dimension().identifier() + ":" + device.pos().getX() + "," + device.pos().getY() + ","
                 + device.pos().getZ();
     }
 

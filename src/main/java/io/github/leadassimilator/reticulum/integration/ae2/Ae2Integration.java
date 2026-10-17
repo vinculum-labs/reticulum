@@ -8,9 +8,9 @@ import appeng.api.AECapabilities;
 import appeng.api.networking.GridHelper;
 import io.github.leadassimilator.reticulum.block.entity.ConnectorBlockEntity;
 import io.github.leadassimilator.reticulum.registry.ModBlockEntities;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
-import net.minecraft.core.BlockPos;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 
 /** Hooks between connectors and AE2. Only called after checking that AE2 is installed. */

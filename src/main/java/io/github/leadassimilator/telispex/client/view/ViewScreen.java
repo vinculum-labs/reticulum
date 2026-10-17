@@ -14,7 +14,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * An app's page inside the game: a thin bar across the top (title, Open in browser, Close) with the web view filling
@@ -98,7 +98,7 @@ public class ViewScreen extends Screen {
         graphics.fill(0, 0, width, BAR, 0xFF1A1E26);
         graphics.fill(0, BAR - 1, width, BAR, 0xFF2F3542);
         graphics.fill(0, BAR, width, height, 0xFF000000 | EmbeddedView.BACKGROUND);
-        ResourceLocation frame = EmbeddedView.frame();
+        Identifier frame = EmbeddedView.frame();
         if (frame != null) {
             // Drawn by the game: the view's frame, one texel per window pixel below the bar (in GUI units it would be
             // stretched by the rounding of the GUI scale, and the text would blur).

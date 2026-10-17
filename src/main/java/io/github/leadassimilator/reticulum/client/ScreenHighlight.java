@@ -8,8 +8,7 @@ import io.github.leadassimilator.reticulum.client.screen.BlockScreen;
 import io.github.leadassimilator.reticulum.client.screen.DeviceFacesScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.AABB;
@@ -45,20 +44,20 @@ public final class ScreenHighlight {
             return;
         }
         PoseStack pose = event.getPoseStack();
-        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         pose.pushPose();
         pose.translate(-camera.x, -camera.y, -camera.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         // A gentle pulse so it stands out against blocks of any color.
         float pulse = 0.65f + 0.35f * (float) Math.sin(System.currentTimeMillis() / 180.0);
         if (face == null) {
-            ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(RenderType.lines()), new AABB(block).inflate(0.004), 1f, 0.8f, 0.15f, pulse);
+            WorldOverlay.lineBox(pose, buffers.getBuffer(RenderTypes.lines()), new AABB(block).inflate(0.004), 1f, 0.8f, 0.15f, pulse);
         } else {
-            WorldOverlay.fillFace(pose.last().pose(), buffers.getBuffer(RenderType.debugQuads()), block, face, MARGIN, 1f, 0.8f, 0.15f, 0.35f * pulse);
-            buffers.endBatch(RenderType.debugQuads());
-            ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(RenderType.lines()), WorldOverlay.faceBox(block, face, MARGIN), 1f, 0.8f, 0.15f, pulse);
+            WorldOverlay.fillFace(pose.last().pose(), buffers.getBuffer(RenderTypes.debugQuads()), block, face, MARGIN, 1f, 0.8f, 0.15f, 0.35f * pulse);
+            buffers.endBatch(RenderTypes.debugQuads());
+            WorldOverlay.lineBox(pose, buffers.getBuffer(RenderTypes.lines()), WorldOverlay.faceBox(block, face, MARGIN), 1f, 0.8f, 0.15f, pulse);
         }
-        buffers.endBatch(RenderType.lines());
+        buffers.endBatch(RenderTypes.lines());
         pose.popPose();
     }
 }

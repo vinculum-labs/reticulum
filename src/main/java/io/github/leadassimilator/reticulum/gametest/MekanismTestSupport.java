@@ -9,9 +9,9 @@ import mekanism.api.chemical.IChemicalHandler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.Level;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -21,12 +21,12 @@ final class MekanismTestSupport {
     }
 
     static Block block(String path) {
-        return BuiltInRegistries.BLOCK.get(ResourceLocation.fromNamespaceAndPath("mekanism", path));
+        return BuiltInRegistries.BLOCK.get(Identifier.fromNamespaceAndPath("mekanism", path));
     }
 
     /** Puts a chemical into the block through whichever face accepts it; returns how much went in. */
     static long fill(Level level, BlockPos pos, String chemical, long amount) {
-        ChemicalStack left = MekanismChemicals.stack(ResourceLocation.fromNamespaceAndPath("mekanism", chemical), amount);
+        ChemicalStack left = MekanismChemicals.stack(Identifier.fromNamespaceAndPath("mekanism", chemical), amount);
         for (Direction side : Direction.values()) {
             IChemicalHandler handler = level.getCapability(MekanismChemicals.CAPABILITY, pos, side);
             if (handler != null && left != null && !left.isEmpty()) {

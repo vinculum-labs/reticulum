@@ -41,7 +41,7 @@ class SeeThroughTextBox extends EditBox {
         }
         graphics.fill(frameX, frameY, frameX + frameWidth, frameY + frameHeight, 0x50000000);
         int border = isFocused() ? 0xFFFFFFFF : isHovered() ? 0xC0C0C0C0 : 0x80A0A0A0;
-        graphics.submitOutline(frameX, frameY, frameWidth, frameHeight, border);
+        graphics.renderOutline(frameX, frameY, frameWidth, frameHeight, border);
         super.renderWidget(graphics, mouseX, mouseY, partialTick);
     }
 

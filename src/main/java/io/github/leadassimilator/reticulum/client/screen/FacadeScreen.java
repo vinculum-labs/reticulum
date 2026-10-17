@@ -192,7 +192,7 @@ public class FacadeScreen extends QuickScreen {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
         graphics.fill(guiLeft(), guiTop(), guiLeft() + WIDTH, guiTop() + guiHeight(), 0xE0101010);
-        graphics.submitOutline(guiLeft(), guiTop(), WIDTH, guiHeight(), 0xFF505050);
+        graphics.renderOutline(guiLeft(), guiTop(), WIDTH, guiHeight(), 0xFF505050);
     }
 
     @Override
@@ -207,7 +207,7 @@ public class FacadeScreen extends QuickScreen {
         int px = left + PREVIEW_X;
         int py = top + PREVIEW_Y;
         graphics.fill(px, py, px + PREVIEW_WIDTH, py + PREVIEW_HEIGHT, 0xFF202020);
-        graphics.submitOutline(px, py, PREVIEW_WIDTH, PREVIEW_HEIGHT, 0xFF707070);
+        graphics.renderOutline(px, py, PREVIEW_WIDTH, PREVIEW_HEIGHT, 0xFF707070);
         if (state != null) {
             graphics.renderItem(new ItemStack(state.getBlock()), px + 2, py + 2);
         }

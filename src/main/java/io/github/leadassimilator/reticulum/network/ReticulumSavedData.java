@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -26,6 +27,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permissions;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 import net.minecraft.world.level.storage.LevelResource;
@@ -37,9 +39,9 @@ public final class ReticulumSavedData extends SavedData {
     private static final String FILE_NAME = Reticulum.MODID + "_networks";
     /** Read and written by {@link #load} and {@link #save}, which handle a file they can't read (whole or in part). */
     private static final SavedDataType<ReticulumSavedData> TYPE = new SavedDataType<>(
-            FILE_NAME, context -> new ReticulumSavedData(), context -> CompoundTag.CODEC.xmap(
-                    tag -> load(tag, context.levelOrThrow().registryAccess()),
-                    data -> data.save(new CompoundTag(), context.levelOrThrow().registryAccess())));
+            FILE_NAME, level -> new ReticulumSavedData(), level -> CompoundTag.CODEC.xmap(
+                    tag -> load(tag, Objects.requireNonNull(level).registryAccess()),
+                    data -> data.save(new CompoundTag(), Objects.requireNonNull(level).registryAccess())));
 
     private record Contents(int schemaVersion, List<Network> networks, Map<UUID, UUID> aliases) {
         static final Codec<Contents> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -115,7 +117,7 @@ public final class ReticulumSavedData extends SavedData {
 
     /** Operators joining are told when the saved networks couldn't be read, and where the copy is. */
     public static void onLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player) || !player.hasPermissions(2)) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || !player.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER)) {
             return;
         }
         ReticulumSavedData data = get(player.level().getServer());

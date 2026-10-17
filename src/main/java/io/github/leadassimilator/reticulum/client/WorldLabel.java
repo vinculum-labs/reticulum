@@ -29,7 +29,7 @@ public final class WorldLabel {
      * end the batch with {@link #endThroughWalls} so blocks don't cover it.
      */
     public static void draw(PoseStack pose, Camera camera, MultiBufferSource buffers, Font font, Vec3 at, String text, int color, boolean throughWalls) {
-        Vec3 eye = camera.getPosition();
+        Vec3 eye = camera.position();
         double distance = Math.sqrt(eye.distanceToSqr(at));
         float scale = 0.025f * (float) Math.max(1, distance / 10);
         List<FormattedCharSequence> lines = font.split(Component.literal(text), WRAP);

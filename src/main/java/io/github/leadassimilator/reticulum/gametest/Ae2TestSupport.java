@@ -9,7 +9,7 @@ import appeng.api.networking.IInWorldGridNodeHost;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -27,14 +27,14 @@ final class Ae2TestSupport {
     }
 
     static Block block(String path) {
-        return BuiltInRegistries.BLOCK.get(ResourceLocation.fromNamespaceAndPath("ae2", path));
+        return BuiltInRegistries.BLOCK.get(Identifier.fromNamespaceAndPath("ae2", path));
     }
 
     /** Uses an AE2 item (a cable or a part) on a block face, as a player would. */
     static InteractionResult use(ServerLevel level, String item, BlockPos clicked, Direction face) {
         var player = FakePlayerFactory.getMinecraft(level);
         ItemStack stack = new ItemStack(
-                BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("ae2", item)));
+                BuiltInRegistries.ITEM.get(Identifier.fromNamespaceAndPath("ae2", item)));
         player.setItemInHand(InteractionHand.MAIN_HAND, stack);
         var hit = new BlockHitResult(
                 Vec3.atCenterOf(clicked).relative(face, 0.5), face, clicked, false);

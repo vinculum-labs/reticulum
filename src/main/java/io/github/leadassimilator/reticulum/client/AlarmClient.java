@@ -18,11 +18,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.ShapeRenderer;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
@@ -189,7 +188,7 @@ public final class AlarmClient {
         if (twoTone ? phase >= 40 || phase % 10 != 0 : phase != 0) {
             return;
         }
-        ResourceLocation location = ResourceLocation.tryParse(id);
+        Identifier location = Identifier.tryParse(id);
         SoundEvent sound = location == null ? null : BuiltInRegistries.SOUND_EVENT.getValue(location);
         float at = (float) (twoTone && (phase / 10) % 2 == 1 ? pitch2 : pitch);
         mc.getSoundManager().play(SimpleSoundInstance.forUI(sound != null ? sound : fallback, at, 0.6f));
@@ -249,7 +248,7 @@ public final class AlarmClient {
         }
         boolean warnings = ReticulumClientConfig.MARKERS_WARNING.getAsBoolean();
         boolean criticals = ReticulumClientConfig.MARKERS_CRITICAL.getAsBoolean();
-        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         PoseStack pose = event.getPoseStack();
         pose.pushPose();
         pose.translate(-camera.x, -camera.y, -camera.z);
@@ -270,7 +269,7 @@ public final class AlarmClient {
             float r = ((color >> 16) & 0xFF) / 255f;
             float g = ((color >> 8) & 0xFF) / 255f;
             float b = (color & 0xFF) / 255f;
-            ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(IdentifyRenderer.LINES_THROUGH_WALLS), new AABB(entry.getKey()).inflate(0.03), r, g, b, pulse);
+            WorldOverlay.lineBox(pose, buffers.getBuffer(IdentifyRenderer.LINES_THROUGH_WALLS), new AABB(entry.getKey()).inflate(0.03), r, g, b, pulse);
         }
         buffers.endBatch(IdentifyRenderer.LINES_THROUGH_WALLS);
         // A warning sign and what is wrong above each block, facing the camera and growing with distance.

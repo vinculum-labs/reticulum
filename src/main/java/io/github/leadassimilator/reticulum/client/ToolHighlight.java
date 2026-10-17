@@ -6,8 +6,7 @@ import io.github.leadassimilator.reticulum.item.NetworkToolItem;
 import io.github.leadassimilator.reticulum.item.ToolMode;
 import io.github.leadassimilator.reticulum.topology.Topology;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.BlockItem;
@@ -46,10 +45,10 @@ public final class ToolHighlight {
         }
         float partialTick = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
         Direction side = NetworkToolItem.targetSide(mc.player, state, pos, event.getHitResult().getDirection(), partialTick);
-        Vec3 camera = event.getCamera().getPosition();
+        Vec3 camera = event.getCamera().position();
         AABB arm = Topology.jointBox(side, state.getBlock() instanceof ConnectorBlock).move(pos).move(-camera.x, -camera.y, -camera.z);
         event.addCustomRenderer((outline, buffers, pose, translucentPass, level) -> {
-            ShapeRenderer.renderLineBox(pose.last(), buffers.getBuffer(RenderType.lines()), arm, 0.3f, 0.8f, 1.0f, 0.9f);
+            WorldOverlay.lineBox(pose, buffers.getBuffer(RenderTypes.lines()), arm, 0.3f, 0.8f, 1.0f, 0.9f);
             return true;
         });
     }

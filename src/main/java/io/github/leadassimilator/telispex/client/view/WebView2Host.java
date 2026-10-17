@@ -32,7 +32,7 @@ import com.sun.jna.ptr.PointerByReference;
 import io.github.leadassimilator.telispex.Telispex;
 import io.github.leadassimilator.telispex.TelispexConfig;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * The editor inside the game window on Windows: Edge's WebView2, driven through its COM interfaces with JNA (both
@@ -148,7 +148,7 @@ final class WebView2Host {
 
     /** The view's latest frame to draw, when it is drawn into the game's frame and one has arrived. */
     @Nullable
-    static ResourceLocation frame() {
+    static Identifier frame() {
         return inFrame && state == State.READY && loaded ? CompositionView.frame() : null;
     }
 

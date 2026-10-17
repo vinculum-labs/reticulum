@@ -34,15 +34,15 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.CachedOrthoProjectionMatrixBuffer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.AtlasIds;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -57,7 +57,7 @@ import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtension
  */
 public final class Icons {
     static final int SIZE = 64;
-    private static final Map<String, Function<ResourceLocation, CompletableFuture<byte[]>>> KINDS = new ConcurrentHashMap<>();
+    private static final Map<String, Function<Identifier, CompletableFuture<byte[]>>> KINDS = new ConcurrentHashMap<>();
     private static final Map<String, CompletableFuture<byte[]>> CACHE = new ConcurrentHashMap<>();
 
     /** The offscreen textures and their projection, made once and reused for every icon (a picker loads dozens). */
@@ -84,7 +84,7 @@ public final class Icons {
      * Adds a kind of icon. {@code draw} runs on the render thread and gives a PNG, now or once the GPU has drawn it:
      * {@link #sprite} and {@link #draw} help, and {@link #transparent} stands for an id it doesn't know.
      */
-    public static void register(String kind, Function<ResourceLocation, CompletableFuture<byte[]>> draw) {
+    public static void register(String kind, Function<Identifier, CompletableFuture<byte[]>> draw) {
         if (!kind.matches("[a-z0-9_]+")) {
             throw new IllegalArgumentException("Not a valid icon kind: " + kind);
         }
@@ -95,8 +95,8 @@ public final class Icons {
 
     /** An icon, drawn once and kept; null for a kind nobody draws. */
     @Nullable
-    static CompletableFuture<byte[]> get(String kind, ResourceLocation id) {
-        Function<ResourceLocation, CompletableFuture<byte[]>> draw = KINDS.get(kind);
+    static CompletableFuture<byte[]> get(String kind, Identifier id) {
+        Function<Identifier, CompletableFuture<byte[]>> draw = KINDS.get(kind);
         return draw == null ? null
                 : CACHE.computeIfAbsent(kind + "/" + id, key -> Minecraft.getInstance().submit(() -> draw.apply(id)).thenCompose(png -> png));
     }
@@ -107,7 +107,7 @@ public final class Icons {
     }
 
     /** An item as inventories show it. */
-    private static CompletableFuture<byte[]> item(ResourceLocation id) {
+    private static CompletableFuture<byte[]> item(Identifier id) {
         ItemStack stack = BuiltInRegistries.ITEM.getOptional(id).map(ItemStack::new).orElse(ItemStack.EMPTY);
         if (stack.isEmpty() || stack.is(Items.AIR)) {
             return CompletableFuture.completedFuture(transparent());
@@ -125,7 +125,7 @@ public final class Icons {
     }
 
     /** A fluid as its still texture, tinted, filling the square. */
-    private static CompletableFuture<byte[]> fluid(ResourceLocation id) {
+    private static CompletableFuture<byte[]> fluid(Identifier id) {
         Fluid fluid = BuiltInRegistries.FLUID.getOptional(id).orElse(null);
         if (fluid == null || fluid == Fluids.EMPTY) {
             return CompletableFuture.completedFuture(transparent());
@@ -135,14 +135,14 @@ public final class Icons {
     }
 
     /** A block-atlas texture, tinted (ARGB; alpha 0 counts as opaque), filling the square. On the render thread. */
-    public static CompletableFuture<byte[]> sprite(ResourceLocation id, @Nullable ResourceLocation texture, int tint) {
+    public static CompletableFuture<byte[]> sprite(Identifier id, @Nullable Identifier texture, int tint) {
         if (texture == null) {
             return CompletableFuture.completedFuture(transparent());
         }
         TextureAtlasSprite sprite = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS).getSprite(texture);
         int color = (tint >>> 24) == 0 ? 0xFF000000 | tint : tint;
         return draw(id, (pose, buffers, collector) -> {
-            VertexConsumer quad = buffers.getBuffer(RenderType.text(TextureAtlas.LOCATION_BLOCKS));
+            VertexConsumer quad = buffers.getBuffer(RenderTypes.text(TextureAtlas.LOCATION_BLOCKS));
             Matrix4f matrix = pose.last().pose();
             vertex(quad, matrix, 0, 0, sprite.getU0(), sprite.getV0(), color);
             vertex(quad, matrix, 0, SIZE, sprite.getU0(), sprite.getV1(), color);
@@ -165,7 +165,7 @@ public final class Icons {
      * Whatever {@code draw} puts in a {@code SIZE}-pixel square (x right, y down, from the top-left corner), as a PNG
      * once the GPU has drawn it. On the render thread; {@code id} only names it in the log should it fail.
      */
-    public static CompletableFuture<byte[]> draw(ResourceLocation id, Drawing draw) {
+    public static CompletableFuture<byte[]> draw(Identifier id, Drawing draw) {
         Minecraft mc = Minecraft.getInstance();
         GpuDevice device = RenderSystem.getDevice();
         if (color == null) {
@@ -204,7 +204,7 @@ public final class Icons {
      * (the game maps buffers persistently), so they're read when the copy's fence passes, a frame or so later. Icons
      * drawn meanwhile reuse the texture: the GPU copies this one out first.
      */
-    private static CompletableFuture<byte[]> read(ResourceLocation id, GpuTexture texture, CommandEncoder encoder) {
+    private static CompletableFuture<byte[]> read(Identifier id, GpuTexture texture, CommandEncoder encoder) {
         int pixelSize = texture.getFormat().pixelSize();
         CompletableFuture<byte[]> result = new CompletableFuture<>();
         GpuBuffer buffer = RenderSystem.getDevice().createBuffer(() -> "Telispex icon", GpuBuffer.USAGE_COPY_DST | GpuBuffer.USAGE_MAP_READ,

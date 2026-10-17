@@ -13,7 +13,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.leadassimilator.reticulum.util.LowercaseName;
 
 import net.minecraft.core.GlobalPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.StringRepresentable;
 
 /**
@@ -33,7 +33,7 @@ public final class DeviceRecord {
             GlobalPos.CODEC.fieldOf("pos").forGetter(r -> r.pos),
             Codec.STRING.optionalFieldOf("name").forGetter(r -> Optional.ofNullable(r.name)),
             Codec.unboundedMap(FaceKey.CODEC, Codec.STRING).optionalFieldOf("faces", Map.of()).forGetter(r -> r.faceNames),
-            ResourceLocation.CODEC.fieldOf("block").forGetter(r -> r.blockId),
+            Identifier.CODEC.fieldOf("block").forGetter(r -> r.blockId),
             State.CODEC.optionalFieldOf("state", State.ACTIVE).forGetter(r -> r.state)
     ).apply(i, DeviceRecord::new));
 
@@ -41,14 +41,14 @@ public final class DeviceRecord {
     @Nullable
     private String name;
     private final Map<FaceKey, String> faceNames = new EnumMap<>(FaceKey.class);
-    private ResourceLocation blockId;
+    private Identifier blockId;
     private State state;
 
-    public DeviceRecord(GlobalPos pos, ResourceLocation blockId) {
+    public DeviceRecord(GlobalPos pos, Identifier blockId) {
         this(pos, Optional.empty(), Map.of(), blockId, State.ACTIVE);
     }
 
-    private DeviceRecord(GlobalPos pos, Optional<String> name, Map<FaceKey, String> faceNames, ResourceLocation blockId, State state) {
+    private DeviceRecord(GlobalPos pos, Optional<String> name, Map<FaceKey, String> faceNames, Identifier blockId, State state) {
         this.pos = pos;
         this.name = name.orElse(null);
         this.faceNames.putAll(faceNames);
@@ -87,11 +87,11 @@ public final class DeviceRecord {
         }
     }
 
-    public ResourceLocation blockId() {
+    public Identifier blockId() {
         return blockId;
     }
 
-    public void setBlockId(ResourceLocation blockId) {
+    public void setBlockId(Identifier blockId) {
         this.blockId = blockId;
     }
 

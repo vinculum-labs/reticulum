@@ -28,7 +28,7 @@ import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.block.Block;
@@ -44,7 +44,7 @@ public final class Payloads {
     }
 
     private static <T extends CustomPacketPayload> CustomPacketPayload.Type<T> payloadType(String name) {
-        return new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, name));
+        return new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(Reticulum.MODID, name));
     }
 
     // ---------------------------------------------------------------- server to client

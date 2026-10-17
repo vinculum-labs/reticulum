@@ -20,8 +20,8 @@ import net.minecraft.gametest.framework.FunctionGameTestInstance;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.TestData;
 import net.minecraft.gametest.framework.TestEnvironmentDefinition;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
@@ -43,7 +43,7 @@ public final class GameTests {
     private static final DeferredRegister<MapCodec<? extends TestEnvironmentDefinition>> ENVIRONMENT_TYPES =
             DeferredRegister.create(Registries.TEST_ENVIRONMENT_DEFINITION_TYPE, Reticulum.MODID);
 
-    private record Test(ResourceLocation id, GameTest settings) {
+    private record Test(Identifier id, GameTest settings) {
     }
 
     private static final List<Test> TESTS = new ArrayList<>();
@@ -118,8 +118,8 @@ public final class GameTests {
         }
     }
 
-    private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, path);
+    private static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath(Reticulum.MODID, path);
     }
 
     /** A batch's environment: its {@link BeforeBatch} methods set it up, its {@link AfterBatch} methods tear it down. */

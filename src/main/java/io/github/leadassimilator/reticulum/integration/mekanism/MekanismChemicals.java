@@ -21,7 +21,7 @@ import mekanism.api.chemical.IChemicalHandler;
 import mekanism.api.datamaps.IMekanismDataMapTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
 import net.neoforged.neoforge.capabilities.BlockCapability;
@@ -34,7 +34,7 @@ import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 public final class MekanismChemicals {
     /** The same capability Mekanism registers; creating it again by name returns Mekanism's instance. */
     public static final BlockCapability<IChemicalHandler, Direction> CAPABILITY =
-            BlockCapability.createSided(ResourceLocation.fromNamespaceAndPath("mekanism", "chemical_handler"), IChemicalHandler.class);
+            BlockCapability.createSided(Identifier.fromNamespaceAndPath("mekanism", "chemical_handler"), IChemicalHandler.class);
 
     private MekanismChemicals() {
     }
@@ -84,13 +84,13 @@ public final class MekanismChemicals {
         event.registerBlockEntity(CAPABILITY, ModBlockEntities.CONNECTOR.get(), (connector, side) -> connector.facesDevice(side) ? NONE : null);
     }
 
-    public static ResourceLocation id(ChemicalStack stack) {
+    public static Identifier id(ChemicalStack stack) {
         return MekanismAPI.CHEMICAL_REGISTRY.getKey(stack.getChemical());
     }
 
     /** A stack of the chemical with this id, or null when no such chemical exists (any more). */
     @Nullable
-    public static ChemicalStack stack(ResourceLocation id, long amount) {
+    public static ChemicalStack stack(Identifier id, long amount) {
         return MekanismAPI.CHEMICAL_REGISTRY.getHolder(id)
                 .filter(holder -> !holder.is(MekanismAPI.EMPTY_CHEMICAL_KEY))
                 .map(holder -> new ChemicalStack(holder, amount))
@@ -98,9 +98,9 @@ public final class MekanismChemicals {
     }
 
     /** What chemicals a block holds, by id, for the editor's filter picker (the largest amount any one side shows). */
-    public static void collect(ServerLevel level, BlockPos pos, Map<ResourceLocation, Long> totals) {
+    public static void collect(ServerLevel level, BlockPos pos, Map<Identifier, Long> totals) {
         for (IChemicalHandler handler : DeviceContents.handlers(level, pos, CAPABILITY)) {
-            Map<ResourceLocation, Long> one = new LinkedHashMap<>();
+            Map<Identifier, Long> one = new LinkedHashMap<>();
             for (int tank = 0; tank < handler.getChemicalTanks(); tank++) {
                 ChemicalStack stack = handler.getChemicalInTank(tank);
                 if (!stack.isEmpty()) {

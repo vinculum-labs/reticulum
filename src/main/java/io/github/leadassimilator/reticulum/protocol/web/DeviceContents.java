@@ -16,7 +16,7 @@ import io.github.leadassimilator.reticulum.network.DeviceHandlers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.capabilities.BlockCapability;
@@ -35,12 +35,12 @@ public final class DeviceContents {
     }
 
     public static JsonObject read(ServerLevel level, BlockPos pos, String resource) {
-        Map<ResourceLocation, Long> totals = new LinkedHashMap<>();
+        Map<Identifier, Long> totals = new LinkedHashMap<>();
         if (level.isLoaded(pos)) {
             switch (resource) {
                 case "item" -> {
                     for (IItemHandler handler : handlers(level, pos, DeviceHandlers.ITEMS)) {
-                        Map<ResourceLocation, Long> one = new LinkedHashMap<>();
+                        Map<Identifier, Long> one = new LinkedHashMap<>();
                         for (int slot = 0; slot < handler.getSlots(); slot++) {
                             ItemStack stack = handler.getStackInSlot(slot);
                             if (!stack.isEmpty()) {
@@ -52,7 +52,7 @@ public final class DeviceContents {
                 }
                 case "fluid" -> {
                     for (IFluidHandler handler : handlers(level, pos, DeviceHandlers.FLUIDS)) {
-                        Map<ResourceLocation, Long> one = new LinkedHashMap<>();
+                        Map<Identifier, Long> one = new LinkedHashMap<>();
                         for (int tank = 0; tank < handler.getTanks(); tank++) {
                             FluidStack stack = handler.getFluidInTank(tank);
                             if (!stack.isEmpty()) {
@@ -84,7 +84,7 @@ public final class DeviceContents {
     }
 
     /** Merges one handler's totals, keeping for each id the larger amount. */
-    public static void keepLargest(Map<ResourceLocation, Long> totals, Map<ResourceLocation, Long> one) {
+    public static void keepLargest(Map<Identifier, Long> totals, Map<Identifier, Long> one) {
         one.forEach((id, amount) -> totals.merge(id, amount, Math::max));
     }
 

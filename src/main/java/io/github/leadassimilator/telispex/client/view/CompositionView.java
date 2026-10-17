@@ -20,7 +20,7 @@ import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
 
 import io.github.leadassimilator.telispex.Telispex;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * WebView2 drawn into the game's own frame, so the editor shows in exclusive fullscreen too: the page renders into a
@@ -31,7 +31,7 @@ import net.minecraft.resources.ResourceLocation;
  * <p>Method numbers are vtable slots from the Windows SDK headers (IUnknown takes 0-2, IInspectable 0-5).
  */
 final class CompositionView {
-    private static final ResourceLocation FRAME = ResourceLocation.fromNamespaceAndPath(Telispex.ID, "view");
+    private static final Identifier FRAME = Identifier.fromNamespaceAndPath(Telispex.ID, "view");
 
     // ICompositor
     private static final String IID_COMPOSITOR = "{b403ca50-7f8c-4e83-985f-cc45060036d8}";
@@ -200,7 +200,7 @@ final class CompositionView {
      * before the first frame.
      */
     @Nullable
-    static ResourceLocation frame() {
+    static Identifier frame() {
         if (pool == null) {
             return null;
         }

@@ -7,7 +7,7 @@ import com.sun.jna.Platform;
 import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * The web view inside the game window, whichever the system provides: WebView2 on Windows, WKWebView on macOS,
@@ -43,7 +43,7 @@ public final class EmbeddedView {
 
         /** The view's latest frame, when the game draws the view itself (rather than the system showing it). */
         @Nullable
-        default ResourceLocation frame() {
+        default Identifier frame() {
             return null;
         }
 
@@ -158,7 +158,7 @@ public final class EmbeddedView {
 
             @Override
             @Nullable
-            public ResourceLocation frame() {
+            public Identifier frame() {
                 return WebView2Host.frame();
             }
 
@@ -302,7 +302,7 @@ public final class EmbeddedView {
 
             @Override
             @Nullable
-            public ResourceLocation frame() {
+            public Identifier frame() {
                 return WebKitGtkHost.frame();
             }
 
@@ -456,7 +456,7 @@ public final class EmbeddedView {
 
     /** The view's latest frame for the screen to draw, when the game draws it; null when the system shows the view. */
     @Nullable
-    public static ResourceLocation frame() {
+    public static Identifier frame() {
         return HOST.frame();
     }
 

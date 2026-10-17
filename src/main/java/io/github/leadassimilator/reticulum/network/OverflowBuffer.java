@@ -8,7 +8,7 @@ import java.util.Map;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
@@ -20,17 +20,17 @@ public final class OverflowBuffer {
     public static final Codec<OverflowBuffer> CODEC = RecordCodecBuilder.create(i -> i.group(
             ItemStack.CODEC.listOf().optionalFieldOf("items", List.of()).forGetter(b -> stacked(b.items)),
             FluidStack.CODEC.listOf().optionalFieldOf("fluids", List.of()).forGetter(b -> List.copyOf(b.fluids)),
-            Codec.unboundedMap(ResourceLocation.CODEC, Codec.LONG).optionalFieldOf("chemicals", Map.of()).forGetter(b -> b.chemicals)
+            Codec.unboundedMap(Identifier.CODEC, Codec.LONG).optionalFieldOf("chemicals", Map.of()).forGetter(b -> b.chemicals)
     ).apply(i, OverflowBuffer::new));
 
     private final List<ItemStack> items = new ArrayList<>();
     private final List<FluidStack> fluids = new ArrayList<>();
-    private final Map<ResourceLocation, Long> chemicals = new LinkedHashMap<>();
+    private final Map<Identifier, Long> chemicals = new LinkedHashMap<>();
 
     public OverflowBuffer() {
     }
 
-    private OverflowBuffer(List<ItemStack> items, List<FluidStack> fluids, Map<ResourceLocation, Long> chemicals) {
+    private OverflowBuffer(List<ItemStack> items, List<FluidStack> fluids, Map<Identifier, Long> chemicals) {
         this.items.addAll(items);
         this.fluids.addAll(fluids);
         this.chemicals.putAll(chemicals);
@@ -44,7 +44,7 @@ public final class OverflowBuffer {
         return fluids;
     }
 
-    public Map<ResourceLocation, Long> chemicals() {
+    public Map<Identifier, Long> chemicals() {
         return chemicals;
     }
 

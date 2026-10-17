@@ -39,7 +39,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -72,11 +72,11 @@ public class NetworkToolItem extends Item {
     }
 
     /** The item property its look follows: 0 Configure, 0.5 Link, 1 Identify (the item model picks a head color). */
-    public static final ResourceLocation MODE_PROPERTY =
-            ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "mode");
+    public static final Identifier MODE_PROPERTY =
+            Identifier.fromNamespaceAndPath(Reticulum.MODID, "mode");
     /** The item property for an alarm going off: 0 nothing, 0.5 a warning, 1 critical (set on the client). */
-    public static final ResourceLocation ALARM_PROPERTY =
-            ResourceLocation.fromNamespaceAndPath(Reticulum.MODID, "alarm");
+    public static final Identifier ALARM_PROPERTY =
+            Identifier.fromNamespaceAndPath(Reticulum.MODID, "alarm");
 
     public static ToolMode mode(ItemStack stack) {
         return stack.getOrDefault(ModDataComponents.TOOL_MODE.get(), ToolMode.CONFIGURE);
