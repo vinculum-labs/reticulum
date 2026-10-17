@@ -35,6 +35,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 
 /** All networks on the server, stored once in the overworld's data folder. */
 public final class ReticulumSavedData extends SavedData {
@@ -108,6 +109,27 @@ public final class ReticulumSavedData extends SavedData {
             refuseSave = true;
             Reticulum.LOGGER.error("Reticulum couldn't read all of its saved networks ({}), nor copy the file aside: nothing is saved over it "
                     + "this session (changes are lost on stop)", error, e);
+        }
+    }
+
+    /**
+     * A world from before 26.1 kept the networks in data/reticulum_networks.dat at its root, and its upgrade moves only
+     * Minecraft's own files: copied to where they're read now, before any level loads (a controller finding no network
+     * would start a new one). The old file is left as it was.
+     */
+    public static void onAboutToStart(ServerAboutToStartEvent event) {
+        MinecraftServer server = event.getServer();
+        Path old = server.getWorldPath(LevelResource.ROOT).resolve("data").resolve(Reticulum.MODID + "_networks.dat");
+        Path file = file(server);
+        if (Files.exists(file) || !Files.exists(old)) {
+            return;
+        }
+        try {
+            Files.createDirectories(file.getParent());
+            Files.copy(old, file);
+            Reticulum.LOGGER.info("Reticulum's saved networks were copied from {} to {}, where Minecraft 26.1 keeps them", old, file);
+        } catch (IOException e) {
+            Reticulum.LOGGER.error("Reticulum couldn't copy its saved networks from {} to {}: they start empty", old, file, e);
         }
     }
 

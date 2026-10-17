@@ -93,6 +93,7 @@ public class Reticulum {
         NeoForge.EVENT_BUS.addListener(AlarmPush::onServerTick);
         NeoForge.EVENT_BUS.addListener(AlarmPush::onLoggedIn);
         NeoForge.EVENT_BUS.addListener(ReticulumSavedData::onLoggedIn);
+        NeoForge.EVENT_BUS.addListener(ReticulumSavedData::onAboutToStart);
         NeoForge.EVENT_BUS.addListener(AlarmPush::onServerStopped);
         NeoForge.EVENT_BUS.addListener(WebApi::onLogout);
         NeoForge.EVENT_BUS.addListener(WebApi::onServerStopped);
